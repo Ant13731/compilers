@@ -1,0 +1,13 @@
+\documentclass{article}
+\usepackage{biblatex}
+% NOTE: need to run `biber adt_survey` to ensure up-to-date references
+\addbibresource{adt_survey.bib}
+
+\begin{document}
+Let's cite! Einstein's journal paper \cite{apl} and Dirac's
+book \cite{rustBook} are physics-related items.
+
+\nocite{*} % keeps all references, even those not referred to
+\printbibliography %Prints bibliography
+
+\end{document}
