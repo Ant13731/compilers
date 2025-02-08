@@ -1,5 +1,16 @@
 \documentclass{article}
+
+\usepackage{minted}
+\usepackage{amsmath, amsthm}
+\usepackage{listings}
+\usepackage[svgnames]{xcolor}
+\usepackage{tikz}
+\usepackage{array}
 \usepackage{biblatex}
+
+\usemintedstyle{solarized-light}
+\setminted{fontsize=\footnotesize, bgcolor=Beige}
+
 % NOTE: need to run `biber adt_survey` to ensure up-to-date references
 \addbibresource{adt_survey.bib}
 
@@ -26,6 +37,7 @@ both for the programmer and computer.
 
 The rest of this article will explore data type concepts from <X> languages, % TODO FILL IN
 structures to handle errors that might appear, and a small review of ergonomics and usability of those data types.
+A necessary discussion of various type systems will naturally evolve as a precursor to data types themselves.
 
 \section{Data Types in <X>+ Languages} % TODO fill in value for X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -48,11 +60,94 @@ the object a method has access to may contain some state that influences the out
 At the opposite end of the programming world lies purely functional languages. ADTs in these languages
 are more often referred to as data types rather than classes and are only used for collecting and operating on data.
 ``Objects'' created from these data types are immutable and methods are instead replaced with pure functions that
-explicitly take in the relevant data type as input. The operators attached to a functionally pure ADT are functionally pure themselves,
-meaning they cannot make use of any hidden state and therefore cannot have side effects.
+explicitly take in the relevant data type as input. The operators attached to a functionally pure ADT are functionally
+pure themselves, meaning they cannot make use of any hidden state and therefore cannot have side effects.
 
 % Type to express in all languages - a simple linked list, with append and concatenate methods
 \subsection{Python}
+
+As a dynamic interpreted scripting language with thousands of high quality libraries and a short learning curve,
+Python has become one of the most dominant modern programming languages across several subdomains of computing.
+The language itself is characterized mainly by its simple approach to writing readable, practical, and user-friendly code \cite{pythonZen},
+used by many as a ``glue'' to easily join high performance computing libraries. The role of Python as a mediator
+between optimized C libraries and human understanding, especially in the machine learning space, is adjacent to the role
+of documentation in expressing the intention and meaning behind code,
+rather than focusing on the small details of the code itself.
+% early-age low-level languages and hand-optimized assembly. The abstractions provided from assembly to C,
+% and now C to Python, are evident of the trend towards using higher level languages for a better developer experience.
+% TODO refer to above comment in the rust section instead
+
+\subsubsection{Python and Types}
+
+The overarching data model behind Python is that everything is either an object or a relation between objects.
+Almost all objects in Python are used by reference, and each object contains an identifier (memory address),
+an immutable type, and then the actual value itself. In contrast to other scripting languages (namely JavaScript),
+an immutable type means that Python will never implicitly re-cast the type of an object to fit the expected types
+of functions or methods (ie. it is strongly typed).
+
+% This behaviour is very different to types in static languages, where names are assigned a type at compile time;
+% the runtime objects know their own type and determine which operations can be performed. Thankfully, because of strong
+% typing,
+
+Although Python is strongly typed, its lack of a static typing system serves as a double edged sword for
+readability and reliability. With small programs, some developers may prefer to just ``get things done'',
+making use of whatever combination of builtin types are available.
+A mixture of sets, dictionaries, and lists with unrestricted element types are all too common in these types of scripts.
+However, assigning proper data types to work with various pieces of information is essential
+to the longevity and maintenance of large scale projects. Since the introduction of optional static type hints
+via a library in Python 3.5 and increased support through Python 3.8,
+a 2022 survey \cite{empiricalTypePython} found a steady increase in the number of GitHub repositories
+making use of static type hints.
+
+Aside from granting linters more information to statically analyze the program and warn developers of possible errors,
+types also provide programmers themselves with useful information regarding their program. As reinforced
+by the philosophy of TypeScript as a type-hinted version of JavaScript, data types serve as an important
+channel of communication between programmers. An additional finding of the 2022 survey \cite{empiricalTypePython}
+showed that typecheck errors in the linters did not prevent a large amount of code from being pushed, but were
+still found to be useful outside of the linter.
+
+Fundamentally, Python places little restriction on the programmer's actions. For example, while
+data privacy within Python objects is theoretically possible through name mangled fields (beginning with double-underscores),
+there is no real way to completely restrict access to an object's fields so long as that object exists in the code.
+Access to deeper implementation details, like a list of current variables, list of fields in any variable, and even
+interpreted bytecode is possible through the use of magic methods and variables
+(denoted by two underscores at the beginning and end of the identifier).
+
+\subsubsection{Example: A Linked List}
+
+Since Python is primarily an OOP language, the most common form of expressing data types is through the use of classes.
+A typical linked list data type in Python 3.11 would look something like:
+\inputminted{python}{linked_list/main.py}
+
+Note that Python 3.12 and later make some major changes involving scoping and the syntax of generic types \cite{pythonGenericTypeChange}.
+
+The above \texttt{LinkedList} class expresses the recursive linking nature of the data type while demonstrating
+commonly used side effects of OOP methods. Note that the return type for both \texttt{append} and \texttt{concat}
+is \texttt{None}. Instead, the data contained within the \texttt{self} object is mutated in place as needed to achieve
+the desired functionality.
+
+\subsubsection{Pydantic: A data validation library}
+
+While native Python works well for simple data types like linked lists, type hints do not provide any guarantees
+that the type of value, for example, will be consistent across all elements in the list. So, while it does serve as a useful
+notation tool for documenting the structure of a data type to other programmers, there are no insurance that the runtime
+values for these objects are consistent with the type annotations. As with many topics in Python, a convenient library by the name
+of Pydantic will enable both type hints and data validation for those types \textit{at runtime}. The Pydantic version
+of our linked list will now look something like:
+\inputminted{python}{linked_list/main_pydantic.py}
+
+For this simple data type, only the init function changes. However, under the hood, Pydantic will now ensure that
+the type of \texttt{value} within this linked list remains consistent across all elements, throwing an exception
+otherwise. Pydantic's version of a class has the ability to transform an OOP construct into one more closely related
+to functional programming. If desired, the use of decorators above field names or methods (denoted by \texttt{@decorator})
+can restrict mutability, modify constructors, and even change the data validation process to ensure objects are of the correct type.
+
+\subsubsection{Conclusion}
+
+Python's high-level nature, excellent documentation, library support, and exposure of underlying architectures when needed
+combine to create a powerful, flexible, and productive language. Although many aspects of the language are initially
+hidden or abstracted for the sake of convenience, Python allows programmers to dig deeper into the implementation
+when necessary and extend the language in a manner best suited for a specific task.
 
 \subsection{TypeScript}
 \subsection{C++}
