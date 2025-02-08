@@ -82,7 +82,7 @@ rather than focusing on the small details of the code itself.
 The overarching data model behind Python is that everything is either an object or a relation between objects.
 Almost all objects in Python are used by reference, and each object contains an identifier (memory address),
 an immutable type, and then the actual value itself. In contrast to other scripting languages (namely JavaScript),
-an immutable type means that Python will never implicitly re-cast the type of an object to fit the expected types
+an immutable type means that Python will never implicitly recast the type of an object to fit the expected types
 of functions or methods (ie. it is strongly typed).
 
 % This behaviour is very different to types in static languages, where names are assigned a type at compile time;
@@ -150,6 +150,58 @@ hidden or abstracted for the sake of convenience, Python allows programmers to d
 when necessary and extend the language in a manner best suited for a specific task.
 
 \subsection{TypeScript}
+
+In JavaScript, types are very loosely bound, and many operations/functions will silently convert types
+at runtime. The silent recasting of JavaScript objects combined with unintuitive defaults
+can result in very confusing results for the uninitiated. For example, the expression \texttt{1 + "1"}
+returns a value of 11 and the expression \texttt{[5, 11, 2].sort()} returns
+\texttt{[11, 2, 5]}. In both expressions, the numerical values are converted into strings before the operation is performed.
+
+TypeScript, as an extension of JavaScript with types, is similar to Python in the sense that both
+languages started with dynamic typing and patched on static types after the fact, and both aim to resolve issues caused
+by dynamic typing. TypeScript (and Python) use types not only for more assurance in program correctness,
+but also for the sake of convenience. When making full use of the available typing systems, text editors
+and IDEs are able to assist in new code development through intellisense and autocompletion of methods and variables.
+Types of objects and documentation for those types additionally appear on mouse-hover, providing fast in-context knowledge.
+
+The below list outlines key properties of types in TypeScript.
+\begin{itemize}
+    \item Types are treated as sets of values, where types can be part of multiple sets,
+    a union of sets, or rarely even an intersection of sets.
+    \item Types are structural. Any object containing the required fields needed to be a member of a certain type
+    will be considered an object of that type, even if a different type name has been assigned to it.
+    Further, if an object has additional fields not specified by the type,
+    the extra fields will be ignored in the typechecking process. Essentially, as long as an object meets the minimum
+    fields required by the specified type, the object is assumed to be a member of that type.
+    \item TypeScript allows any literal string to act as a subset of its respective type,
+    with the only allowed value being the literal itself.
+    For example, a field with the type \texttt{``name''} will only accept the value of ``name''.
+    However, a field with the type \texttt{String} will accept any string object.
+
+\end{itemize}
+
+In comparison to algebraic data types often seen in functional languages, TypeScript replaces inductive data types
+with discriminated union sets. For example, our linked list type may look something like:
+\inputminted{typescript}{linked_list/main.ts}
+
+Because TypeScript allows literals to act as types, the only valid values in the ``kind'' field
+of an object represented by the \texttt{LinkedList} type are our constructor names: ``nil'' or ``cons''.
+Although TypeScript treats every object as a reference, similar to Python, we have not used side effects
+in the \texttt{append} or \texttt{concat} functions. Instead, we explicitly accept the linked list we want to transform as
+input, perform the required action, and return the head of the linked list in the output.
+
+For a non-inductive approach to the LinkedList data type, we can use TypeScript's interfaces to create something that
+looks much more like the Pydantic version:
+\inputminted{typescript}{linked_list/main_interface.ts}
+
+Finally, a pure OOP version of our LinkedList type, using classes, can be formed.
+Note that the append and concat functions are now methods with side effects:
+\inputminted{typescript}{linked_list/main_class.ts}
+
+
+
+
+
 \subsection{C++}
 \subsection{Rust}
 \subsection{Dafny}
