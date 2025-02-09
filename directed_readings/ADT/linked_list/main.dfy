@@ -1,7 +1,7 @@
 datatype LinkedList<T> = Nil | Cons(T, LinkedList<T>)
 
-method append(lst: LinkedList<T>, x: T): LinkedList<T>
-  ensures result == Cons(x, Nil) || result == Cons(lst.0, append(lst.1, x))
+function append<T>(lst: LinkedList<T>, x: T): LinkedList<T>
+  decreases lst
 {
   match lst {
     case Nil => Cons(x, Nil)
@@ -9,8 +9,8 @@ method append(lst: LinkedList<T>, x: T): LinkedList<T>
   }
 }
 
-method concatenate(lst1: LinkedList<T>, lst2: LinkedList<T>): LinkedList<T>
-  ensures result == lst1 || result == Cons(lst1.0, concatenate(lst1.1, lst2))
+function concatenate<T>(lst1: LinkedList<T>, lst2: LinkedList<T>): LinkedList<T>
+  decreases lst1
 {
   match lst1 {
     case Nil => lst2

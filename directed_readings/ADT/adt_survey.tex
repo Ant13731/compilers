@@ -20,6 +20,7 @@
 
 \begin{document}
 \maketitle
+\tableofcontents
 
 \section{Introduction}
 
@@ -40,7 +41,7 @@ The rest of this article will explore data type concepts from <X> languages, % T
 structures to handle errors that might appear, and a small review of ergonomics and usability of those data types.
 A necessary discussion of various type systems will naturally evolve as a precursor to data types themselves.
 
-\section{Data Types in <X>+ Languages} % TODO fill in value for X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+\section{Data Types in <X> Languages} % TODO fill in value for X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 Abstract Data Types (ADTs) can look quite different in many languages, but often share the same principles and rules
 that make it understandable for programmers. In its essential form, an ADT is a collection of data together with
@@ -201,9 +202,89 @@ Note that the append and concat functions are now methods with side effects:
 
 % \subsection{C++}
 \subsection{Rust}
-\subsection{Dafny}
+
 \subsection{Haskell}
 \subsection{Agda}
+
+\subsection{Dafny}
+
+The Dafny language acts as a mediator between formal methods of programming expression and regular programming languages.
+Rather than separating the specification of a program from its implementation, Dafny implements several mechanisms
+to encourage inline verification statements alongside regular program definitions. The formal constructs used
+to verify programs often appear as a list of pre- and post-condition
+predicate statements that must be satisfied before or after running a function, conditional expression, or loop.
+In Dafny, the act of verifying a program is as natural and important as writing the program itself.
+
+\subsubsection{Specification as Part of the Implementation}
+
+In order to accomplish the ambitious task of combining specification and implementation into one code base,
+Dafny makes use of special programming structures labelled with ``ghost''. Put plainly, ghost structures are similar
+to normal programming constructs in terms of the ability to make variables and functions, but these constructs
+can only be used for the sake of verification. Often times, predicate statements with mixed ghost and non-ghost constructs
+are used to make guarantees about the result
+of a function, or restrict inputs as necessary. Once all listed conditions have been verified by Dafny,
+the compiler can then extract important program details
+and translate the results into another, more conventional language.
+
+For a simple example, consider the specification of a banking system built on integer values.
+When a user makes a withdrawal request, the bank wants to ensure that the requested amount is not more
+than the amount available to the user. The specification for this requirement is very clear:
+if $balance - request < 0$, deny the request. However, there is no way to guarantee that this specification is met
+within the program implementation (aside from examining the source code). In Dafny, we can instead
+attach a pre-condition to inputs of the function, so that withdrawing money \texttt{\textbf{requires} balance > request}.
+
+Both OOP-like classes and functional-like inductive data type constructs can be used when defining types in Dafny.
+The concept of Haskell Typeclasses also makes an appearance in its simplest form
+by allowing restrictions on generic types. For example, the Haskell signature \texttt{method: Eq a => a ...} can be modelled
+in Dafny by \texttt{method<T(==)> (argument1: T)...}. Like Agda, Dafny attempts to offer some assurance
+of program termination via the \texttt{decreases} clause. Through this clause, all recursive functions and loops
+are expected to specify the variant required to break out of iterative code. Of course, since the language is Turing complete,
+there is never a 100\% guarantee for program termination, but most programs should be resolvable through
+this process.
+
+On the note of finite vs. infinite, Dafny provides special tooling to
+separate infinitely large inductive data types from finite types through
+the co(-inductive) data type. Since these types may be theoretically infinite,
+they are lazily evaluated and use special operators for common data type tasks.
+For example, checking for equality between two infinitely large data types is impractical at best,
+so Dafny allows checking for the first $n$ components of the type while using the traditional == operator.
+Functions can additionally be labelled as co-recursive
+to specify that they may not terminate.
+
+\subsubsection{Example: A Linked List}
+
+In Dafny, we can define our \texttt{LinkedList} type in two ways: through inductive types and classes.
+For this specific type, the inductive format is extremely simple, albeit unoptimized:
+\inputminted{python}{linked_list/main.dfy} % Dafny lexer unsupported
+
+Because this definition of \texttt{LinkedList} is inductive and close to its formal mathematical definition,
+we do not need to make many claims in the pre- and post-condition statements. We only claim that
+the recursive \texttt{append} and \texttt{concat} functions will eventually terminate as
+the first argument reaches Nil.
+
+However, the OOP requires far more moving components, so we need to manually verify much more of the system.
+Because there are so many properties required to prove correctness of the OOP version,
+especially involving modification and mutability of data,
+we omit much of the verification code that would otherwise be placed in the body of the two method definitions:
+\inputminted{rust}{linked_list/main_class.dfy} % Dafny lexer unsupported
+
+While the essential imperative aspects of the language are similar to convention, the burden of specification
+gives the assurance of correctness at the cost of verbosity.
+Note the addition of ghost variables \texttt{repr} and \texttt{contents}, which hold all nodes and the contents of those
+nodes only for verification purposes. These variables are used to formally express the behaviour of
+loops (ex. the loop will run at most through all nodes of the list (a maximum of $|contents|$ times)),
+the ``growing'' nature of both \texttt{append} and \texttt{concat} (ex. $|n.contents|$ must be bigger than $|self.contents|$),
+and membership of a node inside the current linked list
+(ex. the \texttt{Validate} predicate requires that \texttt{this} and \texttt{next} are in \texttt{repr}).
+
+
+
+
+
+
+
+
+
 \subsection{APL}
 
 APL is an extremely unique language that prides itself on ultra-concise expressions and data-based SIMD parallelism.
