@@ -222,7 +222,7 @@ and even the execution of the program itself.
 
 In the context of UML, a data type is a specialized form of classifier with no internal structure. Each data type may contain
 several named fields to contain data, along with operations on that data.
-The focus of datatype based diagrams is to convey the following to programmers:
+The focus of data type based diagrams is to convey the following to programmers:
 \begin{enumerate}
     \item All data types available to the user.
     \item All relationships between data types, including inheritance, extensions, use of types within the fields of other types,
@@ -354,7 +354,7 @@ we nonetheless attempt a simplified implementation of \texttt{LinkedList} with o
 
             \hspace{2em}\textbf{events}
 
-            \hspace{4em} AppendEvent
+            \hspace{4em}AppendEvent
 
         }
     }
@@ -363,12 +363,99 @@ we nonetheless attempt a simplified implementation of \texttt{LinkedList} with o
 The latest Event-B wiki \cite{eventB} notes future plans to support recursive structured types like inductive LinkedLists
 in a more concise format.
 
-
-
-
 % \subsection{SETL} %Maybe? Would need to cite
 % \subsection{Bend} %Maybe? Would need to cite
 \subsection{Exploration of Conceptual Data Types}
+
+\subsubsection{The Axiomatic Approach to Data Types}
+
+As stated in the introductory textbooks \cite{DTandDS} and \cite{ADTspec}, ADTs at their core are just collections of
+data coupled with operations. Both textbooks introduce data types in a manner not unlike the ideas of Event-B,
+using formal notation to guarantee precise properties of the given data type. Interestingly, both textbooks
+opt to separate data type operations into syntactic and semantic components, where the semantics
+contain a list of axioms to be fulfilled by each operation. Note that these axioms are almost entirely removed
+from the implementation of the type, acting more as a specification of requirements rather than a how-to guide.
+
+Guaranteed type completeness and correctness are two key features of the axiomatic approach. That is, axioms
+encourage operations to consider all possible values that the type may take, especially regarding edge cases and errors.
+For example, in our linked list, we need to ensure operations over an empty list are well-defined and that we can
+create the empty list itself in the first place. Of course, in the case of linked lists, this is near-trivial,
+but focusing on the edge cases in this manner can guarantee correctness of far more complex types.
+
+Consider the axiomatic definition of a linked list, according to the specification of \cite{ADTspec}:
+\begin{center}
+        \parbox{11cm}{
+            NAME
+
+            \hspace{2em}LinkedList(item)
+
+            SETS
+
+            \hspace{2em}$N$: Set of nodes
+
+            \hspace{2em}$I$: Set of items
+
+            SYNTAX
+
+            \hspace{2em}$new: \rightarrow N$
+
+            \hspace{2em}$append: N \times I \rightarrow N$
+
+            \hspace{2em}$concat: N \times N \rightarrow N$
+
+            \hspace{2em}$deleteLast: N \rightarrow N$
+
+            \hspace{2em}$tail: N \rightarrow I$
+
+            \hspace{2em}$isEmpty: N \rightarrow bool$
+
+
+            SEMANTICS
+
+            $\forall i \in I, \forall n, n1 \in N:$
+
+            \hspace{2em}$deleteLast(append(n, i)) = n$
+
+            \hspace{2em}$tail(append(n, i)) = i$
+
+            \hspace{2em}$tail(concat(n, n1)) = tail(n1)$
+
+            \hspace{2em}$isEmpty(new()) = True$
+
+            \hspace{2em}$isEmpty(append(n, i)) = False$
+
+            \hspace{2em}$tail(new()) = error$ // New initializes a list but does not hold any value
+
+            \hspace{2em}$deleteLast(new()) = error$ // Cannot delete from an empty list
+
+    }
+\end{center}
+
+The above axioms do not express the behaviour of each function independently, but instead focus on relationship between one another.
+For instance, the axiom $tail(new()) = error$ outlines two properties with one axiom:
+\begin{enumerate}
+    \item Finding \texttt{tail} on an empty list produces an error.
+    \item Since tail produces an empty list error, we must know that \texttt{new} creates an empty list.
+\end{enumerate}
+Similarly, the axiom $deleteLast(append(n, i)) = n$ shows that append must add the item $i$
+to the end of the list $n$, in order for deleteLast to perform correctly.
+
+Unfortunately, this approach may present drawbacks for implementing unknown data types in popular programming languages
+\textit{because} of its coupled operation behaviour. In many programming languages, especially non-functional ones,
+developers need to implement each data type operation mostly independent of other operations. Therefore, ensuring congruency
+between written code and the given specification presents a new challenge for programmers;
+data types becoming lost in the translation from dependent specification to independent implementation serve
+as an undesirable source of bugs and mistakes. A compiler for such a language would greatly reduce friction between
+theory and application, but the semantic expressivity available from the axiomatic approach may be worth the costs.
+
+\subsubsection{A More Constructive Approach}
+
+The textbook \cite{ADTspec} specifies an additional method of data type specification focused on construction
+of new objects from old ones. Instead of axioms, each operation can specify relevant pre-conditions and post-conditions.
+This method is far closer to the implementation of data types in programming languages, with an uncanny resemblance
+to the optional input restrictions seen in Dafny functions. For conciseness, the example given in Section 2.4
+serves as a good approximate illustration of the constructive approach outlined in the textbook.
+
 \section{Error Handling and Undefinedness}
 \section{A Word on Usability}
 \section{Conclusion}
