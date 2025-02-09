@@ -206,6 +206,36 @@ Note that the append and concat functions are now methods with side effects:
 \subsection{Agda}
 \subsection{APL}
 
+APL is an extremely unique language that prides itself on ultra-concise expressions and data-based SIMD parallelism.
+Among the most defining characteristics of APL is the tendency to make use of non-ascii symbols for operations,
+right-to-left operator associativity, and the fact that everything in APL is array-based. APL statements are often
+branchless in nature, and mapping functions over data is strongly preferred over regular loops.
+
+One APL reference \cite{apl} compares the types within APL to the numpy library in Python.
+Thus, instead of providing syntax to create data types as seen in other languages,
+APL strongly encourages the use of arrays and matrices to solve problems.
+The shape of the array (rank and depth) determines the type of an object and the effects of applied operators.
+
+Because APL only has one major data type (the array), operators are often composed without explicitly
+calculating intermediary values. APL categorizes all operators into two groups: monadic operators that take
+in one argument, and dyadic operators for two arguments. More explicitly, all operators must accept
+either one or two arguments, which may drastically change the operator's behaviour.
+As a simple example, the monadic tilde operator (\~) is used for boolean \textit{not}, while the dyadic version
+is for set difference.
+
+Given the knowledge that everything is an array, we cannot reasonably recreate our linked list example. Nor should we,
+since lists and vectors are first-class citizens in APL. Instead, we take a look at a more interesting aspect of APL's
+feature set - the avoidance of branching through bit masks. Consider the following ``loop and branch'' Python code,
+where we loop over an array of objects and return every object that satisfies some function:
+\inputminted{python}{linked_list/apl_example.py}
+
+The concise APL equivalent would instead be the following, notably branchless, code:
+\inputminted{apl}{linked_list/main.apl}
+Note that the first line maps a function $f: T \rightarrow bool$ to create a bit mask
+(an array of zeroes and ones) $elems$, which is then passed to the selection operator $/$.
+Since both implementations must apply $f$ to all elements of the input array, the branchless version can
+be far more efficient due to the use of SIMD instructions.
+
 \subsection{Unified Modelling Language (UML)}
 
 Up until this point, all the languages explored in this document have been targeted at making computers
