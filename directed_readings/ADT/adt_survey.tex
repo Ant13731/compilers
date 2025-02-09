@@ -235,13 +235,58 @@ Instead, the type must be wrapped in a dedicated pointer type \texttt{Box} to al
 and therefore lazy evaluation of the data. Further, the use of \texttt{Box} forces the while let loop to
 make use of a mutable reference to the next node, rather than a mutable instance of the data itself.
 
-
-
 % Most memory rules in Rust attempt to be as intuitive as possible. For example, only one variable may hold a mutable
 % object reference at a time, but any number of objects can hold a read-only object reference as needed.
 
-
 \subsection{Haskell}
+
+Haskell is a pure, lazy functional language with excellent support for concise function composition, elegant recursion, and powerful typing.
+Compared to the mostly-imperative languages described in previous sections, the syntax of Haskell may seem foreign
+or even unintuitive at a first glance. However Haskell, along with other functional languages, are not intended
+to be tools to control the exact step-by-step actions of a computer. Rather, the functional declarative style means programmers need only
+specify the results of some actions and trust the computer to execute it according to the specification.
+
+Functional languages, by virtue of their stateless nature and discouragement of manual control flows, appear
+far more similar to formal specifications than imperative or OOP languages. Algebraic data types common to these
+languages truly embody the idea that types are just collections of objects viewed through a certain lens.
+In turn, these data types are far more suited to inductive reasoning, enabling relatively simple proofs to
+guarantee useful properties of a program. As we will explore in section 2.6, attempting these proofs
+in a fully imperative style can lead to a lot of headaches.
+
+In order to achieve higher abstraction over algebraic data types and allow for impure actions within a purely
+functional world, Haskell makes use of interfaces for types, called typeclasses. Intuitively,
+these interfaces can broadly fall into two categories:
+\begin{enumerate}
+    \item The creation of type interfaces to group common behaviour across a selection of types. Typeclasses like
+    Eq, Ord, Show, etc. can be derived for a specific type, allowing for equality comparisons, ordered comparisons,
+    and type-to-string translations respectively. Types that derive these typeclasses can make use of general operators
+    specified by the typeclass (like \texttt{==} for Eq).
+    \item Typeclasses that act as a broad blueprint for attaching context to an already-concrete type. These
+    kinds of type classes indirectly allow for a form of recorded ``state'' in order to better deal with impure interactions.
+    The \texttt{Maybe} typeclass is a classic example of this: Normally, the expected value of an \texttt{Int} instance
+    would be a limited-size integer number. However, the addition of context via \texttt{Maybe Int} transforms this
+    certainty into two possibilities: either the value is \texttt{Just} some number, or it holds \texttt{Nothing}.
+    Functors, monoids, and monads are all part of this category of typeclass, and are essential to practical Haskell.
+\end{enumerate}
+Although the distinction of these two categories may not actually exist (in fact, the second kind of typeclass is really
+just a subset of the first), keeping these ideas separate can help form an intuition for the application of typeclasses.
+
+The routine implementation of \texttt{LinkedList}, with additional instantiations for the functor, applicative,
+and monad typeclasses, is as follows:
+\inputminted{haskell}{linked_list/main.hs}
+Haskell's natural use of pattern matching and recursive iteration massively shortens the bodies of
+\texttt{append} and \texttt{concatenate} in addition to providing clarity on the precise structure of the function's
+output. The compiler further optimizes tail-recursive calls, as seen in the second pattern of both functions,
+so that these functions have comparable efficiency with imperative loops.
+Since everything in Haskell is a pure, stateless function, the distinction between data type
+operators and normal functions can be eliminated completely.
+
+As a final note, applying \texttt{Monad} traits to \texttt{LinkedList} enables the use of Haskell's imperative-like
+\texttt{do} notation to map over elements of a list. The below example will first extract all elements from within
+the list \texttt{l}, add one to each element, and return the result:
+\inputminted{haskell}{linked_list/main_2.hs}
+
+
 \subsection{Agda}
 
 \subsection{Dafny}
