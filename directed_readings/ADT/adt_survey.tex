@@ -6,6 +6,7 @@
 \usepackage[svgnames]{xcolor}
 \usepackage{tikz}
 \usepackage{array}
+\usepackage{graphicx}
 \usepackage{biblatex}
 
 \usemintedstyle{solarized-light}
@@ -198,20 +199,175 @@ Finally, a pure OOP version of our LinkedList type, using classes, can be formed
 Note that the append and concat functions are now methods with side effects:
 \inputminted{typescript}{linked_list/main_class.ts}
 
-
-
-
-
-\subsection{C++}
+% \subsection{C++}
 \subsection{Rust}
 \subsection{Dafny}
 \subsection{Haskell}
 \subsection{Agda}
 \subsection{APL}
-\subsection{UML}
+
+\subsection{Unified Modelling Language (UML)}
+
+Up until this point, all the languages explored in this document have been targeted at making computers
+execute a desired set of instructions over some type of data. Of course, the specific methodology
+and concepts used to achieve this human-computer interaction differ greatly between languages,
+with each maintaining their own idioms and customs. Conversely, UML is not a programming language in
+the normal sense, but a standardized method of visualizing and clearly communicating the intentions behind a system.
+
+According to the UML documentation, UML is intentionally independent of any and all processes that could be used
+to actually implement a system. UML diagrams are not intended to comprehensively cover every aspect of a system's implementation,
+including different quirks and features of different languages, but rather should be used as a powerful aid in
+the creation of program documentation. Generally, different types of diagrams are used for recording types, state, information flow,
+and even the execution of the program itself.
+
+In the context of UML, a data type is a specialized form of classifier with no internal structure. Each data type may contain
+several named fields to contain data, along with operations on that data.
+The focus of datatype based diagrams is to convey the following to programmers:
+\begin{enumerate}
+    \item All data types available to the user.
+    \item All relationships between data types, including inheritance, extensions, use of types within the fields of other types,
+    and even type usage in operators.
+\end{enumerate}
+
+Below is an example of our famous LinkedList type, modelled by UML:
+\begin{center}
+    \includegraphics[width=12cm]{linked_list/uml.drawio.png}
+\end{center}
+
+A simple standalone type like LinkedList may not be complex enough to showcase the full advantages of UML,
+but it is enough to demonstrates the effectiveness of visualization in understanding code.
+From the arrows in the image, it is immediately obvious that the start attribute of
+LinkedList requires a LinkedNode and LinkedNodes may build off of themselves indefinitely.
+
+UML diagrams are a simple and concise method for conveying the meaning and intention behind a system.
+While the syntax is largely standardized, because this language is meant for communication with humans
+rather than machines, slight modifications of syntax for the sake of clarity can be made as necessary.
+For example, the types of operators may be omitted for an ultra-compact diagram, or kept to ensure an agreement
+on the interface implementation is met.
+
 \subsection{Event-B}
-\subsection{SETL} %Maybe? Would need to cite
-\subsection{Bend} %Maybe? Would need to cite
+
+Although UML is a powerful tool for communicating the relationship between data types, the visual methodology
+falls short when attempting to convey the actionable properties of a system. In continuing the exploration
+of modelling languages, we find that the Event-B model not only encompasses actionable system traits, but does
+so with consideration of the system's environment. Therefore, Event-B is suitable for formal system analysis
+and proving the correctness of software following the model specification.
+
+Data types for Event-B may not exist in the normal sense of the word, but a different approach to data abstraction
+through the concepts of machines, contexts, and events is more than suitable for the same purpose:
+\begin{itemize}
+    \item Machines are somewhat adjacent to classes in OOP, acting like miniature
+    programs with some provable traits consisting of variables, invariants, theorems, a single variant, and a list of
+    events that may cause the machine to ``run'' (analogous to an object's methods).
+    Like class inheritance, new machines can ``refine'' old ones by
+    carrying over and adding new entries to the aforementioned traits.
+    \item Contexts, on the other hand, are much closer the formal definition of abstract data types,
+    defining a set of axioms, theorems, constants and data in the form of carrier sets.
+    Contexts can be extended in a similar fashion to class inheritance, with the child context carrying over all properties
+    of the parent context.
+    \item Finally, events serve as activation conditions for the machine they are assigned to.
+    They introduce possibly nondeterministic actions into the system in a formal manner, and must clearly state
+    how they affect a machine's variant. A key aspect of events is that all actions within an event are performed simultaneously.
+    This means that, unlike in sequential programming languages, the order in which actions are defined have no relevance
+    on the outcome of the event. Of course, the restriction of simultaneous execution means that users of the language
+    cannot reassign variables in more than one action, nor should they rely on the deterministic nature of normal program execution.
+\end{itemize}
+All expressions in the above abstractions use formal discrete math notation.
+
+Although a modelling language focused on provable aspects of a system
+is not very suitable for a simple low-level data type,
+we nonetheless attempt a simplified implementation of \texttt{LinkedList} with only the append method.
+
+\begin{center}
+    \fbox{
+        \parbox{12cm}{
+            LinkedListContext
+
+            \hspace{2em}\textbf{sets}
+
+            \hspace{4em}$Nodes$ // Set of nodes in the list
+
+            \hspace{4em}$References$ // Set of references
+
+            \hspace{2em}\textbf{constants}
+
+            \hspace{4em}$null$ // End of list
+
+            \hspace{2em}\textbf{axioms}
+
+            \hspace{4em}axm1: $References = Nodes \cup \{null\}$
+
+            \hspace{4em}axm2: $\forall n : n \in Nodes \implies n.next \in References$ // All nodes must have a reference
+
+        }
+    }
+    \fbox{
+        \parbox{12cm}{
+            AppendEvent
+
+            \hspace{2em}\textbf{any}
+
+            \hspace{4em}$last\_node$
+
+            \hspace{4em}$new\_node$
+
+            \hspace{2em}\textbf{where}
+
+            \hspace{4em}$last\_node \in Nodes$
+
+            \hspace{4em}$\{last\_node\} = \{node \in Nodes : node.next = null \}$ // last\_node is the end of the list
+
+            \hspace{4em}$new\_node.value: T$ // New value must have the same type as existing nodes
+
+            \hspace{4em}$new\_node.next = null$ // New node is end of the list
+
+            \hspace{2em}\textbf{then}
+
+            \hspace{4em}$last\_node.next := new\_node$ // Last node is no longer the last node
+
+            \hspace{4em}$Nodes := Nodes \cup new\_node$ // Add node to list
+
+
+        }
+    }
+    \fbox{
+        \parbox{12cm}{
+            LinkedListMachine
+
+            \hspace{2em}\textbf{variables}
+
+            \hspace{4em}$head$
+
+            \hspace{4em}$value$
+
+            \hspace{4em}$next$
+
+            \hspace{2em}\textbf{invariant}
+
+            \hspace{4em}inv1: $head \in Nodes$
+
+            \hspace{4em}inv2: $value: T$ // Generic type T
+
+            \hspace{4em}inv3: $next \in References$
+
+            \hspace{4em}inv4: $\forall n : n.next \neq null \implies n.next.next \in References$ // Nodes can either end or continue the list
+
+            \hspace{2em}\textbf{events}
+
+            \hspace{4em} AppendEvent
+
+        }
+    }
+\end{center}
+
+The latest Event-B wiki \cite{eventB} notes future plans to support recursive structured types like inductive LinkedLists
+in a more concise format.
+
+
+
+
+% \subsection{SETL} %Maybe? Would need to cite
+% \subsection{Bend} %Maybe? Would need to cite
 \subsection{Exploration of Conceptual Data Types}
 \section{Error Handling and Undefinedness}
 \section{A Word on Usability}
