@@ -197,11 +197,49 @@ looks much more like the Pydantic version:
 \inputminted{typescript}{linked_list/main_interface.ts}
 
 Finally, a pure OOP version of our LinkedList type, using classes, can be formed.
-Note that the append and concat functions are now methods with side effects:
+Note that the append and concat functions are now methods with side effects but are otherwise similar to Python:
 \inputminted{typescript}{linked_list/main_class.ts}
 
-% \subsection{C++}
 \subsection{Rust}
+
+Rust is a unique, high-performance language focused on efficiency and reliability.
+While most languages discussed in this paper attempt to either simplify the process of creating software or
+formally prove algorithmic correctness, Rust carries a unique blend of practicality and formality.
+Among its key features lies a new paradigm of memory management;
+rather than using inefficient garbage collectors prominent in almost every OOP language
+or dangerous pointers common to imperative C-like languages, Rust introduces the concept of memory ownership.
+If safe Rust code is able to pass successfully through the compiler,
+it is near-impossible to create memory leaks, dangling references, or other undesirable states of memory.
+As a result, instead of attempting to prove the correctness of the model, the language instead proves the correctness
+of implementation details related to the model.
+% Thus, by the natural structure and syntax of Rust, developers can prove the memory safety of their programs.
+
+Rust's semi-manual methodology for memory management means memory-related concepts seep into nearly every line of code.
+When working with data, constructs like object lifetimes, mutability, and even the passing of data between functions
+must be carefully considered. The guarantees of Rust in relation to memory enable ``fearless concurrency'', or in other words,
+the comforting knowledge that even with parallelized programs, the memory guarantees of Rust still ensure proper
+ownership and usage of available data. In addition, to offset the steep learning curve of these relatively complex topics,
+Rust's compiler is renowned for its helpful error messages and gentle guidance towards writing memory-correct code.
+
+As such, data types in Rust, while somewhat similar to types in OOP, must be considerate to follow Rust's memory rules.
+\texttt{struct}s are the foundational record-like data type, and can be used to express functional-style inductive data types,
+enums, or a simple collection of named objects. On the other hand, data type operators
+are deliberately defined separate from the data type itself. In Rust, type operators with common behaviours and signatures
+can be encapsulated into traits that act like OOP interfaces. Each type can define its own implementation of a trait,
+allowing the type to be used whenever a generic trait is allowed.
+
+The Rust implementation of \texttt{LinkedList} is as follows:
+\inputminted{rust}{linked_list/main.rs}
+Note that the ``recursive'' \texttt{next} field cannot directly accept \texttt{Option<LinkedList<T>>}.
+Instead, the type must be wrapped in a dedicated pointer type \texttt{Box} to allow for separation of nodes in memory
+and therefore lazy evaluation of the data. Further, the use of \texttt{Box} forces the while let loop to
+make use of a mutable reference to the next node, rather than a mutable instance of the data itself.
+
+
+
+% Most memory rules in Rust attempt to be as intuitive as possible. For example, only one variable may hold a mutable
+% object reference at a time, but any number of objects can hold a read-only object reference as needed.
+
 
 \subsection{Haskell}
 \subsection{Agda}
