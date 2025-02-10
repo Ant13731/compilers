@@ -784,7 +784,85 @@ Physical errors, operating system hiccups, and other non-theoretical parts of a 
 perfect program model. Of course, errors of this sort can always be treated as part of the expected data type and
 handled according to the previous section.
 
-% \section{A Word on Usability}
+\section{A Word on Usability}
+
+Programming languages, and by extension data types, do not exist in isolation from external environmental and human factors.
+While most programming languages are technically equivalent through Turing completeness,
+older languages have evolved to become more expressive and comfortable almost by necessity.
+Passing on the responsibility of low-level machinery and technical details
+to compilers enables modern programmers to think about
+software solutions more abstractly, often in a manner far better suited to the target problem's domain.
+For example, it would be unheard of to write test automation programs in assembly or even C,
+but short scripts in Python, JavaScript, or Lua are more than common.
+This natural evolution of abstraction and increasing performance of computer systems
+allows language designers to realistically consider the usability of a language as a main selling feature,
+rather than a low-priority afterthought.
+
+In accommodating accessibility and usability requirements at the programming language level,
+designers can create a better developer experience for new and experienced software engineers alike.
+According to an article released by the Rust language team in 2017, the ergonomic challenges
+of language features can be summarized by striking a balance between explicitness and implicitness \cite{rust2017}.
+The goal of Rust's initiative is to minimize both the need for pedantic syntax and the chance of surprising
+behaviour.
+
+When used correctly, implicitness can be a tool for powerful abstractions, like the recursive nature of inductive data types.
+Instead of focusing on registers, pointers, and shuffling of data, programmers can get straight to the point and
+start solving problems. However, careless implicitness can be extremely dangerous. Referring to the JavaScript example
+from section 2.2, the true expression \texttt{1 + "1" === "11"} is an oddity at best or may cause a catastrophic error
+at worst. Other dynamically typed languages (Python) would throw an exception for this expression,
+requiring an explicit casting to ensure the programmer actively understands the actions of the interpreter.
+
+But a few questions (beyond the scope of this survey) remain:
+\begin{itemize}
+    \item How would scientists analyze languages to find this balance?
+    \item What are markers of a good, ergonomic language?
+    \item Who should be the target audience for usability-oriented design?
+\end{itemize}
+The last question in particular raises an extremely important point for the practical longevity of languages.
+The impact of convention for experienced software engineers compared the novelty for new developers
+must be balanced in order to build up a community that will actually use the language. Python is the de facto
+standard for machine learning in large part due to the massive support of its data science libraries.
+Numpy, Sci-kit learn, Pytorch, Tensorflow, etc. are all vital to the existence of Python in the machine learning scene.
+Similarly, JavaScript (and TypeScript) have taken over virtually every aspect of web development because
+of its staggering number of web frameworks.
+
+While Python is not without its syntactic flaws (\textit{significant whitespace}),
+the minimal amount of boilerplate, sensible defaults, and freedom given to developers
+reinforce its pervasiveness in high-level languages. Sets, lists, and dictionaries are all data type
+constructs with intuitive defaults for accessing, storing, and manipulating data.
+Rookie and seasoned developers alike can make use of these simple yet powerful constructs as needed.
+Aside from the regular friction in converting formal specifications into imperative programs,
+Python's syntax is surprisingly similar to the spoken notation and usage of sets within discrete mathematics.
+Checking membership of elements in collections (ex. \texttt{in} vs $\in$),
+using generators for list/dictionary comprehension (ex. \texttt{[i for i in range(3)]} vs. $[\forall i \in \mathbf{N} | i < 3:i]$),
+and set operators like $\cup, \cap$, etc. are all supported in the default Python namespace.
+Getting a program up-and-running with minimal hassle is a major factor in recommending Python for beginners.
+
+Another language worthy of mention in the usability space is APL. Its symbolic nature, one main data type (arrays),
+monadic/dyadic operators, and operator chaining work together to enable high-density informative code.
+In a sense, the restrictions on this language assist with the usability for experienced developers.
+However, the distinct lack of English words for identifiers and functions add a huge upfront cost to the overall
+learning curve. New developers are essentially forced to memorize the meaning, typing process, and behaviour
+of dozens of symbols only loosely based in formal discrete mathematics. Since a large part of working with a language
+is the process of learning it, the demand for immediate symbolic memorization largely restricts the gentleness
+of any introduction.
+
+The stark contrast between the usability of a heavily symbolic language and other English-based languages
+are a likely result of the background of developers. In languages with English identifiers,
+the foundation of natural language allows variables and functions to have meaningful, even outside of the code itself.
+For example, Python's \texttt{len()} function is likely to resonate with more people than APL's symbolic-based $\rho$.
+Likewise, imperative languages can come more naturally to beginners because humans use procedure-like instructions
+just as a part of living. Any furniture assembly manual will likely come with step-by-step instructions
+telling the user exactly how to connect each component. Then again, functional languages make far more sense from
+a mathematical background, where users can give some input and expect an output.
+In plain terms, the background and experiences of a programmer largely affects their experience and perceived
+language usability. Target audiences of a language, especially domain-specific languages,
+should be at the forefront of any design choice.
+
+Data types may only play a relatively small role in the overall structure of a language, especially
+compared to the action-oriented details (language paradigm, function structure, non-data type syntax, etc.).
+However, the act handling data is essential to nearly every program in existence,
+so the usability of data types may have a large impact on the usability of the language itself.
 
 
 % A full discussion on the intersection of Human-Computer Interaction and Programming Languages
