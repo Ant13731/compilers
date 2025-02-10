@@ -2,6 +2,7 @@
 
 \usepackage{minted}
 \usepackage{amsmath, amsthm}
+\usepackage{amssymb}
 \usepackage{listings}
 \usepackage[svgnames]{xcolor}
 \usepackage{tikz}
@@ -9,12 +10,21 @@
 \usepackage{graphicx}
 \usepackage{biblatex}
 
+% Required for Agda
+\DeclareUnicodeCharacter{2261}{$\equiv$}
+\DeclareUnicodeCharacter{02E1}{${}^1$}
+\DeclareUnicodeCharacter{02B3}{${}^r$}
+\DeclareUnicodeCharacter{2237}{$::$}
+\DeclareUnicodeCharacter{2200}{$\forall$}
+\DeclareUnicodeCharacter{220E}{$\blacksquare$}
+
 \usemintedstyle{solarized-light}
 \setminted{fontsize=\footnotesize, bgcolor=Beige}
 
 % NOTE: need to run `biber adt_survey` to ensure up-to-date references
 \addbibresource{adt_survey.bib}
 
+% TODO CHANGE ALL BUILTINs to BUILT-INs !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 \title{A Survey on Abstract Data Types}
 \author{Anthony Hunt}
 
@@ -286,8 +296,38 @@ As a final note, applying \texttt{Monad} traits to \texttt{LinkedList} enables t
 the list \texttt{l}, add one to each element, and return the result:
 \inputminted{haskell}{linked_list/main_2.hs}
 
-
 \subsection{Agda}
+
+Although Agda and Haskell may look somewhat similar at a first glance, Agda overhauls the functional programming
+paradigm with a completely new type system. Founded on the theory of dependent types, Agda's key features
+are its guarantees regarding the termination of well-formed programs and the types of function outputs.
+Most notably, the guarantees of error-free runtime execution and eventual termination
+come at the cost of Turing completeness, although the language
+is still plenty expressive in its own right.
+
+Dependent types allow families of types to be indexed by values to create new, more specific types.
+In simpler terms, this inter-type relationship adds extra information to otherwise basic types,
+allowing Agda to reduce the number of producible errors at the cost of higher implementation complexity.
+For example, a user may create a \texttt{Matrix m n} type to represent matrices of size $m\times n$.
+In most languages, we would define a function for matrix multiplication with the type $mult: Mat \rightarrow Mat \rightarrow Mat$.
+However, there are no guarantees that this function will be successful since the first two $Mat$ arguments
+may be of any size. By indexing the types via Agda, we can express an important property of matrix multiplication:
+\texttt{$\forall$ {i j k} → (Mat i j) -> (Mat j k) -> (Mat i k)}. Now, it is immediately obvious from the type definition alone
+that matrix multiplication somehow converts matrices of size $i\times j$ and $j \times k$ into a new matrix of the shape $i \times k$.
+Powerfully precise expressions like this one virtually eliminate all possible forms of operation failure,
+since it makes a guarantee that the domain of the function arguments are always well-defined over their desired operations.
+
+Because of its strong focus on types and logic as an integral part of writing programs, Agda is also well suited
+to perform as a proof assistant. Its language extension plugin for emacs enable a proof mode
+to help programmers fill-in missing properties and complete theorems regarding the program.
+
+An implementation of \texttt{LinkedList} in Agda is shown below, along with a proof for associativity of concatenation:
+\inputminted{agda}{linked_list/main.agda}
+The data type definition syntax and function definitions are strikingly similar between Haskell and Agda.
+As is customary for functional languages, pattern matching over all possible inputs enables a concise expression
+of the intended function behaviour. Linked lists are a simple enough type to not warrant type indexing, but this
+implementation does make use of the builtin induction proof abilities to demonstrate the associativity of list concatenation.
+
 
 \subsection{Dafny}
 
@@ -359,13 +399,6 @@ loops (ex. the loop will run at most through all nodes of the list (a maximum of
 the ``growing'' nature of both \texttt{append} and \texttt{concat} (ex. $|n.contents|$ must be bigger than $|self.contents|$),
 and membership of a node inside the current linked list
 (ex. the \texttt{Validate} predicate requires that \texttt{this} and \texttt{next} are in \texttt{repr}).
-
-
-
-
-
-
-
 
 
 \subsection{APL}
