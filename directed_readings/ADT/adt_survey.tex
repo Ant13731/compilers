@@ -47,11 +47,11 @@ data types, which assign a type to a piece of data. As we will see later in this
 further abstractions over data types themselves enable extremely concise and readable code,
 both for the programmer and computer.
 
-The rest of this article will explore data type concepts from <X> languages, % TODO FILL IN
+The rest of this article will explore data type concepts from 10 languages, % TODO FILL IN
 structures to handle errors that might appear, and a small review of ergonomics and usability of those data types.
 A necessary discussion of various type systems will naturally evolve as a precursor to data types themselves.
 
-\section{Data Types in <X> Languages} % TODO fill in value for X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+\section{Data Types in 10 Languages} % TODO fill in value for X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 Abstract Data Types (ADTs) can look quite different in many languages, but often share the same principles and rules
 that make it understandable for programmers. In its essential form, an ADT is a collection of data together with
@@ -684,10 +684,121 @@ to the optional input restrictions seen in Dafny functions. For conciseness, the
 serves as a good approximate illustration of the constructive approach outlined in the textbook.
 
 \section{Error Handling and Undefinedness}
+
+Every language explored thus far has found unique methods of breaking down and organizing data for simple use and reuse.
+However, the discussion of handling errors and misshapen data is integral to the process of working with types.
+After all, if functions have the ability to return any kind of value without warning or due process,
+elaborate type systems and proven formal methodology would be meaningless. It seems then, that in order to
+maintain the benefits of these type systems, dealing with invalid data is just as vital as working with ideal data.
+
+Nearly every language has its own unique manner of dealing with unexpected data, but for the sake of conciseness,
+we only document the two most prevalent methods alongside some honourable mentions. The first and most common
+method of handling errors is through the immediate halting of all normal function operations and raising of an exception.
+Exceptions propagate all the way through the function stack until it is either caught by a specific construct
+or the program terminates. Alternatively, many newer, non-OOP languages instead opt for error handling by value.
+Instead of interrupting normal program execution, errors are an integrated data type
+that must be handled by calling functions if seen.
+
+\subsection{Throwing Exceptions}
+
+Exceptions are often a integral part of programs that need to deal with failure. Python, for instance, idiomatically
+encourages the use of exceptions and try-catch structures to create and contain errors.
+Given the flexibility and readability-first approaches to Python scripts, it is entirely understandable that
+most programs in Python tend to ask for forgiveness rather than permission, with the expectation that all other parts of
+the program will do the same. This means, for better or for worse, that developers do not have to deal with errors
+unless they cause a problem at runtime. Often times, and especially outside of documentation,
+communication on the kinds of errors a function may raise is virtually non-existent.
+Since types were only recently included as part of the language, the most historically effective method of
+denoting an error-based value was to use exceptions and force the use of dedicated catch structures.
+
+Interestingly, although Rust primarily encourages handling of errors by value, a subset of errors will allow programs
+to panic and act like an exception was thrown. However, the key difference between panics and exceptions
+lies in the recoverability: with exceptions, try-catch statements allow the program to recover
+from the error and continue execution. On the other hand, panics signal that a program has entered an unrecoverable state.
+The execution of all functions stop immediately and the program is terminated.
+Panic states are for completely unexpected errors that arise within program execution as opposed to known errors
+that may only happen on occasion.
+
+Other languages that use exceptions for error handling are listed below:
+\begin{itemize}
+    \item TypeScript, as the spiritual successor of JavaScript, inherits JavaScript's
+    error handling techniques. Without static types, JavaScript by necessity uses
+    dedicated try-catch structures as a means to deal with errors.
+    \item APL throws exceptions as most languages would, but the try-catch structure does not lend itself to
+    APL's concise and symbolic syntax. Instead, APL offers error guards placed before error-prone code
+    to watch for specific kinds of errors and determine recovery actions.
+    \item Surprisingly, Haskell's monadic types allow for user-defined exceptions to interrupt the flow of function execution.
+    Although this mimics the halting and propagating behaviour of an exception,
+    it still remains a part of the expected type system.
+\end{itemize}
+
+\subsection{Errors as Values}
+
+Exceptions may be powerful tools for quickly and concisely expressing failures within a code, but they can
+easily become overlooked in documentation and program communication, left untouched and unnoticed until runtime.
+To better convey the expectation that calling functions should handle the errors created by child calls,
+errors as type of value can be used.
+
+Rust's \texttt{Result<T, E>} data type is one of the best examples of treating errors as values.
+By breaking down the options for function output into either \texttt{Ok<T>} or \texttt{Err<E>}
+types, caller functions know whether they should prepare for the possibility of callee function failure.
+Rust will not compile if a possible \texttt{Err} is left unhandled,
+so functions must provide a complete path for dealing with both successful values and recoverable errors.
+Most of the time, this involves pattern matching on the Ok/Err constructors to get access to the inner value.
+However, Rust additionally provides the question mark operator \texttt{?} as a means to concisely propagate errors.
+Consider the following code snippet, with three functions: \texttt{error\_prone}, which always returns an error,
+\texttt{always\_ok}, which always returns a successful value, and a calling \texttt{middle\_function}
+that has a caller itself.
+\inputminted{rust}{linked_list/err.rs}
+The first statement in \texttt{middle\_function} will contain the integer 0, since the \texttt{?} operator
+unwraps result values when they are \texttt{Ok}. Yet, the second statement calls a function that returns an \texttt{Err}.
+In this case, the \texttt{?} operator will keep the error-ful value and propagate it to the caller of \texttt{middle\_function}.
+
+The ``update with failure'' operator $(\colon -)$ exists in Dafny for much the same purpose. Upon detecting a failed return value from
+a function call, so long as the return type is failure compatible, Dafny will propagate the error to the caller function.
+In the event of a success, the value is kept and usable in the rest of the function body as normal.
+
+Similar types to Rust's \texttt{Result} type can be made in any language.
+Haskell's \texttt{Either a b} type, for example, is nearly identical, where \texttt{Ok} and \texttt{Err}
+are replaced with \texttt{Left a} and \texttt{Right b}.
+Even languages without builtin support for inductive types or
+errors-by-value can make use of a subset of these concepts. For example,
+a Python implementation of Rust's \texttt{Result} type is doable with classes, but loses many of the guarantees
+and rule enforcement that stronger typed languages provide:
+\inputminted{python}{linked_list/python_result.py}
+
+Much like the benefits of types over regular data, treating errors as a special form of data
+promotes the type system to encompass all possible paths a program may take. In turn,
+value-errors should result in far more comprehensive code, massively reducing the chance of unexpected runtime errors.
+
+\subsection{Honourable Mention - No Errors, No Problems}
+
+Some languages, like Agda, take an extreme approach to dealing with errors. As a hybrid between a proof assistant
+and a regular programming language, Agda virtually eliminates the possibility for errors so long as the usage of
+functions is provably correct. The prevention of errors before they can even exist can be a powerful asset
+in producing reliable and correct programs, but it also restricts the actions a program can make. For example,
+Haskell attempts to live in a functionally pure universe for as long as possible, but recognizes that some
+aspects of computing, like IO, will need to be impure for the sake of practicality. Similarly, Agda attempts
+to prevent all possible errors from being made, but cannot account for parts of the computer outside its control.
+Physical errors, operating system hiccups, and other non-theoretical parts of a computer degrade from an otherwise
+perfect program model. Of course, errors of this sort can always be treated as part of the expected data type and
+handled according to the previous section.
+
 \section{A Word on Usability}
+
+
 \section{Conclusion}
 
+Although ADTs are intended primarily for the organization and classification of data (coupled with valid operations),
+they enable elegance, correctness, and reliability in almost every other component of programming languages.
+From popular OOP languages to user-facing modelling languages, every structuring methodology
+brings a new perspective on data and type systems. Even among the 10 programming languages
+reviewed in this document, no two forms of manipulating data were quite the same.
+As seen in the linked list examples of section 2, every data type may be able to solve the same problem,
+but some lenses are clearer than others. Data types and type systems are the backbone of every language,
+enabling complex actions through simple abstractions.
 
+\pagebreak
 \nocite{*} % keeps all references, even those not referred to
 \printbibliography %Prints bibliography
 
