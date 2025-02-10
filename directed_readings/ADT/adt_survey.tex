@@ -103,7 +103,7 @@ of functions or methods (ie. it is strongly typed).
 
 Although Python is strongly typed, its lack of a static typing system serves as a double edged sword for
 readability and reliability. With small programs, some developers may prefer to just ``get things done'',
-making use of whatever combination of builtin types are available.
+making use of whatever combination of built-in types are available.
 A mixture of sets, dictionaries, and lists with unrestricted element types are all too common in these types of scripts.
 However, assigning proper data types to work with various pieces of information is essential
 to the longevity and maintenance of large scale projects. Since the introduction of optional static type hints
@@ -326,7 +326,7 @@ An implementation of \texttt{LinkedList} in Agda is shown below, along with a pr
 The data type definition syntax and function definitions are strikingly similar between Haskell and Agda.
 As is customary for functional languages, pattern matching over all possible inputs enables a concise expression
 of the intended function behaviour. Linked lists are a simple enough type to not warrant type indexing, but this
-implementation does make use of the builtin induction proof abilities to demonstrate the associativity of list concatenation.
+implementation does make use of the built-in induction proof abilities to demonstrate the associativity of list concatenation.
 
 
 \subsection{Dafny}
@@ -761,7 +761,7 @@ In the event of a success, the value is kept and usable in the rest of the funct
 Similar types to Rust's \texttt{Result} type can be made in any language.
 Haskell's \texttt{Either a b} type, for example, is nearly identical, where \texttt{Ok} and \texttt{Err}
 are replaced with \texttt{Left a} and \texttt{Right b}.
-Even languages without builtin support for inductive types or
+Even languages without built-in support for inductive types or
 errors-by-value can make use of a subset of these concepts. For example,
 a Python implementation of Rust's \texttt{Result} type is doable with classes, but loses many of the guarantees
 and rule enforcement that stronger typed languages provide:
@@ -785,6 +785,7 @@ perfect program model. Of course, errors of this sort can always be treated as p
 handled according to the previous section.
 
 \section{A Word on Usability}
+
 
 
 \section{Conclusion}
