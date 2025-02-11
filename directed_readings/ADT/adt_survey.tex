@@ -36,42 +36,42 @@
 
 From the categorization of species to the periodic table of elements, the organization and manipulation
 of data is integral to all aspects of science and technology. Although the collection of data is not a
-new field of research by any means, the advent of computerized systems, with its ability to transfer and use
+new field of research by any means, the advent of computerized systems, with the ability to transfer and use
 massive amounts of data in mere seconds, necessitates understandable and sensible organization structures.
 
 Over the past 60 years, as computational resource restrictions have eased dramatically,
 programming languages and software creation tools have evolved with increasingly better methods of dealing with data.
-By viewing pieces of data through specific lenses, programmers can then write algorithms that operate on
-any data matching the shape of those lenses, rather than the data itself. These lenses are more commonly referred to as
+By viewing pieces of data through specific masks or lenses, programmers can then write algorithms that operate on
+any data matching the shape of those lenses, rather than the data itself. These conceptual lenses are more commonly referred to as
 data types, which assign a type to a piece of data. As we will see later in this paper,
-further abstractions over data types themselves enable extremely concise and readable code,
+further abstractions over data types themselves enable extremely concise and powerful code,
 both for the programmer and computer.
 
-The rest of this article will explore data type concepts from 10 languages, % TODO FILL IN
-structures to handle errors that might appear, and a small review of ergonomics and usability of those data types.
-A necessary discussion of various type systems will naturally evolve as a precursor to data types themselves.
+This article will first explore data type concepts from 10 languages,
+then examine structures used to handle program-related errors, and finally provide a small review of ergonomics and usability within data types.
+A necessary discussion of various type systems will naturally arise as a precursor to data types themselves.
 
-\section{Data Types in 10 Languages} % TODO fill in value for X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+\section{Data Types in 10 Languages}
 
 Abstract Data Types (ADTs) can look quite different in many languages, but often share the same principles and rules
 that make it understandable for programmers. In its essential form, an ADT is a collection of data together with
-operations that can be carried out on that data \cite{ADTspec}. The key differences between ADTs from different languages
+operations that can be executed on that data \cite{ADTspec}. The key differences between ADTs from different languages
 are the conventions used to collect data and the power operations have over collected data.
 
 In popular object-oriented programming (OOP) languages,
 ADTs are approached with a ``class'' mindset, where programmers specify a blueprint for objects that
-will eventually be used in a program. For better code reuse, classes can be built from pre-existing classes
-through the use of inheritance, a term used to express that a new class inherits all the properties of the old class.
+will eventually be used in a program. To minimize code duplication
+and express hierarchical relationships between objects,
+classes can extend attributes and operators from pre-existing classes through inheritance.
 Objects created by classes are referred to as instances of the class and often hold
-some amount of mutable data, with methods that have full access to the data. The methods can choose to make use of
+some amount of mutable data, with methods (operators) that have unrestricted access to the data. Moreover, methods can choose to make use of
 ``side effects'', referring to the modification of data not explicitly passed through
-regular function arguments or return values. Side effects in methods have the consequence that the output of
-a method may change independent of the values passed through its arguments. In other words,
-the object a method has access to may contain some state that influences the outcome of the method.
+regular function arguments or return values. As a consequence, a method's behaviour may differ
+independent of the values passed through its arguments, instead relying on the attached object's internal state.
 
-At the opposite end of the programming world lies purely functional languages. ADTs in these languages
+At the opposite end of OOP lies purely functional languages. ADTs in these languages
 are more often referred to as data types rather than classes and are only used for collecting and operating on data.
-``Objects'' created from these data types are immutable and methods are instead replaced with pure functions that
+Objects created from these data types are immutable and methods are instead replaced with pure functions that
 explicitly take in the relevant data type as input. The operators attached to a functionally pure ADT are functionally
 pure themselves, meaning they cannot make use of any hidden state and therefore cannot have side effects.
 
@@ -85,9 +85,6 @@ used by many as a ``glue'' to easily join high performance computing libraries. 
 between optimized C libraries and human understanding, especially in the machine learning space, is adjacent to the role
 of documentation in expressing the intention and meaning behind code,
 rather than focusing on the small details of the code itself.
-% early-age low-level languages and hand-optimized assembly. The abstractions provided from assembly to C,
-% and now C to Python, are evident of the trend towards using higher level languages for a better developer experience.
-% TODO refer to above comment in the rust section instead
 
 \subsubsection{Python and Types}
 
@@ -97,25 +94,21 @@ an immutable type, and then the actual value itself. In contrast to other script
 an immutable type means that Python will never implicitly recast the type of an object to fit the expected types
 of functions or methods (ie. it is strongly typed).
 
-% This behaviour is very different to types in static languages, where names are assigned a type at compile time;
-% the runtime objects know their own type and determine which operations can be performed. Thankfully, because of strong
-% typing,
-
-Although Python is strongly typed, its lack of a static typing system serves as a double edged sword for
+Despite the strongly typed nature of Python, its lack of a static type system serves as a double edged sword for
 readability and reliability. With small programs, some developers may prefer to just ``get things done'',
-making use of whatever combination of built-in types are available.
+making use of whatever combination of built-in types are available to quickly reach a goal.
 A mixture of sets, dictionaries, and lists with unrestricted element types are all too common in these types of scripts.
 However, assigning proper data types to work with various pieces of information is essential
 to the longevity and maintenance of large scale projects. Since the introduction of optional static type hints
 via a library in Python 3.5 and increased support through Python 3.8,
-a 2022 survey \cite{empiricalTypePython} found a steady increase in the number of GitHub repositories
+a 2022 survey \cite{empiricalTypePython} found a steadily growing increase in the number of GitHub repositories
 making use of static type hints.
 
 Aside from granting linters more information to statically analyze the program and warn developers of possible errors,
-types also provide programmers themselves with useful information regarding their program. As reinforced
+type hints also provide programmers themselves with useful information regarding their program. As reinforced
 by the philosophy of TypeScript as a type-hinted version of JavaScript, data types serve as an important
 channel of communication between programmers. An additional finding of the 2022 survey \cite{empiricalTypePython}
-showed that typecheck errors in the linters did not prevent a large amount of code from being pushed, but were
+showed that typecheck errors in the linters did not prevent a large amount of type-unsafe code from being pushed, but were
 still found to be useful outside of the linter.
 
 Fundamentally, Python places little restriction on the programmer's actions. For example, while
@@ -130,7 +123,6 @@ interpreted bytecode is possible through the use of magic methods and variables
 Since Python is primarily an OOP language, the most common form of expressing data types is through the use of classes.
 A typical linked list data type in Python 3.11 would look something like:
 \inputminted{python}{linked_list/main.py}
-
 Note that Python 3.12 and later make some major changes involving scoping and the syntax of generic types \cite{pythonGenericTypeChange}.
 
 The above \texttt{LinkedList} class expresses the recursive linking nature of the data type while demonstrating
@@ -142,7 +134,7 @@ the desired functionality.
 
 While native Python works well for simple data types like linked lists, type hints do not provide any guarantees
 that the type of value, for example, will be consistent across all elements in the list. So, while it does serve as a useful
-notation tool for documenting the structure of a data type to other programmers, there are no insurance that the runtime
+notation tool for documenting the structure of a data type to other programmers, there is no insurance that the runtime
 values for these objects are consistent with the type annotations. As with many topics in Python, a convenient library by the name
 of Pydantic will enable both type hints and data validation for those types \textit{at runtime}. The Pydantic version
 of our linked list will now look something like:
@@ -165,20 +157,20 @@ when necessary and extend the language in a manner best suited for a specific ta
 
 In JavaScript, types are very loosely bound, and many operations/functions will silently convert types
 at runtime. The silent recasting of JavaScript objects combined with unintuitive defaults
-can result in very confusing results for the uninitiated. For example, the expression \texttt{1 + "1"}
-returns a value of 11 and the expression \texttt{[5, 11, 2].sort()} returns
-\texttt{[11, 2, 5]}. In both expressions, the numerical values are converted into strings before the operation is performed.
+can result in very confusing outputs for the uninitiated. For example, the expression \texttt{1 + "1"}
+returns a value of \texttt{"11"} and the expression \texttt{[5, 11, 2].sort()} returns
+\texttt{["11", "2", "5"]}. In both expressions, the numerical values are converted into strings before the operation is performed.
 
 TypeScript, as an extension of JavaScript with types, is similar to Python in the sense that both
-languages started with dynamic typing and patched on static types after the fact, and both aim to resolve issues caused
+languages attempt to use gradual, patched on static types as a means to resolve issues caused
 by dynamic typing. TypeScript (and Python) use types not only for more assurance in program correctness,
 but also for the sake of convenience. When making full use of the available typing systems, text editors
 and IDEs are able to assist in new code development through intellisense and autocompletion of methods and variables.
-Types of objects and documentation for those types additionally appear on mouse-hover, providing fast in-context knowledge.
+Documentation for the types of objects additionally appear on mouse-hover, providing fast access to valuable, in-context knowledge.
 
-The below list outlines key properties of types in TypeScript.
+The below list outlines key properties of types in TypeScript:
 \begin{itemize}
-    \item Types are treated as sets of values, where types can be part of multiple sets,
+    \item Types are treated as sets of values, where types themselves can be part of multiple sets,
     a union of sets, or rarely even an intersection of sets.
     \item Types are structural. Any object containing the required fields needed to be a member of a certain type
     will be considered an object of that type, even if a different type name has been assigned to it.
@@ -187,22 +179,22 @@ The below list outlines key properties of types in TypeScript.
     fields required by the specified type, the object is assumed to be a member of that type.
     \item TypeScript allows any literal string to act as a subset of its respective type,
     with the only allowed value being the literal itself.
-    For example, a field with the type \texttt{``name''} will only accept the value of ``name''.
+    For example, a field with the type \texttt{"name"} will only accept the value of ``name''.
     However, a field with the type \texttt{String} will accept any string object.
 
 \end{itemize}
 
-In comparison to algebraic data types often seen in functional languages, TypeScript replaces inductive data types
+In comparison to algebraic data types often seen in functional languages (discussed in Section 2.4), TypeScript replaces inductive data types
 with discriminated union sets. For example, our linked list type may look something like:
 \inputminted{typescript}{linked_list/main.ts}
 
-Because TypeScript allows literals to act as types, the only valid values in the ``kind'' field
+Because TypeScript allows literals to act as types, the only valid values in the \texttt{kind} field
 of an object represented by the \texttt{LinkedList} type are our constructor names: ``nil'' or ``cons''.
 Although TypeScript treats every object as a reference, similar to Python, we have not used side effects
 in the \texttt{append} or \texttt{concat} functions. Instead, we explicitly accept the linked list we want to transform as
 input, perform the required action, and return the head of the linked list in the output.
 
-For a non-inductive approach to the LinkedList data type, we can use TypeScript's interfaces to create something that
+For a non-inductive approach to the LinkedList data type, we can use TypeScript's ``interface'' structure to create something that
 looks much more like the Pydantic version:
 \inputminted{typescript}{linked_list/main_interface.ts}
 
@@ -232,8 +224,8 @@ ownership and usage of available data. In addition, to offset the steep learning
 Rust's compiler is renowned for its helpful error messages and gentle guidance towards writing memory-correct code.
 
 As such, data types in Rust, while somewhat similar to types in OOP, must be considerate to follow Rust's memory rules.
-\texttt{struct}s are the foundational record-like data type, and can be used to express functional-style inductive data types,
-enums, or a simple collection of named objects. On the other hand, data type operators
+\texttt{struct}s are the foundational record-like data type, with the ability to express functional-style inductive data types,
+enums, or a simple collection of named objects. In contrast to OOP classes, data type operators
 are deliberately defined separate from the data type itself. In Rust, type operators with common behaviours and signatures
 can be encapsulated into traits that act like OOP interfaces. Each type can define its own implementation of a trait,
 allowing the type to be used whenever a generic trait is allowed.
@@ -260,23 +252,23 @@ Functional languages, by virtue of their stateless nature and discouragement of 
 far more similar to formal specifications than imperative or OOP languages. Algebraic data types common to these
 languages truly embody the idea that types are just collections of objects viewed through a certain lens.
 In turn, these data types are far more suited to inductive reasoning, enabling relatively simple proofs to
-guarantee useful properties of a program. As we will explore in section 2.6, attempting these proofs
+guarantee useful properties of a program. As we will explore in Section 2.6, attempting these kinds of proofs
 in a fully imperative style can lead to a lot of headaches.
 
 In order to achieve higher abstraction over algebraic data types and allow for impure actions within a purely
 functional world, Haskell makes use of interfaces for types, called typeclasses. Intuitively,
 these interfaces can broadly fall into two categories:
 \begin{enumerate}
-    \item The creation of type interfaces to group common behaviour across a selection of types. Typeclasses like
+    \item Typeclasses as type interfaces to group common behaviour across a selection of types. Classes within this category, like
     Eq, Ord, Show, etc. can be derived for a specific type, allowing for equality comparisons, ordered comparisons,
     and type-to-string translations respectively. Types that derive these typeclasses can make use of general operators
     specified by the typeclass (like \texttt{==} for Eq).
     \item Typeclasses that act as a broad blueprint for attaching context to an already-concrete type. These
     kinds of type classes indirectly allow for a form of recorded ``state'' in order to better deal with impure interactions.
-    The \texttt{Maybe} typeclass is a classic example of this: Normally, the expected value of an \texttt{Int} instance
+    The \texttt{Maybe} typeclass is a classic example of this --- normally, the expected value of an \texttt{Int} instance
     would be a limited-size integer number. However, the addition of context via \texttt{Maybe Int} transforms this
     certainty into two possibilities: either the value is \texttt{Just} some number, or it holds \texttt{Nothing}.
-    Functors, monoids, and monads are all part of this category of typeclass, and are essential to practical Haskell.
+    Functors, monoids, and monads are all key players in this category of typeclass, and are essential to practical Haskell.
 \end{enumerate}
 Although the distinction of these two categories may not actually exist (in fact, the second kind of typeclass is really
 just a subset of the first), keeping these ideas separate can help form an intuition for the application of typeclasses.
@@ -286,7 +278,7 @@ and monad typeclasses, is as follows:
 \inputminted{haskell}{linked_list/main.hs}
 Haskell's natural use of pattern matching and recursive iteration massively shortens the bodies of
 \texttt{append} and \texttt{concatenate} in addition to providing clarity on the precise structure of the function's
-output. The compiler further optimizes tail-recursive calls, as seen in the second pattern of both functions,
+output. The compiler further optimizes tail-recursive calls, as seen in the body of the second pattern of both functions,
 so that these functions have comparable efficiency with imperative loops.
 Since everything in Haskell is a pure, stateless function, the distinction between data type
 operators and normal functions can be eliminated completely.
@@ -318,8 +310,8 @@ Powerfully precise expressions like this one virtually eliminate all possible fo
 since it makes a guarantee that the domain of the function arguments are always well-defined over their desired operations.
 
 Because of its strong focus on types and logic as an integral part of writing programs, Agda is also well suited
-to perform as a proof assistant. Its language extension plugin for emacs enable a proof mode
-to help programmers fill-in missing properties and complete theorems regarding the program.
+to perform as a proof assistant. Its language extension plugin for emacs enables a proof mode
+to help programmers fill in missing properties and complete theorems regarding the program.
 
 An implementation of \texttt{LinkedList} in Agda is shown below, along with a proof for associativity of concatenation:
 \inputminted{agda}{linked_list/main.agda}
@@ -341,7 +333,7 @@ In Dafny, the act of verifying a program is as natural and important as writing 
 \subsubsection{Specification as Part of the Implementation}
 
 In order to accomplish the ambitious task of combining specification and implementation into one code base,
-Dafny makes use of special programming structures labelled with ``ghost''. Put plainly, ghost structures are similar
+Dafny makes use of special programming structures identified by \texttt{ghost}. Put plainly, ghost structures are similar
 to normal programming constructs in terms of the ability to make variables and functions, but these constructs
 can only be used for the sake of verification. Often times, predicate statements with mixed ghost and non-ghost constructs
 are used to make guarantees about the result
@@ -354,10 +346,10 @@ When a user makes a withdrawal request, the bank wants to ensure that the reques
 than the amount available to the user. The specification for this requirement is very clear:
 if $balance - request < 0$, deny the request. However, there is no way to guarantee that this specification is met
 within the program implementation (aside from examining the source code). In Dafny, we can instead
-attach a pre-condition to inputs of the function, so that withdrawing money \texttt{\textbf{requires} balance > request}.
+attach a pre-condition to inputs of the function, so that withdrawing money \texttt{\textbf{requires} (balance > request)}.
 
 Both OOP-like classes and functional-like inductive data type constructs can be used when defining types in Dafny.
-The concept of Haskell Typeclasses also makes an appearance in its simplest form
+The concept of Haskell typeclasses also makes an appearance in its simplest form
 by allowing restrictions on generic types. For example, the Haskell signature \texttt{method: Eq a => a ...} can be modelled
 in Dafny by \texttt{method<T(==)> (argument1: T)...}. Like Agda, Dafny attempts to offer some assurance
 of program termination via the \texttt{decreases} clause. Through this clause, all recursive functions and loops
@@ -367,7 +359,7 @@ this process.
 
 On the note of finite vs. infinite, Dafny provides special tooling to
 separate infinitely large inductive data types from finite types through
-the co(-inductive) data type. Since these types may be theoretically infinite,
+the co-inductive data type. Since these types may be theoretically infinite,
 they are lazily evaluated and use special operators for common data type tasks.
 For example, checking for equality between two infinitely large data types is impractical at best,
 so Dafny allows checking for the first $n$ components of the type while using the traditional == operator.
@@ -393,7 +385,7 @@ we omit much of the verification code that would otherwise be placed in the body
 
 While the essential imperative aspects of the language are similar to convention, the burden of specification
 gives the assurance of correctness at the cost of verbosity.
-Note the addition of ghost variables \texttt{repr} and \texttt{contents}, which hold all nodes and the contents of those
+Note the addition of ghost variables \texttt{repr} and \texttt{contents}, which respectively hold references to all nodes and the contents of those
 nodes only for verification purposes. These variables are used to formally express the behaviour of
 loops (ex. the loop will run at most through all nodes of the list (a maximum of $|contents|$ times)),
 the ``growing'' nature of both \texttt{append} and \texttt{concat} (ex. $|n.contents|$ must be bigger than $|self.contents|$),
@@ -417,38 +409,39 @@ Because APL only has one major data type (the array), operators are often compos
 calculating intermediary values. APL categorizes all operators into two groups: monadic operators that take
 in one argument, and dyadic operators for two arguments. More explicitly, all operators must accept
 either one or two arguments, which may drastically change the operator's behaviour.
-As a simple example, the monadic tilde operator (\~) is used for boolean \textit{not}, while the dyadic version
+As a simple example, the monadic tilde operator ($\sim$) is used for boolean \textit{not}, while the dyadic version
 is for set difference.
 
 Given the knowledge that everything is an array, we cannot reasonably recreate our linked list example. Nor should we,
 since lists and vectors are first-class citizens in APL. Instead, we take a look at a more interesting aspect of APL's
-feature set - the avoidance of branching through bit masks. Consider the following ``loop and branch'' Python code,
+feature set --- the avoidance of branching through bit masks. Consider the following ``loop and branch'' Python code,
 where we loop over an array of objects and return every object that satisfies some function:
 \inputminted{python}{linked_list/apl_example.py}
 
 The concise APL equivalent would instead be the following, notably branchless, code:
 \inputminted{apl}{linked_list/main.apl}
-Note that the first line maps a function $f: T \rightarrow bool$ to create a bit mask
-(an array of zeroes and ones) $elems$, which is then passed to the selection operator $/$.
+The first line of code maps a function $f: T \rightarrow bool$ to create a bit mask
+$elems$ (an array of zeroes and ones), which is then passed to the selection operator $/$.
+All values in \texttt{array} that correspond to ones in \texttt{elems} are then returned.
 Since both implementations must apply $f$ to all elements of the input array, the branchless version can
 be far more efficient due to the use of SIMD instructions.
 
 \subsection{Unified Modelling Language (UML)}
 
-Up until this point, all the languages explored in this document have been targeted at making computers
+Up until this point, all languages explored in this document have been targeted at making computers
 execute a desired set of instructions over some type of data. Of course, the specific methodology
 and concepts used to achieve this human-computer interaction differ greatly between languages,
 with each maintaining their own idioms and customs. Conversely, UML is not a programming language in
 the normal sense, but a standardized method of visualizing and clearly communicating the intentions behind a system.
 
-According to the UML documentation, UML is intentionally independent of any and all processes that could be used
+According to its documentation \cite{uml}, UML is intentionally independent of any and all processes that could be used
 to actually implement a system. UML diagrams are not intended to comprehensively cover every aspect of a system's implementation,
-including different quirks and features of different languages, but rather should be used as a powerful aid in
-the creation of program documentation. Generally, different types of diagrams are used for recording types, state, information flow,
+especially the quirks and features of different languages, but rather should be used as a powerful aid in
+the creation of program documentation. Generally, different kinds of diagrams are used for recording types, state, information flow,
 and even the execution of the program itself.
 
 In the context of UML, a data type is a specialized form of classifier with no internal structure. Each data type may contain
-several named fields to contain data, along with operations on that data.
+several named fields to carry data, along with operations on that data.
 The focus of data type based diagrams is to convey the following to programmers:
 \begin{enumerate}
     \item All data types available to the user.
@@ -456,15 +449,15 @@ The focus of data type based diagrams is to convey the following to programmers:
     and even type usage in operators.
 \end{enumerate}
 
-Below is an example of our famous LinkedList type, modelled by UML:
+Below is an version of \texttt{LinkedList} modelled by UML:
 \begin{center}
     \includegraphics[width=12cm]{linked_list/uml.drawio.png}
 \end{center}
 
-A simple standalone type like LinkedList may not be complex enough to showcase the full advantages of UML,
-but it is enough to demonstrates the effectiveness of visualization in understanding code.
+A simple standalone type like \texttt{LinkedList} may not be complex enough to showcase the full advantages of UML,
+but it is enough to demonstrate the effectiveness of visualization in understanding code.
 From the arrows in the image, it is immediately obvious that the start attribute of
-LinkedList requires a LinkedNode and LinkedNodes may build off of themselves indefinitely.
+\texttt{LinkedList} requires a \texttt{LinkedNode} and \texttt{LinkedNode}s may build off of themselves indefinitely.
 
 UML diagrams are a simple and concise method for conveying the meaning and intention behind a system.
 While the syntax is largely standardized, because this language is meant for communication with humans
@@ -474,7 +467,7 @@ on the interface implementation is met.
 
 \subsection{Event-B}
 
-Although UML is a powerful tool for communicating the relationship between data types, the visual methodology
+Even though UML is a powerful tool for communicating the relationships between data types, the visual methodology
 falls short when attempting to convey the actionable properties of a system. In continuing the exploration
 of modelling languages, we find that the Event-B model not only encompasses actionable system traits, but does
 so with consideration of the system's environment. Therefore, Event-B is suitable for formal system analysis
@@ -489,7 +482,7 @@ through the concepts of machines, contexts, and events is more than suitable for
     Like class inheritance, new machines can ``refine'' old ones by
     carrying over and adding new entries to the aforementioned traits.
     \item Contexts, on the other hand, are much closer the formal definition of abstract data types,
-    defining a set of axioms, theorems, constants and data in the form of carrier sets.
+    defining a set of axioms, theorems, constants, and data in the form of carrier sets.
     Contexts can be extended in a similar fashion to class inheritance, with the child context carrying over all properties
     of the parent context.
     \item Finally, events serve as activation conditions for the machine they are assigned to.
@@ -586,9 +579,10 @@ we nonetheless attempt a simplified implementation of \texttt{LinkedList} with o
         }
     }
 \end{center}
-
-The latest Event-B wiki \cite{eventB} notes future plans to support recursive structured types like inductive LinkedLists
-in a more concise format.
+The latest Event-B wiki \cite{eventB} contains future plans to support recursive structured types like inductive linked lists
+in a more concise format. Somewhat surprisingly, the techniques used to formally prove the growing nature of \texttt{append}
+are not unlike the ones used in class-based Dafny. Both languages require use of a centralized references set to
+keep track of all nodes in the linked list.
 
 % \subsection{SETL} %Maybe? Would need to cite
 % \subsection{Bend} %Maybe? Would need to cite
@@ -664,8 +658,8 @@ For instance, the axiom $tail(new()) = error$ outlines two properties with one a
     \item Finding \texttt{tail} on an empty list produces an error.
     \item Since tail produces an empty list error, we must know that \texttt{new} creates an empty list.
 \end{enumerate}
-Similarly, the axiom $deleteLast(append(n, i)) = n$ shows that append must add the item $i$
-to the end of the list $n$, in order for deleteLast to perform correctly.
+Similarly, the axiom $deleteLast(append(n, i)) = n$ shows that $append$ must add the item $i$
+to the end of the list $n$, in order for $deleteLast$ to perform correctly.
 
 Unfortunately, this approach may present drawbacks for implementing unknown data types in popular programming languages
 \textit{because} of its coupled operation behaviour. In many programming languages, especially non-functional ones,
@@ -673,26 +667,27 @@ developers need to implement each data type operation mostly independent of othe
 between written code and the given specification presents a new challenge for programmers;
 data types becoming lost in the translation from dependent specification to independent implementation serve
 as an undesirable source of bugs and mistakes. A compiler for such a language would greatly reduce friction between
-theory and application, but the semantic expressivity available from the axiomatic approach may be worth the costs.
+theory and application, so the semantic expressivity offered by the axiomatic approach may be worth the costs.
 
 \subsubsection{A More Constructive Approach}
 
-The textbook \cite{ADTspec} specifies an additional method of data type specification focused on construction
-of new objects from old ones. Instead of axioms, each operation can specify relevant pre-conditions and post-conditions.
+One of the textbooks \cite{ADTspec} provides an additional method of data type specification focused on constructing
+of new objects from old ones. The essence of the constructive approach is to have
+each operation specify relevant pre-conditions and post-conditions.
 This method is far closer to the implementation of data types in programming languages, with an uncanny resemblance
-to the optional input restrictions seen in Dafny functions. For conciseness, the example given in Section 2.4
-serves as a good approximate illustration of the constructive approach outlined in the textbook.
+to the optional input restrictions seen in Dafny functions. For conciseness, this section defers to Section 2.4
+as a good approximate illustration of the constructive approach to data type creation.
 
 \section{Error Handling and Undefinedness}
 
 Every language explored thus far has found unique methods of breaking down and organizing data for simple use and reuse.
 However, the discussion of handling errors and misshapen data is integral to the process of working with types.
 After all, if functions have the ability to return any kind of value without warning or due process,
-elaborate type systems and proven formal methodology would be meaningless. It seems then, that in order to
+elaborate type systems and formally proven system properties would be meaningless. It seems then, that in order to
 maintain the benefits of these type systems, dealing with invalid data is just as vital as working with ideal data.
 
 Nearly every language has its own unique manner of dealing with unexpected data, but for the sake of conciseness,
-we only document the two most prevalent methods alongside some honourable mentions. The first and most common
+we only document the two most prevalent methods alongside an honourable mention. The first and most common
 method of handling errors is through the immediate halting of all normal function operations and raising of an exception.
 Exceptions propagate all the way through the function stack until it is either caught by a specific construct
 or the program terminates. Alternatively, many newer, non-OOP languages instead opt for error handling by value.
@@ -707,15 +702,15 @@ Given the flexibility and readability-first approaches to Python scripts, it is 
 most programs in Python tend to ask for forgiveness rather than permission, with the expectation that all other parts of
 the program will do the same. This means, for better or for worse, that developers do not have to deal with errors
 unless they cause a problem at runtime. Often times, and especially outside of documentation,
-communication on the kinds of errors a function may raise is virtually non-existent.
+communication on the kinds of exceptions a function may throw is virtually non-existent.
 Since types were only recently included as part of the language, the most historically effective method of
 denoting an error-based value was to use exceptions and force the use of dedicated catch structures.
 
 Interestingly, although Rust primarily encourages handling of errors by value, a subset of errors will allow programs
 to panic and act like an exception was thrown. However, the key difference between panics and exceptions
 lies in the recoverability: with exceptions, try-catch statements allow the program to recover
-from the error and continue execution. On the other hand, panics signal that a program has entered an unrecoverable state.
-The execution of all functions stop immediately and the program is terminated.
+from the error and continue execution. Contrarily, panics signal that a program has entered an unrecoverable state,
+wherein the execution of all functions stop immediately and the program is terminated.
 Panic states are for completely unexpected errors that arise within program execution as opposed to known errors
 that may only happen on occasion.
 
@@ -734,7 +729,7 @@ Other languages that use exceptions for error handling are listed below:
 
 \subsection{Errors as Values}
 
-Exceptions may be powerful tools for quickly and concisely expressing failures within a code, but they can
+Exceptions may be powerful tools for quickly and concisely expressing failures within a piece of code, but they can
 easily become overlooked in documentation and program communication, left untouched and unnoticed until runtime.
 To better convey the expectation that calling functions should handle the errors created by child calls,
 errors as type of value can be used.
@@ -745,7 +740,7 @@ types, caller functions know whether they should prepare for the possibility of 
 Rust will not compile if a possible \texttt{Err} is left unhandled,
 so functions must provide a complete path for dealing with both successful values and recoverable errors.
 Most of the time, this involves pattern matching on the Ok/Err constructors to get access to the inner value.
-However, Rust additionally provides the question mark operator \texttt{?} as a means to concisely propagate errors.
+Additionally, Rust provides the question mark operator \texttt{?} as a means to concisely propagate errors.
 Consider the following code snippet, with three functions: \texttt{error\_prone}, which always returns an error,
 \texttt{always\_ok}, which always returns a successful value, and a calling \texttt{middle\_function}
 that has a caller itself.
@@ -776,7 +771,7 @@ value-errors should result in far more comprehensive code, massively reducing th
 Some languages, like Agda, take an extreme approach to dealing with errors. As a hybrid between a proof assistant
 and a regular programming language, Agda virtually eliminates the possibility for errors so long as the usage of
 functions is provably correct. The prevention of errors before they can even exist can be a powerful asset
-in producing reliable and correct programs, but it also restricts the actions a program can make. For example,
+in producing reliable and correct programs, but it also restricts the actions a program can make. For a similar example,
 Haskell attempts to live in a functionally pure universe for as long as possible, but recognizes that some
 aspects of computing, like IO, will need to be impure for the sake of practicality. Similarly, Agda attempts
 to prevent all possible errors from being made, but cannot account for parts of the computer outside its control.
@@ -794,7 +789,7 @@ to compilers enables modern programmers to think about
 software solutions more abstractly, often in a manner far better suited to the target problem's domain.
 For example, it would be unheard of to write test automation programs in assembly or even C,
 but short scripts in Python, JavaScript, or Lua are more than common.
-This natural evolution of abstraction and increasing performance of computer systems
+The natural tendency towards abstraction and increasing performance of computer systems
 allows language designers to realistically consider the usability of a language as a main selling feature,
 rather than a low-priority afterthought.
 
@@ -808,7 +803,7 @@ behaviour.
 When used correctly, implicitness can be a tool for powerful abstractions, like the recursive nature of inductive data types.
 Instead of focusing on registers, pointers, and shuffling of data, programmers can get straight to the point and
 start solving problems. However, careless implicitness can be extremely dangerous. Referring to the JavaScript example
-from section 2.2, the true expression \texttt{1 + "1" === "11"} is an oddity at best or may cause a catastrophic error
+from Section 2.2, the true expression \texttt{1 + "1" === "11"} is an oddity at best or may cause a catastrophic error
 at worst. Other dynamically typed languages (Python) would throw an exception for this expression,
 requiring an explicit casting to ensure the programmer actively understands the actions of the interpreter.
 
@@ -820,7 +815,7 @@ But a few questions (beyond the scope of this survey) remain:
 \end{itemize}
 The last question in particular raises an extremely important point for the practical longevity of languages.
 The impact of convention for experienced software engineers compared the novelty for new developers
-must be balanced in order to build up a community that will actually use the language. Python is the de facto
+must be balanced in order to build up a community that will keep the language alive. Python is the de facto
 standard for machine learning in large part due to the massive support of its data science libraries.
 Numpy, Sci-kit learn, Pytorch, Tensorflow, etc. are all vital to the existence of Python in the machine learning scene.
 Similarly, JavaScript (and TypeScript) have taken over virtually every aspect of web development because
@@ -842,7 +837,7 @@ Another language worthy of mention in the usability space is APL. Its symbolic n
 monadic/dyadic operators, and operator chaining work together to enable high-density informative code.
 In a sense, the restrictions on this language assist with the usability for experienced developers.
 However, the distinct lack of English words for identifiers and functions add a huge upfront cost to the overall
-learning curve. New developers are essentially forced to memorize the meaning, typing process, and behaviour
+learning curve. New developers are essentially forced to memorize the meaning, physical keyboard layout, and behaviour
 of dozens of symbols only loosely based in formal discrete mathematics. Since a large part of working with a language
 is the process of learning it, the demand for immediate symbolic memorization largely restricts the gentleness
 of any introduction.
@@ -852,10 +847,10 @@ are a likely result of the background of developers. In languages with English i
 the foundation of natural language allows variables and functions to have meaningful, even outside of the code itself.
 For example, Python's \texttt{len()} function is likely to resonate with more people than APL's symbolic-based $\rho$.
 Likewise, imperative languages can come more naturally to beginners because humans use procedure-like instructions
-just as a part of living. Any furniture assembly manual will likely come with step-by-step instructions
+as a natural part of living. Any furniture assembly manual will likely come with step-by-step instructions
 telling the user exactly how to connect each component. Then again, functional languages make far more sense from
-a mathematical background, where users can give some input and expect an output.
-In plain terms, the background and experiences of a programmer largely affects their experience and perceived
+a mathematical background, where users can give some input and expect a consistent output.
+In plain terms, the background and experiences of a programmer largely affects their development experience and perceived
 language usability. Target audiences of a language, especially domain-specific languages,
 should be at the forefront of any design choice.
 
@@ -870,12 +865,12 @@ so the usability of data types may have a large impact on the usability of the l
 
 \section{Conclusion}
 
-Although ADTs are intended primarily for the organization and classification of data (coupled with valid operations),
+Although abstract data types are intended primarily for the organization and classification of data (coupled with valid operations),
 they enable elegance, correctness, and reliability in almost every other component of programming languages.
 From popular OOP languages to user-facing modelling languages, every structuring methodology
-brings a new perspective on data and type systems. Even among the 10 programming languages
+brings a fresh perspective on data and type systems. Even among the 10 programming languages
 reviewed in this document, no two forms of manipulating data were quite the same.
-As seen in the linked list examples of section 2, every data type may be able to solve the same problem,
+As seen in the linked list examples of Section 2, every kind of data type structure may be able to solve the same problem,
 but some lenses are clearer than others. Data types and type systems are the backbone of every language,
 enabling complex actions through simple abstractions.
 
