@@ -88,7 +88,7 @@ rather than focusing on the small details of the code itself.
 
 \subsubsection{Python and Types}
 
-The overarching data model behind Python is that everything is either an object or a relation between objects.
+The overarching data model behind Python is that everything is either an object or a relation between objects \cite{pythonDataModel}.
 Almost all objects in Python are used by reference, and each object contains an identifier (memory address),
 an immutable type, and then the actual value itself. In contrast to other scripting languages (namely JavaScript),
 an immutable type means that Python will never implicitly recast the type of an object to fit the expected types
@@ -136,7 +136,7 @@ While native Python works well for simple data types like linked lists, type hin
 that the type of value, for example, will be consistent across all elements in the list. So, while it does serve as a useful
 notation tool for documenting the structure of a data type to other programmers, there is no insurance that the runtime
 values for these objects are consistent with the type annotations. As with many topics in Python, a convenient library by the name
-of Pydantic will enable both type hints and data validation for those types \textit{at runtime}. The Pydantic version
+of Pydantic \cite{pydantic} will enable both type hints and data validation for those types \textit{at runtime}. The Pydantic version
 of our linked list will now look something like:
 \inputminted{python}{linked_list/main_pydantic.py}
 
@@ -165,20 +165,20 @@ TypeScript, as an extension of JavaScript with types, is similar to Python in th
 languages attempt to use gradual, patched on static types as a means to resolve issues caused
 by dynamic typing. TypeScript (and Python) use types not only for more assurance in program correctness,
 but also for the sake of convenience. When making full use of the available typing systems, text editors
-and IDEs are able to assist in new code development through intellisense and autocompletion of methods and variables.
+and IDEs are able to assist in new code development through intellisense and autocompletion of methods and variables \cite{typescriptHandbook}.
 Documentation for the types of objects additionally appear on mouse-hover, providing fast access to valuable, in-context knowledge.
 
 The below list outlines key properties of types in TypeScript:
 \begin{itemize}
     \item Types are treated as sets of values, where types themselves can be part of multiple sets,
-    a union of sets, or rarely even an intersection of sets.
-    \item Types are structural. Any object containing the required fields needed to be a member of a certain type
+    a union of sets, or rarely even an intersection of sets \cite{typescriptForOOP}.
+    \item Types are structural \cite{typescriptForFunc}. Any object containing the required fields needed to be a member of a certain type
     will be considered an object of that type, even if a different type name has been assigned to it.
     Further, if an object has additional fields not specified by the type,
     the extra fields will be ignored in the typechecking process. Essentially, as long as an object meets the minimum
     fields required by the specified type, the object is assumed to be a member of that type.
     \item TypeScript allows any literal string to act as a subset of its respective type,
-    with the only allowed value being the literal itself.
+    with the only allowed value being the literal itself \cite{typescriptHandbook}.
     For example, a field with the type \texttt{"name"} will only accept the value of ``name''.
     However, a field with the type \texttt{String} will accept any string object.
 
@@ -194,17 +194,17 @@ Although TypeScript treats every object as a reference, similar to Python, we ha
 in the \texttt{append} or \texttt{concat} functions. Instead, we explicitly accept the linked list we want to transform as
 input, perform the required action, and return the head of the linked list in the output.
 
-For a non-inductive approach to the LinkedList data type, we can use TypeScript's ``interface'' structure to create something that
+For a non-inductive approach to the \texttt{LinkedList} data type, we can use TypeScript's ``interface'' structure to create something that
 looks much more like the Pydantic version:
 \inputminted{typescript}{linked_list/main_interface.ts}
 
-Finally, a pure OOP version of our LinkedList type, using classes, can be formed.
+Finally, a pure OOP version of our \texttt{LinkedList} type, using classes, can be formed.
 Note that the append and concat functions are now methods with side effects but are otherwise similar to Python:
 \inputminted{typescript}{linked_list/main_class.ts}
 
 \subsection{Rust}
 
-Rust is a unique, high-performance language focused on efficiency and reliability.
+Rust is a unique, high-performance language focused on efficiency and reliability \cite{rustBook}.
 While most languages discussed in this paper attempt to either simplify the process of creating software or
 formally prove algorithmic correctness, Rust carries a unique blend of practicality and formality.
 Among its key features lies a new paradigm of memory management;
@@ -218,7 +218,7 @@ of implementation details related to the model.
 
 Rust's semi-manual methodology for memory management means memory-related concepts seep into nearly every line of code.
 When working with data, constructs like object lifetimes, mutability, and even the passing of data between functions
-must be carefully considered. The guarantees of Rust in relation to memory enable ``fearless concurrency'', or in other words,
+must be carefully considered. The guarantees of Rust in relation to memory enable ``fearless concurrency'' \cite{rustBook}, or in other words,
 the comforting knowledge that even with parallelized programs, the memory guarantees of Rust still ensure proper
 ownership and usage of available data. In addition, to offset the steep learning curve of these relatively complex topics,
 Rust's compiler is renowned for its helpful error messages and gentle guidance towards writing memory-correct code.
@@ -242,7 +242,7 @@ make use of a mutable reference to the next node, rather than a mutable instance
 
 \subsection{Haskell}
 
-Haskell is a pure, lazy functional language with excellent support for concise function composition, elegant recursion, and powerful typing.
+Haskell is a pure, lazy functional language with excellent support for concise function composition, elegant recursion, and powerful typing \cite{learnHaskell}.
 Compared to the mostly-imperative languages described in previous sections, the syntax of Haskell may seem foreign
 or even unintuitive at a first glance. However Haskell, along with other functional languages, are not intended
 to be tools to control the exact step-by-step actions of a computer. Rather, the functional declarative style means programmers need only
@@ -252,12 +252,12 @@ Functional languages, by virtue of their stateless nature and discouragement of 
 far more similar to formal specifications than imperative or OOP languages. Algebraic data types common to these
 languages truly embody the idea that types are just collections of objects viewed through a certain lens.
 In turn, these data types are far more suited to inductive reasoning, enabling relatively simple proofs to
-guarantee useful properties of a program. As we will explore in Section 2.6, attempting these kinds of proofs
+guarantee useful properties of a program. As we explore in Section 2.6, attempting these kinds of proofs
 in a fully imperative style can lead to a lot of headaches.
 
 In order to achieve higher abstraction over algebraic data types and allow for impure actions within a purely
 functional world, Haskell makes use of interfaces for types, called typeclasses. Intuitively,
-these interfaces can broadly fall into two categories:
+these interfaces can broadly fall into two categories \cite{learnHaskell}:
 \begin{enumerate}
     \item Typeclasses as type interfaces to group common behaviour across a selection of types. Classes within this category, like
     Eq, Ord, Show, etc. can be derived for a specific type, allowing for equality comparisons, ordered comparisons,
@@ -292,7 +292,7 @@ the list \texttt{l}, add one to each element, and return the result:
 
 Although Agda and Haskell may look somewhat similar at a first glance, Agda overhauls the functional programming
 paradigm with a completely new type system. Founded on the theory of dependent types, Agda's key features
-are its guarantees regarding the termination of well-formed programs and the types of function outputs.
+are its guarantees regarding the termination of well-formed programs and the types of function outputs \cite{agda}.
 Most notably, the guarantees of error-free runtime execution and eventual termination
 come at the cost of Turing completeness, although the language
 is still plenty expressive in its own right.
@@ -328,7 +328,7 @@ Rather than separating the specification of a program from its implementation, D
 to encourage inline verification statements alongside regular program definitions. The formal constructs used
 to verify programs often appear as a list of pre- and post-condition
 predicate statements that must be satisfied before or after running a function, conditional expression, or loop.
-In Dafny, the act of verifying a program is as natural and important as writing the program itself.
+In Dafny, the act of verifying a program is as natural and important as writing the program itself \cite{dafny}.
 
 \subsubsection{Specification as Part of the Implementation}
 
@@ -359,7 +359,7 @@ this process.
 
 On the note of finite vs. infinite, Dafny provides special tooling to
 separate infinitely large inductive data types from finite types through
-the co-inductive data type. Since these types may be theoretically infinite,
+the co-inductive data type \cite{dafnyRef}. Since these types may be theoretically infinite,
 they are lazily evaluated and use special operators for common data type tasks.
 For example, checking for equality between two infinitely large data types is impractical at best,
 so Dafny allows checking for the first $n$ components of the type while using the traditional == operator.
@@ -471,10 +471,10 @@ Even though UML is a powerful tool for communicating the relationships between d
 falls short when attempting to convey the actionable properties of a system. In continuing the exploration
 of modelling languages, we find that the Event-B model not only encompasses actionable system traits, but does
 so with consideration of the system's environment. Therefore, Event-B is suitable for formal system analysis
-and proving the correctness of software following the model specification.
+and proving the correctness of software following the model specification \cite{eventB}.
 
 Data types for Event-B may not exist in the normal sense of the word, but a different approach to data abstraction
-through the concepts of machines, contexts, and events is more than suitable for the same purpose:
+through the concepts of machines, contexts, and events is more than suitable for the same purpose \cite{eventBBook}:
 \begin{itemize}
     \item Machines are somewhat adjacent to classes in OOP, acting like miniature
     programs with some provable traits consisting of variables, invariants, theorems, a single variant, and a list of
@@ -697,7 +697,7 @@ that must be handled by calling functions if seen.
 \subsection{Throwing Exceptions}
 
 Exceptions are often a integral part of programs that need to deal with failure. Python, for instance, idiomatically
-encourages the use of exceptions and try-catch structures to create and contain errors.
+encourages the use of exceptions and try-catch structures to create and contain errors \cite{python}.
 Given the flexibility and readability-first approaches to Python scripts, it is entirely understandable that
 most programs in Python tend to ask for forgiveness rather than permission, with the expectation that all other parts of
 the program will do the same. This means, for better or for worse, that developers do not have to deal with errors
@@ -707,7 +707,7 @@ Since types were only recently included as part of the language, the most histor
 denoting an error-based value was to use exceptions and force the use of dedicated catch structures.
 
 Interestingly, although Rust primarily encourages handling of errors by value, a subset of errors will allow programs
-to panic and act like an exception was thrown. However, the key difference between panics and exceptions
+to panic and act like an exception was thrown \cite{rustBook}. However, the key difference between panics and exceptions
 lies in the recoverability: with exceptions, try-catch statements allow the program to recover
 from the error and continue execution. Contrarily, panics signal that a program has entered an unrecoverable state,
 wherein the execution of all functions stop immediately and the program is terminated.
@@ -770,7 +770,7 @@ value-errors should result in far more comprehensive code, massively reducing th
 
 Some languages, like Agda, take an extreme approach to dealing with errors. As a hybrid between a proof assistant
 and a regular programming language, Agda virtually eliminates the possibility for errors so long as the usage of
-functions is provably correct. The prevention of errors before they can even exist can be a powerful asset
+functions is provably correct \cite{agda}. The prevention of errors before they can even exist can be a powerful asset
 in producing reliable and correct programs, but it also restricts the actions a program can make. For a similar example,
 Haskell attempts to live in a functionally pure universe for as long as possible, but recognizes that some
 aspects of computing, like IO, will need to be impure for the sake of practicality. Similarly, Agda attempts
@@ -795,8 +795,8 @@ rather than a low-priority afterthought.
 
 In accommodating accessibility and usability requirements at the programming language level,
 designers can create a better developer experience for new and experienced software engineers alike.
-According to an article released by the Rust language team in 2017, the ergonomic challenges
-of language features can be summarized by striking a balance between explicitness and implicitness \cite{rust2017}.
+According to an article released by the Rust language team in 2017 \cite{rust2017}, the ergonomic challenges
+of language features can be summarized by striking a balance between explicitness and implicitness.
 The goal of Rust's initiative is to minimize both the need for pedantic syntax and the chance of surprising
 behaviour.
 
@@ -844,8 +844,8 @@ of any introduction.
 
 The stark contrast between the usability of a heavily symbolic language and other English-based languages
 are a likely result of the background of developers. In languages with English identifiers,
-the foundation of natural language allows variables and functions to have meaningful, even outside of the code itself.
-For example, Python's \texttt{len()} function is likely to resonate with more people than APL's symbolic-based $\rho$.
+the foundation of natural language allows variables and functions to have meaning, even outside of the code itself.
+For example, Python's \texttt{len()} function is likely to resonate with more people than APL's symbolic-based $\rho$ operator.
 Likewise, imperative languages can come more naturally to beginners because humans use procedure-like instructions
 as a natural part of living. Any furniture assembly manual will likely come with step-by-step instructions
 telling the user exactly how to connect each component. Then again, functional languages make far more sense from
