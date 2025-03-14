@@ -1,0 +1,37 @@
+\documentclass{article}
+
+\usepackage{minted}
+\usepackage{amsmath, amsthm}
+\usepackage{amssymb}
+\usepackage{listings}
+\usepackage[svgnames]{xcolor}
+\usepackage{tikz}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{biblatex}
+
+\usemintedstyle{solarized-light}
+\setminted{fontsize=\footnotesize, bgcolor=Beige}
+
+% NOTE: need to run `biber term_rewriting` to ensure up-to-date references
+\addbibresource{term_rewriting.bib}
+
+\title{A Survey on Term Rewriting for Code Optimization}
+\author{Anthony Hunt}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\section{Introduction}
+\section{Term Rewriting}
+\section{Code Optimization}
+\section{Making use of Term Rewriting for Code Optimization} % Could also be "A Term Rewriting System for Code Optimization"
+\section{Conclusion}
+
+
+\pagebreak
+\nocite{*} % keeps all references, even those not referred to
+\printbibliography %Prints bibliography
+
+\end{document}
