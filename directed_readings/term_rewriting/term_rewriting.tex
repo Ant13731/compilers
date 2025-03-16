@@ -11,6 +11,21 @@
 \usepackage{biblatex}
 \usepackage{algpseudocode}
 \usepackage{algorithm}
+\usepackage{mathtools}
+
+\makeatletter
+\newcommand{\superimpose}[2]{{%
+  \ooalign{%
+    \hfil$\m@th#1\@firstoftwo#2$\hfil\cr
+    \hfil$\m@th#1\@secondoftwo#2$\hfil\cr
+  }%
+}}
+\makeatother
+
+\newcommand{\leftplus}{\mathbin{\mathpalette\superimpose{{\leftarrow}{+}}}}
+% \newcommand{\disquare}{\mathbin{\mathpalette\superimpose{{\diamond}{\square}}}}
+% \newcommand{\disquare}{\mathbin{\text{\tikz [x=1ex,y=1ex,line width=.1ex,line join=round] \draw (0,0) rectangle (1,1) (0,.5) -- (.5,1) -- (1,.5) -- (.5,0) -- (0,.5) -- cycle;}}}
+\newcommand{\disquare}{\mathbin{\text{\tikz [x=1ex,y=1ex,line width=.1ex,line join=round] \draw (0,0) rectangle (1,1) (.5\pgflinewidth,.5) -- (.5,1ex-.5\pgflinewidth) -- (1ex-.5\pgflinewidth,.5) -- (.5,.5\pgflinewidth) -- (.5\pgflinewidth,.5) -- cycle;}}}
 
 \usemintedstyle{solarized-light}
 \setminted{fontsize=\footnotesize, bgcolor=Beige}
@@ -204,6 +219,8 @@ These notions will be used intermittently throughout the rest of this paper:
 \begin{itemize}
     \item The signature set $\Sigma = \cup_{n=0}\Sigma^n$ contains function symbols that have arity $n$ (ie. functions that take in $n$ arguments).
     \item The set of terms $T(\Sigma, X)$ inductively contains all variables $X$ and all applications of functions to those terms.
+    Generically, terms follow the grammar $t ::= x | c | f(t_1, ..., t_n)$ where $x$ is a variable in $X$, $c$ is a constant in $\Sigma^0$,
+    and $f$ is a function in $\Sigma^n$.
     \item The set of ground terms $T(\Sigma, \emptyset)$ contains only constants (ie., $f \in \Sigma^0$) and function applications of those constants. No variables allowed.
     \item The substitution function $\sigma: X \times T(\Sigma, X)$ is a set of mappings on variables within terms to other elements of $T(\Sigma, X)$.
     \item A term $t$ is an instance of a term $s$ if a substitution applied to $s$ produces $t$. Formally, $\sigma(s) = t \implies t \gtrsim s$.
@@ -468,8 +485,132 @@ Section 3 presents a revised term rewriting system to address these limitations.
 
 % \section{Code Optimization}
 \section{An Improved Term Rewriting System for Code Optimization}
+
+% Conventional rewrite systems as described in Section 2 are praised for formal simplicity and guarantees of correctness.
+% However, from a software engineering perspective,
+
+Modularity and abstraction are the key pillars in supporting the intense complexity of modern day software engineering.
+With respect to the simple TRS described in Section 2, one facet of modularity is achieved through the swapping of rules in a generic TRS solver.
+Unfortunately, this design relegates domain-specific knowledge from the theoretical level to the implementation level,
+restricting the flexibility of real-world systems mimicking a theoretical TRS.
+
+Therefore, we now describe a modular system that better separates the rules of term rewriting from the application of those rules.
+Instead of blindly choosing a rule and following the derivation towards normal form, we can strategically choose to apply
+certain rules in certain contexts through a meta-language. This language, known as a strategy, provides a layer of insulating abstraction
+between the purely theoretical world of TRS and other domains whose knowledge may prove useful in the implementation of a compiler.
+In simpler terms, strategies enable the creation of algorithms customizable to a domain but external to the term rewriting process itself.
+
+Notions of termination and confluence are still troublesome to some degree, as with any TRS, but abstracted strategies can derive
+generic solutions for critical pairs based on context at the theoretical level rather than the implementation level.
+Further, a combinatorial explosion of possible rules can be elegantly mitigated through decisions made in the strategy algorithm.
+
+
 \subsection{Rewriting Strategies}
-\subsection{Code Optimization with Rewriting Strategies}
+
+A rewrite strategy extends a TRS by labelling each rule $l \rightarrow r$ with $L: l \rightarrow r$ and providing a set of operators on those labels.
+The user defined strategy is an algorithmic application of those labels to achieve a targeted normal form. Note that since we no longer apply
+all rules indiscriminately, we must take care to ensure that the desired normal forms are derivable by both available rules and application of rules within the strategy.
+As an additional note, strategies can be compiled (with other strategies) to provide optimizations not only on the intended target source code,
+but bootstrapped on the compiler itself.
+
+The default TRS strategy can be modelled by a directed graph, with branches following all possible combinations of transformations created by the TRS rules
+(formally, the recursive transitive closure by every pair of rules). Customized strategies trim down the size of this reduction space by cutting off undesirable paths
+with contextual knowledge on the current state of the reduction.
+
+For simplicity, we reuse the same notation as in the previous TRS, with the addition of a few rudimentary operators and properties of strategies:
+\begin{itemize}
+    \item Terms can additionally contain tuples ($t ::= t | (t_1, ..., t_n)$). This is essentially syntactic sugar for an $id$ function with arity $n$,
+    but is useful nonetheless.
+    \item A strategy $t \xrightarrow{L: l\rightarrow r} s$ that uses a rule $L$ succeeds if there exists a substitution that applied to $l, r$ produces $t, s$.
+    In other words, the rule is valid if some subterm of $t$ and $s$ match to $l$ and $r$ respectively.
+    The strategy fails with result $\uparrow$ if no such substitution exists.
+    Strategies are often defined through typical functional syntax. For example, \texttt{myStrategy}$(s_1) = s_1$ is a definition similar to the \texttt{id}
+    function in Haskell.
+    Although we overload the $\rightarrow$ operator between rules and strategies, a most basic level, a rule can be considered a strategy if desired.
+    For the rest of this section, $\rightarrow$ denotes the more generic version of the relation.
+    \item Denote the set of strategies $S$ as all possible relations defined by $\rightarrow$. The non-deterministic choice operator $+: S \times S\rightarrow S$
+    then accepts two rules and succeeds with a result if at least one rule is valid. Note that backtracking for this operator is only surface level,
+    so for a strategy $s_1 + s_2$, if $s_1$ is non-deterministically selected and fails immediately, $s_2$ is then selected. However,
+    if $s_1$ only fails after a long series of derivations, the entire strategy $s_1 + s_2$ will fail.
+    \item The deterministic left-choice operator $\leftplus: S \times S \rightarrow S$ prefers to follow the leftmost strategy, only attempting the rightmost strategy
+    upon failure of the left. Similar to $+$, backtracking for failures is only surface-level.
+    \item The composition of strategies $;: S \times S \rightarrow S$ will apply the first strategy and then the second strategy sequentially. Both
+    input strategies must succeed.
+    \item The recursion operator $\mu x: S \rightarrow S$ is slightly different from the usual operator syntax. Strategies defined by $\mu x$ have the form
+    $\mu x (s)$, where a recursive call only happens where $x$ appears within $s$. For example, the strategy function \texttt{repeat}$(s) = \mu x ((s;x)\leftplus \epsilon)$
+    will recursively apply the strategy $s$ and call \texttt{repeat} again until failure. Then, since the other argument $\epsilon$ will always succeed with
+    no additional action, the strategy \texttt{repeat} will finally terminate.
+\end{itemize}
+
+Given the notation defined here, there is no way to distinguish between a strategy that runs on the root node or one that runs on a child node.
+However, this separation of valid strategy applications is important in maintaining granular control of that strategy's actions.
+There may be some cases where we wish to apply a rule to only one subterm of the current term, or restrict applications to only the root term.
+Therefore, we define a special strategy $i(s)$ is that executes the strategy $s$ on the $i$th child of the current term. This function enables the segregation
+of strategies only applicable at the root of a term and those that should be applied only on a particular child.
+
+Further useful strategies for handling child subterms are defined below:
+\begin{itemize}
+    \item $\square(s)$ applies $s$ to all children and only succeeds if all applications of $s$ succeed. Intuitively,
+    this acts like a loop or \texttt{map} function, running $s$ on every element of a term.
+    \item $\diamond(s)$ non-deterministically applies $s$ to one child, only failing if all children fail.
+    Similar to $\square$, an implementation may loop over the list of randomized subterms, returning immediately on the first success.
+    \item $\disquare(s)$, like $\square$, applies $s$ to all children. However, like $\diamond$, this operation only fails if all children fail.
+\end{itemize}
+
+With these available strategies, we can now formulate ultra-concise algorithms to represent three typical methods for evaluating generic TRS:
+\begin{itemize}
+    \item \texttt{reduce}$(s) = $ \texttt{repeat}$(\mu x(\diamond (x) + s))$,
+    which applies a strategy $s$ (or in this case, the entire set of TRS joined with $+$)
+    repeatedly somewhere within the starting term.
+    \item \texttt{outermost}$(s) = $ \texttt{repeat}$(\mu x(s \leftplus \diamond (x)))$,
+    a top down evaluation approach starting from the outermost structure of the root term.
+    \item \texttt{innermost}$(s) = $ \texttt{repeat}$(\mu x(\diamond (x) \leftplus s))$,
+    a bottom up approach that acts on the leaf children of a term. Although this definition is inefficient since it must search the entire tree for root nodes
+    for every application of $s$, an alternative strategy is easily constructed through application of the recursive function to all subterms in the term tree before evaluation.
+\end{itemize}
+
+As is evident in the conciseness of \texttt{reduce} compared to Section 2.5's Basic Completion Algorithm,
+the rewrite strategy system defined here is noticeably more expressive and understandable.
+Nevertheless, this system still lacks the context-awareness required to handle some rules like commutativity and associativity.
+In the next section, we specify additional components of rewrite strategies that enable full contextual awareness
+and controllability of the strategy program.
+
+\subsubsection{Further Improvements on Rewrite Strategies}
+To accommodate the necessity of side effects and contexts in devising strategies for a programming language optimizer,
+Visser et al \cite{elco1998building} proposes a method of breaking down individual rules into atomic pieces: \texttt{match} and \texttt{build}.
+Internally, the rule application for $l \rightarrow r$ on a term $t$ first binds the variables of $l$ to matching subterms in $t$,
+then builds a new term by replacing the bound subterms of $t$ with the rightside transformations specified by $r$. Formally,
+$l \rightarrow r$ now becomes the sequence \texttt{match}$(t);$ \texttt{build}$(r)$.
+
+Notions of environments and scopes are introduced to formalize the transfer of bindings from \texttt{match} to \texttt{build} over the $;$ operator.
+An environment $\mathcal{E}$ contains a mapping of variables to ground terms,
+where the \texttt{match} operation applied to a term $t$ records the variable binding and preserves it for use in \texttt{build}.
+Since variable names may be reused in different contexts, a scope surrounding a strategy $s$ may temporarily redefine a list of variables
+for use only within the strategy. Conceptually, scopes are mini-environments which contain local variables used within a strategy.
+Formally, scopes are demarcated by $\{\vec{x}: s\}$, where $\vec{x}$ is a list of variables defined only within the expression encased by brackets.
+
+Making use of these environments, \texttt{where} is introduced as a function to allow an additional strategy to operate on variables within a rule.
+For example, the rule $L: l \rightarrow r$ \texttt{where} $s$ is equivalent to
+$L = \{$variables of $l,r,s:$ \texttt{match}$(l);$ \texttt{where}$(s);$ \texttt{build}$(r)\}$.
+\texttt{where} does not directly modify the inputs of $l$,
+but can change the values of bound variables of $l$ based on the total environment and input of $l$.
+In turn, this effectively carries only the side effects of $s$, rather than a direct transformation.
+
+Finally, we can build context aware systems capable of detecting cycles in the derivation graph, make decisions based on environmental knowledge,
+and break down the essence of term rewriting into granular pieces. Further syntactic sugar is provided by Visser et al \cite{elco1998building}
+to simplify the process of defining non-linear rules, boolean condition testing, and making use of strategies within rules themselves.
+The development of an optimizing compiler using term rewriting is within reach with the foundational correctness of theoretical, formal proofs.
+
+\subsection{Functional Code Optimization with Rewriting Strategies}
+Although the field of code optimization and optimal code generation is as vast as the field of language design,
+we can observe a few objective optimizations available for functional programs made simple by rewriting strategies.
+For example, dead code analysis can be performed by checking if ...
+
+
+\subsection{A Sample Rewriting Strategy for a Very High Level Language}
+\section{Alternatives to Term Rewriting}
+% TODO compare to something like a visitor pattern????
+% cite rust compiler, LLVM tutorial?
 \section{Conclusion}
 
 
