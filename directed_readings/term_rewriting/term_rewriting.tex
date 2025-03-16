@@ -9,6 +9,8 @@
 \usepackage{array}
 \usepackage{graphicx}
 \usepackage{biblatex}
+\usepackage{algpseudocode}
+\usepackage{algorithm}
 
 \usemintedstyle{solarized-light}
 \setminted{fontsize=\footnotesize, bgcolor=Beige}
@@ -251,29 +253,179 @@ Likewise for $3+2$:
     \approx& \langle \text{By identity E[2]} \rangle\\
     &5
 \end{align*}
-In this example, the exact rewrite rules used correspond with the following substitution function
+In this example, the exact rewrite rules used correspond with the following substitution mapping
 $\sigma = \{0 + s \rightarrow s, Suc(s) + t \rightarrow Suc(s + t), n \rightarrow Suc^n(0)\}$.
-For brevity, we add an additional rule with the condition that it may only be executed in the last step: $Suc^n(0) \rightarrow n$.
+Because of the direct correlation between rules and identities, building an induction proof for correctness of the the general case,
+and thus a new identity, becomes near-trivial. In fact, the proof in 2.1 is more than sufficient, since that style of derivation
+is essentially equational logic itself.
+
+For brevity, note that we add an additional rule with the condition that it may only be executed in the last step: $Suc^n(0) \rightarrow n$.
 Strictly speaking, this last rule prevents the existence of a normal form and therefore prevents termination of the TRS.
 The expanded version of 5 is the canonical normal form of the rewrite rules represented by $\sigma$ since no other reduction rules may be applied.
 In the case of our simple TRS, we must specify a condition on the last rule that is external to the formal TRS definition itself.
 Subsequent sections, in addition to Section 3, explore different methods of tackling problems of this nature.
 
-
-
-
-
-
-% terms $a,b$ are equivalent under the relation $\rightarrow$, so that $a \rightarrow b$ and $b \rightarrow a$.
-
-
 \subsection{Termination}
+Given the striking resemblance between TRS and lambda calculus,
+the notion of halting becomes an unavoidable problem when attempting to use TRS as a program.
+% TODO cite langs
+In fact, several languages like Catln, Pure, Mathematica, and Meander use term rewriting as the basis of their runtime execution.
+In other words, the process of reduction in a rewrite system is essentially the same as a recursive functional program.
+Both computation methods are Turing complete, therefore term rewriting systems must reconcile with the halting problem.
+However, termination of a TRS is especially important in compilation, since we want to ensure that the compiler itself
+is able to consistently produce useful output.
+Further, without a guaranteed normal form for every input (ie. without guaranteed termination for every input),
+confluence of a TRS is impossible to determine.
+
+Since termination is undecidable for general TRS, we instead examine useful subsets of TRS
+that enable nearly-as-powerful expressivity but with guarantees of useful output.
+Some cases of non-terminating TRS are immediately obvious: if the derivation tree contains a cyclic path,
+the TRS will not terminate. For example, if $l \rightarrow r$ where $l$ is a subset of $r$, the derivation
+$l \rightarrow r, (r[i:j] == l) \rightarrow r, (r[i:j][i:j] == l) \rightarrow r$ would repeat infinitely.
+
 \subsubsection{Reduction Orders}
+To prove that a rewrite system will terminate, we make use of reduction orders over the set of possible rules.
+In other words, we aim to give an order to the rules $l_1 \rightarrow r_1,l_2 \rightarrow r_2,l_3 \rightarrow r_3,...$
+such that we can guarantee executing all possible options of rules on a term will eventually result in that term's normal form.
+Thus, we desire a system that can unequivocally state through transitivity that all terms will start somewhere on the left side of the order $l_1 > l_2, l_2 > l_3, ..., l_i > l_j$,
+and eventually reach an irreducible form on the right side.
+Importantly, we note that we do not want to check reduction orders on terms themselves, rather the rules that govern the translation of terms from one form to the next.
+This prevents a combinatorial explosion in the number of possible reduction pairs.
+
+Formally, a rewrite order $>$ must satisfy:
+\begin{itemize}
+    \item Compatibility with functions in $\Sigma$. $\forall s_i > s_j: f(s_1, s_2, ..., s_i, ...) > f(s_1, s_2, ..., s_j, ...)$.
+    \item Closure under substitution. $ s_i > s_j \implies \sigma(s_i) > \sigma(s_j)$
+\end{itemize}
+One example of such an order may be the number of variables in two terms.
+For example, if $s$ contains 3 occurrences of the same variable and $t$ contains only one occurrence,
+it is logical that $s > t$, where $>$ compares the number of similar variables in either term, may be a valid and useful reduction order.
+
+A common method of deriving such orders on terms is through an alternative representation in another algebra.
+For example, if there exists a total substitution function $\sigma: T(\Sigma,X) \times A$ under some algebra $A$ such that $s >_A t \equiv \sigma(s) > \sigma(t)$,
+the combination of $\sigma$ and $>_A$ could form a reduction order over all valid rules. Note that an additional requirement of this order is monotonicity, formally
+that $s_i >_A s_j \implies f(s_1, s_2, ..., s_i, ...) >_A f(s_1, s_2, ..., s_j, ...)$. Generally, the substituted algebraic set consists of polynomials over the natural numbers,
+a set which can be monotonic and has a clearly irreducible ``base'' form (ie. 0 cannot be reduced).
+
 \subsubsection{Simplification Orders}
+While reduction orders may be suitable for some simple TRS, they can easily suffer from exponentially large upper bounds on the length of a viable reduction sequence.
+An informal example of this can be seen by adding exponentiation and multiplication to the above natural numbers example.
+Depending on the substituted algebraic reduction, the number of $Suc$ calls required for the normal form of $2^{n^2}$ would be
+more than exponentially large on the size of $n$.
+
+As a means of addressing exponential growth in reduction orders, Baader and Nipkow \cite{baader1998term} present the concept of a simplification order.
+A simplification order must satisfy the conditions of a rewrite order, mentioned in Section 2.3.1, but additionally notes that all subterms $t_i$ of a term $t$
+may not grow individually, satisfying $t > t_i$. As a consequence, the relative orderings of substitutions into another algebra must be homeomorphic, preserving the relative
+structure of each subterm.
+
+The text further provides an excellent example for generic automatic termination checking through lexicographic path orders. Semi-formally, $s >_{lpo} t$ iff:
+\begin{itemize}
+    \item $t$ is a subterm variable of $s$, or
+    \item $s$ and $t$ are function applications where $s = f(s_1, ...)$ and $t = g(t_1)$ with one of the following:
+    \begin{itemize}
+        \item some subterm $s_i \geq_{lpo} t$
+        \item $f > g$ and $s >_{lpo} t_j \forall j$
+        \item $f = g$, $s >_{lpo} t_j \forall j$, and $\exists i: s_i > t_i$
+    \end{itemize}
+\end{itemize}
+Lexicographic path orders start at the root of a symbol and works towards showing an order on the innermost symbols.
+This reduction order can be used to show termination of TRS whose reduction sequence length cannot be bounded by a primitive recursive function.
+Further, $s >_{lpo} t$ can be decided in polynomial time on $t$, where termination on the entire TRS is NP-complete.
+% TODO example 5.4.13 if needed
+
+% An extension of $>_{lpo}$ is given by the Knuth-Bendix order, which assigns weights to each of the terms in addition to considering the lexicographic ordering.
+% The main usefulness of additional weights is to reduce the time complexity of some exponentially bound edge cases
+
+
 \subsection{Confluence}
 The notion of confluence is essential in building a reliable compiler, since we want to ensure that every
 compilation execution of the same source text produces consistent, correct, and optimal code.
+When treating a TRS as if it were executing a program, confluence simply refers to the determinism of the output.
+Given the same set of inputs, rules, and variables, a TRS that is confluent will always produce the same normal forms
+on every execution. Note that determinism is not guaranteed by any form of TRS, as any rule with a satisfiable LHS
+may be applied to a term in any order. If two rules exists with the same LHS but diverging RHS, we must consider the possibility
+that different rules may be chosen for different compilation executions.
+
+In general, like termination, a finite TRS is powerful enough that confluence is an undecidable problem.
+However, given knowledge that TRS \textit{is} terminating, we find that confluence is decidable.
+Furthermore, a terminating TRS is confluent if it is locally confluent. Informally, derivations from $t$
+that deviate after one step yet still eventually result in the same normal form are locally confluent.
+
+To calculate whether a pair of diverging rules $l_1 \rightarrow r_1$ and $l_2 \rightarrow r_2$ are locally confluent from starting term $s$, we examine three possible cases.
+\begin{itemize}
+    \item Case 1: If $l_1$ and $l_2$ do not overlap or interfere with one another (ie. they are distinct subterms of $s$),
+    $s \rightarrow^{l_1 \rightarrow r_1} t_1 \rightarrow^{l_2 \rightarrow r_2} z$ and
+    $s \rightarrow^{l_2 \rightarrow r_2} t_2 \rightarrow^{l_1 \rightarrow r_1} z$ should result in the same $z$.
+    \item Case 2: A non-critical overlap of rules where the LHS instance of one rule is properly contained in the substitution function of another rule's LHS.
+    In other words, the term $s$ contains a modified version of $l_1$ and $l_2$ such that the most generic forms of both LHS do not overlap.
+    Then, an exhaustive application of both rules where applicable will result in the same normal form.
+    \item Case 3: A critical overlap of $l_1$ and $l_2$, where both rules try to manipulate the most generic form of the other's LHS.
+    Then, we define a critical pair as a tuple $(\theta r_1, \theta l_1[\theta r_2]_p)$, where $\theta$ is the most general unifier of $l_2 =^? l_1|_p$,
+    which must be examined externally to ensure both transitions result in the same normal form.
+\end{itemize}
+If all critical pairs can be resolved to a normal form, we can claim that a TRS is confluent.
+Of course, since the number of critical pairs is finite, the confluence of a finite terminating TRS is decidable.
+
+Confluence can be determined for some subset of non-terminating rewrite systems, but the topic is beyond the scope of this paper.
+
 \subsection{A Complete Algorithm}
+Now that we have addressed the two major concerns of term rewriting systems, we can derive a generic algorithm, or strategy,
+to actually process the translation information embedded into rewrite rules. Given the proof of termination
+through the reduction orders listed in Section 2.3 and a list of identities $E$, demonstrating confluence of a TRS primarily
+involves constructing all possible critical pairs from the list of identities
+and adding resolution rules for the normalized versions of those pairs according to the given reduction order.
+
+Pseudocode for this algorithm is as follows:
+\begin{algorithm}[H]
+\caption{Basic Completion Algorithm}\label{alg:cap}
+\begin{algorithmic}
+\Require $E$: set of identities, $>$: reduction order over $T(\Sigma,X)$
+\Ensure Output is either a TRS $R \equiv E$ or failure
+\If{$(s \approx t) \in E$ cannot be ordered by $>$}
+return failure
+\EndIf
+\State $i:=1; R_0 := \{l \rightarrow r | (l \approx r) \in E \land l > r\}$
+\While{true}
+\State $R_i := R_{i-1}$
+\For{all critical pairs $s,t$}
+\State $s_1,t_1 :=$ normal forms of $s,t$
+\If{$s_1 \neq t_1$ and those cannot be ordered by $>$}
+return failure
+\EndIf
+\State $R_i := R_i \cup \{l \rightarrow r | l,r \in \{s_1, t_1\} \land l > r\}$
+\EndFor
+\If{$R_{i-1} = R_i$}
+return $R_i$
+\EndIf
+\State $i := i+1$
+\EndWhile
+\end{algorithmic}
+\end{algorithm}
+
+As an aside, the resolution process of critical pairs can be conceptualized as resolving merge conflicts between diverging rules.
+In a sense, two diverging rules are akin to two developers attempting to modify the same line of code. Git, of course, requires manual intervention
+to minimize the chance of disruptions upon code execution, but the eventual resolution of diverging lines is similar to the process of this algorithm.
+The goal of the algorithm can therefore be rephrased as pre-emptively generating canonical resolutions for all possible merge conflicts caused by critical pairs.
+
+The limitations of this procedure are fairly standard: the program will fail if terms cannot be ordered, or it may attempt to infinitely create new rules.
+Further, when successful, the algorithm creates a large number of rules to resolve each critical pair along its derivation path, resulting in
+long runtimes and high space complexity.
+
+Improvements to this algorithm primarily involve dealing with the TRS and identity set on a higher level than previously seen, where a completion procedure
+repeatedly follows a set of generic inference rules, described below:
+\begin{itemize}
+    \item Deduce: If $l \rightarrow r_1, l \rightarrow r_2 \in R$, add $r_1 \approx r_2$ to $E$.
+    \item Orient: If $(s \approx t) \in E$ and $s > t$, add $s \rightarrow t$ to $R$.
+    \item Delete: Remove reflexive identities $s \approx s$.
+    \item Simplify-identity: Transform identity $s \approx t$ to $u \approx t$ if $s \rightarrow u \in R$.
+    \item R-simplify-rule: Transform rule $s \rightarrow t$ to $s \rightarrow u$ if $t \rightarrow u \in R$.
+    \item L-simplify-rule: Convert rule $s \rightarrow t$ to identity $u \approx t$ if $s \rightarrow^{\supset} u$ ($s$ is the more generic form of $u$).
+\end{itemize}
+The behaviour of the combined ruleset essentially shifts the balance of rule derivations and identities between one another. For example, deduce adds an identity
+to $E$ if the same source term provides two different derived terms in $R$, covering all critical pairs.
+Likewise, new rules are derived from identities through the orient rule.
+Transitive closures are then covered by the simplify series of rules, resulting in a smaller but still correct rule set $R$.
+
 \subsection{Limitations}
 % \section{Code Optimization}
 \section{An Improved Term Rewriting System for Code Optimization} % Could also be "A Term Rewriting System for Code Optimization"
