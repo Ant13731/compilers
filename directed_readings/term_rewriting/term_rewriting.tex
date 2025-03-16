@@ -604,7 +604,22 @@ The development of an optimizing compiler using term rewriting is within reach w
 \subsection{Functional Code Optimization with Rewriting Strategies}
 Although the field of code optimization and optimal code generation is as vast as the field of language design,
 we can observe a few objective optimizations available for functional programs made simple by rewriting strategies.
-For example, dead code analysis can be performed by checking if ...
+For example, dead code can be removed by removing safe terms from subexpressions that are not used. Consider
+the expression \texttt{let x = 1 in z}. By using \texttt{where} to test for occurrences of $x$ in $z$
+and assess any side effects of $x$,
+we can conditionally perform a rewrite action to trim the unused \texttt{let} portion of the statement.
+The optimizer gains both syntactic analysis abilities in addition to semantic ones caused by a modified environment.
+
+Further code optimizations like function inlining and replacing occurrences of variables with their values
+are made possible by context-aware rules and strategies. For instance, in function inlining, we must ensure
+simultaneous substitution of all occurrences of a function within some set of terms.
+Then, the optimizations of the function itself must be applied to all replaced occurrences.
+With a generic fully non-deterministic rewrite system, guaranteeing performant inlining of functions would
+not be possible, since any rule can be applied at any time. Moreover, unwrapping loops
+and inlining variables used within those loops is an easy performance improvement only possible with knowledge of the variable's lifetime.
+If a strategy finds that a variable only exists as an iterator for a loop, unused elsewhere in the code, that variable may be inlined.
+Additionally, such a strategy may also detect other variables within the loop that are the result of functions applied to iterator itself.
+In that case, additional variables may be replaced with appropriate constants.
 
 
 \subsection{A Sample Rewriting Strategy for a Very High Level Language}
