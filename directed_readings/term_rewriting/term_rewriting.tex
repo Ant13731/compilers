@@ -24,6 +24,7 @@
 \begin{document}
 \maketitle
 \tableofcontents
+\newpage
 
 \section{Introduction}
 
@@ -176,13 +177,26 @@ of well-known formulas and equational logic to translate complex text into somet
 In this section, we present a simple term rewriting system as specified in the definitive text by Baader and Nipkow \cite{baader1998term}.
 
 Formally, a TRS is an abstract reduction system defined by a set of terms $T$ and a relation $\rightarrow: T \times T$ over those terms.
-Aside from transforming high level expressions into a format digestible for computers,
-one major goal of this reduction system is to determine whether two (or more) different derivations of a term $t$ will eventually reach the same normal form.
-In other words, if $t \rightarrow^* a$ and $t \rightarrow^* b$,
-$a$ and $b$ are joinable to some (eventually normalized) term $z$
-(ie. $a \rightarrow^* z$ and $b \rightarrow^* z$ should be true).
-If a TRS system satisfies this ``joinable'' property, it is a confluent system.
-A discussion on the confluence of rewrite systems is contained in Section 2.4.
+Usually, $\rightarrow$ is defined by a mapping of rewrite rules $l \rightarrow r$, which directly translate pieces of text (known as terms) from one form into another.
+The goal of such a system in the context of compilers is to translate high level, expressive text into a format digestible for computers and efficient in execution.
+
+To ensure the correctness of this reduction process,
+we must ensure that the system terminates and is confluent:
+\begin{itemize}
+    \item
+    Similar to regular executable programs, the termination problem deals with the possibility of reduction derivations of infinite length.
+    We say that a TRS terminates if all possible terms can be evaluated to some irreducible normal form. Therefore, if a TRS does not terminate,
+    there must be an input term $t$ that has an infinite length derivation $t_1 \rightarrow t_2, t_2 \rightarrow t_3, ...$
+    (ie. $t$ never finishes the reduction process to a normal form).
+    Further notes on termination can be found in Section 2.3.
+    \item
+    The confluence of a system determines whether two (or more) different derivations of a term $t$ will eventually reach the same normal form.
+    In other words, if $t \rightarrow^* a$ and $t \rightarrow^* b$,
+    $a$ and $b$ are joinable to some (eventually normalized) term $z$
+    (ie. $a \rightarrow^* z$ and $b \rightarrow^* z$ should be true).
+    If a TRS system satisfies this ``joinable'' property, it is a confluent system.
+    A discussion on the confluence of rewrite systems is contained in Section 2.4.
+\end{itemize}
 
 Additional notation regarding term rewriting systems are listed below,
 where the details of some properties have been discarded for simplicity and conciseness.
@@ -191,7 +205,7 @@ These notions will be used intermittently throughout the rest of this paper:
     \item The signature set $\Sigma = \cup_{n=0}\Sigma^n$ contains function symbols that have arity $n$ (ie. functions that take in $n$ arguments).
     \item The set of terms $T(\Sigma, X)$ inductively contains all variables $X$ and all applications of functions to those terms.
     \item The set of ground terms $T(\Sigma, \emptyset)$ contains only constants (ie., $f \in \Sigma^0$) and function applications of those constants. No variables allowed.
-    \item Function $\sigma: X \times T(\Sigma, X)$ is a set of mappings on variables within terms to other elements of $T(\Sigma, X)$.
+    \item The substitution function $\sigma: X \times T(\Sigma, X)$ is a set of mappings on variables within terms to other elements of $T(\Sigma, X)$.
     \item A term $t$ is an instance of a term $s$ if a substitution applied to $s$ produces $t$. Formally, $\sigma(s) = t \implies t \gtrsim s$.
     % TODO add as needed
 \end{itemize}
@@ -268,7 +282,7 @@ Subsequent sections, in addition to Section 3, explore different methods of tack
 \subsection{Termination}
 Given the striking resemblance between TRS and lambda calculus,
 the notion of halting becomes an unavoidable problem when attempting to use TRS as a program.
-% TODO cite langs
+% TODO cite langs, give definition of terminating (no infinite sequence x1 -> x2 -> ...)
 In fact, several languages like Catln, Pure, Mathematica, and Meander use term rewriting as the basis of their runtime execution.
 In other words, the process of reduction in a rewrite system is essentially the same as a recursive functional program.
 Both computation methods are Turing complete, therefore term rewriting systems must reconcile with the halting problem.
@@ -427,8 +441,33 @@ Likewise, new rules are derived from identities through the orient rule.
 Transitive closures are then covered by the simplify series of rules, resulting in a smaller but still correct rule set $R$.
 
 \subsection{Limitations}
+Although term rewriting systems have a natural affinity for formal proofs of correctness
+and a straightforward implementation through repeated rule application,
+the solvers presented thus far have several notable limitations that grossly limit practical use of the presented TRS in mainstream languages.
+
+When designing a TRS for use in a compiler, developers must consider restrictions on
+NP-complete algorithms for generic termination-related reduction orders, large memory requirements for exhaustive confluence search,
+and unintelligent application of rules to generate every possible normal-form transformation.
+Further, while rewrite systems lend themselves well to functional, pattern-matching based languages like Mathematica, ML, and Haskell,
+the validity of rules becomes extremely difficult to determine when considering side effects or imperative style languages.
+Even within purely discrete mathematical computations, common identities like commutativity and associativity of binary operators
+cannot be directly accepted, lest the language cease to terminate. Intuitively, term rewriting works best when there is a straightforward,
+simplified form for every possible expression.
+
+Often times, to accommodate termination and confluence limitations while attempting to satisfy requirements,
+the implementation of a TRS will contain external directives intended to circumvent particular instances of non-terminating rules
+or to encode additional knowledge for more efficient methods of term resolution \cite{spoofax}.
+However, this process is unmaintainable and tightly coupled to a specific domain or language.
+By tying down the theoretical formulation of a TRS to its implementation, we lose reusability and modularity.
+
+In some cases, it may even be desirable to combine two TRS together. Of course, doing so presents a fair set of theoretical challenges
+involving termination and confluence,
+as discussed in Chapter 9 of \cite{baader1998term}, but attempting to combine non-standard implementations of two TRS is futile from an engineering perspective.
+
+Section 3 presents a revised term rewriting system to address these limitations.
+
 % \section{Code Optimization}
-\section{An Improved Term Rewriting System for Code Optimization} % Could also be "A Term Rewriting System for Code Optimization"
+\section{An Improved Term Rewriting System for Code Optimization}
 \subsection{Rewriting Strategies}
 \subsection{Code Optimization with Rewriting Strategies}
 \section{Conclusion}
