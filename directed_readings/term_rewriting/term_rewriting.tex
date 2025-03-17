@@ -58,7 +58,7 @@ Therefore, the prime directive of programming languages and compilers
 aims to provide a more intuitive and expressive experience when communicating with machines,
 while ensuring preservation of correctness and
 highly efficient translated instructions.
-Formal, provable methods to achieve these goals are vital to guarantee that
+Formal, provable methods are vital to guarantee that
 real-world compilers meet these goals.
 
 In this paper, we explore concepts and ideas surrounding the topic of simple term rewriting,
@@ -235,8 +235,8 @@ To better illustrate the translation-like nature of TRS in the context of equati
 over natural numbers from the perspective of a TRS.
 
 Consider a set of identities similar to our axioms for natural numbers:
-$E = \{0 + n \approx 0, Suc(n) + m \approx Suc(n + m), Suc^n(0) \approx n\}$.
-Then, with a TRS defined by $X = \{m,n\}$ and $\Sigma = \{0, Suc(x_1), x_1 + x_2\}$,
+$E = \{0 + n \approx 0, Suc(n) + m \approx Suc(n + m), Suc^c(0) \approx c\}$.
+Then, with a TRS defined by $X = \{m,n\}$ and $\Sigma = \{c,0, Suc(x_1), x_1 + x_2\}$,
 we can determine whether a new identity $2 + 3 \approx 3 + 2$
 is satisfiable within this set by reducing both sides of the identity to normal form.
 Note that it is possible to prove $n + m \approx m + n$ in the general case, but for the sake of clarity in one example derivation,
@@ -314,16 +314,52 @@ One example of such an order may be the number of variables in two terms.
 For example, if $s$ contains 3 occurrences of the same variable and $t$ contains only one occurrence,
 it is logical that $s > t$, where $>$ compares the number of similar variables in either term, may be a valid and useful reduction order.
 
-A common method of deriving such orders on terms is through an alternative representation in another algebra.
-For example, if there exists a total substitution function $\sigma: T(\Sigma,X) \times A$ under some algebra $A$ such that $s >_A t \equiv \sigma(s) > \sigma(t)$,
+Deriving orders on terms is commonly achievable through alternative representation of terms in another algebra.
+% A common method of deriving such orders on terms is through an alternative representation in another algebra.
+If there exists a total substitution function $\sigma: T(\Sigma,X) \times A$ under some algebra $A$ such that $s >_A t \equiv \sigma(s) > \sigma(t)$,
 the combination of $\sigma$ and $>_A$ could form a reduction order over all valid rules. Note that an additional requirement of this order is monotonicity, formally
 that $s_i >_A s_j \implies f(s_1, s_2, ..., s_i, ...) >_A f(s_1, s_2, ..., s_j, ...)$. Generally, the substituted algebraic set consists of polynomials over the natural numbers,
 a set which can be monotonic and has a clearly irreducible ``base'' form (ie. 0 cannot be reduced).
 
+Consider a set of rules $R$ that mirrors the example TRS for addition over natural numbers defined in Section 2.2.1:
+\[R = \{0 + n \rightarrow n, n + 0 \rightarrow n, Suc(n) + m \rightarrow Suc(n+m), c \rightarrow Suc^c(0)\}\]
+Note that we explicitly exclude the inverse of $Suc(n) + m \rightarrow Suc(n+m)$
+since such a rule would enable commutativity and thus prevent termination of the TRS.
+Additionally, we denote the set of possible terms $T$ as all combinations of $\{c, x_1 + x_2, Suc(x_1)\}$ where $x_i$ denotes variables and $c$ is a constant $\in \mathbb{N}$.
+Informally, this system will reduce every combination of numbers under the $+$ symbol to a single number defined by successive $Suc$ constructors.
+To prove termination of the system, we map every possible term, defined by combinations of numbers, $Suc$ constructors, and addition operators
+in the following manner:
+\begin{table}[H]
+    \centering\begin{tabular}{|c|c|}
+        \hline
+        Operator & Polynomial Reduction\\
+        \hline
+        $c \in \mathbb{N}$ & $c + 1$\\
+        $Suc(x_1)$ & $P(x_1) + 1$\\
+        $x_1 + x_2$ & $(P(x_1) + P(x_2))^2$\\
+        \hline
+    \end{tabular}
+    \caption{Polynomial equivalents for a reduction of addition over $\mathbb{N}$}
+    \label{<label>}
+\end{table}
+For each possible term combination as examined by the rules in $R$, we observe the following:
+\begin{itemize}
+    \item $0 + n \rightarrow n$ and $n + 0 \rightarrow n$ will always decrease the value of the equivalent polynomial reduction.
+    The equivalent polynomials of the LHS are $P_+(P(0),P(n)) = P_+(1, X) = (X+1)^2$, where $X$ is the unknown polynomial representation of a term $n$.
+    Since the RHS is always $P(n) = X$ and $(X+1)^2 > X$, these two rules satisfy the polynomial reduction.
+    \item $c \rightarrow Suc^c(0)$ converts the numerical representation of a constant into repeated $Suc$ constructions.
+    Because we defined $P(c) = c+1$ and $P_{Suc}(0)^c = 0 + 1 + 1 + ... = \sum_0^c 1 = c$, this rule satisfies LHS $>$ RHS.
+    \item $Suc(n) + m \rightarrow Suc(n+m)$ moves addition inside the $Suc$ constructor. The LHS representation is $P_+(P_{Suc}(P(n)),P(m))=((X+1)+Y)^2$
+    and RHS is $P_{Suc}(P_+(P(n),P(m)))=(X+Y)^2+1$, where $X,Y$ correspond to $P(n), P(m)$ respectively.
+    Expanding both sides, we find that $X^2+Y^2+2XY+2X+2Y+1 > X^2+Y^2+2XY+1$, so LHS $>$ RHS.
+\end{itemize}
+Since all possible rule reductions decrease monotonically over the polynomial algebra, we can guarantee termination of this TRS.
+
+
 \subsubsection{Simplification Orders}
 While reduction orders may be suitable for some simple TRS, they can easily suffer from exponentially large upper bounds on the length of a viable reduction sequence.
 An informal example of this can be seen by adding exponentiation and multiplication to the above natural numbers example.
-Depending on the substituted algebraic reduction, the number of $Suc$ calls required for the normal form of $2^{n^2}$ would be
+Depending on the substituted algebraic reduction, the number of $Suc$ calls required for the normal form of a term like $2^{n^2}$ would be
 more than exponentially large on the size of $n$.
 
 As a means of addressing exponential growth in reduction orders, Baader and Nipkow \cite{baader1998term} present the concept of a simplification order.
@@ -333,22 +369,34 @@ structure of each subterm.
 
 The text further provides an excellent example for generic automatic termination checking through lexicographic path orders. Semi-formally, $s >_{lpo} t$ iff:
 \begin{itemize}
-    \item $t$ is a subterm variable of $s$, or
-    \item $s$ and $t$ are function applications where $s = f(s_1, ...)$ and $t = g(t_1)$ with one of the following:
+    \item Condition 1: $t$ is a subterm variable of $s$, or
+    \item Condition 2: $s$ and $t$ are function applications where $s = f(s_1, ...)$ and $t = g(t_1,...)$ with one of the following:
     \begin{itemize}
-        \item some subterm $s_i \geq_{lpo} t$
-        \item $f > g$ and $s >_{lpo} t_j \forall j$
-        \item $f = g$, $s >_{lpo} t_j \forall j$, and $\exists i: s_i > t_i$
+        \item Condition 2.1: some subterm $s_i \geq_{lpo} t$
+        \item Condition 2.2: $f > g$ and $s >_{lpo} t_j \forall j$
+        \item Condition 2.3: $f = g$, $s >_{lpo} t_j \forall j$, and $\exists i: s_i > t_i$
     \end{itemize}
 \end{itemize}
 Lexicographic path orders start at the root of a symbol and works towards showing an order on the innermost symbols.
 This reduction order can be used to show termination of TRS whose reduction sequence length cannot be bounded by a primitive recursive function.
 Further, $s >_{lpo} t$ can be decided in polynomial time on $t$, where termination on the entire TRS is NP-complete.
-% TODO example 5.4.13 if needed
 
-% An extension of $>_{lpo}$ is given by the Knuth-Bendix order, which assigns weights to each of the terms in addition to considering the lexicographic ordering.
-% The main usefulness of additional weights is to reduce the time complexity of some exponentially bound edge cases
-
+For completeness, we show that the addition TRS described above is a simplification order over $>_{lpo}$.
+Referring to the set
+\[R = \{0 + n \rightarrow n, n + 0 \rightarrow n, Suc(n) + m \rightarrow Suc(n+m), c \rightarrow Suc^c(0)\}\]
+we show:
+\begin{itemize}
+    \item $0 + n \rightarrow n, n + 0 \rightarrow n$ are satisfied by the first condition. $n$ is a subterm of both $n+0$ and $0+n$.
+    \item In the rule $c \rightarrow Suc^c(0)$, $c$ can be considered an 0-ary constant. Since the definition of $>_{lpo}$
+    expects an ordering of functions as input, the 0-ary function $c > Suc$, and $c$ is certainly greater than the subterm 0.
+    Thus, condition 2.2 is satisfied.
+    \item $Suc(n) + m \rightarrow Suc(n+m)$ is again function applications more clearly of the form $+(Suc(n), m) \rightarrow Suc(+(n,m))$.
+    We can say that $+ > Suc$ to follow condition 2.2. As part of 2.2, we must check that $+(Suc(n), m) >_{lpo} +(n,m)$. Turning to condition 2.3,
+    we see that all subterms of the LHS are greater than the RHS ($+(Suc(n), m) >_{lpo} n$ and $+(Suc(n), m) >_{lpo} m$ by condition 1),
+    and there exists a subterm of the LHS $>$ RHS ($Suc(n) >_{lpo} n$ by condition 1).
+\end{itemize}
+Although the proof for termination seems more complex than the polynomial scheme in Section 2.2, the simple generality of recursively following conditions
+enables fast derivations of such proofs.
 
 \subsection{Confluence}
 The notion of confluence is essential in building a reliable compiler, since we want to ensure that every
@@ -626,7 +674,6 @@ since GHC makes no attempts to verify the correctness or soundness of such rules
 % cite rust compiler, LLVM tutorial?
 \section{Conclusion}
 
-% TODO rework this, dont need the lexer-parser stuff
 Term rewriting systems are a vital concept to producing simple, formally verifiable compilers.
 Throughout this paper and even in the real world, the idea of a simple TRS consisting of rules and terms
 has permeated nearly every facet of modern functional and symbolic programming. The subfield of rewriting has been modified, extended, and decomposed
@@ -650,8 +697,6 @@ Computation systems have reached a level of theoretical power that, given enough
 combination of data. The hurdle that we face now, then, is cleverly sieving through nonsensical information to recognize optimal patterns in the mundane.
 Syntax based tools in line with rewriting, grammars, and automata are the only realistic methods in which we can formalize the concept of language and symbolic interaction
 into something digestible and usable.
-
-
 
 \pagebreak
 \nocite{*} % keeps all references, even those not referred to
