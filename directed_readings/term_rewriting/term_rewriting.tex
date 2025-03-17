@@ -630,24 +630,31 @@ since GHC makes no attempts to verify the correctness or soundness of such rules
 Term rewriting systems are a vital concept to producing simple, formally verifiable compilers.
 Throughout this paper and even in the real world, the idea of a simple TRS consisting of rules and terms
 has permeated nearly every facet of modern functional and symbolic programming. The subfield of rewriting has been modified, extended, and decomposed
-countless times all in extremely unique ways. Each flavour of term rewriting has its advantages and disadvantages, but the pervasiveness of the original idea
+countless times all in extremely unique ways. Naturally, each flavour of term rewriting has its advantages and disadvantages, but the pervasiveness of the original idea
 is a testament to the power of a generic set of transformations.
 
 Although rewriting strategies are one among many refined translation techniques,
-the practical and useful separation of rules and rule applications can be likened to that of a lexer and parser within a compiler frontend.
-The lexer handles low-level conversions from strings into tokens, much like the rule set of a TRS handles atomic conversions from one term to another.
-Then, the parser can focus more on the structure of tokens rather than the contents within each token, similar to the
-abstraction of strategic algorithms as a method of controlled rule manipulation.
-Essentially, the rewriting strategy organizes chaotic and otherwise indiscriminate rule executions into a usable, practical, controllable system.
+the practical and useful separation of rules and rule applications
+is as instinctive as separating the backend and frontend of a website.
+Either component of the system can be extended at any time with minimal impact on the other,
+just as a server may host additional APIs or a website implement aesthetic changes with complete inter-component isolation.
+In essence, rules of a TRS provide atomic, provable, and correctness-preserving instructions,
+while the rewrite strategy governs an otherwise indiscriminate rule execution into an efficient, practical, controllable system.
 Granting even a gentle push in the right direction can massively reduce the number of possible derivation trees for a TRS,
 mitigating issues caused by non-determinism. Yet, the powerful nature of random pattern matching remains an accessible tool.
+
+% pronounced
+% can be likened to that of a lexer and parser within a compiler frontend.
+% The lexer handles low-level conversions from strings into tokens, much like the rule set of a TRS handles atomic conversions from one term to another.
+% Then, the parser can focus more on the structure of tokens rather than the contents within each token, similar to the
+% abstraction of strategic algorithms as a method of controlled rule manipulation.
 
 The rewrite system presented in this paper aims
 to harness the power of non-determinism while remaining in control of the seemingly uncontrollable,
 predictable in the face of unpredictability, and most importantly, correct in the presence of infinite possibility.
 Computation systems have reached a level of theoretical power that, given enough time and space, could generate any and every possible
-combination of data. The hurdle that we face now, then, is cleverly sieving through nonsensical information to recognize patterns in the mundane.
-Syntax based tools, like rewriting, grammars, and automata, are only realistic methods in which we can formalize the concept of language and symbolic interaction
+combination of data. The hurdle that we face now, then, is cleverly sieving through nonsensical information to recognize optimal patterns in the mundane.
+Syntax based tools in line with rewriting, grammars, and automata are the only realistic methods in which we can formalize the concept of language and symbolic interaction
 into something digestible and usable.
 
 
