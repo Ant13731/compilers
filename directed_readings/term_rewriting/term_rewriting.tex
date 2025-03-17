@@ -130,7 +130,7 @@ With the two axioms and this derived theorem, we can simply manipulate provided 
 
 All this to say that the core of term rewriting is merely an exhaustive application of transformation rules on a piece of text.
 A term rewriting system (TRS), then, is a system that defines available rules and valid inputs/outputs of those rules.
-Any valid input/output text is often referred to as a term, with each application of a rule is a rewrite step.
+Any valid input/output text is often referred to as a term, with each application of a rule as a rewrite step.
 A term reaches normal form within a TRS when rules no longer apply to any text within the term (ie. it is irreducible).
 
 In the context of compilers, the goal of a TRS is clear: we aim to translate high level,
@@ -626,6 +626,7 @@ since GHC makes no attempts to verify the correctness or soundness of such rules
 % cite rust compiler, LLVM tutorial?
 \section{Conclusion}
 
+% TODO rework this, dont need the lexer-parser stuff
 Term rewriting systems are a vital concept to producing simple, formally verifiable compilers.
 Throughout this paper and even in the real world, the idea of a simple TRS consisting of rules and terms
 has permeated nearly every facet of modern functional and symbolic programming. The subfield of rewriting has been modified, extended, and decomposed
