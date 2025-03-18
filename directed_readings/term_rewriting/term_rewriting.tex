@@ -139,14 +139,14 @@ a TRS cannot hope to shoulder the responsibility of the entire compilation proce
 but just as a lexer reduces the complexity of a parser, so too can a TRS simplify the generation of useful, efficient code.
 
 Since term rewriting and lambda calculus both have roots in manipulating the structure of symbols as a form of computation,
-term rewriting systems are uniquely poised to handle symbolic computation (ie. algebra-related mathematics) and functional programming with grace.
+term rewriting systems are uniquely poised to handle symbolic computation (ie. algebra-related mathematics) and functional programming with grace \cite{baader1998term}.
 For instance, formal proofs of correctness for the translation scheme of a TRS follow naturally through enumerating every possible derivation inductively.
 The function-like nature of rule applications means that, aside from non-determinism and conflicting rules,
 a developer can guarantee a consistent derivation output.
 
 In most real-world languages that make use of term rewriting, especially the Wolfram Mathematica language,
 treatment of mathematical expressions as symbolic objects enables both high performance computations
-and an understandable, step by step derivation of the solution. After all, when attempting to solve
+and an understandable, step by step derivation of the solution \cite{buchberger1996mathematica,mircea2004rule}. After all, when attempting to solve
 a complex expression like $\int \int (\cos{x}^2 + \tanh{x}^3)e^y dx dy$, mathematicians naturally make use
 of well-known formulas and equational logic to translate complex text into something much more manageable.
 
@@ -235,7 +235,7 @@ To better illustrate the translation-like nature of TRS in the context of equati
 over natural numbers from the perspective of a TRS.
 
 Consider a set of identities similar to our axioms for natural numbers:
-$E = \{0 + n \approx 0, Suc(n) + m \approx Suc(n + m), Suc^c(0) \approx c\}$.
+\[E = \{0 + n \approx 0, Suc(n) + m \approx Suc(n + m), Suc^c(0) \approx c\}\]
 Then, with a TRS defined by $X = \{m,n\}$ and $\Sigma = \{c,0, Suc(x_1), x_1 + x_2\}$,
 we can determine whether a new identity $2 + 3 \approx 3 + 2$
 is satisfiable within this set by reducing both sides of the identity to normal form.
@@ -266,29 +266,29 @@ Likewise for $3+2$:
     \approx& \langle \text{By identity E[2]} \rangle\\
     &5
 \end{align*}
-In this example, the exact rewrite rules used correspond with the following substitution mapping
-$\sigma = \{0 + s \rightarrow s, Suc(s) + t \rightarrow Suc(s + t), n \rightarrow Suc^n(0)\}$.
+In this example, the exact rewrite rules used correspond with the following substitution mapping:
+\[\sigma = \{0 + s \rightarrow s, Suc(s) + t \rightarrow Suc(s + t), c \rightarrow Suc^c(0)\}\]
 Because of the direct correlation between rules and identities, building an induction proof for correctness of the the general case,
-and thus a new identity, becomes near-trivial. In fact, the proof in 2.1 is more than sufficient, since that style of derivation
+and thus a new identity, becomes near-trivial. In fact, the proof in Section 2.1 is more than sufficient, since that style of derivation
 is essentially equational logic itself.
 
-For brevity, note that we add an additional rule with the condition that it may only be executed in the last step: $Suc^n(0) \rightarrow n$.
+For brevity, note that we add an additional rule with the condition that it may only be executed in the last step: $Suc^c(0) \rightarrow c$.
 Strictly speaking, this last rule prevents the existence of a normal form and therefore prevents termination of the TRS.
 The expanded version of 5 is the canonical normal form of the rewrite rules represented by $\sigma$ since no other reduction rules may be applied.
 In the case of our simple TRS, we must specify a condition on the last rule that is external to the formal TRS definition itself.
-Subsequent sections, in addition to Section 3, explore different methods of tackling problems of this nature.
+Subsequent sections, in addition to Section 3, explore different methods of tackling problems that require more control over the derivation process.
 
 \subsection{Termination}
 Given the striking resemblance between TRS and lambda calculus,
 the notion of halting becomes an unavoidable problem when attempting to use TRS as a program.
 % TODO cite langs, give definition of terminating (no infinite sequence x1 -> x2 -> ...)
-In fact, several languages like Catln, Pure, Mathematica, and Meander use term rewriting as the basis of their runtime execution.
+In fact, several languages like Catln, Pure, Mathematica, and Meander use term rewriting as the basis of their runtime execution \cite{catln,pure,mircea2004rule,meander}.
 In other words, the process of reduction in a rewrite system is essentially the same as a recursive functional program.
 Both computation methods are Turing complete, therefore term rewriting systems must reconcile with the halting problem.
 However, termination of a TRS is especially important in compilation, since we want to ensure that the compiler itself
 is able to consistently produce useful output.
 Further, without a guaranteed normal form for every input (ie. without guaranteed termination for every input),
-confluence of a TRS is impossible to determine.
+determining confluence of a TRS becomes very difficult.
 
 Since termination is undecidable for general TRS, we instead examine useful subsets of TRS
 that enable nearly-as-powerful expressivity but with guarantees of useful output.
@@ -367,7 +367,7 @@ A simplification order must satisfy the conditions of a rewrite order, mentioned
 may not grow individually, satisfying $t > t_i$. As a consequence, the relative orderings of substitutions into another algebra must be homeomorphic, preserving the relative
 structure of each subterm.
 
-The text further provides an excellent example for generic automatic termination checking through lexicographic path orders. Semi-formally, $s >_{lpo} t$ iff:
+The text further provides an excellent guideline for generic automatic termination checking through lexicographic path orders. Semi-formally, $s >_{lpo} t$ iff:
 \begin{itemize}
     \item Condition 1: $t$ is a subterm variable of $s$, or
     \item Condition 2: $s$ and $t$ are function applications where $s = f(s_1, ...)$ and $t = g(t_1,...)$ with one of the following:
@@ -377,7 +377,7 @@ The text further provides an excellent example for generic automatic termination
         \item Condition 2.3: $f = g$, $s >_{lpo} t_j \forall j$, and $\exists i: s_i > t_i$
     \end{itemize}
 \end{itemize}
-Lexicographic path orders start at the root of a symbol and works towards showing an order on the innermost symbols.
+Lexicographic path orders start at the root of a symbol and work towards showing an order on the innermost symbols.
 This reduction order can be used to show termination of TRS whose reduction sequence length cannot be bounded by a primitive recursive function.
 Further, $s >_{lpo} t$ can be decided in polynomial time on $t$, where termination on the entire TRS is NP-complete.
 
@@ -404,8 +404,8 @@ compilation execution of the same source text produces consistent, correct, and 
 When treating a TRS as if it were executing a program, confluence simply refers to the determinism of the output.
 Given the same set of inputs, rules, and variables, a TRS that is confluent will always produce the same normal forms
 on every execution. Note that determinism is not guaranteed by any form of TRS, as any rule with a satisfiable LHS
-may be applied to a term in any order. If two rules exists with the same LHS but diverging RHS, we must consider the possibility
-that different rules may be chosen for different compilation executions.
+may be applied to a term in any order. If two rules exist with the same LHS but diverging RHS, we must consider the possibility
+that different rules may be chosen for different instances of compilation execution.
 
 In general, like termination, a finite TRS is powerful enough that confluence is an undecidable problem.
 However, given knowledge that TRS \textit{is} terminating, we find that confluence is decidable.
@@ -415,8 +415,8 @@ that deviate after one step yet still eventually result in the same normal form 
 To calculate whether a pair of diverging rules $l_1 \rightarrow r_1$ and $l_2 \rightarrow r_2$ are locally confluent from starting term $s$, we examine three possible cases.
 \begin{itemize}
     \item Case 1: If $l_1$ and $l_2$ do not overlap or interfere with one another (ie. they are distinct subterms of $s$),
-    $s \rightarrow^{l_1 \rightarrow r_1} t_1 \rightarrow^{l_2 \rightarrow r_2} z$ and
-    $s \rightarrow^{l_2 \rightarrow r_2} t_2 \rightarrow^{l_1 \rightarrow r_1} z$ should result in the same $z$.
+    $s \xrightarrow{l_1 \rightarrow r_1} t_1 \xrightarrow{l_2 \rightarrow r_2} z$ and
+    $s \xrightarrow{l_2 \rightarrow r_2} t_2 \xrightarrow{l_1 \rightarrow r_1} z$ should result in the same $z$.
     \item Case 2: A non-critical overlap of rules where the LHS instance of one rule is properly contained in the substitution function of another rule's LHS.
     In other words, the term $s$ contains a modified version of $l_1$ and $l_2$ such that the most generic forms of both LHS do not overlap.
     Then, an exhaustive application of both rules where applicable will result in the same normal form.
@@ -425,7 +425,7 @@ To calculate whether a pair of diverging rules $l_1 \rightarrow r_1$ and $l_2 \r
     which must be examined externally to ensure both transitions result in the same normal form.
 \end{itemize}
 If all critical pairs can be resolved to a normal form, we can claim that a TRS is confluent.
-Of course, since the number of critical pairs is finite, the confluence of a finite terminating TRS is decidable.
+Moreover, since the number of critical pairs is finite, the confluence of a finite terminating TRS is decidable.
 
 Confluence can be determined for some subset of non-terminating rewrite systems, but the topic is beyond the scope of this paper.
 
@@ -464,6 +464,8 @@ return $R_i$
 \end{algorithm}
 
 As an aside, the resolution process of critical pairs can be conceptualized as resolving merge conflicts between diverging rules.
+We first assume that diverging paths will eventually reduce to the same normal form. Then, if we find that two
+paths never converge, we know that the TRS is not confluent.
 In a sense, two diverging rules are akin to two developers attempting to modify the same line of code. Git, of course, requires manual intervention
 to minimize the chance of disruptions upon code execution, but the eventual resolution of diverging lines is similar to the process of this algorithm.
 The goal of the algorithm can therefore be rephrased as pre-emptively generating canonical resolutions for all possible merge conflicts caused by critical pairs.
@@ -496,7 +498,7 @@ When designing a TRS for use in a compiler, developers must consider restriction
 NP-complete algorithms for generic termination-related reduction orders, large memory requirements for exhaustive confluence search,
 and unintelligent application of rules to generate every possible normal-form transformation.
 Further, while rewrite systems lend themselves well to functional, pattern-matching based languages like Mathematica, ML, and Haskell,
-the validity of rules becomes extremely difficult to determine when considering side effects or imperative style languages.
+the validity of rules becomes extremely difficult to determine when considering side effects or imperative style languages \cite{elco1998building}.
 Even within purely discrete mathematical computations, common identities like commutativity and associativity of binary operators
 cannot be directly accepted, lest the language cease to terminate. Intuitively, term rewriting works best when there is a straightforward,
 simplified form for every possible expression.
