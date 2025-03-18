@@ -521,56 +521,59 @@ Section 3 presents a revised term rewriting system to address these limitations.
 % Conventional rewrite systems as described in Section 2 are praised for formal simplicity and guarantees of correctness.
 % However, from a software engineering perspective,
 
-Modularity and abstraction are the key pillars in supporting the intense complexity of modern day software engineering.
-With respect to the simple TRS described in Section 2, one facet of modularity is achieved through the swapping of rules in a generic TRS solver.
-Unfortunately, this design relegates domain-specific knowledge from the theoretical level to the implementation level,
-restricting the flexibility of real-world systems mimicking a theoretical TRS.
+Modularity and abstraction are key pillars in supporting the boundless complexity of modern day software engineering.
+In the case of a generic TRS solver, limited modularity is achieved through direct modification of the available ruleset.
+Unfortunately, the one-size-fits-all design relegates domain-specific knowledge from the theoretical, provable level to the implementation level,
+restricting the flexibility and efficiency of real-world applications.
 
-Therefore, we now describe a modular system that better separates the rules of term rewriting from the application of those rules.
-Instead of blindly choosing a rule and following the derivation towards normal form, we can strategically choose to apply
-certain rules in certain contexts through a meta-language. This language, known as a strategy, provides a layer of insulating abstraction
+Therefore, we now describe a truly modular system that can take full advantage of domain specific knowledge and conditional rule following.
+% better separates the rules of term rewriting from the application of those rules.
+Instead of blindly choosing reduction rules in an attempt to eventually reach normalized terms, we can strategically choose to apply
+specific rules in contexts where we know more than a simple TRS. Algorithms made from this higher-level formalism, known as strategies, provide a layer of insulating abstraction
 between the purely theoretical world of TRS and other domains whose knowledge may prove useful in the implementation of a compiler.
 In simpler terms, strategies enable the creation of algorithms customizable to a domain but external to the term rewriting process itself.
 
 Notions of termination and confluence are still troublesome to some degree, as with any TRS, but abstracted strategies can derive
 generic solutions for critical pairs based on context at the theoretical level rather than the implementation level.
-Further, a combinatorial explosion of possible rules can be elegantly mitigated through decisions made in the strategy algorithm.
+Further, a combinatorial explosion of possible rules can be elegantly mitigated through intelligent decisions made in the strategy algorithm.
 
 
 \subsection{Rewriting Strategies}
 
-A rewrite strategy extends a TRS by labelling each rule $l \rightarrow r$ with $L: l \rightarrow r$ and providing a set of operators on those labels.
-The user defined strategy is an algorithmic application of those labels to achieve a targeted normal form. Note that since we no longer apply
+A rewrite strategy system extends a TRS by assigning labels $L: l \rightarrow r$ to each rule $l \rightarrow r$ and providing a set of operators on those labels.
+The user defined strategy is an algorithmic application of labelled rules to achieve a targeted normal form. Since we no longer apply
 all rules indiscriminately, we must take care to ensure that the desired normal forms are derivable by both available rules and application of rules within the strategy.
-As an additional note, strategies can be compiled (with other strategies) to provide optimizations not only on the intended target source code,
-but bootstrapped on the compiler itself.
+As an additional note, strategies can be compiled with higher-level strategies to provide optimizations not only on the intended target source code,
+but bootstrapped for the compiler itself.
 
-The default TRS strategy can be modelled by a directed graph, with branches following all possible combinations of transformations created by the TRS rules
-(formally, the recursive transitive closure by every pair of rules). Customized strategies trim down the size of this reduction space by cutting off undesirable paths
-with contextual knowledge on the current state of the reduction.
+The default TRS strategy can be modelled by a directed graph with branches following all possible paths of derivations.
+Formally, the graph contains the recursive transitive closure between all valid rule orderings.
+% Formally, this graph contains paths to symbolize the recursive transitive closure by every pair of rules.
+Customized strategies trim down the size of this reduction space by cutting off undesirable paths
+using contextual knowledge of the current reduction state.
 
 For simplicity, we reuse the same notation as in the previous TRS, with the addition of a few rudimentary operators and properties of strategies:
 \begin{itemize}
-    \item Terms can additionally contain tuples ($t ::= t | (t_1, ..., t_n)$). This is essentially syntactic sugar for an $id$ function with arity $n$,
-    but is useful nonetheless.
+    \item Terms can additionally contain tuples: $t ::= t | (t_1, ..., t_n)$. This is essentially syntactic sugar for an $id$ function with arity $n$,
+    but useful nonetheless.
     \item A strategy $t \xrightarrow{L: l\rightarrow r} s$ that uses a rule $L$ succeeds if there exists a substitution that applied to $l, r$ produces $t, s$.
     In other words, the rule is valid if some subterm of $t$ and $s$ match to $l$ and $r$ respectively.
     The strategy fails with result $\uparrow$ if no such substitution exists.
-    Strategies are often defined through typical functional syntax. For example, \texttt{myStrategy}$(s_1) = s_1$ is a definition similar to the \texttt{id}
-    function in Haskell.
-    Although we overload the $\rightarrow$ operator between rules and strategies, a most basic level, a rule can be considered a strategy if desired.
-    For the rest of this section, $\rightarrow$ denotes the more generic version of the relation.
-    \item Denote the set of strategies $S$ as all possible relations defined by $\rightarrow$. The non-deterministic choice operator $+: S \times S\rightarrow S$
+    Strategies as described by \cite{elco1998building} are often defined through typical functional syntax,
+    so \texttt{id}$(s_1) = s_1$ would be a strategy with similar behaviour to Haskell's own \texttt{id} function.
+    Although we overload the $\rightarrow$ operator between rules and strategies, at a most basic level, a rule can be considered a strategy if desired.
+    For the rest of this section, $\rightarrow$ denotes the more generic version of the relation, accommodating both rules and strategies alike.
+    \item Denote the set of strategies $S$ as all possible relations defined by $\rightarrow$. The non-deterministic choice operator $+: S \times S\rightarrow T\cup \uparrow$
     then accepts two rules and succeeds with a result if at least one rule is valid. Note that backtracking for this operator is only surface level,
     so for a strategy $s_1 + s_2$, if $s_1$ is non-deterministically selected and fails immediately, $s_2$ is then selected. However,
-    if $s_1$ only fails after a long series of derivations, the entire strategy $s_1 + s_2$ will fail.
-    \item The deterministic left-choice operator $\leftplus: S \times S \rightarrow S$ prefers to follow the leftmost strategy, only attempting the rightmost strategy
+    if $s_1$ only fails after a long series of internal derivations, the entire strategy $s_1 + s_2$ will fail.
+    \item The deterministic left-choice operator $\leftplus: S \times S \rightarrow T\cup \uparrow$ prefers to follow the leftmost strategy, only attempting the rightmost strategy
     upon failure of the left. Similar to $+$, backtracking for failures is only surface-level.
-    \item The composition of strategies $;: S \times S \rightarrow S$ will apply the first strategy and then the second strategy sequentially. Both
+    \item The composition of strategies $;: S \times S \rightarrow T\cup \uparrow$ will apply the first strategy and then the second strategy sequentially. Both
     input strategies must succeed.
-    \item The recursion operator $\mu x: S \rightarrow S$ is slightly different from the usual operator syntax. Strategies defined by $\mu x$ have the form
+    \item The recursion operator $\mu x: S \rightarrow T\cup \uparrow$ is slightly different from the usual operator syntax. Strategies defined by $\mu x$ have the form
     $\mu x (s)$, where a recursive call only happens where $x$ appears within $s$. For example, the strategy function \texttt{repeat}$(s) = \mu x ((s;x)\leftplus \epsilon)$
-    will recursively apply the strategy $s$ and call \texttt{repeat} again until failure. Then, since the other argument $\epsilon$ will always succeed with
+    will recursively apply the strategy $s$ on all subterms of a term until failure. Then, since the other argument $\epsilon$ will always succeed with
     no additional action, the strategy \texttt{repeat} will finally terminate.
 \end{itemize}
 
@@ -612,7 +615,7 @@ To accommodate the necessity of side effects and contexts in devising strategies
 Visser et al \cite{elco1998building} proposes a method of breaking down individual rules into atomic pieces: \texttt{match} and \texttt{build}.
 Internally, the rule application for $l \rightarrow r$ on a term $t$ first binds the variables of $l$ to matching subterms in $t$,
 then builds a new term by replacing the bound subterms of $t$ with the rightside transformations specified by $r$. Formally,
-$l \rightarrow r$ now becomes the sequence \texttt{match}$(t);$ \texttt{build}$(r)$.
+$l \rightarrow r$ now becomes the sequence \texttt{match}$(l);$ \texttt{build}$(r)$.
 
 Notions of environments and scopes are introduced to formalize the transfer of bindings from \texttt{match} to \texttt{build} over the $;$ operator.
 An environment $\mathcal{E}$ contains a mapping of variables to ground terms,
@@ -627,18 +630,19 @@ $L = \{$variables of $l,r,s:$ \texttt{match}$(l);$ \texttt{where}$(s);$ \texttt{
 \texttt{where} does not directly modify the inputs of $l$,
 but can change the values of bound variables of $l$ based on the total environment and input of $l$.
 In turn, this effectively carries only the side effects of $s$, rather than a direct transformation.
+\texttt{where} is also useful for placing conditional restrictions on rule evaluation, as seen in Section 3.1.2.
 
 Finally, we can build context aware systems capable of detecting cycles in the derivation graph, make decisions based on environmental knowledge,
 and break down the essence of term rewriting into granular pieces. Further syntactic sugar is provided by Visser et al \cite{elco1998building}
-to simplify the process of defining non-linear rules, boolean condition testing, and making use of strategies within rules themselves.
+to simplify the process of defining non-linear rules, boolean condition testing, and using strategies within rules themselves.
 The development of an optimizing compiler using term rewriting is within reach with the foundational correctness of theoretical, formal proofs.
 
-\subsubsection{An Example Demonstrating the Capability of Rewrite Strategies}
+\subsubsection{A Small Sample Strategy}
 Earlier in this text, we claimed that rewrite strategies (along with environments and scopes) provided
-more powerful infrastructure for describing translations that would otherwise fail in a simple TRS.
+a more powerful infrastructure for describing translations that would otherwise fail in a simple TRS.
 For instance, commutativity over binary operators or conversions between constructor and numerical form
 were previously unattainable or only used in extraneous circumstances.
-Allowing either of these rules within a simple TRS would prevent the system from terminating and sully any attempts at deciding confluence.
+Allowing either of these rules within a simple TRS would prevent the system from terminating and sully any attempts to decide confluence.
 Now, we extend the example of addition over natural numbers to include both commutativity rules and transformations between normal forms.
 
 While this may be an abuse of the environment system described in \cite{elco1998building},
@@ -654,8 +658,9 @@ we simply prevent that rule from being followed in the opposing direction. Lenie
         &build(x_2 + x_1)\\
         &\}
 \end{align*}
-First, we bind the subterms $x_1,x_2$ of a $+$ term to the local scope.
-Then, we test that the inverse commutation of the bound subterms has not appeared in some global set $V$ of
+First, we bind the subterms $x_1,x_2$ of a $+$ term to the local scope
+(note that $x_1+x_2$ here is a pattern matching of the addition operator, rather than the non-deterministic choice of two strategies).
+Then, we test that the inverse commutation of the bound subterms does not appear in some global set $V$ of
 followed commutative pairs.
 After the test, we save the currently seen pair to the global set $V$ as a side effect and eventually build back the commuted version of the input.
 This method could certainly be improved with scoping to enable inverse commutation operations in more environments, especially if variable names have
@@ -690,18 +695,19 @@ can only happen after all calculations involving addition are complete (ie. all 
 \subsection{Functional Code Optimization with Rewriting Strategies}
 Although the field of code optimization and optimal code generation is as vast as the number of languages themselves,
 we can observe a few objective optimizations available for functional programs made simple by rewriting strategies.
-For example, dead code can be removed by removing safe terms from subexpressions that are not used. Consider
+For example, dead code can be removed by extracting terms without side effects from unused subexpressions. Consider
 the expression \texttt{let x = 1 in z}. By using \texttt{where} to test for occurrences of $x$ in $z$
 and assess any side effects of $x$,
 we can conditionally perform a rewrite action to trim the unused \texttt{let} portion of the statement.
-The optimizer gains both the ability to use syntactic analysis side-by-side with semantics through a modified environment.
+The optimizer gains the ability to use syntactic analysis side-by-side with semantics through modified environment sets.
 
-Further code optimizations like function inlining and replacing occurrences of variables with their values
+Further code optimizations like function inlining and replacing occurrences of variables with respective values
 are made possible by context-aware rules and strategies. For instance, in function inlining, we must ensure
 simultaneous substitution of all occurrences of a function within some set of terms.
 Then, the optimizations of the function itself must be applied to all replaced occurrences.
 With a generic fully non-deterministic rewrite system, guaranteeing performant inlining of functions would
-not be possible, since any rule could be applied at any time. Moreover, unwrapping loops
+not be possible, since any rule could be applied at any time.
+Moreover, unwrapping loops
 and inlining variables used within those loops is an easy performance improvement only possible with knowledge of the variable's lifetime.
 If a strategy finds that a variable only exists as an iterator for a loop, unused elsewhere in the code, that variable may be inlined.
 Additionally, such a strategy may also detect other variables within the loop that are the result of functions applied to iterator itself.
@@ -710,7 +716,7 @@ In that case, the variables may be replaced with appropriate constants.
 An extensive thesis by Paraskevopoulou \cite{paraskevopoulou2020verified} contains a full catalogue of function optimizations,
 along with rewrite strategies to perform those optimizations.
 For brevity, we mention only a few examples of particularly interesting optimizations.
-The thesis denotes strategies to combine nested function un-currying with inline rules
+The thesis denotes strategies to combine nested function un-currying with inlining rules
 to massively reduce the number of required function calls in generated (normal form) code.
 Function parameters may be removed if unused, with similar checks to dead code elimination.
 In the same vein, lambda lifting to promote locally defined functions to the global scope can be used in conjunction with unnesting closure conversions
@@ -732,7 +738,7 @@ since GHC makes no attempts to verify the correctness or soundness of such rules
 
 Term rewriting systems are a vital concept to producing simple, formally verifiable compilers.
 Throughout this paper and even in the real world, the idea of a simple TRS consisting of rules and terms
-has permeated nearly every facet of modern functional and symbolic programming. The subfield of rewriting has been modified, extended, and decomposed
+has permeated nearly every aspect of modern functional and symbolic programming. The subfield of rewriting has been modified, extended, and decomposed
 countless times all in extremely unique ways. Naturally, each flavour of term rewriting has its advantages and disadvantages, but the pervasiveness of the original idea
 is a testament to the power of a generic set of transformations.
 
