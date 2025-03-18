@@ -633,6 +633,60 @@ and break down the essence of term rewriting into granular pieces. Further synta
 to simplify the process of defining non-linear rules, boolean condition testing, and making use of strategies within rules themselves.
 The development of an optimizing compiler using term rewriting is within reach with the foundational correctness of theoretical, formal proofs.
 
+\subsubsection{An Example Demonstrating the Capability of Rewrite Strategies}
+Earlier in this text, we claimed that rewrite strategies (along with environments and scopes) provided
+more powerful infrastructure for describing translations that would otherwise fail in a simple TRS.
+For instance, commutativity over binary operators or conversions between constructor and numerical form
+were previously unattainable or only used in extraneous circumstances.
+Allowing either of these rules within a simple TRS would prevent the system from terminating and sully any attempts at deciding confluence.
+Now, we extend the example of addition over natural numbers to include both commutativity rules and transformations between normal forms.
+
+While this may be an abuse of the environment system described in \cite{elco1998building},
+a simple and effective way of preventing infinite derivation chains caused by the commutativity identity $m + n \approx n + m$ is to
+monitor all derivations of the commutativity rule. Then, once a commutativity rule is followed in one direction for a scoped set of terms,
+we simply prevent that rule from being followed in the opposing direction. Lenient pseudocode for this strategy would look something like:
+\begin{align*}
+    \texttt{CommuteRule} &= \{\\
+        vars(x_1, &x_2) : \\
+        &match(x_1 + x_2); \\
+        &test((x_2, x_1) \notin V); \\
+        &where(V := V \cup \{(x_1, x_2)\}); \\
+        &build(x_2 + x_1)\\
+        &\}
+\end{align*}
+First, we bind the subterms $x_1,x_2$ of a $+$ term to the local scope.
+Then, we test that the inverse commutation of the bound subterms has not appeared in some global set $V$ of
+followed commutative pairs.
+After the test, we save the currently seen pair to the global set $V$ as a side effect and eventually build back the commuted version of the input.
+This method could certainly be improved with scoping to enable inverse commutation operations in more environments, especially if variable names have
+been reused, but the goal of this example is to demonstrate the additional flexibility and control offered by a formal rewrite strategy.
+A rule like this one may be applied like a normal TRS rule, but will deliberately fail more often than
+its unconditional counterpart to directly address non-terminating behaviour.
+
+In a previous example, we made use of the identity $Suc^c(0) \approx c$ to convert a constructor-based value into an understandable numerical value.
+However, we made the rule an exceptional case in that it should only be converted once all $+$ operators have been removed from the complete term
+(ie. it can only run at the end of the derivation). A rewrite strategy with equivalent behaviour would be as follows:
+\begin{align*}
+    \texttt{in} = &\{\\
+        x,y&:\\
+        &match(x);\\
+        &match(y);\\
+        &test(build(y);\mu x(match(x) \leftplus \diamond(x)))\\
+        \}\\\\
+    \texttt{rootPrettyPrint} &= \{\\
+        t&:\\
+        &match(t);\\
+        &where(\lnot \texttt{in}(x_1+x_2, t));\\
+        &build(t)\\
+        \}
+\end{align*}
+The strategy \texttt{rootPrettyPrint} simply checks for terms of structure $x_1+x_2$ within the bound input term $t$. If a $+$ operator is found,
+the call to $where$ will fail and the entire rule will cease to execute. The \texttt{in} strategy, provided by \cite{elco1998building},
+binds two terms, and recursively attempts to match occurrences of $+$ from within $t$. When a match is found, the strategy returns successfully.
+Through this strategy, we have effectively encoded into our rewrite strategy, without modifying the underlying TRS,
+that rendering a constructor-based value back to numerical form
+can only happen after all calculations involving addition are complete (ie. all non-aesthetic computation has finished).
+
 \subsection{Functional Code Optimization with Rewriting Strategies}
 Although the field of code optimization and optimal code generation is as vast as the number of languages themselves,
 we can observe a few objective optimizations available for functional programs made simple by rewriting strategies.
