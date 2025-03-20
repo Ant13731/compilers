@@ -48,8 +48,8 @@ was likened to a proverb of monkeys on typewriters;
 an infinite number of typewriter-equipped monkeys with an infinite amount of time would eventually produce the complete works of Shakespeare.
 While the conveyed sentiments of infinite randomness can serve as an interesting thought experiment for the masses,
 computer scientists often have to deal with very real consequences of seemingly infinite swaths of data and non-deterministic computation on finite resources.
-Indeed, with the advent of generative AI models and the internet, collecting and distilling useful information from apathetic entropy
-has become a more pressing and arduous task than ever before.
+% Indeed, with the advent of generative AI models and the internet, collecting and distilling useful information from apathetic entropy
+% has become a more pressing and arduous task than ever before.
 
 By design,
 computers are precise, powerful machines limited only by
@@ -106,7 +106,7 @@ Before attempting this proof, however, we need to establish the right identity o
 
 With the two axioms and this derived theorem, we can simply manipulate provided terms within the limitations of the given rules to prove commutativity:
 \begin{proof}
-    Commutativity of + over addition by induction.
+    Commutativity of + over the natural numbers by induction.
     \\
     \textbf{Base case}: 0 + n = n + 0
 \begin{align*}
@@ -131,7 +131,7 @@ With the two axioms and this derived theorem, we can simply manipulate provided 
 All this to say that the core of term rewriting is merely an exhaustive application of transformation rules on a piece of text.
 A term rewriting system (TRS), then, is a system that defines available rules and valid inputs/outputs of those rules.
 Any valid input/output text is often referred to as a term, with each application of a rule as a rewrite step.
-A term reaches normal form within a TRS when rules no longer apply to any text within the term (ie. it is irreducible).
+A term reaches normal form within a TRS when rules no longer apply to any text within the term (i.e. it is irreducible).
 
 In the context of compilers, the goal of a TRS is clear: we aim to translate high level,
 readable, and expressive text into efficient low-level executable terms. Of course,
@@ -139,36 +139,17 @@ a TRS cannot hope to shoulder the responsibility of the entire compilation proce
 but just as a lexer reduces the complexity of a parser, so too can a TRS simplify the generation of useful, efficient code.
 
 Since term rewriting and lambda calculus both have roots in manipulating the structure of symbols as a form of computation,
-term rewriting systems are uniquely poised to handle symbolic computation (ie. algebra-related mathematics) and functional programming with grace \cite{baader1998term}.
+term rewriting systems are uniquely poised to handle symbolic computation (i.e. algebra-related mathematics) and functional programming with grace \cite{baader1998term}.
 For instance, formal proofs of correctness for the translation scheme of a TRS follow naturally through enumerating every possible derivation inductively.
 The function-like nature of rule applications means that, aside from non-determinism and conflicting rules,
 a developer can guarantee a consistent derivation output.
 
 In most real-world languages that make use of term rewriting, especially the Wolfram Mathematica language,
 treatment of mathematical expressions as symbolic objects enables both high performance computations
-and an understandable, step by step derivation of the solution \cite{buchberger1996mathematica,mircea2004rule}. After all, when attempting to solve
+and an understandable, step-by-step derivation of the solution \cite{buchberger1996mathematica,mircea2004rule}. After all, when attempting to solve
 a complex expression like $\int \int (\cos{x}^2 + \tanh{x}^3)e^y dx dy$, mathematicians naturally make use
 of well-known formulas and equational logic to translate complex text into something much more manageable.
 
-
-
-
-
-% Further, these topics often have a large impact on real world software development
-
-% Equational logic, which consists primarily of variables and operators, is present in some form for all of these topics.
-% Theorems or semantic properties of operators
-
-
-% New theorems or facts are created, most of the time, through simple syntactic manipulation
-
-
-
-% This trend is not without good reason: from the foundations of discrete math to the highest level of programming languages,
-% software developers often need to work with symbolic notation
-
-% From the foundations of discrete math to high level languages regular expressions, grammars, programming languages, and databases all use
-% Simply put, term rewriting is a process of converting one form of text into another.
 \subsection{A (Simple) Term Rewriting System}
 
 In this section, we present a simple term rewriting system as specified in the definitive text by Baader and Nipkow \cite{baader1998term}.
@@ -184,26 +165,26 @@ we must ensure that the system terminates and is confluent:
     Similar to regular executable programs, the termination problem deals with the possibility of reduction derivations of infinite length.
     We say that a TRS terminates if all possible terms can be evaluated to some irreducible normal form. Therefore, if a TRS does not terminate,
     there must be an input term $t$ that has an infinite length derivation $t_1 \rightarrow t_2, t_2 \rightarrow t_3, ...$
-    (ie. $t$ never finishes the reduction process to a normal form).
+    (i.e. $t$ never finishes the reduction process to a normal form).
     Further notes on termination can be found in Section 2.3.
     \item
     The confluence of a system determines whether two (or more) different derivations of a term $t$ will eventually reach the same normal form.
     In other words, if $t \rightarrow^* a$ and $t \rightarrow^* b$,
     $a$ and $b$ are joinable to some (eventually normalized) term $z$
-    (ie. $a \rightarrow^* z$ and $b \rightarrow^* z$ should be true).
+    (i.e. $a \rightarrow^* z$ and $b \rightarrow^* z$ should be true).
     If a TRS system satisfies this ``joinable'' property, it is a confluent system.
     A discussion on the confluence of rewrite systems is contained in Section 2.4.
 \end{itemize}
 
-Additional notation regarding term rewriting systems are listed below,
+Additional notation regarding term rewriting systems is listed below,
 where the details of some properties have been discarded for simplicity and conciseness.
 These notions will be used intermittently throughout the rest of this paper:
 \begin{itemize}
-    \item The signature set $\Sigma = \cup_{n=0}\Sigma^n$ contains function symbols that have arity $n$ (ie. functions that take in $n$ arguments).
+    \item The signature set $\Sigma = \cup_{n=0}\Sigma^n$ contains function symbols that have arity $n$ (i.e. functions that take in $n$ arguments).
     \item The set of terms $T(\Sigma, X)$ inductively contains all variables $X$ and all applications of functions to those terms.
     Generically, terms follow the grammar $t ::= x | c | f(t_1, ..., t_n)$ where $x$ is a variable in $X$, $c$ is a constant in $\Sigma^0$,
     and $f$ is a function in $\Sigma^n$.
-    \item The set of ground terms $T(\Sigma, \emptyset)$ contains only constants (ie., $f \in \Sigma^0$) and function applications of those constants. No variables allowed.
+    \item The set of ground terms $T(\Sigma, \emptyset)$ contains only constants (i.e., $f \in \Sigma^0$) and function applications of those constants. No variables allowed.
     \item The substitution function $\sigma: X \times T(\Sigma, X)$ is a set of mappings on variables within terms to other elements of $T(\Sigma, X)$.
     \item A term $t$ is an instance of a term $s$ if a substitution applied to $s$ produces $t$. Formally, $\sigma(s) = t \implies t \gtrsim s$.
     % TODO add as needed
@@ -268,12 +249,12 @@ Likewise for $3+2$:
 \end{align*}
 In this example, the exact rewrite rules used correspond with the following substitution mapping:
 \[\sigma = \{0 + s \rightarrow s, Suc(s) + t \rightarrow Suc(s + t), c \rightarrow Suc^c(0)\}\]
-Because of the direct correlation between rules and identities, building an induction proof for correctness of the the general case,
+Because of the direct correlation between rules and identities, building an induction proof for correctness of the general case,
 and thus a new identity, becomes near-trivial. In fact, the proof in Section 2.1 is more than sufficient, since that style of derivation
 is essentially equational logic itself.
 
 For brevity, note that we add an additional rule with the condition that it may only be executed in the last step: $Suc^c(0) \rightarrow c$.
-Strictly speaking, this last rule prevents the existence of a normal form and therefore prevents termination of the TRS.
+Strictly speaking, this last rule blocks all terms from reaching a normal form, thereby preventing termination of the TRS.
 The expanded version of 5 is the canonical normal form of the rewrite rules represented by $\sigma$ since no other reduction rules may be applied.
 In the case of our simple TRS, we must specify a condition on the last rule that is external to the formal TRS definition itself.
 Subsequent sections, in addition to Section 3, explore different methods of tackling problems that require more control over the derivation process.
@@ -281,13 +262,12 @@ Subsequent sections, in addition to Section 3, explore different methods of tack
 \subsection{Termination}
 Given the striking resemblance between TRS and lambda calculus,
 the notion of halting becomes an unavoidable problem when attempting to use TRS as a program.
-% TODO cite langs, give definition of terminating (no infinite sequence x1 -> x2 -> ...)
 In fact, several languages like Catln, Pure, Mathematica, and Meander use term rewriting as the basis of their runtime execution \cite{catln,pure,mircea2004rule,meander}.
 In other words, the process of reduction in a rewrite system is essentially the same as a recursive functional program.
 Both computation methods are Turing complete, therefore term rewriting systems must reconcile with the halting problem.
 However, termination of a TRS is especially important in compilation, since we want to ensure that the compiler itself
 is able to consistently produce useful output.
-Further, without a guaranteed normal form for every input (ie. without guaranteed termination for every input),
+Further, without a guaranteed normal form for every input (i.e. without guaranteed termination for every input),
 determining confluence of a TRS becomes very difficult.
 
 Since termination is undecidable for general TRS, we instead examine useful subsets of TRS
@@ -319,7 +299,7 @@ Deriving orders on terms is commonly achievable through alternative representati
 If there exists a total substitution function $\sigma: T(\Sigma,X) \times A$ under some algebra $A$ such that $s >_A t \equiv \sigma(s) > \sigma(t)$,
 the combination of $\sigma$ and $>_A$ could form a reduction order over all valid rules. Note that an additional requirement of this order is monotonicity, formally
 that $s_i >_A s_j \implies f(s_1, s_2, ..., s_i, ...) >_A f(s_1, s_2, ..., s_j, ...)$. Generally, the substituted algebraic set consists of polynomials over the natural numbers,
-a set which can be monotonic and has a clearly irreducible ``base'' form (ie. 0 cannot be reduced).
+a set which can be monotonic and has a clearly irreducible ``base'' form (i.e. 0 cannot be reduced).
 
 Consider a set of rules $R$ that mirrors the example TRS for addition over natural numbers defined in Section 2.2.1:
 \[R = \{0 + n \rightarrow n, n + 0 \rightarrow n, Suc(n) + m \rightarrow Suc(n+m), c \rightarrow Suc^c(0)\}\]
@@ -414,7 +394,7 @@ that deviate after one step yet still eventually result in the same normal form 
 
 To calculate whether a pair of diverging rules $l_1 \rightarrow r_1$ and $l_2 \rightarrow r_2$ are locally confluent from starting term $s$, we examine three possible cases.
 \begin{itemize}
-    \item Case 1: If $l_1$ and $l_2$ do not overlap or interfere with one another (ie. they are distinct subterms of $s$),
+    \item Case 1: If $l_1$ and $l_2$ do not overlap or interfere with one another (i.e. they are distinct subterms of $s$),
     $s \xrightarrow{l_1 \rightarrow r_1} t_1 \xrightarrow{l_2 \rightarrow r_2} z$ and
     $s \xrightarrow{l_2 \rightarrow r_2} t_2 \xrightarrow{l_1 \rightarrow r_1} z$ should result in the same $z$.
     \item Case 2: A non-critical overlap of rules where the LHS instance of one rule is properly contained in the substitution function of another rule's LHS.
@@ -670,7 +650,7 @@ its unconditional counterpart to directly address non-terminating behaviour.
 
 In a previous example, we made use of the identity $Suc^c(0) \approx c$ to convert a constructor-based value into an understandable numerical value.
 However, we made the rule an exceptional case in that it should only be converted once all $+$ operators have been removed from the complete term
-(ie. it can only run at the end of the derivation). A rewrite strategy with equivalent behaviour would be as follows:
+(i.e. it can only run at the end of the derivation). A rewrite strategy with equivalent behaviour would be as follows:
 \begin{align*}
     \texttt{in} = &\{\\
         x,y&:\\
@@ -690,7 +670,7 @@ the call to $where$ will fail and the entire rule will cease to execute. The \te
 binds two terms, and recursively attempts to match occurrences of $+$ from within $t$. When a match is found, the strategy returns successfully.
 Through this strategy, we have effectively encoded into our rewrite strategy, without modifying the underlying TRS,
 that rendering a constructor-based value back to numerical form
-can only happen after all calculations involving addition are complete (ie. all non-aesthetic computation has finished).
+can only happen after all calculations involving addition are complete (i.e. all non-aesthetic computation has finished).
 
 \subsection{Functional Code Optimization with Rewriting Strategies}
 Although the field of code optimization and optimal code generation is as vast as the number of languages themselves,
