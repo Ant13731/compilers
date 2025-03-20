@@ -44,25 +44,25 @@
 \section{Introduction}
 Before personal computing became synonymous with modern life,
 conceptualizing the vast potential of decision making machinery
-was likened to a proverb of monkeys on typewriters;
-an infinite number of typewriter-equipped monkeys with an infinite amount of time would eventually produce the complete works of Shakespeare.
-While the conveyed sentiments of infinite randomness can serve as an interesting thought experiment for the masses,
-computer scientists often have to deal with very real consequences of seemingly infinite swaths of data and non-deterministic computation on finite resources.
+was frequently likened to a proverb of monkeys on typewriters;
+given an infinite number of typewriter-equipped monkeys with an infinite amount of time, the monkeys would eventually produce the entirety of all written literature.
+While the conveyed sentiment of infinite randomness can serve as an interesting thought experiment for the masses,
+computer scientists often must confront the very real consequences of seemingly infinite swaths of data and non-deterministic computation on finite resources.
 % Indeed, with the advent of generative AI models and the internet, collecting and distilling useful information from apathetic entropy
 % has become a more pressing and arduous task than ever before.
 
 By design,
 computers are precise, powerful machines limited only by
-their extremely inexpressive low-level interface.
-Therefore, the prime directive of programming languages and compilers
-aims to provide a more intuitive and expressive experience when communicating with machines,
+their extremely inflexible low-level interface.
+Therefore, the overarching objective of building new programming languages and compilers
+is to provide a more intuitive and expressive experience when communicating with machines,
 while ensuring preservation of correctness and
 highly efficient translated instructions.
 Formal, provable methods are vital to guarantee that
 real-world compilers meet these goals.
 
 In this paper, we explore concepts and ideas surrounding the topic of simple term rewriting,
-a translation scheme that offers both a traceable and understandable foundation for compiler development.
+a text translation scheme that offers both a traceable and understandable foundation for compiler development.
 First, we delve into the inner-workings, benefits, and limitations of rewriting systems. Later,
 we abstract some components of simple term rewriting for improved expressivity, control,
 modularity, and overall usefulness in the context of code optimization.
@@ -71,7 +71,7 @@ modularity, and overall usefulness in the context of code optimization.
 
 \subsection{The Art of Translation}
 
-Throughout a typical undergraduate program in computer science, a great deal of emphasis is placed on working with text as a form of malleable data.
+Throughout a typical undergraduate program in computer science, a great deal of time is spent on working with text as a form of malleable data.
 Entire courses are dedicated to the topics of expressions, grammars, programming languages, and discrete mathematics, all of which
 deeply involve manipulation of textual symbols at both a syntactic and semantic level.
 And this trend is not without good reason: in the expansive area of predicate logic,
@@ -84,9 +84,9 @@ For example, consider the following axioms that describe addition over natural n
 With these two rules, the induction proof style, and some other basic axioms,
 all well-known properties of addition can be derived through pure syntactic transformation.
 The commutative property, for example, can be obtained through repeated application of given facts.
-Before attempting this proof, however, we need to establish the right identity of 0 ($n + 0 = n$):
+Before demonstrating this fact, however, we establish another proof through the same tactics of repeated axiom application.
 \begin{proof}
-    Right identity of 0.
+    Right identity of 0 (n + 0 = n).
     \\
     \textbf{Base case}: 0 + 0 = 0
     \begin{align*}
@@ -106,7 +106,7 @@ Before attempting this proof, however, we need to establish the right identity o
 
 With the two axioms and this derived theorem, we can simply manipulate provided terms within the limitations of the given rules to prove commutativity:
 \begin{proof}
-    Commutativity of + over the natural numbers by induction.
+    Commutativity of + over natural numbers (n + m = m + n).
     \\
     \textbf{Base case}: 0 + n = n + 0
 \begin{align*}
@@ -131,7 +131,7 @@ With the two axioms and this derived theorem, we can simply manipulate provided 
 All this to say that the core of term rewriting is merely an exhaustive application of transformation rules on a piece of text.
 A term rewriting system (TRS), then, is a system that defines available rules and valid inputs/outputs of those rules.
 Any valid input/output text is often referred to as a term, with each application of a rule as a rewrite step.
-A term reaches normal form within a TRS when rules no longer apply to any text within the term (i.e. it is irreducible).
+Then, we say a term reaches normal form within a TRS when rules no longer apply to any text within the term (i.e. it is irreducible).
 
 In the context of compilers, the goal of a TRS is clear: we aim to translate high level,
 readable, and expressive text into efficient low-level executable terms. Of course,
@@ -147,22 +147,22 @@ a developer can guarantee a consistent derivation output.
 In most real-world languages that make use of term rewriting, especially the Wolfram Mathematica language,
 treatment of mathematical expressions as symbolic objects enables both high performance computations
 and an understandable, step-by-step derivation of the solution \cite{buchberger1996mathematica,mircea2004rule}. After all, when attempting to solve
-a complex expression like $\int \int (\cos{x}^2 + \tanh{x}^3)e^y dx dy$, mathematicians naturally make use
+a complex expression like $\int \int (\cos{x}^2 + \tanh{x}^3)e^y dx dy$, mathematicians instinctively make use
 of well-known formulas and equational logic to translate complex text into something much more manageable.
 
 \subsection{A (Simple) Term Rewriting System}
 
-In this section, we present a simple term rewriting system as specified in the definitive text by Baader and Nipkow \cite{baader1998term}.
+In this section, we present a simple term rewriting system as specified in the definitive text ``Term Rewriting and All That'' \cite{baader1998term}.
 
 Formally, a TRS is an abstract reduction system defined by a set of terms $T$ and a relation $\rightarrow: T \times T$ over those terms.
 Usually, $\rightarrow$ is defined by a mapping of rewrite rules $l \rightarrow r$, which directly translate pieces of text (known as terms) from one form into another.
-The goal of such a system in the context of compilers is to translate high level, expressive text into a format digestible for computers and efficient in execution.
+As a brief reminder, the goal of such a system in the context of compilers is to translate high level, expressive text into a format digestible for computers and efficient in execution.
 
 To ensure the correctness of this reduction process,
 we must ensure that the system terminates and is confluent:
 \begin{itemize}
     \item
-    Similar to regular executable programs, the termination problem deals with the possibility of reduction derivations of infinite length.
+    Similar to regular executable programs, the termination problem of TRS deals with the possibility of reduction derivations of infinite length.
     We say that a TRS terminates if all possible terms can be evaluated to some irreducible normal form. Therefore, if a TRS does not terminate,
     there must be an input term $t$ that has an infinite length derivation $t_1 \rightarrow t_2, t_2 \rightarrow t_3, ...$
     (i.e. $t$ never finishes the reduction process to a normal form).
@@ -172,7 +172,7 @@ we must ensure that the system terminates and is confluent:
     In other words, if $t \rightarrow^* a$ and $t \rightarrow^* b$,
     $a$ and $b$ are joinable to some (eventually normalized) term $z$
     (i.e. $a \rightarrow^* z$ and $b \rightarrow^* z$ should be true).
-    If a TRS system satisfies this ``joinable'' property, it is a confluent system.
+    If a TRS system satisfies this ``joinable'' property for all diverging derivation paths, it is a confluent system.
     A discussion on the confluence of rewrite systems is contained in Section 2.4.
 \end{itemize}
 
@@ -184,14 +184,14 @@ These notions will be used intermittently throughout the rest of this paper:
     \item The set of terms $T(\Sigma, X)$ inductively contains all variables $X$ and all applications of functions to those terms.
     Generically, terms follow the grammar $t ::= x | c | f(t_1, ..., t_n)$ where $x$ is a variable in $X$, $c$ is a constant in $\Sigma^0$,
     and $f$ is a function in $\Sigma^n$.
-    \item The set of ground terms $T(\Sigma, \emptyset)$ contains only constants (i.e., $f \in \Sigma^0$) and function applications of those constants. No variables allowed.
+    \item The set of ground terms $T(\Sigma, \emptyset)$ contains only constants (i.e., $f|f \in \Sigma^0$) and function applications of those constants. No variables allowed.
     \item The substitution function $\sigma: X \times T(\Sigma, X)$ is a set of mappings on variables within terms to other elements of $T(\Sigma, X)$.
     \item A term $t$ is an instance of a term $s$ if a substitution applied to $s$ produces $t$. Formally, $\sigma(s) = t \implies t \gtrsim s$.
     % TODO add as needed
 \end{itemize}
 
 As mentioned in the previous section, term rewriting acts like a translation layer between source text and reduced text.
-In more formal phrasing, the foundations of term rewriting systems lie in the field of equational logic,
+That is to say, the foundations of term rewriting systems lie in the field of equational logic,
 where a TRS can draw directional rules from a set of bidirectional ground truths, or identities. The set of identities $E$
 contains equations that define which terms are structurally equivalent. For example, $(s \approx t) \in E$ implies that
 we may swap appearances of $s$ with $t$ and vice versa. An identity $s \approx t$ is valid in $E$ if it is an element within $E$.
@@ -202,12 +202,13 @@ Similarly, term rewriting makes use of transformations and identities to derive 
 there exists a substitution function $\sigma$ that results in a valid identity. Generally, we aim to create identities that will better direct source text
 to a correct and consistent normal form.
 
-In general, the word problem of $E$ states that the validity of two terms is undecidable.
+In general, the word problem states that the validity of two terms (as the combination of repeated applications of identities known to be in $E$) is undecidable.
 Without restrictions on the TRS described thus far,
-it would be impossible to produce a usable, consistent compiler.
+it would be near-impossible to produce a usable, consistent compiler.
 Even then, if we were to remove variables from the possible set of identities,
 the word problem (now known as the ground word problem) is still undecidable.
-The word problem only becomes decidable when we restrict an arbitrary TRS to be terminating and confluent, with a finite amount of rules.
+The word problem, essentially equivalent to deciding the correctness of a TRS,
+only becomes decidable when we restrict an arbitrary TRS to be terminating and confluent, with a finite amount of rules.
 
 
 \subsubsection{A Small Example of a Simple TRS}
@@ -255,9 +256,9 @@ is essentially equational logic itself.
 
 For brevity, note that we add an additional rule with the condition that it may only be executed in the last step: $Suc^c(0) \rightarrow c$.
 Strictly speaking, this last rule blocks all terms from reaching a normal form, thereby preventing termination of the TRS.
-The expanded version of 5 is the canonical normal form of the rewrite rules represented by $\sigma$ since no other reduction rules may be applied.
+The expanded version of the value 5 is representative of the canonical normal form of the rewrite rules represented by $\sigma$ since no other reduction rules may be applied.
 In the case of our simple TRS, we must specify a condition on the last rule that is external to the formal TRS definition itself.
-Subsequent sections, in addition to Section 3, explore different methods of tackling problems that require more control over the derivation process.
+Subsequent sections, in addition to Section 3, explore different methods of tackling problems that demand a more controllable derivation process.
 
 \subsection{Termination}
 Given the striking resemblance between TRS and lambda calculus,
@@ -292,19 +293,21 @@ Formally, a rewrite order $>$ must satisfy:
 \end{itemize}
 One example of such an order may be the number of variables in two terms.
 For example, if $s$ contains 3 occurrences of the same variable and $t$ contains only one occurrence,
-it is logical that $s > t$, where $>$ compares the number of similar variables in either term, may be a valid and useful reduction order.
+it is logical that $s > t$, where $>$ compares the number of similar variables in either term.
+In this case, the variable count may be a valid and useful reduction order.
 
 Deriving orders on terms is commonly achievable through alternative representation of terms in another algebra.
 % A common method of deriving such orders on terms is through an alternative representation in another algebra.
 If there exists a total substitution function $\sigma: T(\Sigma,X) \times A$ under some algebra $A$ such that $s >_A t \equiv \sigma(s) > \sigma(t)$,
 the combination of $\sigma$ and $>_A$ could form a reduction order over all valid rules. Note that an additional requirement of this order is monotonicity, formally
 that $s_i >_A s_j \implies f(s_1, s_2, ..., s_i, ...) >_A f(s_1, s_2, ..., s_j, ...)$. Generally, the substituted algebraic set consists of polynomials over the natural numbers,
-a set which can be monotonic and has a clearly irreducible ``base'' form (i.e. 0 cannot be reduced).
+a set which can be monotonic and has a clearly irreducible ``base'' form (for example, 0 cannot be reduced).
 
 Consider a set of rules $R$ that mirrors the example TRS for addition over natural numbers defined in Section 2.2.1:
 \[R = \{0 + n \rightarrow n, n + 0 \rightarrow n, Suc(n) + m \rightarrow Suc(n+m), c \rightarrow Suc^c(0)\}\]
 Note that we explicitly exclude the inverse of $Suc(n) + m \rightarrow Suc(n+m)$
-since such a rule would enable commutativity and thus prevent termination of the TRS.
+since such a rule would only detract from the normal form goal (one term made up of only $Suc$ constructors and 0).
+Including $Suc(n+m) \rightarrow Suc(n)+m$ would also enable commutativity and thus prevent termination of the TRS.
 Additionally, we denote the set of possible terms $T$ as all combinations of $\{c, x_1 + x_2, Suc(x_1)\}$ where $x_i$ denotes variables and $c$ is a constant $\in \mathbb{N}$.
 Informally, this system will reduce every combination of numbers under the $+$ symbol to a single number defined by successive $Suc$ constructors.
 To prove termination of the system, we map every possible term, defined by combinations of numbers, $Suc$ constructors, and addition operators
@@ -325,10 +328,10 @@ in the following manner:
 For each possible term combination as examined by the rules in $R$, we observe the following:
 \begin{itemize}
     \item $0 + n \rightarrow n$ and $n + 0 \rightarrow n$ will always decrease the value of the equivalent polynomial reduction.
-    The equivalent polynomials of the LHS are $P_+(P(0),P(n)) = P_+(1, X) = (X+1)^2$, where $X$ is the unknown polynomial representation of a term $n$.
+    The equivalent polynomials of the LHS are $P_+(P(0),P(n)) = P_+(1, X) = (X+1)^2$, where $X$ is the polynomial representation of a term $n$.
     Since the RHS is always $P(n) = X$ and $(X+1)^2 > X$, these two rules satisfy the polynomial reduction.
     \item $c \rightarrow Suc^c(0)$ converts the numerical representation of a constant into repeated $Suc$ constructions.
-    Because we defined $P(c) = c+1$ and $P_{Suc}(0)^c = 0 + 1 + 1 + ... = \sum_0^c 1 = c$, this rule satisfies LHS $>$ RHS.
+    Because we defined $P(c) = c+1$ and $P_{Suc^c}(0) = 0 + 1 + 1 + ... = \sum_0^c 1 = c$, this rule satisfies LHS $>$ RHS.
     \item $Suc(n) + m \rightarrow Suc(n+m)$ moves addition inside the $Suc$ constructor. The LHS representation is $P_+(P_{Suc}(P(n)),P(m))=((X+1)+Y)^2$
     and RHS is $P_{Suc}(P_+(P(n),P(m)))=(X+Y)^2+1$, where $X,Y$ correspond to $P(n), P(m)$ respectively.
     Expanding both sides, we find that $X^2+Y^2+2XY+2X+2Y+1 > X^2+Y^2+2XY+1$, so LHS $>$ RHS.
@@ -367,8 +370,8 @@ Referring to the set
 we show:
 \begin{itemize}
     \item $0 + n \rightarrow n, n + 0 \rightarrow n$ are satisfied by the first condition. $n$ is a subterm of both $n+0$ and $0+n$.
-    \item In the rule $c \rightarrow Suc^c(0)$, $c$ can be considered an 0-ary constant. Since the definition of $>_{lpo}$
-    expects an ordering of functions as input, the 0-ary function $c > Suc$, and $c$ is certainly greater than the subterm 0.
+    \item In the rule $c \rightarrow Suc^c(0)$, $c$ can be considered an 0-ary function. Since the definition of $>_{lpo}$
+    expects an ordering of functions as input, we say that $c > Suc$, and $c$ is certainly greater than the subterm 0.
     Thus, condition 2.2 is satisfied.
     \item $Suc(n) + m \rightarrow Suc(n+m)$ is again function applications more clearly of the form $+(Suc(n), m) \rightarrow Suc(+(n,m))$.
     We can say that $+ > Suc$ to follow condition 2.2. As part of 2.2, we must check that $+(Suc(n), m) >_{lpo} +(n,m)$. Turning to condition 2.3,
@@ -383,20 +386,20 @@ The notion of confluence is essential in building a reliable compiler, since we 
 compilation execution of the same source text produces consistent, correct, and optimal code.
 When treating a TRS as if it were executing a program, confluence simply refers to the determinism of the output.
 Given the same set of inputs, rules, and variables, a TRS that is confluent will always produce the same normal forms
-on every execution. Note that determinism is not guaranteed by any form of TRS, as any rule with a satisfiable LHS
+on every execution. Note that determinism is not guaranteed by all but the simplest rewrite systems, as any rule with a satisfiable LHS
 may be applied to a term in any order. If two rules exist with the same LHS but diverging RHS, we must consider the possibility
 that different rules may be chosen for different instances of compilation execution.
 
 In general, like termination, a finite TRS is powerful enough that confluence is an undecidable problem.
 However, given knowledge that TRS \textit{is} terminating, we find that confluence is decidable.
-Furthermore, a terminating TRS is confluent if it is locally confluent. Informally, derivations from $t$
+Furthermore, a terminating TRS is confluent if it is locally confluent. Derivations from $t$
 that deviate after one step yet still eventually result in the same normal form are locally confluent.
 
 To calculate whether a pair of diverging rules $l_1 \rightarrow r_1$ and $l_2 \rightarrow r_2$ are locally confluent from starting term $s$, we examine three possible cases.
 \begin{itemize}
     \item Case 1: If $l_1$ and $l_2$ do not overlap or interfere with one another (i.e. they are distinct subterms of $s$),
     $s \xrightarrow{l_1 \rightarrow r_1} t_1 \xrightarrow{l_2 \rightarrow r_2} z$ and
-    $s \xrightarrow{l_2 \rightarrow r_2} t_2 \xrightarrow{l_1 \rightarrow r_1} z$ should result in the same $z$.
+    $s \xrightarrow{l_2 \rightarrow r_2} t_2 \xrightarrow{l_1 \rightarrow r_1} z$ will result in the same $z$.
     \item Case 2: A non-critical overlap of rules where the LHS instance of one rule is properly contained in the substitution function of another rule's LHS.
     In other words, the term $s$ contains a modified version of $l_1$ and $l_2$ such that the most generic forms of both LHS do not overlap.
     Then, an exhaustive application of both rules where applicable will result in the same normal form.
@@ -404,10 +407,10 @@ To calculate whether a pair of diverging rules $l_1 \rightarrow r_1$ and $l_2 \r
     Then, we define a critical pair as a tuple $(\theta r_1, \theta l_1[\theta r_2]_p)$, where $\theta$ is the most general unifier of $l_2 =^? l_1|_p$,
     which must be examined externally to ensure both transitions result in the same normal form.
 \end{itemize}
-If all critical pairs can be resolved to a normal form, we can claim that a TRS is confluent.
+Once all critical pairs are resolved, we can claim that a TRS is confluent.
 Moreover, since the number of critical pairs is finite, the confluence of a finite terminating TRS is decidable.
 
-Confluence can be determined for some subset of non-terminating rewrite systems, but the topic is beyond the scope of this paper.
+Confluence can additionally be determined for some subset of non-terminating rewrite systems, but the topic is beyond the scope of this paper.
 
 \subsection{A Complete Algorithm}
 Now that we have addressed the two major concerns of term rewriting systems, we can derive a generic algorithm, or strategy,
@@ -446,9 +449,9 @@ return $R_i$
 As an aside, the resolution process of critical pairs can be conceptualized as resolving merge conflicts between diverging rules.
 We first assume that diverging paths will eventually reduce to the same normal form. Then, if we find that two
 paths never converge, we know that the TRS is not confluent.
-In a sense, two diverging rules are akin to two developers attempting to modify the same line of code. Git, of course, requires manual intervention
+In a sense, two diverging rules are akin to two developers attempting to modify the same line of code. The version control software git, of course, requires manual intervention
 to minimize the chance of disruptions upon code execution, but the eventual resolution of diverging lines is similar to the process of this algorithm.
-The goal of the algorithm can therefore be rephrased as pre-emptively generating canonical resolutions for all possible merge conflicts caused by critical pairs.
+The goal of the algorithm can therefore be rephrased as \textit{pre-emptively} generating canonical resolutions for all possible merge conflicts caused by critical pairs.
 
 The limitations of this procedure are fairly standard: the program will fail if terms cannot be ordered, or it may attempt to infinitely create new rules.
 Further, when successful, the algorithm creates a large number of rules to resolve each critical pair along its derivation path, resulting in
@@ -509,7 +512,7 @@ restricting the flexibility and efficiency of real-world applications.
 Therefore, we now describe a truly modular system that can take full advantage of domain specific knowledge and conditional rule following.
 % better separates the rules of term rewriting from the application of those rules.
 Instead of blindly choosing reduction rules in an attempt to eventually reach normalized terms, we can strategically choose to apply
-specific rules in contexts where we know more than a simple TRS. Algorithms made from this higher-level formalism, known as strategies, provide a layer of insulating abstraction
+specific rules in contexts where developers know more about the language than the simple TRS. Algorithms made from this higher-level formalism, known as strategies, provide a layer of insulating abstraction
 between the purely theoretical world of TRS and other domains whose knowledge may prove useful in the implementation of a compiler.
 In simpler terms, strategies enable the creation of algorithms customizable to a domain but external to the term rewriting process itself.
 
@@ -524,7 +527,7 @@ A rewrite strategy system extends a TRS by assigning labels $L: l \rightarrow r$
 The user defined strategy is an algorithmic application of labelled rules to achieve a targeted normal form. Since we no longer apply
 all rules indiscriminately, we must take care to ensure that the desired normal forms are derivable by both available rules and application of rules within the strategy.
 As an additional note, strategies can be compiled with higher-level strategies to provide optimizations not only on the intended target source code,
-but bootstrapped for the compiler itself.
+but bootstrapped for the compiler program itself.
 
 The default TRS strategy can be modelled by a directed graph with branches following all possible paths of derivations.
 Formally, the graph contains the recursive transitive closure between all valid rule orderings.
@@ -553,7 +556,7 @@ For simplicity, we reuse the same notation as in the previous TRS, with the addi
     input strategies must succeed.
     \item The recursion operator $\mu x: S \rightarrow T\cup \uparrow$ is slightly different from the usual operator syntax. Strategies defined by $\mu x$ have the form
     $\mu x (s)$, where a recursive call only happens where $x$ appears within $s$. For example, the strategy function \texttt{repeat}$(s) = \mu x ((s;x)\leftplus \epsilon)$
-    will recursively apply the strategy $s$ on all subterms of a term until failure. Then, since the other argument $\epsilon$ will always succeed with
+    will recursively apply the strategy $s$ on a term until failure. Then, since the other argument $\epsilon$ will always succeed with
     no additional action, the strategy \texttt{repeat} will finally terminate.
 \end{itemize}
 
@@ -612,17 +615,17 @@ but can change the values of bound variables of $l$ based on the total environme
 In turn, this effectively carries only the side effects of $s$, rather than a direct transformation.
 \texttt{where} is also useful for placing conditional restrictions on rule evaluation, as seen in Section 3.1.2.
 
-Finally, we can build context aware systems capable of detecting cycles in the derivation graph, make decisions based on environmental knowledge,
+Finally, we now have sufficient machinery to build context aware systems capable of detecting cycles in a derivation graph, make decisions based on environmental knowledge,
 and break down the essence of term rewriting into granular pieces. Further syntactic sugar is provided by Visser et al \cite{elco1998building}
 to simplify the process of defining non-linear rules, boolean condition testing, and using strategies within rules themselves.
-The development of an optimizing compiler using term rewriting is within reach with the foundational correctness of theoretical, formal proofs.
+The development of an optimizing, efficient TRS compiler supported by theoretical, formal proofs is within reach.
 
 \subsubsection{A Small Sample Strategy}
 Earlier in this text, we claimed that rewrite strategies (along with environments and scopes) provided
-a more powerful infrastructure for describing translations that would otherwise fail in a simple TRS.
+powerful infrastructure for describing translations that would otherwise fail in a simple TRS.
 For instance, commutativity over binary operators or conversions between constructor and numerical form
 were previously unattainable or only used in extraneous circumstances.
-Allowing either of these rules within a simple TRS would prevent the system from terminating and sully any attempts to decide confluence.
+Allowing either of these rules within a simple TRS would prevent the entire system from terminating and sully any attempts to decide confluence.
 Now, we extend the example of addition over natural numbers to include both commutativity rules and transformations between normal forms.
 
 While this may be an abuse of the environment system described in \cite{elco1998building},
@@ -640,12 +643,11 @@ we simply prevent that rule from being followed in the opposing direction. Lenie
 \end{align*}
 First, we bind the subterms $x_1,x_2$ of a $+$ term to the local scope
 (note that $x_1+x_2$ here is a pattern matching of the addition operator, rather than the non-deterministic choice of two strategies).
-Then, we test that the inverse commutation of the bound subterms does not appear in some global set $V$ of
-followed commutative pairs.
-After the test, we save the currently seen pair to the global set $V$ as a side effect and eventually build back the commuted version of the input.
+Then, we test that the inverse commutation of bound subterms does not already exist in some global set $V$ of followed commutative pairs.
+After the test, we save the currently seen pair to the global set $V$ as a side effect and eventually build back the now-swapped input terms.
 This method could certainly be improved with scoping to enable inverse commutation operations in more environments, especially if variable names have
 been reused, but the goal of this example is to demonstrate the additional flexibility and control offered by a formal rewrite strategy.
-A rule like this one may be applied like a normal TRS rule, but will deliberately fail more often than
+A rule like this one may be applied as if it were a normal TRS rule, but it will now deliberately fail more often than
 its unconditional counterpart to directly address non-terminating behaviour.
 
 In a previous example, we made use of the identity $Suc^c(0) \approx c$ to convert a constructor-based value into an understandable numerical value.
@@ -658,7 +660,9 @@ However, we made the rule an exceptional case in that it should only be converte
         &match(y);\\
         &test(build(y);\mu x(match(x) \leftplus \diamond(x)))\\
         \}\\\\
-    \texttt{rootPrettyPrint} &= \{\\
+\end{align*}
+\begin{align*}
+\texttt{rootPrettyPrint} &= \{\\
         t&:\\
         &match(t);\\
         &where(\lnot \texttt{in}(x_1+x_2, t));\\
@@ -673,7 +677,7 @@ that rendering a constructor-based value back to numerical form
 can only happen after all calculations involving addition are complete (i.e. all non-aesthetic computation has finished).
 
 \subsection{Functional Code Optimization with Rewriting Strategies}
-Although the field of code optimization and optimal code generation is as vast as the number of languages themselves,
+Although the field of code optimization and optimal code generation is as vast as the number of languages,
 we can observe a few objective optimizations available for functional programs made simple by rewriting strategies.
 For example, dead code can be removed by extracting terms without side effects from unused subexpressions. Consider
 the expression \texttt{let x = 1 in z}. By using \texttt{where} to test for occurrences of $x$ in $z$
@@ -693,7 +697,7 @@ If a strategy finds that a variable only exists as an iterator for a loop, unuse
 Additionally, such a strategy may also detect other variables within the loop that are the result of functions applied to iterator itself.
 In that case, the variables may be replaced with appropriate constants.
 
-An extensive thesis by Paraskevopoulou \cite{paraskevopoulou2020verified} contains a full catalogue of function optimizations,
+An extensive thesis \cite{paraskevopoulou2020verified} contains a full catalogue of function optimizations,
 along with rewrite strategies to perform those optimizations.
 For brevity, we mention only a few examples of particularly interesting optimizations.
 The thesis denotes strategies to combine nested function un-currying with inlining rules
@@ -703,17 +707,13 @@ In the same vein, lambda lifting to promote locally defined functions to the glo
 to minimize inter-function calls and dependencies.
 
 Interestingly, the Glasgow Haskell Compiler makes use of similar rewrite-based optimizations during the process of code simplification \cite{brown2011architecture}.
-The simplification process, which happens in between a series of other optimization programs, implements a strategic TRS not unlike the one described in section 3.1 .
+The simplification process, which happens between a series of other optimization programs, implements a strategic TRS not unlike the one described in Section 3.1.
 Rewrite rules specified in a miniature functional language \texttt{Core} can directly extend the compiler's simplification component,
 granting the ability to add domain-specific optimizations for certain functions.
 A developmental Haskell paper \cite{peytonjones2001playing} even describes a system for automatically deriving rewrite rules based on static code analysis.
 However, user-specified rules must be used with caution,
 since GHC makes no attempts to verify the correctness or soundness of such rules.
 
-% \subsection{A Sample Rewriting Strategy for a Very High Level Language}
-% \section{Alternatives to Term Rewriting}
-% TODO compare to something like a visitor pattern????
-% cite rust compiler, LLVM tutorial?
 \section{Conclusion}
 
 Term rewriting systems are a vital concept to producing simple, formally verifiable compilers.
@@ -730,7 +730,7 @@ just as a server may host additional APIs or a website implement aesthetic chang
 In essence, rules of a TRS provide atomic, provable, and correctness-preserving instructions,
 while the rewrite strategy governs an otherwise indiscriminate rule execution into an efficient, practical, controllable system.
 Granting even a gentle push in the right direction can massively reduce the number of possible derivation trees for a TRS,
-mitigating issues caused by non-determinism. Yet, the powerful nature of random pattern matching remains an accessible tool.
+mitigating issues caused by non-determinism. Yet, the powerful nature of random pattern matching remains an accessible tool within strategic systems.
 
 The rewrite system presented in this paper aims
 to harness the power of non-determinism while remaining in control of the seemingly uncontrollable,
