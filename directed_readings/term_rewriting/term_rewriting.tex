@@ -8,10 +8,11 @@
 \usepackage{tikz}
 \usepackage{array}
 \usepackage{graphicx}
-\usepackage{biblatex}
+\usepackage[backend=biber, maxbibnames=9]{biblatex}
 \usepackage{algpseudocode}
 \usepackage{algorithm}
 \usepackage{mathtools}
+\usepackage{hyperref}
 
 \makeatletter
 \newcommand{\superimpose}[2]{{%
@@ -180,11 +181,11 @@ Additional notation regarding term rewriting systems is listed below,
 where the details of some properties have been discarded for simplicity and conciseness.
 These notions will be used intermittently throughout the rest of this paper:
 \begin{itemize}
-    \item The signature set $\Sigma = \cup_{n=0}\Sigma^n$ contains function symbols that have arity $n$ (i.e. functions that take in $n$ arguments).
+    \item The signature set $\Sigma$ contains all function symbols, where each function within the set is associated with a non-negative arity $n$ to denote the number of accepted arguments. Then, $\Sigma^{(n)}$ is a subset of $\Sigma$ containing only functions with arity $n$.
     \item The set of terms $T(\Sigma, X)$ inductively contains all variables $X$ and all applications of functions to those terms.
-    Generically, terms follow the grammar $t ::= x | c | f(t_1, ..., t_n)$ where $x$ is a variable in $X$, $c$ is a constant in $\Sigma^0$,
-    and $f$ is a function in $\Sigma^n$.
-    \item The set of ground terms $T(\Sigma, \emptyset)$ contains only constants (i.e., $f|f \in \Sigma^0$) and function applications of those constants. No variables allowed.
+    Generically, terms follow the grammar $t ::= x | c | f(t_1, ..., t_n)$ where $x$ is a variable in $X$, $c$ is a constant in $\Sigma^{(0)}$,
+    and $f$ is a function in $\Sigma^{(n)}$.
+    \item The set of ground terms $T(\Sigma, \emptyset)$ contains only constants (i.e., $f|f \in \Sigma^{(0)}$) and function applications of those constants. No variables allowed.
     \item The substitution function $\sigma: X \times T(\Sigma, X)$ is a set of mappings on variables within terms to other elements of $T(\Sigma, X)$.
     \item A term $t$ is an instance of a term $s$ if a substitution applied to $s$ produces $t$. Formally, $\sigma(s) = t \implies t \gtrsim s$.
     % TODO add as needed
@@ -198,7 +199,7 @@ we may swap appearances of $s$ with $t$ and vice versa. An identity $s \approx t
 
 In the induction example from Section 2.1,
 we made use of identities over natural numbers to derive new identities, refining the relationship between natural numbers and the addition operator.
-Similarly, term rewriting makes use of transformations and identities to derive new identities. $\sigma(s) \approx \sigma(t)$ is satisfiable in $E$ if
+Similarly, term rewriting makes use of transformations and identities to derive new identities. We say $\sigma(s) \approx \sigma(t)$ is satisfiable in $E$ if
 there exists a substitution function $\sigma$ that results in a valid identity. Generally, we aim to create identities that will better direct source text
 to a correct and consistent normal form.
 
@@ -350,26 +351,26 @@ A simplification order must satisfy the conditions of a rewrite order, mentioned
 may not grow individually, satisfying $t > t_i$. As a consequence, the relative orderings of substitutions into another algebra must be homeomorphic, preserving the relative
 structure of each subterm.
 
-The text further provides an excellent guideline for generic automatic termination checking through lexicographic path orders. Semi-formally, $s >_{lpo} t$ iff:
-\begin{itemize}
-    \item Condition 1: $t$ is a subterm variable of $s$, or
-    \item Condition 2: $s$ and $t$ are function applications where $s = f(s_1, ...)$ and $t = g(t_1,...)$ with one of the following:
-    \begin{itemize}
-        \item Condition 2.1: some subterm $s_i \geq_{lpo} t$
-        \item Condition 2.2: $f > g$ and $s >_{lpo} t_j \forall j$
-        \item Condition 2.3: $f = g$, $s >_{lpo} t_j \forall j$, and $\exists i: s_i > t_i$
-    \end{itemize}
-\end{itemize}
+The text further provides an excellent guideline for generic automatic termination checking through lexicographic path orders. Semi-formally, $s >_{lpo} t$ if:
+\begin{description}
+    \item[Condition 1] $t$ is a subterm variable of $s$, or
+    \item[Condition 2] $s$ and $t$ are function applications where $s = f(s_1, ...)$ and $t = g(t_1,...)$ with one of the following:
+    \begin{description}
+        \item[Condition 2.1] some subterm $s_i \geq_{lpo} t$
+        \item[Condition 2.2] $f > g$ and $s >_{lpo} t_j \forall j$
+        \item[Condition 2.3] $f = g$, $s >_{lpo} t_j \forall j$, and $\exists i: s_i > t_i$
+    \end{description}
+\end{description}
 Lexicographic path orders start at the root of a symbol and work towards showing an order on the innermost symbols.
 This reduction order can be used to show termination of TRS whose reduction sequence length cannot be bounded by a primitive recursive function.
 Further, $s >_{lpo} t$ can be decided in polynomial time on $t$, where termination on the entire TRS is NP-complete.
 
-For completeness, we show that the addition TRS described above is a simplification order over $>_{lpo}$.
+For completeness, we prove that the addition TRS described above is a simplification order over $>_{lpo}$.
 Referring to the set
 \[R = \{0 + n \rightarrow n, n + 0 \rightarrow n, Suc(n) + m \rightarrow Suc(n+m), c \rightarrow Suc^c(0)\}\]
 we show:
 \begin{itemize}
-    \item $0 + n \rightarrow n, n + 0 \rightarrow n$ are satisfied by the first condition. $n$ is a subterm of both $n+0$ and $0+n$.
+    \item $0 + n \rightarrow n, n + 0 \rightarrow n$ are satisfied by the first condition. Thus, $n$ is a subterm of both $n+0$ and $0+n$.
     \item In the rule $c \rightarrow Suc^c(0)$, $c$ can be considered an 0-ary function. Since the definition of $>_{lpo}$
     expects an ordering of functions as input, we say that $c > Suc$, and $c$ is certainly greater than the subterm 0.
     Thus, condition 2.2 is satisfied.
@@ -396,17 +397,17 @@ Furthermore, a terminating TRS is confluent if it is locally confluent. Derivati
 that deviate after one step yet still eventually result in the same normal form are locally confluent.
 
 To calculate whether a pair of diverging rules $l_1 \rightarrow r_1$ and $l_2 \rightarrow r_2$ are locally confluent from starting term $s$, we examine three possible cases.
-\begin{itemize}
-    \item Case 1: If $l_1$ and $l_2$ do not overlap or interfere with one another (i.e. they are distinct subterms of $s$),
+\begin{description}
+    \item[Case 1] If $l_1$ and $l_2$ do not overlap or interfere with one another (i.e. they are distinct subterms of $s$),
     $s \xrightarrow{l_1 \rightarrow r_1} t_1 \xrightarrow{l_2 \rightarrow r_2} z$ and
     $s \xrightarrow{l_2 \rightarrow r_2} t_2 \xrightarrow{l_1 \rightarrow r_1} z$ will result in the same $z$.
-    \item Case 2: A non-critical overlap of rules where the LHS instance of one rule is properly contained in the substitution function of another rule's LHS.
+    \item[Case 2] A non-critical overlap of rules where the LHS instance of one rule is properly contained in the substitution function of another rule's LHS.
     In other words, the term $s$ contains a modified version of $l_1$ and $l_2$ such that the most generic forms of both LHS do not overlap.
     Then, an exhaustive application of both rules where applicable will result in the same normal form.
-    \item Case 3: A critical overlap of $l_1$ and $l_2$, where both rules try to manipulate the most generic form of the other's LHS.
+    \item[Case 3] A critical overlap of $l_1$ and $l_2$, where both rules try to manipulate the most generic form of the other's LHS.
     Then, we define a critical pair as a tuple $(\theta r_1, \theta l_1[\theta r_2]_p)$, where $\theta$ is the most general unifier of $l_2 =^? l_1|_p$,
     which must be examined externally to ensure both transitions result in the same normal form.
-\end{itemize}
+\end{description}
 Once all critical pairs are resolved, we can claim that a TRS is confluent.
 Moreover, since the number of critical pairs is finite, the confluence of a finite terminating TRS is decidable.
 
@@ -460,12 +461,12 @@ long runtimes and high space complexity.
 Improvements to this algorithm primarily involve dealing with the TRS and identity set on a higher level than previously seen, where a completion procedure
 repeatedly follows a set of generic inference rules, described below:
 \begin{itemize}
-    \item Deduce: If $l \rightarrow r_1, l \rightarrow r_2 \in R$, add $r_1 \approx r_2$ to $E$.
-    \item Orient: If $(s \approx t) \in E$ and $s > t$, add $s \rightarrow t$ to $R$.
-    \item Delete: Remove reflexive identities $s \approx s$.
-    \item Simplify-identity: Transform identity $s \approx t$ to $u \approx t$ if $s \rightarrow u \in R$.
-    \item R-simplify-rule: Transform rule $s \rightarrow t$ to $s \rightarrow u$ if $t \rightarrow u \in R$.
-    \item L-simplify-rule: Convert rule $s \rightarrow t$ to identity $u \approx t$ if $s \rightarrow^{\supset} u$ ($s$ is the more generic form of $u$).
+    \item \textbf{Deduce}: If $l \rightarrow r_1, l \rightarrow r_2 \in R$, add $r_1 \approx r_2$ to $E$.
+    \item \textbf{Orient}: If $(s \approx t) \in E$ and $s > t$, add $s \rightarrow t$ to $R$.
+    \item \textbf{Delete}: Remove reflexive identities $s \approx s$.
+    \item \textbf{Simplify-identity}: Transform identity $s \approx t$ to $u \approx t$ if $s \rightarrow u \in R$.
+    \item \textbf{R-simplify-rule}: Transform rule $s \rightarrow t$ to $s \rightarrow u$ if $t \rightarrow u \in R$.
+    \item \textbf{L-simplify-rule}: Convert rule $s \rightarrow t$ to identity $u \approx t$ if $s \xrightarrow{\supset} u$ ($s$ is the more generic form of $u$).
 \end{itemize}
 The behaviour of the combined ruleset essentially shifts the balance of rule derivations and identities between one another. For example, deduce adds an identity
 to $E$ if the same source term provides two different derived terms in $R$, covering all critical pairs.
@@ -505,11 +506,11 @@ Section 3 presents a revised term rewriting system to address these limitations.
 % However, from a software engineering perspective,
 
 Modularity and abstraction are key pillars in supporting the boundless complexity of modern day software engineering.
-In the case of a generic TRS solver, limited modularity is achieved through direct modification of the available ruleset.
+In the case of a generic TRS solver, limited modularity is achieved through direct modification of the available ruleset \cite{baader1998term}.
 Unfortunately, the one-size-fits-all design relegates domain-specific knowledge from the theoretical, provable level to the implementation level,
 restricting the flexibility and efficiency of real-world applications.
 
-Therefore, we now describe a truly modular system that can take full advantage of domain specific knowledge and conditional rule following.
+Therefore, we now describe a truly modular system as presented in \cite{elco1998building} that can take full advantage of domain specific knowledge and conditional rule following.
 % better separates the rules of term rewriting from the application of those rules.
 Instead of blindly choosing reduction rules in an attempt to eventually reach normalized terms, we can strategically choose to apply
 specific rules in contexts where developers know more about the language than the simple TRS. Algorithms made from this higher-level formalism, known as strategies, provide a layer of insulating abstraction
@@ -546,15 +547,15 @@ For simplicity, we reuse the same notation as in the previous TRS, with the addi
     so \texttt{id}$(s_1) = s_1$ would be a strategy with similar behaviour to Haskell's own \texttt{id} function.
     Although we overload the $\rightarrow$ operator between rules and strategies, at a most basic level, a rule can be considered a strategy if desired.
     For the rest of this section, $\rightarrow$ denotes the more generic version of the relation, accommodating both rules and strategies alike.
-    \item Denote the set of strategies $S$ as all possible relations defined by $\rightarrow$. The non-deterministic choice operator $+: S \times S\rightarrow T\cup \uparrow$
-    then accepts two rules and succeeds with a result if at least one rule is valid. Note that backtracking for this operator is only surface level,
+    \item Denote the set of strategies $S$ as all possible relations defined by $\rightarrow$. The non-deterministic choice operator $+: S \times S\rightarrow (S\cup \uparrow)$
+    then accepts two rules and returns a successful result if at least one rule is valid, failing otherwise. Note that backtracking for this operator is only surface level,
     so for a strategy $s_1 + s_2$, if $s_1$ is non-deterministically selected and fails immediately, $s_2$ is then selected. However,
     if $s_1$ only fails after a long series of internal derivations, the entire strategy $s_1 + s_2$ will fail.
-    \item The deterministic left-choice operator $\leftplus: S \times S \rightarrow T\cup \uparrow$ prefers to follow the leftmost strategy, only attempting the rightmost strategy
+    \item The deterministic left-choice operator $\leftplus: S \times S \rightarrow (S\cup \uparrow)$ prefers to follow the leftmost strategy, only attempting the rightmost strategy
     upon failure of the left. Similar to $+$, backtracking for failures is only surface-level.
-    \item The composition of strategies $;: S \times S \rightarrow T\cup \uparrow$ will apply the first strategy and then the second strategy sequentially. Both
+    \item The composition of strategies $;: S \times S \rightarrow (S\cup \uparrow)$ will apply the first strategy and then the second strategy sequentially. Both
     input strategies must succeed.
-    \item The recursion operator $\mu x: S \rightarrow T\cup \uparrow$ is slightly different from the usual operator syntax. Strategies defined by $\mu x$ have the form
+    \item The recursion operator $\mu x: S \rightarrow (S\cup \uparrow)$ is slightly different from the usual operator syntax. Strategies defined by $\mu x$ have the form
     $\mu x (s)$, where a recursive call only happens where $x$ appears within $s$. For example, the strategy function \texttt{repeat}$(s) = \mu x ((s;x)\leftplus \epsilon)$
     will recursively apply the strategy $s$ on a term until failure. Then, since the other argument $\epsilon$ will always succeed with
     no additional action, the strategy \texttt{repeat} will finally terminate.

@@ -1,23 +1,24 @@
+
 @book{baader1998term,
-  title={Term Rewriting and All That},
-  author={Baader, F. and Nipkow, T.},
-  isbn={9780521779203},
-  lccn={97028286},
-  series={Term Rewriting and All that},
-  url={https://books.google.ca/books?id=N7BvXVUCQk8C},
-  year={1998},
-  publisher={Cambridge University Press}
+author = {Baader, Franz and Nipkow, Tobias},
+title = {Term Rewriting and All That},
+year = {1998},
+publisher = {Cambridge University Press},
+doi = {10.1017/CBO9781139172752},
+% isbn = {0521455200},
+% lccn={97028286},
+% isbn={9780521779203},
+% 10.5555/280474,
 }
 
 @book{cooke1998constructing,
   title={Constructing Correct Software: The Basics},
-  author={Cooke, J.},
-  isbn={9783540761563},
-  lccn={97026050},
-  series={Formal Approaches to Computing and Inf},
-  url={https://books.google.ca/books?id=N3whAQAAIAAJ},
+  author={Cooke, John},
   year={1998},
-  publisher={Springer}
+  publisher={Springer},
+  doi={10.1007/b138515},
+  % isbn={9783540761563},
+  % lccn={97026050},
 }
 
 @article{elco1998building,
@@ -30,11 +31,10 @@ address = {New York, NY, USA},
 volume = {34},
 number = {1},
 issn = {0362-1340},
-url = {https://doi.org/10.1145/291251.289425},
+% url = {https://doi.org/10.1145/291251.289425},
 doi = {10.1145/291251.289425},
-abstract = {We describe a language for defining term rewriting strategies, and its application to the production of program optimizers. Valid transformations on program terms can be described by a set of rewrite rules; rewriting strategies are used to describe when and how the various rules should be applied in order to obtain the desired optimization effects. Separating rules from strategies in this fashion makes it easier to reason about the behavior of the optimizer as a whole, compared to traditional monolithic optimizer implementations. We illustrate the expressiveness of our language by using it to describe a simple optimizer for an ML-like intermediate representation.The basic strategy language uses operators such as sequential composition, choice, and recursion to build transformers from a set of labeled unconditional rewrite rules. We also define an extended language in which the side-conditions and contextual rules that arise in realistic optimizer specifications can themselves be expressed as strategy-driven rewrites. We show that the features of the basic and extended languages can be expressed by breaking down the rewrite rules into their primitive building blocks, namely matching and building terms in variable binding environments. This gives us a low-level core language which has a clear semantics, can be implemented straightforwardly and can itself be optimized. The current implementation generates C code from a strategy specification.},
 journal = {SIGPLAN Not.},
-month = sep,
+% month = {September},
 pages = {13–26},
 numpages = {14}
 }
@@ -45,14 +45,16 @@ numpages = {14}
   booktitle={Proceedings of the 2nd Fuji International Workshop on Functional and Logic Programming},
   pages={1--13},
   year={1996},
-  organization={World Scientific}
+  organization={World Scientific},
+  url={https://www.researchgate.net/publication/243768023_Mathematica_as_a_Rewrite_Language}
 }
 
 @article{mircea2004rule,
 title = {Rule-Based Programming with Mathematica},
 author = {Marin, Mircea and Piroi, Florina},
 year = {2004},
-month = {05}
+month = {05},
+url={https://www.ricam.oeaw.ac.at/files/reports/04/rep04-03.pdf}
 }
 
 @online{catln,
@@ -88,8 +90,8 @@ month = {05}
 
 @book{thomas1971catalogue,
   title={A Catalogue of Optimizing Transformations},
-  author={Thomas J. Watson IBM Research Center and Allen, F.E. and Cocke, J.},
-  url={https://books.google.ca/books?id=oeXaZwEACAAJ},
+  author={Allen, Frances E. and Cocke, John},
+  url={https://www.clear.rice.edu/comp512/Lectures/Papers/1971-allen-catalog.pdf},
   year={1971},
   publisher={IBM Thomas J. Watson Research Center}
 }
@@ -100,25 +102,34 @@ month = {05}
   booktitle={International Conference on Modelling Techniques and Tools for Computer Performance Evaluation},
   pages={228--243},
   year={2011},
-  organization={Springer}
+  organization={Springer},
+  url={https://homepages.cwi.nl/~storm/publications/visitor.pdf}
 }
 
 @article{van2003term,
-  title={Term rewriting with traversal functions},
-  author={Van Den Brand, Mark GJ and Klint, Paul and Vinju, Jurgen J},
-  journal={ACM Transactions on software engineering and methodology (TOSEM)},
-  volume={12},
-  number={2},
-  pages={152--190},
-  year={2003},
-  publisher={ACM New York, NY, USA}
+author = {van den Brand, Mark G. J. and Klint, Paul and Vinju, Jurgen J.},
+title = {Term rewriting with traversal functions},
+year = {2003},
+issue_date = {April 2003},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {12},
+number = {2},
+% issn = {1049-331X},
+doi = {10.1145/941566.941568},
+journal = {ACM Trans. Softw. Eng. Methodol.},
+month = apr,
+pages = {152–190},
+numpages = {39},
 }
+
 
 @book{paraskevopoulou2020verified,
   title={Verified Optimizations for Functional Languages},
   author={Paraskevopoulou, Zoe},
   year={2020},
-  publisher={Princeton University}
+  publisher={Princeton University},
+  url={https://dataspace.princeton.edu/handle/88435/dsp01pr76f648c}
 }
 
 @inproceedings{kop2013term,
@@ -127,7 +138,8 @@ month = {05}
   booktitle={International Symposium on Frontiers of Combining Systems},
   pages={343--358},
   year={2013},
-  organization={Springer}
+  organization={Springer},
+  doi={10.1007/978-3-642-40885-4_24}
 }
 
 @article{toyama1988commutativity,
@@ -135,17 +147,17 @@ month = {05}
   author={Toyama, Yoshihito},
   journal={Programming of future generation computers II},
   pages={393--407},
-  year={1988}
+  year={1988},
+  url={https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=7046f12ef6e51e9c02d75d9b986532e45eb31513}
 }
 
-@book{brown2011architecture,
-  title={The Architecture of Open Source Applications: Elegance, Evolution, and a Few Fearless Hacks},
-  author={Brown, A. and Wilson, G.},
-  isbn={9781257638017},
-  series={The Achrictecture of Open Source Applications},
-  url={https://books.google.ca/books?id=pgI1AwAAQBAJ},
-  year={2011},
-  publisher={Creative Commons}
+@online{brown2011architecture,
+  title={The Architecture of Open Source Applications (Volume 2)
+The Glasgow Haskell Compiler},
+  author={Marlow, Simon and Peyton-Jones, Simon},
+  % series={The Architecture of Open Source Applications},
+  url={https://aosabook.org/en/v2/ghc.html},
+  year={2012},
 }
 
 @inproceedings{peytonjones2001playing,
@@ -154,10 +166,7 @@ title = {Playing by the rules: rewriting as a practical optimisation technique i
 organization = {ACM SIGPLAN},
 booktitle = {2001 Haskell Workshop},
 year = {2001},
-month = {September},
-abstract = {We describe a facility for improving optimization of Haskell programs using rewrite rules. Library authors can use rules to express domain-specific optimizations that the compiler cannot discover for itself. The compiler can also generate rules internally to propagate information obtained from automated analyses. The rewrite mechanism is fully implemented in the released Glasgow Haskell Compiler.
-
-Our system is very simple, but can be effective in optimizing real programs. We describe two practical applications involving short-cut deforestation, for lists and for rose trees, and document substantial performance improvements on a range of programs.},
+% month = {9},
 url = {https://www.microsoft.com/en-us/research/publication/playing-by-the-rules-rewriting-as-a-practical-optimisation-technique-in-ghc/},
 edition = {2001 Haskell Workshop},
 }
