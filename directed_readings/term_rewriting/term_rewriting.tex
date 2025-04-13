@@ -672,48 +672,55 @@ However, we made the rule an exceptional case in that it should only be converte
 \end{align*}
 The strategy \texttt{rootPrettyPrint} simply checks for terms of structure $x_1+x_2$ within the bound input term $t$. If a $+$ operator is found,
 the call to $where$ will fail and the entire rule will cease to execute. The \texttt{in} strategy, provided by \cite{elco1998building},
-binds two terms, and recursively attempts to match occurrences of $+$ from within $t$. When a match is found, the strategy returns successfully.
-Through this strategy, we have effectively encoded into our rewrite strategy, without modifying the underlying TRS,
+binds two terms, and recursively attempts to match occurrences of $+$ from within $t$. When a match is found, the \texttt{in} returns successfully.
+Through the \texttt{where} clause, we have effectively encoded into our rewrite strategy, without modifying the underlying TRS,
 that rendering a constructor-based value back to numerical form
 can only happen after all calculations involving addition are complete (i.e. all non-aesthetic computation has finished).
 
-\subsection{Functional Code Optimization with Rewriting Strategies}
-Although the field of code optimization and optimal code generation is as vast as the number of languages,
-we can observe a few objective optimizations available for functional programs made simple by rewriting strategies.
-For example, dead code can be removed by extracting terms without side effects from unused subexpressions. Consider
-the expression \texttt{let x = 1 in z}. By using \texttt{where} to test for occurrences of $x$ in $z$
-and assess any side effects of $x$,
-we can conditionally perform a rewrite action to trim the unused \texttt{let} portion of the statement.
-The optimizer gains the ability to use syntactic analysis side-by-side with semantics through modified environment sets.
+Rewriting strategies can be extended to associate costs with different terms or to accommodate unique system architectures. For example, Bravenboer and Visser \cite{bravenboer2002Rewriting} explore strategies for CISC architectures, where some instructions may consume more CPU cycles or perform hardware-accelerated groups of actions. In such cases, exhaustively applying rewrite rules to create the shortest sequence of instructions is insufficient for providing the optimal solution. Subtle optimization preferences for the output text can largely effect the optimality and strategy execution of a TRS. By associating costs with each strategy and applying rules through dynamic programming, a TRS can ensure efficient, optimal tiling of the resulting output.
 
-Further code optimizations like function inlining and replacing occurrences of variables with respective values
-are made possible by context-aware rules and strategies. For instance, in function inlining, we must ensure
-simultaneous substitution of all occurrences of a function within some set of terms.
-Then, the optimizations of the function itself must be applied to all replaced occurrences.
-With a generic fully non-deterministic rewrite system, guaranteeing performant inlining of functions would
-not be possible, since any rule could be applied at any time.
-Moreover, unwrapping loops
-and inlining variables used within those loops is an easy performance improvement only possible with knowledge of the variable's lifetime.
-If a strategy finds that a variable only exists as an iterator for a loop, unused elsewhere in the code, that variable may be inlined.
-Additionally, such a strategy may also detect other variables within the loop that are the result of functions applied to iterator itself.
-In that case, the variables may be replaced with appropriate constants.
+% multi-stage instructions may not necessarily
 
-An extensive thesis \cite{paraskevopoulou2020verified} contains a full catalogue of function optimizations,
-along with rewrite strategies to perform those optimizations.
-For brevity, we mention only a few examples of particularly interesting optimizations.
-The thesis denotes strategies to combine nested function un-currying with inlining rules
-to massively reduce the number of required function calls in generated (normal form) code.
-Function parameters may be removed if unused, with similar checks to dead code elimination.
-In the same vein, lambda lifting to promote locally defined functions to the global scope can be used in conjunction with unnesting closure conversions
-to minimize inter-function calls and dependencies.
 
-Interestingly, the Glasgow Haskell Compiler makes use of similar rewrite-based optimizations during the process of code simplification \cite{brown2011architecture}.
-The simplification process, which happens between a series of other optimization programs, implements a strategic TRS not unlike the one described in Section 3.1.
-Rewrite rules specified in a miniature functional language \texttt{Core} can directly extend the compiler's simplification component,
-granting the ability to add domain-specific optimizations for certain functions.
-A developmental Haskell paper \cite{peytonjones2001playing} even describes a system for automatically deriving rewrite rules based on static code analysis.
-However, user-specified rules must be used with caution,
-since GHC makes no attempts to verify the correctness or soundness of such rules.
+% which often make use of specialized registers and multi-purpose instructions to improve execution times. In such cases, exhaustively applying rewrite rules to create the shortest sequence of instructions is insufficient for providing the optimal solution. Further, not all instructions in CISC architectures are created equal. Some may contain contain specialized hardware to accelerate tasks on a specific set of registers, others may require more CPU cycles. Subtle optimization preferences for the output text can largely effect the optimality and strategy execution of a TRS. By associating costs with each strategy and applying rules through dynamic programming, a TRS can ensure efficient, optimal tiling of the resulting output.
+
+% \subsection{Functional Code Optimization with Rewriting Strategies}
+% Although the field of code optimization and optimal code generation is as vast as the number of languages,
+% we can observe a few objective optimizations available for functional programs made simple by rewriting strategies.
+% For example, dead code can be removed by extracting terms without side effects from unused subexpressions. Consider
+% the expression \texttt{let x = 1 in z}. By using \texttt{where} to test for occurrences of $x$ in $z$
+% and assess any side effects of $x$,
+% we can conditionally perform a rewrite action to trim the unused \texttt{let} portion of the statement.
+% The optimizer gains the ability to use syntactic analysis side-by-side with semantics through modified environment sets.
+
+% Further code optimizations like function inlining and replacing occurrences of variables with respective values
+% are made possible by context-aware rules and strategies. For instance, in function inlining, we must ensure
+% simultaneous substitution of all occurrences of a function within some set of terms.
+% Then, the optimizations of the function itself must be applied to all replaced occurrences.
+% With a generic fully non-deterministic rewrite system, guaranteeing performant inlining of functions would
+% not be possible, since any rule could be applied at any time.
+% Moreover, unwrapping loops
+% and inlining variables used within those loops is an easy performance improvement only possible with knowledge of the variable's lifetime.
+% If a strategy finds that a variable only exists as an iterator for a loop, unused elsewhere in the code, that variable may be inlined.
+% Additionally, such a strategy may also detect other variables within the loop that are the result of functions applied to iterator itself.
+% In that case, the variables may be replaced with appropriate constants.
+
+% An extensive thesis \cite{paraskevopoulou2020verified} contains a full catalogue of function optimizations,
+% along with rewrite strategies to perform those optimizations.
+% For brevity, we mention only a few examples of particularly interesting optimizations.
+% The thesis denotes strategies to combine nested function un-currying with inlining rules
+% to massively reduce the number of required function calls in generated (normal form) code.
+% Function parameters may be removed if unused, with similar checks to dead code elimination.
+% In the same vein, lambda lifting to promote locally defined functions to the global scope can be used in conjunction with unnesting closure conversions
+% to minimize inter-function calls and dependencies.
+
+% Interestingly, the Glasgow Haskell Compiler makes use of similar rewrite-based optimizations during the process of code simplification \cite{brown2011architecture}.
+% The simplification process, which happens between a series of other optimization programs, implements a strategic TRS not unlike the one described in Section 3.1.
+% Rewrite rules specified in a miniature functional language \texttt{Core} can directly extend the compiler's simplification component,
+% granting the ability to add domain-specific optimizations for certain functions.
+% A developmental Haskell paper \cite{peytonjones2001playing} even describes a system for automatically deriving rewrite rules based on static code analysis.
+% However, user-specified rules must be used with caution,
+% since GHC makes no attempts to verify the correctness or soundness of such rules.
 
 % TODO more on code optimization? What has happened since then for code generation and optimization? How exactly is term rewriting (also in specialized forms) used for code generation and optimization in recent work?
 % maybe compare to other methods of compilation? what does gcc use, for example?
@@ -727,6 +734,77 @@ since GHC makes no attempts to verify the correctness or soundness of such rules
 % - Haskell
 % - Program Transformations
 % - Graph transformations instead of term rewriting
+
+
+
+
+
+% Topics:
+% - modern compilers
+%    - LLVM
+%    - Stratego
+%    - GHC
+%    - Rewriting with SSA
+% - continuing research
+%    - equality saturation
+%    - graph IRs
+%    - instruction selection, scheduling languages
+
+\section{Rewriting in Practice}
+In the decades since the introduction of rewriting through the Knuth-Bendix completion algorithm \cite{baader1998term}, rewriting concepts have percolated into almost every aspect of compiler implementation and infrastructure. In particular, the essence of term rewriting, where an algorithm iteratively scans and substitutes small chunks of text within a source program, serves as the foundation of general optimization components.
+
+\subsection{LLVM}
+
+The LLVM compiler infrastructure project \cite{llvmWebsite}, used as a backend for several high performance languages (Rust, Swift, Clang for C/C++/Obj-C, etc.), has been popularized by characteristically fast compile times, aggressive optimization, and an open API for virtually any desired language frontend. Following Lattner's thesis \cite{Lattner:MSThesis02} and subsequent paper \cite{llvm2004Compilation}, LLVM distinguishes the code optimization problem into two parts: static and continuous optimization. For the sake of conciseness and relevancy to rewriting, we will focus only on the initial optimization component.
+
+Before static optimization, source code is translated to LLVM's virtual instruction set. Assuming a given compiler frontend parses the source language correctly, LLVM's intermediate representation (IR) then carries the same semantics as the source text but with verbose and simplified C-like syntax. More formally, LLVM's IR uses a combination of RISC-based three-address expressions, where instructions take one or two operands and produce one output, and static single assignment (SSA), where variables are defined exactly once. However, unlike other forms of assembly-like instructions, the IR contains high-level type and memory information for each variable and function. Although memory management via the type system is rather complex, the IR is generic enough to run on multiple architectures and low-level enough to follow memory-based optimizations. The IR is the keystone of LLVM's ability to make high-level optimization decisions on low-level code.
+
+Moving to the actual optimization stage, we find that static optimization is performed in a series of destructive passes over the IR. That is, each iteration of optimization destroys and replaces unoptimized chunks of code with more performant counterparts. Outside of traditional compiler optimizations, LLVM boasts 3 classes of optimizations:
+\begin{itemize}
+    \item Traditional SSA optimizations directly on the low-level code representation. Among these types of optimizations are dead code elimination, common subexpression elimination, loop invariant code motion, and constant value propagation. While LLVM opts for dedicated stages for these kinds of optimizations, strategic rewriting could easily achieve this level of optimization. For example, dead code can be removed by extracting terms without side effects from unused subexpressions. Consider the expression \texttt{let x = 1 in z}. By using \texttt{where} to test for occurrences of $x$ in $z$ and assess any side effects of $x$, we can conditionally perform a rewrite action to trim the unused \texttt{let} portion of the statement.
+    \item Control flow graph optimizations based on high-level type information, like critical edge elimination and natural loop construction. At this stage, data structures within the program are viewed through the perspective of a flow graph, with nodes representing objects in memory and edges covering \textit{may-point-to} relationships between objects. A different type of edge is used to depict the relationship between objects and called instructions. This representation, combined with strong static typing, gives LLVM insight into memory usage across variables and functions.
+    \item Interprocedural transformations for program-wide optimizations, like type safety analysis, global variable elimination, and function inlining. This stage also uses a graph representation for each function, capturing the effects and result of executing the function on the entire program.
+\end{itemize}
+Algorithmic transformations are performed through various stages of an LLVM-based compiler in a functional manner, similar to rewrite rules. The entire IR is passed through builtin optimization algorithms, eventually returning a highly-performant transformed IR.
+
+\subsection{GHC}
+
+Since rewriting lends itself well to the functional paradigm of programming, it is perhaps unsurprising that the Glasgow Haskell Compiler (GHC) makes use of rewrite-based optimizations during the process of code simplification \cite{brown2011architecture}.
+The simplification process, which happens between a series of other optimization components, implements a strategic TRS not unlike the one described in Section 3.1.
+Rewrite rules specified in a miniature Haskell-\texttt{Core} language can directly extend the compiler's optimization components,
+granting the ability to add domain-specific optimizations for certain functions.
+
+A developmental Haskell paper \cite{peytonjones2001playing} describes this exact system for enabling user-based and automatically derived rewrite rules. Pragmas within Haskell source files enable direct additions to the compiler's set of rewrite rules, with demonstrable benefits to domain-specific algorithms and data structures. A common optimization through iterator fusion is particularly useful in enabling developers to write more readable code without performance disadvantages. For example, using the relevant rewrite pragma, a common statement like:
+
+\texttt{concat (map f xs)}\\
+would no longer need to be written as:
+
+\texttt{foldr ((++) . f) [] xs}\\
+to avoid building an intermediate list. Instead, code can be optimized through fusion-focused rewriting rules, providing a hidden but calculable optimization while remaining readable. Of course, user-specified rules must be used with caution, since GHC makes no attempts to verify the correctness or soundness of such rules.
+
+An extensive thesis \cite{paraskevopoulou2020verified} contains a full catalogue of further functional program rewrite-based optimizations, including un-currying, lambda lifting, and inlining.
+
+\subsection{Term Rewriting Implementations}
+Aside from compilers dedicated to programming languages, Visser's work on strategies \cite{elco1998building,visser2001Survey,programTransformationWiki,vanwijngaarden2004program} has evolved into Stratego/XT \cite{bravenboer2008Stratego,strategoWebsite}, a rewrite-based compiler for the Spoofax Language Workbench \cite{spoofax}. Like LLVM, Stratego and Spoofex are compiler infrastructure tools focused on accelerating the development of completely custom domain-specific languages. As these tools evolved directly from Visser's strategic rewriting research \cite{elco1998building}, much of the syntax and semantics remain similar to those described in section 3. Rewriting in general appears to be very popular with domain-specific languages, with the appearance of newer Stratego-like tools in the form of CodeBoost \cite{bagge200DSLOpt} and TXL \cite{cordy2006txl}.
+
+\section{Continuing Research in Program Transformation}
+Recent research into scheduling languages \cite{hagedorn2020Achieving,hall2024schedulinglanguagespastpresent} elevates the ideas of rewriting by projecting the set of all possible program optimizations as a graph space. That is, each possible version of the program is contained within nodes on a graph, with optimization steps connecting each of the nodes. Then, instead of applying rules iteratively, the ``rewriting'' process searches connected nodes within the graph until a sufficiently optimal program is found. Hall et al.'s taxonomy on the subject \cite{hall2024schedulinglanguagespastpresent} states that compiler development over the last decade has shifted from generic, widely applicable patterns to domain-specific optimizations. Popular libraries in general-purpose languages, like PyTorch and TensorFlow for machine learning within Python, or JavaScript's countless web frameworks, only serve to reinforce this notion. Moreover, progressive separation between the specification and efficient application of optimizations within compilers (as seen in GHC and LLVM) is akin to that of rewrite rules and strategies. Looking towards the future, Hall et al. predicts advancements in practically expanding optimal program search space, integrating of continuous optimization during program runtime, and a renewed focus on unifying domains to bring an increase in program usability.
+
+Novel graph-based IRs, as envisioned by \cite{bravecevac2023GraphIRs}, attempt to encompass both the impurity of imperative programs and the flexible higher-order nature of functional languages into one complete representation. Optimizations on this IR, which were previously limited to either exclusively imperative or exclusively functional languages, can serve the same compiler optimizations to both programming paradigms. By encoding effects of imperative calls into the graph-based IR, rewrite-based optimizations that were previously limited to functional languages can be used in full as graph transformation operations.
+
+\subsection{Equality Saturation}
+Another promising emergence in program optimization lies in the field of equality saturation \cite{tate2009equality,nandi2021RewriteEqSat}. Similar to the aforementioned graph IR, equality saturation techniques use program execution graphs to represent and optimize the computation steps within a piece of code. However, instead of using the rewrite techniques described above, wherein programs are destructively replaced with successively optimized counterparts, equality saturation extends nodes of the graph into equivalency groups (e-groups), which is simply a group of nodes containing all terms equivalent to the source term. Put plainly, the graphical representation of the source code does not change throughout the saturation process. Each rewriting pass only extends the the e-group with alternatives for each node. The algorithm then exhaustively applies all possible equalities, calculates the cost of each implementation, and chooses an optimal set of nodes equivalent to the original graph.
+
+Rewrite based systems can also perform this type of optimization through exhaustive application of every rule in every permutation of order, but the running time and memory requirements of such an algorithm would be prohibitively large. In this graph based representation, however, optimization only concerns specific e-groups of nodes, allowing a compressed, efficient representation of all possible optimizations. Such a distinction has numerous implications on the resulting optimization process:
+\begin{enumerate}
+    \item Perhaps most importantly, optimizations cannot interfere with one another. Earlier in this paper, we likened the critical-pair resolution problem to that of merge conflicts within a git repository. This problem largely arises from the race condition caused by non-deterministic application of rewrite rules; if two rules modify the same part of a subterm, following one rule may block a further, possibly more-optimal path that could have resulted from the other rule. Since equality saturation is non-destructive, these circumstances are no longer problematic. Rather than competing with one another, rule application is cooperative.
+    % Rules that overlap may even end up sharing rewrite equalities, unlocking optimizations impossible for a TRS.
+    \item Cost calculations for the best optimization are no longer isolated from one another. Instead, the global cost of an implementation can be determined through exploring all alternatives to nodes within a graph.
+    \item A proof of optimization consistency and correctness is built into the algorithm. Like term rewriting, in which a TRS output is consistent with source code if every rule is consistent, equality saturation must be correct if every individual equality is correct. Further, since all possible optimizations are encoded into the resulting graph, any two given pieces of code can be quickly checked for semantic consistency.
+\end{enumerate}
+
+Although the specifics of equality saturation are beyond the scope of this paper, the foundational equational logic of term rewriting is evident, now in a graph-based representation. Moreover, saturation practically solves the confluence problem of rewriting in an efficient manner.
+
 
 \section{Conclusion}
 
