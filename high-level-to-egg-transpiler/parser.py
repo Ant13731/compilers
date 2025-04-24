@@ -1,7 +1,9 @@
 import lark
 from lark.indenter import PythonIndenter
 
-from ast_ import GrammarToEggTransformer
+from transformer_v1 import GrammarToEggTransformer
+from transformer_v2 import EggASTTransformer
+from ast_ import BaseEggAST
 
 
 def parse(input_string: str, i: int):
@@ -27,11 +29,18 @@ def parse(input_string: str, i: int):
     tree = parser.parse(input_string)
     print(tree.pretty())
     # lark.tree.pydot__tree_to_png(tree, f"high-level-to-egg-transpiler/generated_images/tree{i}.png")
-    ast = GrammarToEggTransformer().transform(tree)
+    # ast = GrammarToEggTransformer().transform(tree)
+    ast: BaseEggAST = EggASTTransformer().transform(tree)
     print(ast)
+    print(ast.to_s_expr())
 
 
 test_str = """
+1
+1.0
+"hello"
+None
+True
 a: int = 1
 a: int = (1)
 b: str = "hello"
@@ -79,10 +88,11 @@ return
 break
 continue
 """
-# test_strs = test_str.split("\n")
-# for i, t in enumerate(test_strs[-4:]):
-#     print(f"Parsing string {i}: {t}")
-#     parse(t, i)
+test_strs = test_str.split("\n")
+for i, t in enumerate(test_strs):
+    print(f"Parsing string {i}: {t}")
+    parse(t, i)
+
 test_compound_strs = [
     """
 if a: b

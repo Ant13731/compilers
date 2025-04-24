@@ -1,228 +1,385 @@
-from lark import Transformer, Token, Tree
+from dataclasses import dataclass, fields, asdict, field
+import types
+
+py_to_rust_type_map = {
+    "int": "i64",
+    "str": "String",
+    "float": "f64",
+    "bool": "bool",
+    "None": "None",
+    "list": "Vec",
+    "dict": "HashMap",
+    "set": "HashSet",
+    "tuple": "Tuple",
+    "BaseEggAST": "Id",
+}
 
 
-class GrammarToEggTransformer(Transformer):
-    # basically we need to define the ast for each rule in the grammar as an S-expr so we can convert it to egg for optimization
+@dataclass
+class BaseEggAST:
+    def to_s_expr(self) -> str:
+        """Converts the AST node to an S-expression."""
+        if len(fields(self)) == 0:
+            return f"({self.__class__.__name__})"
 
-    # only leaf values need to deal with tokens, higher up the tree will see the realized values
-    def INT(self, token: Token) -> str:
-        return f"(Int {int(token.value)})"
+        ordered_fields = []
+        for field in asdict(self):
+            field_value = getattr(self, field)
+            if isinstance(field_value, BaseEggAST):
+                ordered_fields.append(field_value.to_s_expr())
+            elif isinstance(field_value, list):
+                for item in field_value:
+                    if isinstance(item, BaseEggAST):
+                        ordered_fields.append(item.to_s_expr())
+                    else:
+                        ordered_fields.append(str(item))
+            else:
+                ordered_fields.append(str(field_value))
+        return f"({self.__class__.__name__} {' '.join(ordered_fields)})"
 
-    def FLOAT(self, token: Token) -> str:
-        return f"(Float {float(token.value)})"
+    @classmethod
+    def to_abstract_s_expr(cls) -> str:
+        """Converts the AST node to an abstract S-expression (for use in passing to Rust's egg crate)."""
 
-    def STRING(self, token: Token) -> str:
-        return f"(String {token.value})"
+        if len(fields(cls)) == 0:
+            return f"({cls.__name__})"
 
-    def NONE(self, token: Token) -> str:
-        return f"(None)"
+        ordered_field_types = []
+        for field in fields(cls):
+            field_type = field.type
+            if hasattr(field_type, "__name__"):
+                type_name = field_type.__name__
+                if type_name in py_to_rust_type_map:
+                    ordered_field_types.append(py_to_rust_type_map[type_name])
+                else:
+                    raise TypeError(f"Failed to convert field type {field_type} with name {type_name} to string (not found in mapping py_to_rust_type_map).")
+            else:
+                raise TypeError(f"Failed to convert field type {field_type} to string (could not find name of field type).")
+                # Field type {field_type} is not a valid type for S-expression conversion (failed to convert to string).")
+            # else:
+            # ordered_field_types.append(str(field_type))
+        return f"({cls.__name__} {' '.join(ordered_field_types)})"
 
-    def BOOL(self, token: Token) -> str:
-        return f"(Bool {token.value})"
 
-    def NAME(self, token: Token) -> str:
-        return f"(Identifier {token.value})"
+# PRIMITIVE LITERALS, take in a Token and return an AST node
 
-    def power(self, tokens: list[str]) -> str:
-        return f"(Power {' '.join(tokens)})"
 
-    def factor(self, tokens: list[str]) -> str:
-        map_symbol_to_ast = {
-            "+": "Pos",
-            "-": "Neg",
-        }
-        if map_symbol_to_ast.get(tokens[0]) == "Pos":
-            return tokens[1]
-        return f"({map_symbol_to_ast[tokens[0]]} {tokens[1]})"
+@dataclass
+class Int(BaseEggAST):
+    value: int
 
-    def term(self, tokens: list[str]) -> str:
-        map_symbol_to_ast = {
-            "*": "Mul",
-            "/": "Div",
-            "%": "Mod",
-            "//": "Rem",
-        }
-        return f"({map_symbol_to_ast[tokens[1]]} {tokens[0]} {tokens[2]})"
 
-    def num_expr(self, tokens: list[str]) -> str:
-        map_symbol_to_ast = {
-            "+": "Add",
-            "-": "Sub",
-        }
-        return f"({map_symbol_to_ast[tokens[1]]} {tokens[0]} {tokens[2]})"
+@dataclass
+class Float(BaseEggAST):
+    value: float
 
-    def comp_op(self, tokens: list[Token]) -> str:
-        return " ".join([str(token.value) for token in tokens])
 
-    def comparison(self, tokens: list[str]) -> str:
-        map_symbol_to_ast = {
-            "<": "Lt",
-            "<=": "Le",
-            ">": "Gt",
-            ">=": "Ge",
-            "==": "Eq",
-            "!=": "Ne",
-            "in": "In",
-            "not in": "NotIn",
-            "is": "Is",
-            "is not": "IsNot",
-        }
-        return f"({map_symbol_to_ast[tokens[1]]} {tokens[0]} {tokens[2]})"
+@dataclass
+class String(BaseEggAST):
+    value: str
 
-    def negation(self, tokens: list[str]) -> str:
-        return f"(Not {tokens[1]})"
 
-    def conjunction(self, tokens: list[str]) -> str:
-        return f"(And {' '.join(tokens)})"
+@dataclass
+class None_(BaseEggAST):
+    pass
 
-    def disjunction(self, tokens: list[str]) -> str:
-        return f"(Or {' '.join(tokens)})"
 
-    def implication(self, tokens: list[str]) -> str:
-        return f"(Implies {' '.join(tokens)})"
+@dataclass
+class Bool(BaseEggAST):
+    value: bool
 
-    def struct_access(self, tokens: list[str]) -> str:
-        return f"(StructAccess {' '.join(tokens)})"
 
-    def call(self, tokens: list[str]) -> str:
-        if len(tokens) == 1:
-            return f"(Call {tokens[0]})"
-        return f"(Call {tokens[0]} {' '.join(tokens[1:])})"
+@dataclass
+class Identifier(BaseEggAST):
+    name: str
 
-    def arguments(self, tokens: list[str]) -> str:
-        if len(tokens) == 0:
-            return "(Arguments)"
-        return f"(Arguments {' '.join(tokens)})"
 
-    def typed_name(self, tokens: list[str]) -> str:
-        return f"(TypedName {tokens[0]} {tokens[1]})"
+# Operators
+@dataclass
+class BinOp(BaseEggAST):
+    left: BaseEggAST
+    right: BaseEggAST
 
-    def slice_or_index(self, tokens: list[str]) -> str:
-        if len(tokens) == 0:
-            return ""
-        return tokens[0]
 
-    def indexing(self, tokens: list[str]) -> str:
-        if len(tokens) == 1:
-            return f"(Indexing {tokens[0]})"
-        return f"(Indexing {tokens[0]} {' '.join(tokens[1:])})"
+@dataclass
+class UnaryOp(BaseEggAST):
+    value: BaseEggAST
 
-    def iterable_names(self, tokens: list[str]) -> str:
-        return f"(IterableNames {' '.join(tokens)})"
 
-    def slice(self, tokens: list[str]) -> str:
-        # ret = "(Slice "
-        # num_colons_seen = 0
-        # for token in tokens:
-        #     if token == ":":
-        #         num_colons_seen += 1
-        #         continue
-        #     ret += f"(SliceChild {token}) "
-        # print(tokens)
-        # return ret + ")"
-        return f"(Slice {' '.join(list(map(str,tokens)))})"
+class Pos(UnaryOp):
+    pass
 
-    # def slice_fst(self, tokens: list[str]) -> str:
-    #     return f"(SliceFst {' '.join(tokens)})"
-    #     # ret = "(Slice "
-    #     # for token in tokens:
 
-    #     # ret += ")"
-    #     # # if len(tokens) == 1:
-    #     # #     return f"(Slice () {tokens[0]})"
-    #     # # print(tokens)
-    #     # return tokens
+class Neg(UnaryOp):
+    pass
 
-    # def slice_snd(self, tokens: list[str]) -> str:
-    #     return f"(SliceSnd {' '.join(tokens)})"
 
-    # def slice_thd(self, tokens: list[str]) -> str:
-    #     return f"(SliceThd {tokens[0]})"
+class Not(UnaryOp):
+    pass
 
-    # def slice_snd(self, tokens: list[str]) -> str:
-    #     print(tokens)
-    #     return f"(SliceSnd {tokens[0]})"
 
-    # def slice_thd(self, tokens: list[str]) -> str:
-    #     print(tokens)
-    #     return f"(SliceThd {tokens[0]})"
+# BinOp classes
+class Add(BinOp):
+    pass
 
-    def such_that(self, tokens: list[str]) -> str:
-        return f"(SuchThat {tokens[1]})"
 
-    def comp_stmt(self, tokens: list[str]) -> str:
-        print(tokens)
-        return f"(CompStmt {' '.join(tokens)})"
+class Sub(BinOp):
+    pass
 
-    def tuple_(self, tokens: list[str]) -> str:
-        return f"(Tuple {' '.join(tokens)})"
 
-    def list_(self, tokens: list[str]) -> str:
-        return f"(List {' '.join(tokens)})"
+class Mul(BinOp):
+    pass
 
-    def set_(self, tokens: list[str]) -> str:
-        return f"(Set {' '.join(tokens)})"
 
-    def key_pair(self, tokens: list[str]) -> str:
-        return f"(KeyPair {' '.join(tokens)})"
+class Div(BinOp):
+    pass
 
-    def dict_(self, tokens: list[str]) -> str:
-        return f"(Dict {' '.join(tokens)})"
 
-    def assignment(self, tokens: list[str]) -> str:
-        # print(tokens)
-        return f"(Assignment {' '.join(tokens)})"
+class Mod(BinOp):
+    pass
 
-    def arg_def(self, tokens: list[str]) -> str:
-        if len(tokens) == 0:
-            return "(ArgDef)"
-        return f"(ArgDef {' '.join(tokens)})"
 
-    def return_stmt(self, tokens: list[str]) -> str:
-        if len(tokens) == 0:
-            return "(ReturnStmt)"
-        return f"(ReturnStmt {' '.join(tokens)})"
+class Rem(BinOp):
+    pass
 
-    def lambdef(self, tokens: list[str]) -> str:
-        return f"(LambdaDef {' '.join(tokens)})"
 
-    def control_flow_stmt(self, tokens: list[str]) -> str:
-        map_symbol_to_ast = {
-            "break": "Break",
-            "continue": "Continue",
-        }
-        if tokens[0] in map_symbol_to_ast:
-            return f"({map_symbol_to_ast[tokens[0]]})"
-        return tokens[0]
+class Lt(BinOp):
+    pass
 
-    def if_stmt(self, tokens: list[str]) -> str:
-        return f"(IfStmt {' '.join(tokens)})"
 
-    def elif_stmt(self, tokens: list[str]) -> str:
-        return f"(ElifStmt {' '.join(tokens)})"
+class Le(BinOp):
+    pass
 
-    def else_stmt(self, tokens: list[str]) -> str:
-        return f"(ElseStmt {' '.join(tokens)})"
 
-    def for_stmt(self, tokens: list[str]) -> str:
-        return f"(ForStmt {' '.join(tokens)})"
+class Gt(BinOp):
+    pass
 
-    def struct_stmt(self, tokens: list[str]) -> str:
-        return f"(StructStmt {' '.join(tokens)})"
 
-    def enum_stmt(self, tokens: list[str]) -> str:
-        return f"(EnumStmt {' '.join(tokens)})"
+class Ge(BinOp):
+    pass
 
-    def func_stmt(self, tokens: list[str]) -> str:
-        return f"(FuncStmt {' '.join(tokens)})"
 
-    def statements(self, tokens: list[str]) -> str:
-        return f"(Statements {' '.join(tokens)})"
+class Eq(BinOp):
+    pass
 
-    def start(self, tokens: list[str]) -> str:
-        return f"(Start {' '.join(tokens)})"
 
-    def type_(self, tokens: list[str]) -> str:
-        return f"(Type {' '.join(tokens)})"
+class Ne(BinOp):
+    pass
 
-    # def assignment(self, tokens: list[Token]) ->
+
+class In(BinOp):
+    pass
+
+
+class NotIn(BinOp):
+    pass
+
+
+class Is(BinOp):
+    pass
+
+
+class IsNot(BinOp):
+    pass
+
+
+class And(BinOp):
+    pass
+
+
+class Or(BinOp):
+    pass
+
+
+class Implies(BinOp):
+    pass
+
+
+@dataclass
+class Power(BaseEggAST):
+    left: BaseEggAST
+    right: BaseEggAST | None_ = field(default_factory=lambda: None_())
+
+
+# Calling
+@dataclass
+class StructAccess(BaseEggAST):
+    struct: BaseEggAST
+    field_name: str
+
+
+@dataclass
+class Call(BaseEggAST):
+    function: BaseEggAST
+    arguments: BaseEggAST
+
+
+@dataclass
+class Arguments(BaseEggAST):
+    arguments: list[BaseEggAST]
+
+
+@dataclass
+class TypedName(BaseEggAST):
+    name: BaseEggAST
+    type: BaseEggAST
+
+
+@dataclass
+class Indexing(BaseEggAST):
+    target: BaseEggAST
+    index: BaseEggAST | None_ = field(default_factory=lambda: None_())
+
+
+@dataclass
+class Slice(BaseEggAST):
+    slices: list[BaseEggAST]
+
+
+# Statements
+@dataclass
+class Assignment(BaseEggAST):
+    target: BaseEggAST
+    value: BaseEggAST
+
+
+@dataclass
+class ArgDef(BaseEggAST):
+    args: list[BaseEggAST]
+
+
+@dataclass
+class Return(BaseEggAST):
+    value: BaseEggAST | None_
+
+
+@dataclass
+class LambdaDef(BaseEggAST):
+    args: BaseEggAST
+    body: BaseEggAST
+
+
+@dataclass
+class Break(BaseEggAST):
+    pass
+
+
+@dataclass
+class Continue(BaseEggAST):
+    pass
+
+
+@dataclass
+class Type_(BaseEggAST):
+    type_: BaseEggAST
+
+
+# Compound Statements
+@dataclass
+class If(BaseEggAST):
+    condition: BaseEggAST
+    body: BaseEggAST
+    else_body: BaseEggAST | None_ = field(default_factory=lambda: None_())
+
+
+@dataclass
+class Elif(BaseEggAST):
+    condition: BaseEggAST
+    body: BaseEggAST
+    else_body: BaseEggAST | None_ = field(default_factory=lambda: None_())
+
+
+@dataclass
+class Else(BaseEggAST):
+    body: BaseEggAST
+
+
+@dataclass
+class For(BaseEggAST):
+    iterable_names: BaseEggAST
+    loop_over: BaseEggAST
+    body: BaseEggAST
+
+
+@dataclass
+class Struct(BaseEggAST):
+    name: BaseEggAST
+    fields: list[BaseEggAST]
+
+
+@dataclass
+class Enum(BaseEggAST):
+    name: BaseEggAST
+    variants: list[BaseEggAST]
+
+
+@dataclass
+class Func(BaseEggAST):
+    name: BaseEggAST
+    args: BaseEggAST
+    return_type: BaseEggAST
+    body: BaseEggAST
+
+
+# Complex Literals (collections, iterables, etc.)
+@dataclass
+class IterableNames(BaseEggAST):
+    names: list[BaseEggAST]
+
+
+@dataclass
+class SuchThat(BaseEggAST):
+    condition: BaseEggAST
+
+
+@dataclass
+class Comprehension(BaseEggAST):
+    iterable_names: BaseEggAST
+    loop_over: BaseEggAST
+    condition: BaseEggAST | None_
+    action: BaseEggAST
+
+
+@dataclass
+class KeyPairComprehension(BaseEggAST):
+    iterable_names: BaseEggAST
+    loop_over: BaseEggAST
+    condition: BaseEggAST | None_
+    action: BaseEggAST
+
+
+@dataclass
+class Tuple(BaseEggAST):
+    elements: list[BaseEggAST]
+
+
+@dataclass
+class List(BaseEggAST):
+    elements: list[BaseEggAST]
+
+
+@dataclass
+class Dict(BaseEggAST):
+    elements: list[BaseEggAST]
+
+
+@dataclass
+class Set(BaseEggAST):
+    elements: list[BaseEggAST]
+
+
+@dataclass
+class KeyPair(BaseEggAST):
+    key: BaseEggAST
+    value: BaseEggAST
+
+
+# Top level AST nodes
+@dataclass
+class Start(BaseEggAST):
+    body: BaseEggAST | None_
+
+
+@dataclass
+class Statements(BaseEggAST):
+    statements: list[BaseEggAST]

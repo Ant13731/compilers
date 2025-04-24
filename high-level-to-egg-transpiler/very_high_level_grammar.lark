@@ -48,7 +48,7 @@ slice: [bool_expr] (_COLON [bool_expr])+
 // Literals
 // no star patterns for now
 ?atom: literals | iterable_literals | _L_PAREN expr_stmt _R_PAREN // TODO add ellipsis?
-?literals: NAME | BOOL | NONE | string | num
+?literals: BOOL | NAME | NONE | string | num
 ?iterable_literals: tuple_ | list_ | dict_ | set_
 tuple_: _L_PAREN (expr_stmt (_COMMA | (_COMMA expr_stmt)+) )? _R_PAREN // Tuple with one entry requires a comma to differentiate from paren expr
 list_: _L_BRACKET _iterable_inside? _R_BRACKET
@@ -60,9 +60,9 @@ comp_stmt: _FOR iterable_names _IN expr_stmt such_that? _COLON expr_stmt // Atte
 _key_pair_iterable_inside: (key_pair | key_pair_comp_stmt) (_COMMA (key_pair | key_pair_comp_stmt))*
 key_pair: expr_stmt _COLON expr_stmt
 key_pair_comp_stmt: _FOR iterable_names _IN expr_stmt such_that? _COLON _L_PAREN key_pair _R_PAREN // TODO see if this actually works out
-such_that: VBAR bool_expr
+such_that: _VBAR bool_expr
 
-lambdef: LAMBDA _L_PAREN arg_def _R_PAREN _COLON bool_expr
+lambdef: _LAMBDA _L_PAREN arg_def _R_PAREN _COLON bool_expr
 // no varargs or kwargs for now
 arg_def: (typed_name (_COMMA typed_name)*)?
 arguments: (expr_stmt (_COMMA expr_stmt)*)? // TODO add support for *args and **kwargs
@@ -76,7 +76,7 @@ INT: /0[xX][0-9a-fA-F]+|0o[0-7]+|0b[0-1]+|0|[1-9][0-9]*/ // hex, octal, bin, dec
 FLOAT: DEC | SCI_NOTATION
 DEC: /[0-9]+\.[0-9]*|\.[0-9]+/
 SCI_NOTATION: /[0-9]+(\.[0-9]*)?[eE][+-]?[0-9]+/
-BOOL: "True" | "False"
+BOOL.2: "True" | "False"
 NONE: "None"
 _L_BRACE: "{"
 _L_BRACKET: "["
@@ -108,12 +108,12 @@ LT: "<"
 GT: ">"
 LE: "<="
 GE: ">="
-VBAR: "|"
+_VBAR: "|"
 BREAK: "break"
 CONTINUE: "continue"
 _RETURN: "return"
 PASS: "pass"
-LAMBDA: "lambda"
+_LAMBDA: "lambda"
 _ASSIGN: "="
 
 
