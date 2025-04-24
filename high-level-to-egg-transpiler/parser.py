@@ -1,7 +1,7 @@
 import lark
 from lark.indenter import PythonIndenter
 
-from ast_ import ASTTransformer
+from ast_ import GrammarToEggTransformer
 
 
 def parse(input_string: str, i: int):
@@ -19,15 +19,15 @@ def parse(input_string: str, i: int):
     input_string = input_string + "\n"
 
     # Create a Lark parser with the defined grammar
-    with open("src/very_high_level_grammar.lark", "r") as f:
+    with open("high-level-to-egg-transpiler/very_high_level_grammar.lark", "r") as f:
         grammar = f.read()
         parser = lark.Lark(grammar, start="start", postlex=PythonIndenter())
 
     # Parse the input string and return the result
     tree = parser.parse(input_string)
     print(tree.pretty())
-    lark.tree.pydot__tree_to_png(tree, f"src/generated_images/tree{i}.png")
-    ast = ASTTransformer().transform(tree)
+    lark.tree.pydot__tree_to_png(tree, f"high-level-to-egg-transpiler/generated_images/tree{i}.png")
+    ast = GrammarToEggTransformer().transform(tree)
     print(ast)
 
 
@@ -43,8 +43,9 @@ g: set = {1, 2, 3}
 h: tuple = (1, 2, 3)
 i: None = None
 j: list = [for i in c: i*i]
+z: bool = a in c
 k: dict = {for i in c: (i,i*i)}
 l: set = {for i in c: i*i}
 """
 test_strs = test_str.split("\n")
-[parse(t, i) for i, t in enumerate(test_strs[1:2])]
+[parse(t, i) for i, t in enumerate(test_strs)]
