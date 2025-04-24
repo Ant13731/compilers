@@ -1,0 +1,161 @@
+// Loosely following the python grammar, just to get something executable started
+// - https://docs.python.org/3/reference/grammar.html
+// - https://github.com/lark-parser/lark/blob/master/lark/grammars/python.lark
+
+//Start with statements
+start: _NEWLINE* statements?
+statements: (statement _NEWLINE*)+
+// Each statement corresponds to one block of code. Simple statements are one-liners,
+//  compound statements are blocks of code that can be indented.
+?statement: simple_stmt | compound_stmt
+
+// Simple Statements: One-liners
+// TODO:
+//  - del_stmt to denote the end-of-life for a var
+//  - assert_stmt, raise_stmt for assertions/exceptions
+//  - import_stmt for importing modules
+?simple_stmt: expr_stmt | assignment | control_flow_stmt | PASS
+
+?expr_stmt: bool_expr | lambdef
+
+// Bool Expr
+// Deal with bools first
+?bool_expr: implication | disjunction
+//tackle implications first through =>, right associative
+implication: disjunction IMPLIES implication // | bool_expr "if" bool_expr "else" bool_expr
+?disjunction: conjunction (OR conjunction)*
+?conjunction: negation (AND negation)*
+?negation: NOT negation | comparison
+// skip the bitwise operators? focusing on numbers and iterables for now
+// Then ints/floats
+?comparison: num_expr (COMPARISON num_expr)*
+COMPARISON: EQ | NE | LT | GT | LE | GE | IN | NOT_IN | IS | IS_NOT
+?num_expr: num_expr ((ADD | SUB) term) | term
+?term: term (MUL | DIV | REM | MOD) factor | factor
+?factor: (NEGATIVE | POSITIVE) factor | power
+?power: primary (POW factor)?
+// Then iterables/structs
+?primary: struct_access | call | indexing | atom
+struct_access: primary DOT NAME
+call: primary _L_PAREN arguments? _R_PAREN //Func calls, arguments defined elsewhere
+indexing: primary _L_BRACKET slice? _R_BRACKET //List indexing TODO check if its the same as arguments?
+slice: slice_fst | bool_expr
+slice_fst: bool_expr? slice_snd
+slice_snd: _COLON bool_expr? slice_thd?
+slice_thd: _COLON bool_expr?
+// TODO add symbols for iterable operators (like union, difference, etc.)
+// Literals
+// no star patterns for now
+?atom: literals | iterable_literals | _L_PAREN expr_stmt _R_PAREN // TODO add ellipsis?
+?literals: NAME | BOOL | NONE | string | num
+iterable_literals: tuple | list | dict | set
+tuple: _L_PAREN (expr_stmt (COMMA | (COMMA expr_stmt)*) )? _R_PAREN // Tuple with one entry requires a comma to differentiate from paren expr
+list: _L_BRACKET iterable_inside? _R_BRACKET
+set: _L_BRACE iterable_inside _R_BRACE // empty sets are assumed to be dictionaries
+dict: _L_BRACE key_pair_iterable_inside? _R_BRACE
+iterable_inside: (expr_stmt | comp_stmt) (COMMA (expr_stmt | comp_stmt))*
+iterable_names: NAME (COMMA NAME)* // TODO add destructuring
+comp_stmt: FOR iterable_names IN expr_stmt (V_BAR bool_expr)? _COLON expr_stmt // Attempt to make comprehensions more similar to discrete math than python
+key_pair_iterable_inside: (expr_stmt _COLON expr_stmt | key_pair_comp_stmt) (COMMA (expr_stmt _COLON expr_stmt | key_pair_comp_stmt))*
+key_pair_comp_stmt: FOR iterable_names IN expr_stmt (V_BAR bool_expr)? _COLON _L_PAREN bool_expr COMMA bool_expr _R_PAREN // TODO see if this actually works out
+
+lambdef: LAMBDA _L_PAREN arguments _R_PAREN _COLON bool_expr
+// no varargs or kwargs for now
+arguments: NAME _COLON type (COMMA NAME _COLON type)*
+// taken directly from https://github.com/lark-parser/lark/blob/master/lark/grammars/python.lark#L302
+string: STRING | LONG_STRING
+STRING: /([ubf]?r?|r[ubf])("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
+LONG_STRING: /([ubf]?r?|r[ubf])(""".*?(?<!\\)(\\\\)*?"""|'''.*?(?<!\\)(\\\\)*?''')/is
+
+?num: INT | FLOAT
+INT: /0[xX][0-9a-fA-F]+|0o[0-7]+|0b[0-1]+|0|[1-9][0-9]*/ // hex, octal, bin, decimal
+FLOAT: DEC | SCI_NOTATION
+DEC: /[0-9]+\.[0-9]*|\.[0-9]+/
+SCI_NOTATION: /[0-9]+(\.[0-9]*)?[eE][+-]?[0-9]+/
+BOOL: "True" | "False"
+NONE: "None"
+_L_BRACE: "{"
+_L_BRACKET: "["
+_L_PAREN: "("
+_R_BRACE: "}"
+_R_BRACKET: "]"
+_R_PAREN: ")"
+DOT: "."
+COMMA: ","
+_COLON: ":"
+SEMICOLON: ";"
+ADD: "+"
+SUB: "-"
+MUL: "*"
+DIV: "/"
+REM: "//"
+MOD: "%"
+POW: "^"
+NEGATIVE: "-"
+POSITIVE: "+"
+AND: "and"
+OR: "or"
+NOT: "not"
+IMPLIES: "=>"
+FOR: "for"
+IN: "in"
+IS: "is"
+IS_NOT: "is not"
+NOT_IN: "not in"
+EQ: "=="
+NE: "!="
+LT: "<"
+GT: ">"
+LE: "<="
+GE: ">="
+V_BAR: "|"
+BREAK: "break"
+CONTINUE: "continue"
+RETURN: "return"
+PASS: "pass"
+LAMBDA: "lambda"
+_ASSIGN: "="
+
+
+control_flow_stmt: break_stmt | continue_stmt | return_stmt
+break_stmt: BREAK
+continue_stmt: CONTINUE
+return_stmt: RETURN expr_stmt?
+
+assignment: NAME _COLON type _ASSIGN expr_stmt // TODO add support for destructuring assignment, multiple assignment
+?type: bool_expr // TODO refine this
+
+
+// Compound Statements: Blocks of code that can be indented
+// TODO:
+//  - try_stmt for exception handling
+//  - with_stmt for context managers? probably not
+//  - while_stmt?
+//  - match_stmt
+compound_stmt: if_stmt | for_stmt | struct_stmt | enum_stmt | func_stmt
+if_stmt: IF bool_expr _COLON block (elif_stmt | else_stmt)?
+elif_stmt: ELIF bool_expr _COLON block (elif_stmt | else_stmt)?
+else_stmt: ELSE _COLON block
+for_stmt: FOR iterable_names IN expr_stmt _COLON block // TODO add support for destructuring
+struct_stmt: STRUCT NAME _COLON _INDENT ((NAME _COLON type (COMMA NAME _COLON type)*) | PASS) _DEDENT
+enum_stmt: ENUM NAME _COLON _INDENT ((NAME (COMMA NAME)*) | PASS) _DEDENT
+func_stmt: DEF NAME _L_PAREN arguments? _R_PAREN _COLON block
+block: simple_stmt | compound_stmt | _INDENT statements _DEDENT // TODO add support for nested blocks
+
+IF: "if"
+ELIF: "elif"
+ELSE: "else"
+STRUCT: "struct"
+ENUM: "enum"
+DEF: "def"
+
+
+_NEWLINE: ( /\r?\n[\t ]*/ | COMMENT )+
+COMMENT: /#[^\n]*/
+NAME: /[a-zA-Z_][a-zA-Z0-9_]*/
+
+%ignore /[\t \f]+/  // WS
+%ignore /\\[\t \f]*\r?\n/   // LINE_CONT
+%ignore COMMENT
+
+%declare _INDENT _DEDENT
