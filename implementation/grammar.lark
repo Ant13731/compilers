@@ -23,27 +23,29 @@ statements: _NEWLINE* statement (_NEWLINE+ statement)* _NEWLINE*
 // Expression operators below follow the table of precedences from "A Logical Approach to Discrete Math"
 // Deal with bools first (lowest precedence)
 ?expr_stmt: equivalence | lambdef
-equivalence: equivalence (EQUIV | N_EQUIV) implication | equivalence
-implication: impl | rev_impl | disjunction
+?equivalence: equivalence (EQUIV | N_EQUIV) implication | implication
+?implication: impl | rev_impl | disjunction
 impl: disjunction _IMPLIES implication
 rev_impl: implication _REV_IMPLIES disjunction
 ?disjunction: conjunction (_OR conjunction)*
 ?conjunction: negation (_AND negation)*
 ?negation: NOT negation | comparison
 // Skipping bitwise operators, can always add later
-// Move to numbers and sets (same level of precidence)
+// Move to numbers and sets (same level of precedence)
 ?comparison: num_and_set_expr (comp_op num_and_set_expr)*
 !comp_op: EQ | NE | LT | GT | LE | GE | (NOT? _IN) | (IS NOT?) | SUBSET | SUBSET_EQ | SUPERSET | SUPERSET_EQ // ! is a bit of a hack since `in` is technically hidden
 // Skipping sequence operators (triangleright, triangleleft, concatenate, etc.), since these can be done with more natural pythonic notation
 // Skipping min, max, etc since these are best left as functions
 ?num_and_set_expr: num_and_set_expr num_and_set_op term | term
 // Skipping relation product, since this can be done through regular programming language syntax?. overload ADD and SUB with concat and diff, maybe union for add too?
-!num_and_set_op: ADD | SUB | UNION | INTERSECTION | DIFFERENCE | CARTESIAN_PRODUCT | RELATION_COMPOSITION
-?term: term (MUL | DIV | REM | MOD) factor | factor
+// TODO check precedence?
+!num_and_set_op: ADD | SUB | UNION | DIFFERENCE
+?term: term num_and_set_op_mult factor | factor
+!num_and_set_op_mult : MUL | DIV | REM | MOD | INTERSECTION | CARTESIAN_PRODUCT | RELATION_COMPOSITION
 ?factor: un_op factor | power
 // Unary operators have highest precedence (except for power)
 un_op: ADD | SUB | COMPLEMENT | POWERSET
-?power: primary (_POW power)?
+?power: primary _POW power | primary
 
 //////////////////////////////////////////////////////////////////////
 // Statements: function calls, iterables, struct access
@@ -107,9 +109,11 @@ NONE: "None"
 NAME: /[a-zA-Z_][a-zA-Z0-9_]*/
 // Misc. symbols (underscores are used for syntax separation and are not passed to the transformer)
 _L_BRACE: "{"
+_L_BRACE_BAR: "{|"
 _L_BRACKET: "["
 _L_PAREN: "("
 _R_BRACE: "}"
+_R_BRACE_BAR: "|}"
 _R_BRACKET: "]"
 _R_PAREN: ")"
 _DOT: "."
@@ -126,7 +130,21 @@ _POW: "^"
 _AND: "and"
 _OR: "or"
 NOT: "not"
-_IMPLIES: "=>"
+_IMPLIES: "==>"
+_REV_IMPLIES: "<=="
+EQUIV: "<=>"
+N_EQUIV: "<!=>"
+SUBSET: "\subset"
+SUBSET_EQ: "\subseteq"
+SUPERSET: "\supset"
+SUPERSET_EQ: "\supseteq"
+UNION: "\cup"
+INTERSECTION: "\cap"
+DIFFERENCE: "\setminus"
+CARTESIAN_PRODUCT: "\times"
+RELATION_COMPOSITION: "\circ"
+POWERSET: "\powerset"
+COMPLEMENT: "~"
 _FOR: "for"
 _IN: "in"
 IS: "is"

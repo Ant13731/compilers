@@ -30,6 +30,12 @@ class EggASTTransformer(Transformer):
         return Power(*tokens)
 
     def factor(self, tokens: tuple[str, BaseEggAST]) -> BaseEggAST:
+        map_symbol_to_ast = {
+            "+": Pos,
+            "-": Neg,
+            "~": Complement,
+            r"\powerset": PowerSet,
+        }
         if tokens[0] == "-":
             return Neg(tokens[1])
         return tokens[1]
@@ -40,17 +46,28 @@ class EggASTTransformer(Transformer):
             "/": Div,
             "%": Mod,
             "//": Rem,
+            r"\intersection": Intersect,
+            r"\times": CartesianProduct,
+            r"\circ": RelationComposition,
         }
         return map_symbol_to_ast[tokens[1]](tokens[0], tokens[2])
 
-    def num_expr(self, tokens: tuple[BaseEggAST, str, BaseEggAST]) -> BaseEggAST:
+    def num_and_set_expr(self, tokens: tuple[BaseEggAST, str, BaseEggAST]) -> BaseEggAST:
         map_symbol_to_ast = {
             "+": Add,
             "-": Sub,
+            r"\cup": Union,
+            r"\setminus": Difference,
         }
         return map_symbol_to_ast[tokens[1]](tokens[0], tokens[2])
 
     def comp_op(self, tokens: list[Token]) -> str:
+        return " ".join([str(token.value) for token in tokens])
+
+    def num_and_set_op(self, tokens: list[Token]) -> str:
+        return " ".join([str(token.value) for token in tokens])
+
+    def num_and_set_op_mult(self, tokens: list[Token]) -> str:
         return " ".join([str(token.value) for token in tokens])
 
     def comparison(self, tokens: tuple[BaseEggAST, str, BaseEggAST]) -> BaseEggAST:
@@ -65,11 +82,15 @@ class EggASTTransformer(Transformer):
             "not in": NotIn,
             "is": Is,
             "is not": IsNot,
+            r"\subset": Subset,
+            r"\subseteq": SubsetEq,
+            r"\supset": Superset,
+            r"\supseteq": SupersetEq,
         }
         return map_symbol_to_ast[tokens[1]](tokens[0], tokens[2])
 
     def negation(self, tokens: list[BaseEggAST]) -> BaseEggAST:
-        return Neg(tokens[1])
+        return Not(tokens[1])
 
     def conjunction(self, tokens: list[BaseEggAST]) -> BaseEggAST:
         return And(*tokens)
@@ -77,8 +98,18 @@ class EggASTTransformer(Transformer):
     def disjunction(self, tokens: list[BaseEggAST]) -> BaseEggAST:
         return Or(*tokens)
 
-    def implication(self, tokens: list[BaseEggAST]) -> BaseEggAST:
+    def impl(self, tokens: list[BaseEggAST]) -> BaseEggAST:
         return Implies(*tokens)
+
+    def rev_impl(self, tokens: list[BaseEggAST]) -> BaseEggAST:
+        return RevImplies(*tokens)
+
+    def equivalence(self, tokens: tuple[BaseEggAST, str, BaseEggAST]) -> BaseEggAST:
+        map_symbol_to_ast = {
+            "<=>": Equiv,
+            "<!=>": NotEquiv,
+        }
+        return map_symbol_to_ast[tokens[1]](tokens[0], tokens[2])
 
     # Calling
     def call(self, tokens: list[BaseEggAST]) -> BaseEggAST:
@@ -122,6 +153,7 @@ class EggASTTransformer(Transformer):
         map_symbol_to_ast = {
             "break": Break,
             "continue": Continue,
+            "pass": Pass,
         }
         if isinstance(tokens[0], str) and tokens[0] in map_symbol_to_ast:
             return map_symbol_to_ast[tokens[0]]()
@@ -194,5 +226,4 @@ class EggASTTransformer(Transformer):
         return Start(tokens[0])
 
     def statements(self, tokens: list[BaseEggAST]) -> BaseEggAST:
-
         return Statements(tokens)

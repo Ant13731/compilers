@@ -1,5 +1,16 @@
+from __future__ import annotations
 from dataclasses import dataclass, fields, asdict, field
 import types
+from typing import TypeVar, Generic, Callable, ClassVar, Any, TypeAlias
+
+from egglog import (
+    Expr,
+    i64Like,
+    f64Like,
+    BoolLike,
+    StringLike,
+    function,
+)
 
 py_to_rust_type_map = {
     "int": "i64",
@@ -60,38 +71,148 @@ class BaseEggAST:
             # ordered_field_types.append(str(field_type))
         return f"{cls.__name__}({', '.join(ordered_field_types)})"
 
+    def to_egg(self) -> Expr:
+        """Converts the AST node to an egglog expression."""
+        raise NotImplementedError(f"to_egg() not implemented for {self.__class__.__name__}")
+
 
 # PRIMITIVE LITERALS, take in a Token and return an AST node
+
+# Egglog doesnt support generic types yet, so have to do it manually. Otherwise, we could just add this to the inheritance chain
+# T = TypeVar("T")
+# class EggLiteral(Generic[T]):
+
+#     class Egged(Expr):
+#         def __init__(self, value: T) -> None: ...
+
+#     @classmethod
+#     def egg_init(cls, value: T) -> Egged:
+#         return cls.Egged(value)
 
 
 @dataclass
 class Int(BaseEggAST):
     value: int
 
+    # TODO figure out a way to get rid of the I in EggedI
+    # - needed because egglog automatically converts everything to a runtimeexpr, which unfortunately
+    #   removes the parent class name (and any and all parameters, methods, properties, etc.) from the object
+    class EggedI(Expr):
+        def __init__(self, value: i64Like) -> None: ...
+
+    Egged: ClassVar[type] = EggedI
+
+    @classmethod
+    def egg_init(cls, value: i64Like) -> Egged:
+        return cls.Egged(value)
+
+    def to_egg(self) -> Egged:
+        return self.Egged(self.value)
+
 
 @dataclass
 class Float(BaseEggAST):
     value: float
+
+    class EggedF(Expr):
+        def __init__(self, value: f64Like) -> None: ...
+
+    Egged: ClassVar[type] = EggedF
+
+    @classmethod
+    def egg_init(cls, value: f64Like) -> Egged:
+        return cls.Egged(value)
+
+    def to_egg(self) -> Egged:
+        return self.Egged(self.value)
 
 
 @dataclass
 class String(BaseEggAST):
     value: str
 
+    class EggedS(Expr):
+        def __init__(self, value: StringLike) -> None: ...
+
+    Egged: ClassVar[type] = EggedS
+
+    @classmethod
+    def egg_init(cls, value: StringLike) -> Egged:
+        return cls.Egged(value)
+
+    def to_egg(self) -> Egged:
+        return self.Egged(self.value)
+
 
 @dataclass
 class None_(BaseEggAST):
-    pass
+    class EggedN(Expr):
+        def __init__(self) -> None: ...
+
+    Egged: ClassVar[type] = EggedN
+
+    @classmethod
+    def egg_init(cls) -> Egged:
+        return cls.Egged()
+
+    def to_egg(self) -> Egged:
+        return self.Egged()
 
 
 @dataclass
 class Bool(BaseEggAST):
     value: bool
 
+    class EggedB(Expr):
+        def __init__(self, value: BoolLike) -> None: ...
+
+    Egged: ClassVar[type] = EggedB
+
+    @classmethod
+    def egg_init(cls, value: BoolLike) -> Egged:
+        return cls.Egged(value)
+
+    def to_egg(self) -> Egged:
+        return self.Egged(self.value)
+
+
+@dataclass
+class Primitive(BaseEggAST):
+    # Assume types are already checked by this point?
+    # TODO auto detect the type to make it easier to write
+    value: Int | Float | Bool | None_ | String
+
+    class EggedP(Expr):
+        def __init__(self, value: Int.Egged | Float.Egged | Bool.Egged | None_.Egged | String.Egged) -> None: ...
+
+    Egged: ClassVar[type] = EggedP
+
+    def to_egg(self) -> Egged:
+        return self.Egged(self.value.to_egg())
+
 
 @dataclass
 class Identifier(BaseEggAST):
-    name: str
+    value: str
+
+    class EggedId(Expr):
+        def __init__(self, value: StringLike) -> None: ...
+
+    Egged: ClassVar[type] = EggedId
+
+    @classmethod
+    def egg_init(cls, value: StringLike) -> Egged:
+        return cls.Egged(value)
+
+    # TODO move this to base class and use for both function like and class like AST nodes
+    def to_egg(self) -> Egged:
+        return self.Egged(self.value)
+
+
+# def primitive_class_identifier(value) -> str:
+#     class_decl = value.__egg_class_decl__
+#     if class_decl == "EggedI":
+#         return "Int"
 
 
 # Operators
@@ -100,21 +221,99 @@ class BinOp(BaseEggAST):
     left: BaseEggAST
     right: BaseEggAST
 
+    @classmethod
+    def to_egg_func(cls) -> Callable:
+        func_prefix = cls.__name__.lower()
+
+        def prim_prim_func(left: Primitive.Egged, right: Primitive.Egged) -> Primitive.Egged: ...
+
+        prim_prim_func.__name__ = f"{func_prefix}_p_p"
+        prim_prim_func = function(prim_prim_func)
+
+        def prim_id_func(left: Primitive.Egged, right: Identifier.Egged) -> Primitive.Egged: ...
+
+        prim_id_func.__name__ = f"{func_prefix}_p_id"
+        prim_id_func = function(prim_id_func)
+
+        def id_prim_func(left: Identifier.Egged, right: Primitive.Egged) -> Primitive.Egged: ...
+
+        id_prim_func.__name__ = f"{func_prefix}_id_p"
+        id_prim_func = function(id_prim_func)
+
+        def id_id_func(left: Identifier.Egged, right: Identifier.Egged) -> Identifier.Egged: ...
+
+        id_id_func.__name__ = f"{func_prefix}_id_id"
+        id_id_func = function(id_id_func)
+
+        def func(left: Primitive.Egged | Identifier.Egged, right: Primitive.Egged | Identifier.Egged) -> Expr:
+            if left.__egg_class_name__ == "EggedP" and right.__egg_class_name__ == "EggedP":
+                return prim_prim_func(left, right)
+            if left.__egg_class_name__ == "EggedP" and right.__egg_class_name__ == "EggedId":
+                return prim_id_func(left, right)
+            if left.__egg_class_name__ == "EggedId" and right.__egg_class_name__ == "EggedP":
+                return id_prim_func(left, right)
+            if left.__egg_class_name__ == "EggedId" and right.__egg_class_name__ == "EggedId":
+                return id_id_func(left, right)
+            else:
+                raise TypeError(f"Unsupported type(s) for {func_prefix}: {left.__egg_class_name__}, {right.__egg_class_name__}")
+
+        return func
+
+    def to_egg(self) -> Expr:
+        return self.to_egg_func()(self.left.to_egg(), self.right.to_egg())
+
 
 @dataclass
 class UnaryOp(BaseEggAST):
     value: BaseEggAST
 
+    @classmethod
+    def to_egg_func(cls, func_prefix: str | None = None) -> Callable:
+        func_prefix = func_prefix or cls.__name__.lower()
 
-class Pos(UnaryOp):
-    pass
+        def primitive_func(value: Primitive.Egged) -> Primitive.Egged: ...
+
+        primitive_func.__name__ = f"{func_prefix}_p"
+        primitive_func = function(primitive_func)  # need to manually apply the decorator after dynamic name change
+
+        def identifier_func(value: Identifier.Egged) -> Identifier.Egged: ...
+
+        identifier_func.__name__ = f"{func_prefix}_id"
+        identifier_func = function(identifier_func)
+
+        def func(value: Primitive.Egged | Identifier.Egged) -> Expr:
+            if value.__egg_class_name__ == "EggedP":
+                return primitive_func(value)
+            if value.__egg_class_name__ == "EggedId":
+                return identifier_func(value)
+            else:
+                raise TypeError(f"Unsupported type for {func_prefix}: {value.__egg_class_name__}")
+
+        return func
+
+        # raise NotImplementedError(f"to_egg_func() not implemented for {cls.__name__}")
+
+    def to_egg(self) -> Expr:
+        return self.to_egg_func()(self.value.to_egg())
 
 
 class Neg(UnaryOp):
     pass
 
 
+class Pos(UnaryOp):
+    pass
+
+
 class Not(UnaryOp):
+    pass
+
+
+class PowerSet(UnaryOp):
+    pass
+
+
+class Complement(UnaryOp):
     pass
 
 
@@ -195,10 +394,56 @@ class Implies(BinOp):
     pass
 
 
-@dataclass
-class Power(BaseEggAST):
-    left: BaseEggAST
-    right: BaseEggAST = field(default_factory=lambda: None_())
+class RevImplies(BinOp):
+    pass
+
+
+class Equiv(BinOp):
+    pass
+
+
+class NotEquiv(BinOp):
+    pass
+
+
+class Subset(BinOp):
+    pass
+
+
+class SubsetEq(BinOp):
+    pass
+
+
+class Superset(BinOp):
+    pass
+
+
+class SupersetEq(BinOp):
+    pass
+
+
+class Union(BinOp):
+    pass
+
+
+class Intersect(BinOp):
+    pass
+
+
+class Difference(BinOp):
+    pass
+
+
+class CartesianProduct(BinOp):
+    pass
+
+
+class RelationComposition(BinOp):
+    pass
+
+
+class Power(BinOp):
+    pass
 
 
 # Calling
@@ -266,6 +511,11 @@ class Break(BaseEggAST):
 
 @dataclass
 class Continue(BaseEggAST):
+    pass
+
+
+@dataclass
+class Pass(BaseEggAST):
     pass
 
 

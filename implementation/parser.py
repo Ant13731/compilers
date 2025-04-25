@@ -46,7 +46,7 @@ def generate_egg_constructs():
             print(f"Class: {name}, Abstract S-expression: {cls_.to_abstract_s_expr()}")
 
 
-generate_egg_constructs()
+# generate_egg_constructs()
 
 
 def testing_transformer():
@@ -70,8 +70,8 @@ def testing_transformer():
     j: list = [for i in c: i*i]
     k: dict = {for i in c: (i,i*i)}
     l: set = {for i in c: i*i}
-    a => b
-    m: bool = a == b => e
+    a ==> b
+    m: bool = a == b ==> e
     a != b and b > a
     b < a and b >= a
     a is a or a is not b
@@ -162,3 +162,6 @@ def a(b: int, c: str) -> int:
     for i, t in enumerate(test_compound_strs):
         print(f"Parsing string {i}: {t}")
         parse(t, i)
+
+
+testing_transformer()
