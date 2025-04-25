@@ -50,7 +50,7 @@ def generate_egg_constructs():
 
 
 def testing_transformer():
-    test_str = """
+    test_str = r"""
     1
     1.0
     "hello"
@@ -102,6 +102,22 @@ def testing_transformer():
     return
     break
     continue
+    a \subset b
+    a \subseteq b
+    a \supset b
+    a \supseteq b
+    a \cup b
+    a \cap b
+    a \setminus b
+    a \ctimes b
+    a \circ b
+    \powerset a
+    ~a
+    ~a \cup ~b
+    a ==> b ==> c
+    c <== a <== b
+    a <==> b
+    a <!==> b
     """
     test_strs = test_str.split("\n")
     for i, t in enumerate(test_strs):

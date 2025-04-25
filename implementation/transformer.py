@@ -46,8 +46,8 @@ class EggASTTransformer(Transformer):
             "/": Div,
             "%": Mod,
             "//": Rem,
-            r"\intersection": Intersect,
-            r"\times": CartesianProduct,
+            r"\cap": Intersect,
+            r"\ctimes": CartesianProduct,
             r"\circ": RelationComposition,
         }
         return map_symbol_to_ast[tokens[1]](tokens[0], tokens[2])
@@ -106,8 +106,8 @@ class EggASTTransformer(Transformer):
 
     def equivalence(self, tokens: tuple[BaseEggAST, str, BaseEggAST]) -> BaseEggAST:
         map_symbol_to_ast = {
-            "<=>": Equiv,
-            "<!=>": NotEquiv,
+            "<==>": Equiv,
+            "<!==>": NotEquiv,
         }
         return map_symbol_to_ast[tokens[1]](tokens[0], tokens[2])
 
