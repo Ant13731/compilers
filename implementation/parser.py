@@ -1,8 +1,7 @@
 import lark
 from lark.indenter import PythonIndenter
 
-from transformer_v1 import GrammarToEggTransformer
-from transformer_v2 import EggASTTransformer
+from transformer import EggASTTransformer
 from ast_ import BaseEggAST
 import ast_
 import sys
@@ -24,7 +23,7 @@ def parse(input_string: str, i: int):
     input_string = input_string + "\n"
 
     # Create a Lark parser with the defined grammar
-    with open("high-level-to-egg-transpiler/very_high_level_grammar.lark", "r") as f:
+    with open("implementation/grammar.lark", "r") as f:
         grammar = f.read()
         parser = lark.Lark(grammar, start="start", postlex=PythonIndenter(), maybe_placeholders=True)
 
