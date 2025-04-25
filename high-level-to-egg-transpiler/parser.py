@@ -4,6 +4,9 @@ from lark.indenter import PythonIndenter
 from transformer_v1 import GrammarToEggTransformer
 from transformer_v2 import EggASTTransformer
 from ast_ import BaseEggAST
+import ast_
+import sys
+import inspect
 
 
 def parse(input_string: str, i: int):
@@ -35,74 +38,86 @@ def parse(input_string: str, i: int):
     print(ast.to_s_expr())
 
 
-test_str = """
-1
-1.0
-"hello"
-None
-True
-a: int = 1
-a: int = (1)
-b: str = "hello"
-c: list = [1, 2, 3]
-d: dict = {"key": "value"}
-e: bool = True
-f: float = 3.14
-g: set = {1, 2, 3}
-h: tuple = (1, 2, 3)
-i: None = None
-z: bool = a in c
-j: list = [for i in c: i*i]
-k: dict = {for i in c: (i,i*i)}
-l: set = {for i in c: i*i}
-a => b
-m: bool = a == b => e
-a != b and b > a
-b < a and b >= a
-a is a or a is not b
-b <= a or a not in g
-not e != e
-not e is not (not e)
-a + (- (+ b)) - c * d / e % f // g
-a + b - c * d / e % f // g
-a()
-a(1, 2, 3)
-a[]
-a[:]
-a[::]
-a[1:]
-a[:1]
-a[::1]
-a[:1:1]
-a[1::1]
-a[1:2:3]
-j: list = [for i in c | i < 0 and i == 0: i*i]
-k: dict = {for i in c| i < 0: (i,i*i)}
-l: set = {for i in c| i < 0: i*i}
-i^2
-a.b.c
-lambda (a: int,b:int): a + b
-lambda (): a + b
-return a
-return
-break
-continue
-"""
-test_strs = test_str.split("\n")
-for i, t in enumerate(test_strs):
-    print(f"Parsing string {i}: {t}")
-    parse(t, i)
+def generate_egg_constructs():
+    skip_names = ["UnaryOp", "BinOp"]
+    for name, cls_ in inspect.getmembers(ast_):
+        if name in skip_names:
+            continue
+        if inspect.isclass(cls_) and issubclass(cls_, BaseEggAST):
+            print(f"Class: {name}, Abstract S-expression: {cls_.to_abstract_s_expr()}")
 
-test_compound_strs = [
+
+generate_egg_constructs()
+
+
+def testing_transformer():
+    test_str = """
+    1
+    1.0
+    "hello"
+    None
+    True
+    a: int = 1
+    a: int = (1)
+    b: str = "hello"
+    c: list = [1, 2, 3]
+    d: dict = {"key": "value"}
+    e: bool = True
+    f: float = 3.14
+    g: set = {1, 2, 3}
+    h: tuple = (1, 2, 3)
+    i: None = None
+    z: bool = a in c
+    j: list = [for i in c: i*i]
+    k: dict = {for i in c: (i,i*i)}
+    l: set = {for i in c: i*i}
+    a => b
+    m: bool = a == b => e
+    a != b and b > a
+    b < a and b >= a
+    a is a or a is not b
+    b <= a or a not in g
+    not e != e
+    not e is not (not e)
+    a + (- (+ b)) - c * d / e % f // g
+    a + b - c * d / e % f // g
+    a()
+    a(1, 2, 3)
+    a[]
+    a[:]
+    a[::]
+    a[1:]
+    a[:1]
+    a[::1]
+    a[:1:1]
+    a[1::1]
+    a[1:2:3]
+    j: list = [for i in c | i < 0 and i == 0: i*i]
+    k: dict = {for i in c| i < 0: (i,i*i)}
+    l: set = {for i in c| i < 0: i*i}
+    i^2
+    a.b.c
+    lambda (a: int,b:int): a + b
+    lambda (): a + b
+    return a
+    return
+    break
+    continue
     """
+    test_strs = test_str.split("\n")
+    for i, t in enumerate(test_strs):
+        print(f"Parsing string {i}: {t}")
+        parse(t, i)
+
+    test_compound_strs = [
+        """
 if a: b
 """,
-    """
+        """
 if a:
-
     b
 """,
-    """
+        """
 if a:
     if b:
         c
@@ -114,37 +129,37 @@ elif a and b:
 else:
     e
 """,
-    """
+        """
 for i in a: b
 """,
-    """
+        """
 for i in a:
     for j in b:
         c
 """,
-    """
+        """
 struct a:
     a: int
     b: str
 """,
-    """
+        """
 enum a:
     a
     b
 """,
-    """
+        """
 struct a:
     pass
 """,
-    """
+        """
 enum a:
     pass
 """,
-    """
+        """
 def a(b: int, c: str) -> int:
     return b + c
 """,
-]
-for i, t in enumerate(test_compound_strs):
-    print(f"Parsing string {i}: {t}")
-    parse(t, i)
+    ]
+    for i, t in enumerate(test_compound_strs):
+        print(f"Parsing string {i}: {t}")
+        parse(t, i)

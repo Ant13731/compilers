@@ -8,6 +8,7 @@ define_language! {
         // Float(f64),
         String(String),
         Name(Symbol),
+        Type_(Id),
 
 
     }

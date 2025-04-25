@@ -58,7 +58,7 @@ class BaseEggAST:
                 # Field type {field_type} is not a valid type for S-expression conversion (failed to convert to string).")
             # else:
             # ordered_field_types.append(str(field_type))
-        return f"({cls.__name__} {' '.join(ordered_field_types)})"
+        return f"{cls.__name__}({', '.join(ordered_field_types)})"
 
 
 # PRIMITIVE LITERALS, take in a Token and return an AST node
@@ -198,7 +198,7 @@ class Implies(BinOp):
 @dataclass
 class Power(BaseEggAST):
     left: BaseEggAST
-    right: BaseEggAST | None_ = field(default_factory=lambda: None_())
+    right: BaseEggAST = field(default_factory=lambda: None_())
 
 
 # Calling
@@ -228,7 +228,7 @@ class TypedName(BaseEggAST):
 @dataclass
 class Indexing(BaseEggAST):
     target: BaseEggAST
-    index: BaseEggAST | None_ = field(default_factory=lambda: None_())
+    index: BaseEggAST = field(default_factory=lambda: None_())
 
 
 @dataclass
@@ -250,7 +250,7 @@ class ArgDef(BaseEggAST):
 
 @dataclass
 class Return(BaseEggAST):
-    value: BaseEggAST | None_
+    value: BaseEggAST
 
 
 @dataclass
@@ -279,14 +279,14 @@ class Type_(BaseEggAST):
 class If(BaseEggAST):
     condition: BaseEggAST
     body: BaseEggAST
-    else_body: BaseEggAST | None_ = field(default_factory=lambda: None_())
+    else_body: BaseEggAST = field(default_factory=lambda: None_())
 
 
 @dataclass
 class Elif(BaseEggAST):
     condition: BaseEggAST
     body: BaseEggAST
-    else_body: BaseEggAST | None_ = field(default_factory=lambda: None_())
+    else_body: BaseEggAST = field(default_factory=lambda: None_())
 
 
 @dataclass
@@ -336,7 +336,7 @@ class SuchThat(BaseEggAST):
 class Comprehension(BaseEggAST):
     iterable_names: BaseEggAST
     loop_over: BaseEggAST
-    condition: BaseEggAST | None_
+    condition: BaseEggAST
     action: BaseEggAST
 
 
@@ -344,7 +344,7 @@ class Comprehension(BaseEggAST):
 class KeyPairComprehension(BaseEggAST):
     iterable_names: BaseEggAST
     loop_over: BaseEggAST
-    condition: BaseEggAST | None_
+    condition: BaseEggAST
     action: BaseEggAST
 
 
@@ -377,7 +377,7 @@ class KeyPair(BaseEggAST):
 # Top level AST nodes
 @dataclass
 class Start(BaseEggAST):
-    body: BaseEggAST | None_
+    body: BaseEggAST
 
 
 @dataclass
