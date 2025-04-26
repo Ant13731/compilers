@@ -145,11 +145,9 @@ class EggASTTransformer(Transformer):
         return Return(*tokens)
 
     def lambdef(self, tokens: list[BaseEggAST]) -> BaseEggAST:
-        print("LAMBDEF", tokens)
         return LambdaDef(*tokens)
 
     def control_flow_stmt(self, tokens: list[str | BaseEggAST]) -> BaseEggAST:
-        print(tokens)
         map_symbol_to_ast = {
             "break": Break,
             "continue": Continue,

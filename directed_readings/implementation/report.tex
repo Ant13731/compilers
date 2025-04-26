@@ -1,0 +1,64 @@
+\documentclass{article}
+
+\usepackage{minted}
+\usepackage{amsmath, amsthm}
+\usepackage{amssymb}
+\usepackage{listings}
+\usepackage[svgnames]{xcolor}
+\usepackage{tikz}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage[backend=biber, maxbibnames=9]{biblatex}
+\usepackage{algpseudocode}
+\usepackage{algorithm}
+\usepackage{mathtools}
+\usepackage{hyperref}
+
+\makeatletter
+\newcommand{\superimpose}[2]{{%
+  \ooalign{%
+    \hfil$\m@th#1\@firstoftwo#2$\hfil\cr
+    \hfil$\m@th#1\@secondoftwo#2$\hfil\cr
+  }%
+}}
+\makeatother
+
+\newcommand{\leftplus}{\mathbin{\mathpalette\superimpose{{\leftarrow}{+}}}}
+% \newcommand{\disquare}{\mathbin{\mathpalette\superimpose{{\diamond}{\square}}}}
+% \newcommand{\disquare}{\mathbin{\text{\tikz [x=1ex,y=1ex,line width=.1ex,line join=round] \draw (0,0) rectangle (1,1) (0,.5) -- (.5,1) -- (1,.5) -- (.5,0) -- (0,.5) -- cycle;}}}
+\newcommand{\disquare}{\mathbin{\text{\tikz [x=1ex,y=1ex,line width=.1ex,line join=round] \draw (0,0) rectangle (1,1) (.5\pgflinewidth,.5) -- (.5,1ex-.5\pgflinewidth) -- (1ex-.5\pgflinewidth,.5) -- (.5,.5\pgflinewidth) -- (.5\pgflinewidth,.5) -- cycle;}}}
+
+\usemintedstyle{solarized-light}
+\setminted{fontsize=\footnotesize, bgcolor=Beige}
+
+% NOTE: need to run `biber term_rewriting` to ensure up-to-date references
+\addbibresource{term_rewriting.bib}
+
+\title{A Prototypical Implementation of an Optimizing Compiler for a Very High Level Language}
+\author{Anthony Hunt}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Introduction}
+\section{Exploring Examples: The Birthday Book Problem}
+\subsection{Handling Relations: Many-to-One}
+\subsubsection{Two Implementations}
+\subsubsection{Performance}
+\subsection{Extension: Many-to-Many Relations}
+\section{Exploring Examples: Other Combinations of Sets, Sequences, and Relations}
+% TODO go over examples like mapping over the difference of sets splitting up function calls
+\section{A Very High Level Language}
+\subsection{Supported Operators and ADTs}
+\subsection{Grammar}
+\subsection{Optimization Implementation}
+\section{Conclusion}
+
+
+\pagebreak
+\nocite{*} % keeps all references, even those not referred to
+\printbibliography %Prints bibliography
+
+\end{document}

@@ -8,7 +8,7 @@ import sys
 import inspect
 
 
-def parse(input_string: str, i: int):
+def parse(input_string: str, i: int = 0):
     """
     Parse the input string using Lark parser.
 
@@ -180,4 +180,4 @@ def a(b: int, c: str) -> int:
         parse(t, i)
 
 
-testing_transformer()
+# testing_transformer()
