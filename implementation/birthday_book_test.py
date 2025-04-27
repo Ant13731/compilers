@@ -88,6 +88,55 @@ class BiDirectionalMappingManyToOne[K, V]:
         return self.reverse_mapping.get(value, [])
 
 
+class PartialRelationsByHashing[K, V]:
+    def hash2(self, x: int) -> int:
+        return x + 1
+
+    def __init__(self, mapping: dict[K, V]):
+        self.values: dict[int, V] = {}
+        self.keys: dict[V, list[K]] = {}
+
+        for k, v in mapping.items():
+            self.insert(k, v)
+
+    def insert(self, key: K, value: V) -> None:
+        hk = hash(key)
+
+        # hv = hash(value)
+        # while hv in self.keys:
+        #     hv = self.hash2(hv)
+        # Hash collisions between values should be fine since we are just trying with many-to-one
+        while hk in self.keys:
+            hk += self.hash2(hk)
+
+        self.keys[hk] = value
+        if value not in self.values:
+            self.values[value] = []
+
+        self.values[value].append(key)
+
+    def lookup(self, name: K) -> V | None:
+        hashed_name = hash(name)
+
+        # If two names happen to have the same hash, need to resolve the collision manually
+        # This case is extremely rare though, so we expect only 1 execution iteration for this loop
+        while True:
+            possible_date = self.keys.get(hashed_name)
+            # No entry found for this name
+            if possible_date is None:
+                return None
+
+            names_corresponding_to_date = self.lookup_reverse(possible_date)
+            if name in names_corresponding_to_date:
+                return possible_date
+
+            hashed_name = self.hash2(hashed_name)
+
+    def lookup_reverse(self, date: V) -> list[K]:
+        # Let python take care of any hash collisions here
+        return self.values.get(date, [])
+
+
 class RelationsByHashing[K, V]:
     def hash2(self, x: int) -> int:
         return x + 1
@@ -189,7 +238,7 @@ class RelationsByHashing[K, V]:
 #     "Charlie": 35,
 #     "Charlie1": 35,
 # }
-# rel_hash = RelationsByHashing(test_dict)
+# rel_hash = PartialRelationsByHashing(test_dict)
 # print("RelationsByHashing:")
 # print("Lookups:")
 # print("Lookup key: Alice", rel_hash.lookup("Alice"))
@@ -218,7 +267,7 @@ class RelationsByHashing[K, V]:
 
 # More thorough testing
 l = 1000000
-r = 10000000
+r = 10000
 # rand_list_keys = list(map(str, random.choices(range(1, r), k=l)))
 # Assume keys are unique
 rand_list_keys = list(map(str, range(1, l)))
@@ -231,23 +280,33 @@ rand_dict_2 = dict(zip(rand_list_keys, rand_list_vals))
 
 start_time_1 = time.perf_counter()
 bi_map = BiDirectionalMappingManyToOne(rand_dict_1)
+insert_time_1 = time.perf_counter()
 for k in rand_list_keys:
     # print(f"Lookup key: {k}", bi_map.lookup(k))
     bi_map.lookup(k)
+lookup_time_1 = time.perf_counter()
 for v in rand_set_vals:
     # print(f"Lookup val: {v}", bi_map.lookup_reverse(v))
     bi_map.lookup_reverse(v)
 end_time_1 = time.perf_counter()
+print(f"BiDirectionalMappingManyToOne insert took {insert_time_1 - start_time_1:.6f} seconds")
+print(f"BiDirectionalMappingManyToOne lookup took {lookup_time_1 - insert_time_1:.6f} seconds")
+print(f"BiDirectionalMappingManyToOne reverse lookup took {end_time_1 - lookup_time_1:.6f} seconds")
 print(f"BiDirectionalMappingManyToOne took {end_time_1 - start_time_1:.6f} seconds")
 
 start_time_2 = time.perf_counter()
-hash_map = RelationsByHashing(rand_dict_2)
+hash_map = PartialRelationsByHashing(rand_dict_2)
+insert_time_2 = time.perf_counter()
 for k in rand_list_keys:
     # print(f"Lookup key: {k}", hash_map.lookup(k))
     hash_map.lookup(k)
+lookup_time_2 = time.perf_counter()
 for v in rand_set_vals:
     # print(f"Lookup val: {v}", hash_map.lookup_reverse(v))
     hash_map.lookup_reverse(v)
 end_time_2 = time.perf_counter()
-print(f"RelationsByHashing took {end_time_2 - start_time_2:.6f} seconds")
+print(f"PartialRelationsByHashing insert took {insert_time_2 - start_time_2:.6f} seconds")
+print(f"PartialRelationsByHashing lookup took {lookup_time_2 - insert_time_2:.6f} seconds")
+print(f"PartialRelationsByHashing reverse lookup took {end_time_2 - lookup_time_2:.6f} seconds")
+print(f"PartialRelationsByHashing took {end_time_2 - start_time_2:.6f} seconds")
 print()

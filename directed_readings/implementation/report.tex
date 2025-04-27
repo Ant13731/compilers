@@ -180,55 +180,14 @@ def birthday_book_reverse_lookup(date: Date) -> list[Name]:
   return birthday_book_inverse.get(date, [])
 \end{lstlisting}
 
-By keeping one complete dictionary, the other can rely on cross-dictionary lookups to resolve hashing collisions. Unfortunately, we still needed to duplicate at least one set of either names or dates to resolve hashing collisions, but for larger data types, this method could use 25\% less space with very little runtime cost.
+By keeping one complete dictionary, the other can rely on cross-dictionary lookups to resolve hashing collisions. Unfortunately, we still needed to duplicate at least one set of either names or dates to resolve hashing collisions, but for larger data types, this method could use 25\% less space with a little runtime cost. Note that in testing many-to-one relations that ``collided'' often (ie. had the same key but different values), the running time of our naive hash implementation took far longer than plain bidirectional mapping, likely due to a poor choice in collision resolution function.
 
 Similar data structures with less overhead and clever elimination of duplicated data via pointers could prove useful in providing O(1) reverse lookups. For example, C++'s Boost.Bimap library \cite{boostBimap1, boostBimap2} stores pairs of values and provides efficient views for both forward and reverse lookups, with the caveat that the relation must be one-to-one, or slightly less efficient to allow one-to-many. Alternatively, a post on StackOverflow \cite{bimapStackOverflow} describes a solution with two maps of type $A \rightarrow B*$ and $B \rightarrow A*$. In this case, data is stored in two sets of pairs that couple a concrete value with its opposing pointer. Then, the $lookup$ function can dereference the pointer received from the $A \rightarrow B*$ to find the concrete value of $B$ stored in the second set.
 
 % TODO GIVE PERFORMANCE NUMBERS, TEST THE TWO PYTHON IMPLEMENTATIONS FOR MEMORY AND TIME USAGE
 
 
-% To eliminate the duplicated data, we could instead transform the keys of a dictionary to use hashed values. For example:
-% \begin{lstlisting}[language=python]
-% # Assume the `hash(x)` function corresponds to these input/output pairs:
-% # hash("Alice") = 0
-% # hash("Bob") = 1
-% # hash("Charlie") = 2
-% # hash("Kevin") = 3
-% #
-% # hash(25) = 4
-% # hash(30) = 5
-% # hash(35) = 6
-
-% birthday_book: dict[int, Date] = {
-%   0: 25,
-%   1: 30,
-%   2: 35,
-%   3: 35,
-% }
-
-% birthday_book_inverse: dict[int, list[Name]] = {
-%   4: "Alice",
-%   5: "Bob",
-%   6: ["Charlie", "Kevin"],
-% }
-
-% def birthday_book_lookup(name: Name) -> Date:
-%   return birthday_book.get(hash(name))
-
-% def birthday_book_reverse_lookup(date: Date) -> list[Name]:
-%   return birthday_book_inverse.get(hash(date))
-% \end{lstlisting}
-
-% Since the keys of both dictionaries contain only identifiers for the representative data rather than the data itself, the effective size of the dictionary is reduced by half. Of course, we need to ensure there collisions between identifiers are handled - in fact, we can resolve collisions and remove the need for a record of lists in one optimization step:
-
-
-
-
-% \subsubsection{Two Implementations}
-% \subsubsection{Performance}
-% \subsubsection{Extension: Many-to-Many Relations}
 \subsection{Other Combinations of Sets, Sequences, and Relations}
-% TODO go over examples like mapping over the difference of sets splitting up function calls
 
 In general, the feasibility of an efficient compiler for a very high level language relies on the idea that rewrite rules combined with efficient implementations of data types will reduce the runtime of complex set manipulation expressions. Dissecting several examples from a catalogue of Event B models revealed that the most common modelling expressions make use of conditions on sets, unions, intersections, and differences. Because the implementation of sets is the least constrained out of the ``collection'' types, we focus optimization efforts on manipulating those implementations for more efficient results.
 
@@ -347,7 +306,7 @@ return (R ** -1)[a]
 R ** -1[a] = R.lookup_reverse(a)
 \end{lstlisting}
   The advantages of this approach are clear: new rewrite rules can be specified in programming language format, allowing developers to extend optimizations in a manner similar to writing regular library functions. Then, once these rules are parsed into AST form and passed to a rewrite system, they can be broadly applied across an entire program. Assuming this interface can provide all the dials and switches necessary to provide optimization steps, expert users can quickly advance the language for entire codebases. However, providing in depth rewrite rules for function inlining, determining properties of set implementations (ie. intersection of internally sorted sets) may be difficult to implement or otherwise extremely verbose. Both the target language AST and rewrite rules would need some context attachment to ensure correct optimizations are made in both the actions and representation of a program.
-  \item Embedding rewrite steps directly in the compiler through specific, targeted, AST translations. For example, writing the first addition rule directly in Python may look something like \texttt{Sub(Add(id1(), id2()), id2()) = id1()}. This effectively skips the ``middle-man'' grammar in method one but requires direct AST setup within the compiler source text. Results of the functions may carry necessary corresponding information that could allow for deeper optimizations. For example, expressing the optimal intersection of two internally sorted sets may look something like:
+  \item Embedding rewrite steps directly in the compiler through specific, targeted, AST translations. For example, writing the first addition rule of method one directly in Python may look something like \texttt{Sub(Add(id1(), id2()), id2()) = id1()}. This effectively skips the ``middle-man'' grammar but requires direct AST setup within the compiler source text. Results of function applications may carry necessary corresponding information that could allow for deeper optimizations. For example, expressing the optimal intersection of two internally sorted sets may look something like:
   \begin{lstlisting}[language=python]
 class SortedSet(Set):
   properties=["sorted"]
@@ -378,26 +337,13 @@ def rewrite_sorted_intersection(lhs: Intersection[SortedSet, SortedSet]) -> Sort
 \end{lstlisting}
 \end{enumerate}
 
-Both methods take inspiration from realized rewrite systems: the mini-language approach is used in GHC through \texttt{Haskell Core} \cite{haskellCore}, and the latter through Egglog, an equality saturation library \cite{egglogPython, eggPaper}. The particular system of rewriting remains undecided, due to the required development time and struggles in adapting to niche tools. An initial test with Egglog's equality saturation techniques revealed challenges in dealing with custom types and non-standard operators. The first iteration of Egglog's implementation, a Rust-based library named Egg \cite{eggRust}, also contained the same pain points. Rewrite rules were only accepted in both libraries through writing out entire AST structures for all equalities.
+Both methods take inspiration from realized rewrite systems: the mini-language approach is used in GHC through \texttt{Haskell Core} \cite{haskellCore}, and the latter through Egglog, an equality saturation library \cite{egglogPython, eggPaper}. Since we expect the number of example-based optimizations to increase with continued data gathering from relevant domains, keeping a handwritten list of such optimizations may be necessary. By selecting a rewrite rule input style similar to method one, the handwritten records may serve doubly as a fundamental part of our optimizer.
 
-Additionally, after rewriting terms to eliminate all superfluous operators, the compiler must decide on the best representation of data, given the context of relevant operations, object lifetimes, and expected memory usage. Finding generic optimizations across all possible use cases of data types may very well be undecidable, requiring complete knowledge of the code's runtime behaviours before the code has actually executed, but optimizing common operations may reach an acceptable level of improvement. We may further make use of modelling domain knowledge to heuristically optimize data representations (ex. bi-directional maps for the birthday book problem).
-% Optimization stage ideas
-% - use another modified grammar to define rewrite rules (a language that looks similar to the source language but much smaller, basically rewrite strategies). The language could have variables to represent abstraction over internal structure. For example:
-% a: Var[int]
-% a + a - a = a
-% a + 0 = a
-% - embed rewrites directly through AST translations, ie. Sub(Add(1, 1),1) => 1
-% these two methods kind of combine egglog's strengths and weaknesses, cant use egglog directly because of lack of lib maturity and inflexible type support
+The particular system of rewriting remains undecided due to upfront time investments and struggles in working with niche tools. An initial test with Egglog's equality saturation techniques revealed inflexible APIs that failed to accommodate custom types and non-standard operators. Exploring an older but more mature version of equality saturation through the Rust library Egg \cite{eggRust}, we again faced challenges related to type restrictions and purely AST-based rewrite rules. In the coming weeks, a dedicated rewriting system may be chosen or written from scratch based on equality saturation or rewriting with strategies.
 
-% mention eqsat vs rewriting strategies, etc
+After rewriting terms to eliminate all superfluous operators, the compiler must decide on the best representation of data, given the context of relevant operations, object lifetimes, and expected memory usage. Finding generic optimizations across all possible use cases of data types may very well be undecidable, requiring complete knowledge of the code's runtime behaviours before the code has actually executed, but optimizing common operations may reach an acceptable level of improvement. We may further make use of modelling domain knowledge to heuristically optimize data representations (ex. bi-directional maps for the birthday book problem).
 
-% Then comes choosing the representation of data. Assume we have a mostly optimized setup, but some optimizations depend heavily on the internal representation (eg. bi-directional maps, "sorted" sets).
 
-% \subsubsection{Equality Saturation with Egg(log)}
-% \subsubsection{Rewrite Rules for Common Expression Structures}
-% TODO move this either to the bullet point list or to a few paragraphs ahead
-Since we expect the number of example-based optimizations to increase with continued data gathering from relevant domains, keeping a handwritten list of such optimizations may be necessary. By selecting a rewrite rule input style similar to method one, the handwritten records may serve doubly as a fundamental part of our optimizer.
-% Present a list of set based rules in the first format
 \section{Conclusion}
 The beginning stages of building a new programming language are arguably one of the most exciting and fundamental parts of the compiler development process. Exploring theoretical optimizations isolated from specific architectures and system limitations can lead to drastic improvements in overall performance with zero additional hardware costs. For our very high level language, we attempt to combine focused optimization techniques on a discrete mathematics language familiar to all computer scientists and software developers.
 
