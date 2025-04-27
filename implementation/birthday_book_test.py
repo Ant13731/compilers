@@ -115,6 +115,7 @@ class RelationsByHashing[K, V]:
         self.vals[hk] = value
         self.keys[hv] = key
 
+    # TODO ONE OF THESE IS WRONG
     def lookup(self, key: K) -> V | None:
         # hk = hash(key)
         # while True:
@@ -162,6 +163,24 @@ class RelationsByHashing[K, V]:
                 ret_list.append(key)
             hv = self.hash2(hv)
         return ret_list
+
+        #  hashed_date = hash(date)
+
+        # names: list[Name] = []
+        # while True:
+        #   possible_name = birthday_book_inverse.get(hashed_date)
+        # #   No entry found for this name
+        #   if possible_name is None:
+        #     break
+
+        #   date_corresponding_to_name = birthday_book_lookup(possible_name)
+        #   if date_corresponding_to_name == date:
+        #     names.append(name)
+
+        # #   Need to check through all possible collisions for names corresponding to the input date
+        #   hashed_date = collision_resolver(hashed_date)
+
+        # return names
 
 
 # test_dict = {
