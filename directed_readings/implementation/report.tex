@@ -74,13 +74,13 @@
 
 \section{Introduction}
 
-In the modern era of programming, optimizing compilers must make aggressive choices in pursuit of the most efficient, yet correct, representation of source code. For low level languages like C and Rust, automatic optimizations on-par with human abilities are a mature part of the software ecosystem and a reasonable expectation for most performance-oriented programmers. The effectiveness of a compiler directly influences the contributors and community of its source language, providing sweeping benefits across entire codebases at minimal cost.
+In the modern era of programming, optimizing compilers must make aggressive choices in pursuit of the most efficient, yet correct, representation of source code. For low level languages like C and Rust, automatic optimizations on-par with human abilities are a mature part of the software ecosystem and a reasonable expectation for performance-oriented programmers. The effectiveness of a compiler directly influences the contributors and community of its source language, providing sweeping benefits across entire codebases at minimal cost.
 
 However, in domains that do not require peak efficiency, high level languages focused on readability and ease-of-use have become foundational. As software development continues to grow more accessible to the general public, the responsibilities of compilers to shoulder the burden of optimization are even more pronounced. Languages like Python and JavaScript have numerous libraries and runtimes that are built on efficient languages but expose only easy-to-use, native APIs.
 
 In the last two papers of this series, we explored a collection of abstract data types in practice and recent research into term rewriting systems for optimizing compilers. Now, we turn our attention to a prototypical implementation of a very high level language, usable by expressive discrete math notation and built with the efficiency of a low-level language. Although we do not present a full compiler as of yet, we discuss a few critical findings that will serve well in a long-term implementation.
 
-The rest of this paper explores theoretical optimizations on select examples, a few implementation tests, then outlines a roadmap of a full compiler implementation.
+The rest of this paper explores theoretical optimizations on select examples, a few implementation tests, then outlines a roadmap for a full compiler implementation.
 
 \section{Exploring Examples}
 
@@ -93,11 +93,11 @@ An older paper by Spivey \cite{spivey1989birthday} outlines a simple but fitting
   \item When is the birthday of a particular person?
   \item Who has a birthday on a given date?
 \end{itemize}
-These questions correspond to the lookup and reverse lookup tasks on a set of relations. In other words, to find the birthday of a person, we require a function $lookup: Name \rightarrow Date$. Likewise, we denote $lookup^{-1}: Date \rightarrow {{Name}}$, which returns a list of names that are born on a specific date. Then, our high level language should provide an optimized version of these functions that returns from $lookup$ or $lookup^{-1}$ as fast as possible.
+These questions correspond to the lookup and reverse lookup tasks on a set of relations. In other words, to find the birthday of a person, we require a function $lookup: Name \rightarrow Date$. Likewise, we denote $lookup^{-1}: Date \rightarrow \{Name\}$, which returns a set of names that are born on a specific date. Then, our high level language should provide an optimized version of these functions that returns from $lookup$ or $lookup^{-1}$ as fast as possible.
 
 \subsubsection{Handling Relations: Many-to-One and Many-to-Many}
 
-The relational data structure of this question involves a many-to-one correspondence, where many names can map to the same date. In python, a straightforward method of modelling the data is to maintain two dictionaries:
+The relational data structure of this question involves a many-to-one correspondence, where many names can map to the same date. In Python, a straightforward method of modelling the data is to maintain two dictionaries:
 
 \begin{lstlisting}[language=python]
 from typing import TypeAlias, Callable
@@ -261,7 +261,7 @@ As the first step in processing the language, a CFG is used to convert plain tex
   \item Enums as static sets to collect names into a specific type. For example, when modelling a stop light intersection, the three stages of a light may be most clearly modelled as an enum with 3 states: red, yellow, and green.
 \end{itemize}
 
-The complete current grammar is available at our \href{https://github.com/Ant13731/compilers/blob/main/implementation/grammar.lark}{GitHub}.
+The complete current grammar is available on \href{https://github.com/Ant13731/compilers/blob/main/implementation/grammar.lark}{GitHub}.
 
 % \subsubsection{Parsing with Lark}
 \subsubsection{AST and AST transformations}
