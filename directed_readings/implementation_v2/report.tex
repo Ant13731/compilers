@@ -216,7 +216,7 @@ In Section 2, we presented a selection of examples wherein expressive set notati
 
 % TODO GIVE INTUITION
 
-To simplify all terms in the rewrite system, we introduce a rule to exhaustively reduce sets into set construction notation:
+To simplify all terms in the rewrite system, we introduce a rule to exhaustively reduce sets into set construction notation. Note that for all subsequent rules, capital letters represent sets and lowercase for elements and functions:
 \begin{equation}
 S \rightarrow \Set{x}{x \in S}
 \end{equation}
@@ -237,7 +237,47 @@ A proof of correctness for these types of rules is directly given by the definit
     =&\Set{x}{x \in S \lor x \in T}\\
   \end{align*}
 \end{proof}
-Note that these proofs are of particular importance, since we must be careful of occurrences of variables within one another.
+Although the proof is relatively simple, these proofs are of particular importance since we must be careful of occurrences of variables within one another.
+
+% TODO DOES THIS WORK FOR UNIONS??
+Often times, we find that functions are applied to the generated variable, similar to $\Set{f(x)}{x \in S}$. A more general form of the above operator-based rules can therefore be expressed as:
+\begin{align}
+  \Set{f(x)}{x \in S} \cup \Set{y}{y \in T} &\rightarrow \Set{f(x)}{x \in S \lor f(x) \in T}\\
+  \Set{f(x)}{x \in S} \cap \Set{y}{y \in T} &\rightarrow \Set{f(x)}{x \in S \land f(x) \in T}\\
+  \Set{f(x)}{x \in S} \setminus \Set{y}{y \in T} &\rightarrow \Set{f(x)}{x \in S \land f(x) \notin T}
+\end{align}
+
+% TODO DOES THIS WORK FOR UNIONS??
+A further generic form might be considered in which functions can be mapped over both operator arguments, however, the lack of relationship between a function mapped over the first set versus a possibly different function mapped over the second set restricts the amount of feasible algebraic manipulation. In this case, we first evaluate one operation fully to then apply one of the rules in the previous paragraph.
+\begin{align}
+  \Set{f(x)}{x \in S} \cup \Set{g(y)}{y \in T} &\rightarrow
+    \begin{split}
+      &T_2 := \Set{g(y)}{y \in T};\\
+      &\Set{f(x)}{x \in S} \cup T_2
+    \end{split}\\
+  \Set{f(x)}{x \in S} \cap \Set{g(y)}{y \in T} &\rightarrow
+    \begin{split}
+      &T_2 := \Set{g(y)}{y \in T};\\
+      &\Set{f(x)}{x \in S} \cap T_2
+    \end{split}\\
+  \Set{f(x)}{x \in S} \setminus \Set{g(y)}{y \in T} &\rightarrow
+    \begin{split}
+      &T_2 := \Set{g(y)}{y \in T};\\
+      &\Set{f(x)}{x \in S} \setminus T_2
+    \end{split}
+\end{align}
+
+In targeting expressions that make use of set operators nested within set constructors, like $\Set{x}{x \in f(S, T)}$, we create the following rule:
+\begin{equation}
+  \Set{x}{x \in \Set{y}{y \in S}} \rightarrow \Set{x}{x \in S}
+\end{equation}
+
+Finally, we can now target the boolean statements within set constructions:
+\begin{align}
+  % TODO fill in
+\end{align}
+
+% TODO give a strategy that can be applied to this
 
 
 
