@@ -212,15 +212,16 @@ Different flavours of optimizations for complex expressions and other ``collecti
 
 \section{Rewriting Set Notation}
 
-In Section 2, we presented a selection of examples wherein expressive set notation for modelling could be rewritten for efficient code generation. Now, we extend this collection to optimize generic combinations of set operators as a complete collection of set-oriented rewrite rules.
+In Section 2, we presented a selection of examples wherein expressive set notation for modelling could be rewritten for efficient code generation. Now, we extend this collection to optimize generic combinations of set operators as a complete collection of set-oriented rewrite rules. As we derive this system, assume each iterable data type holds efficient representations of size calculation and set membership.
+
 
 % TODO GIVE INTUITION
 
-To simplify all terms in the rewrite system, we introduce a rule to exhaustively reduce sets into set construction notation. Note that for all subsequent rules, capital letters represent sets and lowercase for elements and functions:
+To simplify all terms in the rewrite system, we introduce a rule to exhaustively reduce sets into set construction notation. Note that for all rules, capital letters represent sets and lowercase for elements and functions:
 \begin{equation}
 S \rightarrow \Set{x}{x \in S}
 \end{equation}
-Then, our basic operators $\cup, \cap, \setminus$ are further reduced to construction notation with boolean conditions:
+Then, our basic operators $\cup, \cap, \setminus$ can be reduced to combined construction notation with boolean conditions:
 \begin{align}
   \Set{x}{x \in S} \cup \Set{y}{y \in T} &\rightarrow \Set{x}{x \in S \lor x \in T}\\
   \Set{x}{x \in S} \cap \Set{y}{y \in T} &\rightarrow \Set{x}{x \in S \land x \in T}\\
@@ -237,10 +238,10 @@ A proof of correctness for these types of rules is directly given by the definit
     =&\Set{x}{x \in S \lor x \in T}\\
   \end{align*}
 \end{proof}
-Although the proof is relatively simple, these proofs are of particular importance since we must be careful of occurrences of variables within one another.
+Although the proof is relatively simple, such proofs are of particular importance to ensuring correctness of variables used within one another.
 
-% TODO DOES THIS WORK FOR UNIONS??
-Often times, we find that functions are applied to the generated variable, similar to $\Set{f(x)}{x \in S}$. A more general form of the above operator-based rules can therefore be expressed as:
+% TODO DOES THIS WORK FOR UNIONS?? Yes, I think
+Often times, we find that functions are applied to the generated elements, similar to $\Set{f(x)}{x \in S}$. A more general form of the above operator-based rules can therefore be expressed as:
 \begin{align}
   \Set{f(x)}{x \in S} \cup \Set{y}{y \in T} &\rightarrow \Set{f(x)}{x \in S \lor f(x) \in T}\\
   \Set{f(x)}{x \in S} \cap \Set{y}{y \in T} &\rightarrow \Set{f(x)}{x \in S \land f(x) \in T}\\
@@ -248,12 +249,11 @@ Often times, we find that functions are applied to the generated variable, simil
 \end{align}
 
 % TODO DOES THIS WORK FOR UNIONS??
-A further generic form might be considered in which functions can be mapped over both operator arguments, however, the lack of relationship between a function mapped over the first set versus a possibly different function mapped over the second set restricts the amount of feasible algebraic manipulation. In this case, we first evaluate one operation fully to then apply one of the rules in the previous paragraph.
+A further generic form might be considered in which functions can be mapped over both operator arguments, however, the lack of relationship between a function mapped over the first set versus a possibly different function mapped over the second set restricts the amount of feasible algebraic manipulation. In this case, we first evaluate one operation fully to then apply one of the rules in the previous paragraph. Note that unions of this form gain no tangible benefit from an extra set construction, so we opt to join entries together as seen in the partial derivation of rewrite rule 2.
 \begin{align}
   \Set{f(x)}{x \in S} \cup \Set{g(y)}{y \in T} &\rightarrow
     \begin{split}
-      &T_2 := \Set{g(y)}{y \in T};\\
-      &\Set{f(x)}{x \in S} \cup T_2
+      \Set{z}{&(x \in S \land f(x) = z) \\\lor &(y \in T \land g(y) = z)}
     \end{split}\\
   \Set{f(x)}{x \in S} \cap \Set{g(y)}{y \in T} &\rightarrow
     \begin{split}
@@ -267,19 +267,108 @@ A further generic form might be considered in which functions can be mapped over
     \end{split}
 \end{align}
 
+Additionally, a few specialized cases arise when the function $f$ is injective and identical between set constructions.
+\begin{align}
+  \Set{f(x)}{x \in S} \cup \Set{f(y)}{y \in T} &\rightarrow \Set{f(x)}{x \in S \lor x \in T}\\
+  \Set{f(x)}{x \in S} \cap \Set{f(y)}{y \in T} &\rightarrow \Set{f(x)}{x \in S \land x \in T}\\
+  \Set{f(x)}{x \in S} \setminus \Set{f(y)}{y \in T} &\rightarrow \Set{f(x)}{x \in S \land x \notin T}
+\end{align}
+
 In targeting expressions that make use of set operators nested within set constructors, like $\Set{x}{x \in f(S, T)}$, we create the following rule:
 \begin{equation}
   \Set{x}{x \in \Set{y}{y \in S}} \rightarrow \Set{x}{x \in S}
 \end{equation}
 
-Finally, we can now target the boolean statements within set constructions:
+Finally, we can now target the boolean statements within set constructions. However, we first give some intuition towards the overarching principles behind non-trivial terms. Generally, breaking down each operation into set builder notation enables us to perform the following actions:
+\begin{itemize}
+  \item One membership operator within each set of ``and''-clauses will act as an element generator. Then, other clauses will act as conditions for an internal if-statement. For example, if the rewrite system observes an intersection of the form $\Set{x}{x \in S \land x \in T}$, the set construction operation must iterate over at least one of $S$ and $T$. Then, the other will act as a condition to check every iteration.
+  \item A collection of ``or''-clauses will generally be split into multiple sequential loops. Therefore, each clause must contain at least one element generator. Any ``and''-clauses nested within an ``or''-clause group will then act as a condition as specified above.
+  \item Generators must be statements of the form $x \in S$, where $x$ is used in the ``element'' portion of the set construction. Statements like $x \notin T$ or checking a property $p(x)$ must act like conditions since they do not produce any iterable elements.
+  \item Any boolean expression for conditions may be rewritten as a combination of $\lnot, \lor$, and $\land$ expressions. Therefore, by converting all set notation down into boolean notation and then generating code based on set constructor booleans, we can accommodate any form of predicate function.
+\end{itemize}
+
+The following rules formalize this intuition, where generators $S$ (and $T$) are the smallest sets within a local ``and''-clause:
 \begin{align}
   % TODO fill in
+  \Set{f(x)}{(x \in S \land p(x)) \lor (x \in T \land q(x))} &\rightarrow \text{Algorithm~\ref{fig:eq15alg}}\\
+  \Set{z}{(x \in S \land f(x) = z \land p(x)) \lor (y \in T \land g(y) = z \land q(y))} &\rightarrow \text{Algorithm~\ref{fig:eq16alg}}\\
+  \Set{f(x)}{x \in S \land p(x)} &\rightarrow \text{Algorithm~\ref{fig:eq17alg}}
 \end{align}
+And a specialized version of equation 15, preferring the use of intersections to reduce sequential ``or''-clause loops:
+\begin{equation}
+  \Set{f(x)}{(x \in S \land p(x)) \lor (x \in S \land q(x))} \rightarrow \Set{f(x)}{x \in S \land (p(x) \lor q(x))}
+\end{equation}
 
+\begin{algorithm}
+  \caption{RHS of Rewrite Rule 15}
+  \begin{algorithmic}
+    \Require $x,f,S,T,p,q$
+    \State $A \gets \emptyset$
+    \For{$x \in S$}
+      \If{$p(x)$}
+        \State $A.add(f(x))$
+      \EndIf
+    \EndFor
+    \For{$x \in T$}
+      \If{$q(x)$}
+        \State $A.add(f(x))$
+      \EndIf
+    \EndFor\\
+  \Return $A$
+  \end{algorithmic}
+  \label{fig:eq15alg}
+\end{algorithm}
+
+\begin{algorithm}
+  \caption{RHS of Rewrite Rule 16}
+  \begin{algorithmic}
+    \Require $x,y,f,g,S,T,p,q$
+    \State $A \gets \emptyset$
+    \For{$x \in S$}
+      \If{$p(x)$}
+        \State $A.add(f(x))$
+      \EndIf
+    \EndFor
+    \For{$y \in T$}
+      \If{$q(y)$}
+        \State $A.add(f(y))$
+      \EndIf
+    \EndFor
+  \Return $A$
+  \end{algorithmic}
+  \label{fig:eq16alg}
+\end{algorithm}
+
+\begin{algorithm}
+  \caption{RHS of Rewrite Rule 17}
+  \begin{algorithmic}
+    \Require $x,f,S,p$
+    \State $A \gets \emptyset$
+    \For{$x \in S$}
+      \If{$p(x)$}
+        \State $A.add(f(x))$
+      \EndIf
+    \EndFor
+  \Return $A$
+  \end{algorithmic}
+  \label{fig:eq17alg}
+\end{algorithm}
+
+
+% TODO completion chap 7, (made from confluence through critical pair calculation and termination through reduction order)
 % TODO give a strategy that can be applied to this
+% TODO converting AST to LLVM IR
+
+% TODO List comprehensions in prev languages (look at wikipedia for list of set comprehensions - https://en.wikipedia.org/wiki/Set-builder_notation vs our language). do the same for map and list
+% TODO how are they implemented in those languages
+
+% TODO code guarantees of rewritten algos
+% TODO Show pipeline from lang to LLVM
+
+% TODO Implement Rewrite Rules from AST to AST, use python pattern matching to do so
 
 
+% TODO remove next section or address all comments
 
 
 
