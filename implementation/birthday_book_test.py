@@ -266,47 +266,47 @@ class RelationsByHashing[K, V]:
 # print("Lookup val: 35", bi_map.lookup_reverse(35))
 
 # More thorough testing
-l = 1000000
-r = 10000
-# rand_list_keys = list(map(str, random.choices(range(1, r), k=l)))
-# Assume keys are unique
-rand_list_keys = list(map(str, range(1, l)))
-rand_list_vals = list(map(str, random.choices(range(1, r), k=l)))
-rand_set_vals = list(set(rand_list_vals))
-print("first 10 keys: ", rand_list_keys[:10])
-print("first 10 vals: ", rand_list_vals[:10])
-rand_dict_1 = dict(zip(rand_list_keys, rand_list_vals))
-rand_dict_2 = dict(zip(rand_list_keys, rand_list_vals))
+# l = 1000000
+# r = 10000
+# # rand_list_keys = list(map(str, random.choices(range(1, r), k=l)))
+# # Assume keys are unique
+# rand_list_keys = list(map(str, range(1, l)))
+# rand_list_vals = list(map(str, random.choices(range(1, r), k=l)))
+# rand_set_vals = list(set(rand_list_vals))
+# print("first 10 keys: ", rand_list_keys[:10])
+# print("first 10 vals: ", rand_list_vals[:10])
+# rand_dict_1 = dict(zip(rand_list_keys, rand_list_vals))
+# rand_dict_2 = dict(zip(rand_list_keys, rand_list_vals))
 
-start_time_1 = time.perf_counter()
-bi_map = BiDirectionalMappingManyToOne(rand_dict_1)
-insert_time_1 = time.perf_counter()
-for k in rand_list_keys:
-    # print(f"Lookup key: {k}", bi_map.lookup(k))
-    bi_map.lookup(k)
-lookup_time_1 = time.perf_counter()
-for v in rand_set_vals:
-    # print(f"Lookup val: {v}", bi_map.lookup_reverse(v))
-    bi_map.lookup_reverse(v)
-end_time_1 = time.perf_counter()
-print(f"BiDirectionalMappingManyToOne insert took {insert_time_1 - start_time_1:.6f} seconds")
-print(f"BiDirectionalMappingManyToOne lookup took {lookup_time_1 - insert_time_1:.6f} seconds")
-print(f"BiDirectionalMappingManyToOne reverse lookup took {end_time_1 - lookup_time_1:.6f} seconds")
-print(f"BiDirectionalMappingManyToOne took {end_time_1 - start_time_1:.6f} seconds")
+# start_time_1 = time.perf_counter()
+# bi_map = BiDirectionalMappingManyToOne(rand_dict_1)
+# insert_time_1 = time.perf_counter()
+# for k in rand_list_keys:
+#     # print(f"Lookup key: {k}", bi_map.lookup(k))
+#     bi_map.lookup(k)
+# lookup_time_1 = time.perf_counter()
+# for v in rand_set_vals:
+#     # print(f"Lookup val: {v}", bi_map.lookup_reverse(v))
+#     bi_map.lookup_reverse(v)
+# end_time_1 = time.perf_counter()
+# print(f"BiDirectionalMappingManyToOne insert took {insert_time_1 - start_time_1:.6f} seconds")
+# print(f"BiDirectionalMappingManyToOne lookup took {lookup_time_1 - insert_time_1:.6f} seconds")
+# print(f"BiDirectionalMappingManyToOne reverse lookup took {end_time_1 - lookup_time_1:.6f} seconds")
+# print(f"BiDirectionalMappingManyToOne took {end_time_1 - start_time_1:.6f} seconds")
 
-start_time_2 = time.perf_counter()
-hash_map = PartialRelationsByHashing(rand_dict_2)
-insert_time_2 = time.perf_counter()
-for k in rand_list_keys:
-    # print(f"Lookup key: {k}", hash_map.lookup(k))
-    hash_map.lookup(k)
-lookup_time_2 = time.perf_counter()
-for v in rand_set_vals:
-    # print(f"Lookup val: {v}", hash_map.lookup_reverse(v))
-    hash_map.lookup_reverse(v)
-end_time_2 = time.perf_counter()
-print(f"PartialRelationsByHashing insert took {insert_time_2 - start_time_2:.6f} seconds")
-print(f"PartialRelationsByHashing lookup took {lookup_time_2 - insert_time_2:.6f} seconds")
-print(f"PartialRelationsByHashing reverse lookup took {end_time_2 - lookup_time_2:.6f} seconds")
-print(f"PartialRelationsByHashing took {end_time_2 - start_time_2:.6f} seconds")
-print()
+# start_time_2 = time.perf_counter()
+# hash_map = PartialRelationsByHashing(rand_dict_2)
+# insert_time_2 = time.perf_counter()
+# for k in rand_list_keys:
+#     # print(f"Lookup key: {k}", hash_map.lookup(k))
+#     hash_map.lookup(k)
+# lookup_time_2 = time.perf_counter()
+# for v in rand_set_vals:
+#     # print(f"Lookup val: {v}", hash_map.lookup_reverse(v))
+#     hash_map.lookup_reverse(v)
+# end_time_2 = time.perf_counter()
+# print(f"PartialRelationsByHashing insert took {insert_time_2 - start_time_2:.6f} seconds")
+# print(f"PartialRelationsByHashing lookup took {lookup_time_2 - insert_time_2:.6f} seconds")
+# print(f"PartialRelationsByHashing reverse lookup took {end_time_2 - lookup_time_2:.6f} seconds")
+# print(f"PartialRelationsByHashing took {end_time_2 - start_time_2:.6f} seconds")
+# print()

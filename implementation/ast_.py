@@ -9,50 +9,6 @@ from llvmlite import ir
 class BaseAST:
     """Base class for all AST nodes."""
 
-    # TODO remove
-    # def to_s_expr(self) -> str:
-    #     """Converts the AST node to an S-expression."""
-    #     if len(fields(self)) == 0:
-    #         return f"({self.__class__.__name__})"
-
-    #     ordered_fields = []
-    #     for field in asdict(self):
-    #         field_value = getattr(self, field)
-    #         if isinstance(field_value, BaseAST):
-    #             ordered_fields.append(field_value.to_s_expr())
-    #         elif isinstance(field_value, list):
-    #             for item in field_value:
-    #                 if isinstance(item, BaseAST):
-    #                     ordered_fields.append(item.to_s_expr())
-    #                 else:
-    #                     ordered_fields.append(str(item))
-    #         else:
-    #             ordered_fields.append(str(field_value))
-    #     return f"({self.__class__.__name__} {' '.join(ordered_fields)})"
-
-    # @classmethod
-    # def to_abstract_s_expr(cls) -> str:
-    #     """Converts the AST node to an abstract S-expression (for use in passing to Rust's egg crate)."""
-
-    #     if len(fields(cls)) == 0:
-    #         return f"({cls.__name__})"
-
-    #     ordered_field_types = []
-    #     for field in fields(cls):
-    #         field_type = field.type
-    #         if hasattr(field_type, "__name__"):
-    #             type_name = field_type.__name__
-    #             if type_name in py_to_rust_type_map:
-    #                 ordered_field_types.append(py_to_rust_type_map[type_name])
-    #             else:
-    #                 raise TypeError(f"Failed to convert field type {field_type} with name {type_name} to string (not found in mapping py_to_rust_type_map).")
-    #         else:
-    #             raise TypeError(f"Failed to convert field type {field_type} to string (could not find name of field type).")
-    #             # Field type {field_type} is not a valid type for S-expression conversion (failed to convert to string).")
-    #         # else:
-    #         # ordered_field_types.append(str(field_type))
-    #     return f"{cls.__name__}({', '.join(ordered_field_types)})"
-
     def pprint_types(self, indent=0) -> None:
         """Recursively pretty prints the types of the AST node and its fields."""
         indentation = " " * indent
@@ -78,9 +34,13 @@ class BaseAST:
         raise NotImplementedError(f"Code generation not implemented for {self.__class__.__name__}.")
 
 
+# Below collection of classes vaguely matches the rules of grammar.lark.
+# For now, most of these are empty classes used only to identify the type of AST node,
+# but eventually the idea is to have rewrite rules act on these classes and implement
+# a visitor pattern to generate LLVM IR code for each node.
+
+
 # PRIMITIVE LITERALS, take in a Token and return an AST node
-
-
 @dataclass
 class Int(BaseAST):
     value: int
@@ -215,7 +175,7 @@ class And(BaseAST):
 
 
 @dataclass
-class Or(BinOp):
+class Or(BaseAST):
     clauses: list[PrimaryStmt | UnaryOp | BinOp]
 
 

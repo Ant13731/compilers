@@ -24,7 +24,7 @@ class EggASTTransformer(Transformer):
         return None_()
 
     def BOOL(self, token: Token) -> Bool:
-        return Bool(token.value)
+        return Bool(bool(token.value))
 
     def NAME(self, token: Token) -> Identifier:
         return Identifier(token.value)

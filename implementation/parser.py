@@ -7,15 +7,16 @@ from transformer import EggASTTransformer
 from ast_ import BaseAST, Start
 
 
-def parse(input_string: str, i: int = 0):
+def parse(input_string: str, start_rule: str = "start") -> BaseAST | Start:
     """
     Parse the input string using Lark parser.
 
     Args:
         input_string (str): The input string to parse.
+        start_rule (str): The starting rule for the parser. Default is "start".
 
     Returns:
-        str: The parsed output.
+        BaseAST: Parsed output in AST form.
     """
 
     # Add a newline at the end of the input string to prevent EOF errs
@@ -27,15 +28,9 @@ def parse(input_string: str, i: int = 0):
         parser = lark.Lark(grammar, start="start", postlex=PythonIndenter(), maybe_placeholders=True)
 
     # Parse the input string and return the result
-    tree = parser.parse(input_string)
-    print(tree.pretty())
-    # lark.tree.pydot__tree_to_png(tree, f"high-level-to-egg-transpiler/generated_images/tree{i}.png")
-    # ast = GrammarToEggTransformer().transform(tree)
+    tree = parser.parse(input_string, start=start_rule)
     ast: BaseAST = EggASTTransformer().transform(tree)
-    print(ast)
-    print(pprint.pprint(ast))
-    ast.pprint_types()
-    # print(ast.to_s_expr())
+    return ast
 
 
 comprehension_test = r"""
