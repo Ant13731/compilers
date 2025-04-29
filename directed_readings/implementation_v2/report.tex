@@ -210,7 +210,8 @@ We now list a few simple but common examples of set-based expression optimizatio
 
 Different flavours of optimizations for complex expressions and other ``collection'' data types will be added as needed, but the deep static analysis and code awareness is evidently integral to the optimization process. In the next section, we discuss the concepts of such a language, an optimization process, and an interface for continuous, extendable optimizations.
 
-\section{Rewriting Set Notation}
+\section{A TRS for a Very High Level Language}
+\subsection{Rewriting Rules for Set Notation}
 
 In Section 2, we presented a selection of examples wherein expressive set notation for modelling could be rewritten for efficient code generation. Now, we extend this collection to optimize generic combinations of set operators as a complete collection of set-oriented rewrite rules. As we derive this system, assume each iterable data type holds efficient representations of size calculation and set membership.
 
@@ -263,12 +264,12 @@ A further generic form might be considered in which functions can be mapped over
   \Set{f(x)}{x \in S} \cap \Set{g(y)}{y \in T} &\rightarrow
     \begin{split}
       &T_2 := \Set{g(y)}{y \in T};\\
-      &\Set{f(x)}{x \in S} \cap T_2
+      &\Set{f(x)}{x \in S} \cap \Set{y}{y \in T_2}
     \end{split}\\
   \Set{f(x)}{x \in S} \setminus \Set{g(y)}{y \in T} &\rightarrow
     \begin{split}
       &T_2 := \Set{g(y)}{y \in T};\\
-      &\Set{f(x)}{x \in S} \setminus T_2
+      &\Set{f(x)}{x \in S} \setminus \Set{y}{y \in T_2}
     \end{split}
 \end{align}
 
@@ -295,16 +296,16 @@ Finally, we can now target the boolean statements within set constructions. Howe
   \item Any boolean expression for conditions may be rewritten as a combination of $\lnot, \lor$, and $\land$ expressions. Therefore, by converting all set notation down into boolean notation and then generating code based on set constructor booleans, we can accommodate any form of predicate function.
 \end{itemize}
 
-The following rules formalize this intuition, where generators $S$ (and $T$) are the smallest sets within a local ``and''-clause:
+The following rules formalize this intuition, where generators $S$ (and $T$ when needed) are the smallest sets within a local ``and''-clause:
 \begin{align}
-  % TODO fill in
+  % Should these first two break down into pieces that can be handled by the third rule here? The TRS may not terminate though...
   \Set{f(x)}{(x \in S \land p(x)) \lor (x \in T \land q(x))} &\rightarrow \text{Algorithm~\ref{fig:eq15alg}}\\
   \Set{z}{(x \in S \land f(x) = z \land p(x)) \lor (y \in T \land g(y) = z \land q(y))} &\rightarrow \text{Algorithm~\ref{fig:eq16alg}}\\
   \Set{f(x)}{x \in S \land p(x)} &\rightarrow \text{Algorithm~\ref{fig:eq17alg}}
 \end{align}
-And a specialized version of equation 21, preferring the use of intersections to reduce sequential ``or''-clause loops:
+And a specialized version of equation 21, preferring the use of intersections to reduce duplicate ``or''-clause loops:
 \begin{equation}
-  \Set{f(x)}{(x \in S \land p(x)) \lor (x \in S \land q(x))} \rightarrow \Set{f(x)}{x \in S \land (p(x) \lor q(x))}
+  \Set{f(x)}{(x \in S \land p(x)) \lor (x \in T \land q(x))} \rightarrow \Set{f(x)}{x \in S \land (p(x) \lor q(x))}
 \end{equation}
 
 \begin{algorithm}
@@ -341,7 +342,7 @@ And a specialized version of equation 21, preferring the use of intersections to
       \If{$q(y)$}
         \State $A.add(f(y))$
       \EndIf
-    \EndFor
+    \EndFor\\
   \Return $A$
   \end{algorithmic}
   \label{fig:eq16alg}
@@ -356,17 +357,83 @@ And a specialized version of equation 21, preferring the use of intersections to
       \If{$p(x)$}
         \State $A.add(f(x))$
       \EndIf
-    \EndFor
+    \EndFor\\
   \Return $A$
   \end{algorithmic}
   \label{fig:eq17alg}
 \end{algorithm}
 
-Assuming associativity and commutativity of boolean operations, the collection of equations presented here is sufficient to cover all possible set constructions involving routine set operators $\cup, \cap, \setminus$ and boolean condition operators $\lor, \land, \lnot$.
+Further rules are possible, provided relationships between sets are programmed alongside the programmed model. For example, subset properties enable the following:
+\begin{align}
+  \Set{f(x)}{x \in S \lor x \in T} \text{ where } S \subseteq T &\rightarrow \Set{f(x)}{x \in T}\\
+  \Set{f(x)}{x \in S \land x \in T} \text{ where } S \subseteq T &\rightarrow \Set{f(x)}{x \in S}\\
+  \Set{f(x)}{x \in S \land x \notin T} \text{ where } S \subseteq T &\rightarrow \emptyset
+\end{align}
+And with predicates for $\cup$ and $\cap$:
+\begin{align}
+  \Set{f(x)}{(x \in S \land p(x)) \lor (x \in T \land q(x))} \text{ where } S \subseteq T &\rightarrow \Set{f(x)}{x \in T \land (p(x) \lor q(x))}\\
+  \Set{f(x)}{(x \in S \land p(x)) \land (x \in T \land q(x))} \text{ where } S \subseteq T &\rightarrow \Set{f(x)}{x \in S \land p(x) \land q(x)}
+\end{align}
+
+Assuming associativity and commutativity of boolean operations, the collection of equations presented here should be sufficient to cover all possible set constructions involving routine set operators $\cup, \cap, \setminus$ and boolean condition operators $\lor, \land, \lnot$. To ensure our TRS is correct and complete, we now turn to an analysis of termination and critical pair resolution.
+
+\subsection{Completeness of Rewriting Set Notation}
+
+With the approximately 30 or so equations presented in Section 3, we now provide a proof of TRS termination through lexicographic path orders. Referring to the algorithm noted in Section 2.3.2 of our previous Term Rewriting Survey, we list all rules with associated passing conditions. For the purpose of lexicographic ordering, set notation can be rewritten as a function application on the generated elements and conditions (ie. $\Set{x}{x \in S} = b(x, x\in S)$ where $b$ represents set construction). Further, the costs of operations are organized as listed in Table~\ref{tab:lpoTable}
+
+\begin{table}
+  \begin{center}
+  \begin{tabular}{| p{10cm} | c |}
+    \hline
+    Function structure & Cost \\
+    \hline
+    Set operators $\cup, \cap, \setminus$ & 50\\
+    Closed-set notation like $S$ and $T$, symbolized by capital letters & 49\\
+    Sequential statement operator $;$ & 25\\
+    Set construction in the form of $b(e, c)$ & 10\\
+    Set element operator $\in$. For the sake of termination, closed-set notations within this operator have a cost of 0 &5\\
+    $\land$ operator & 3 \\
+    $\lor$ operator & 2\\
+    Element functions & 1\\
+    Element variables & 0\\
+    Fully algorithmic output &0 \\
+    \hline
+  \end{tabular}
+  \end{center}
+  \caption{Lexicographic function cost}
+  \label{tab:lpoTable}
+\end{table}
+
+A full formal proof is rather verbose, but outlines for condition applications follow below:
+\begin{itemize}
+  \item Equation 1: LHS function cost is 49, and RHS function cost is 10. Then, by Condition 2.2, closed set notation costs more than both children of the RHS.
+  \item Equations 2-4, 5-11, and 14-16: Set operators have the highest cost. By Condition 2.2, LHS $>_{lpo}$ RHS
+  \item Equations 12, 13: Set operations cost more than sequential statements. Then, the first child of the sequential statement costs less than a set operation, so repeated applications of Condition 2.2 are satisfied. For the second child of the sequential statement (which contains a set operator), Condition 2.3 is satisfiable since a function application is reduced to a lone variable.
+  \item Equation 17: Directly satisfies Condition 2.1 since RHS is equal in cost to the nested child of the LHS.
+  \item Equations 18-20: Intuitively, these equations eliminate nested sets and logically should become lexicographically simpler. Nested applications of Conditions 2.2 and 2.3 are sufficient.
+  \item Equations 21-29: Require nested applications of Conditions 2.2 and 2.3, but are all straightforward simplifications of subterms.
+\end{itemize}
+Although most of this simplification process logically conforms to a termination proof, it is not without its flaws. The clause made in the set operator entry of Table~\ref{tab:lpoTable} is the root of the fallacy: Unbounded application of the first equation results in a non-terminating TRS, since set construction notation for $S$ can be infinitely nested upon itself. To alleviate this, we make use of rewriting strategies as discussed below.
+
+With a semi-termination guarantee for our rewrite system, we can now focus on resolving overlapping rules to prove confluence. Critical pairs within this system are created primarily by specialized versions of general rules. For example, if we assume a boolean function $t(x) = x \land True$ can be substituted within the TRS, rules like equations 2-4 become obsolete in favour of more general equations 5-7. Although the result of both paths will evaluate the same, we opt to separate these rules, preventing $t(x)$ from becoming a rewrite rule to prevent further complications with termination. Similarly, equations 8-10 can be considered specialized forms of equations 11-13, where $g(y) = y$, and 25-29 as subset-only rules for 21 and 23. Finally, the last critical pairs may be considered for 14-16 as specializations of 11-13.
+
+While these specializations generate functionally identical code to their generic counterparts, additional properties may vastly increase efficiency and are thus desired. Making use of strategies, we can design a function that will first attempt to apply specialized equations whenever generic equations are considered. More specifically, we can break down our strategy into the following:
+\begin{enumerate}
+  \item We first attempt to repeatedly apply equation 1 once for each closed set in the term's structure, using a bottom up approach. This strategy will effectively convert all closed set variables into set construction notation. Then, equations 17-20 can exhaustively perform early-stage cleanup and set de-nesting. For example, consider the derivation for an expression $S \cup T$: Rule 1 will apply once to both children, creating $\Set{x}{x \in S} \cup \Set{x}{x \in T}$, and then once on the entire $\cup$ operator, creating $\Set{x}{x \in (\Set{x}{x \in S} \cup \Set{x}{x \in T})}$. Then, rule 17 will eliminate the superfluous set construction, returning the desired value of $\Set{x}{x \in S} \cup \Set{x}{x \in T}$.
+  \item Stage 2 of this process breaks down all boolean operations into corresponding set notation, using equations 2-16. Although equations 12 and 13 add set operations back into the term, exhaustive application of equations 9 and 10 will eventually terminate.
+  \item Once all instances of set notation are eliminated, stage 3 focuses on logical condition manipulation. Equations 25-29 are vital for subset relationships, equation 24 for combining set generators, and 17-20 to flatten set constructions. Near the end of this stage, element generators will be chosen based on the size of sets within a group of ``and''-clauses. For example, $\Set{x}{x \in S \land x \in T}$ may choose either $S$ or $T$ as the eventual loop generator, depending on available set size information. Since this process is run at compile time, information on $S$ and $T$ may not be available, so one generator may be chosen at random.
+  \item Finally, equations 21 to 23 will enable efficient code generation for all possible set constructions. In implementation, the RHS algorithms will be replaced with LLVM or WebAssembly notation.
+\end{enumerate}
+
+Now that we have a complete rewrite system for sets, we give attention to more concrete implementations of set-based loops.
 
 % TODO are these rules complete? how to check?
 % TODO completion chap 7, (made from confluence through critical pair calculation and termination through reduction order)
 % TODO give a strategy that can be applied to this
+
+\section{A Concrete Implementation}
+
+
 % TODO converting AST to LLVM IR
 
 % TODO List comprehensions in prev languages (look at wikipedia for list of set comprehensions - https://en.wikipedia.org/wiki/Set-builder_notation vs our language). do the same for map and list
