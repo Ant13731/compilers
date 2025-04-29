@@ -2,7 +2,7 @@ import lark
 from lark.indenter import PythonIndenter
 
 from transformer import EggASTTransformer
-from ast_ import BaseEggAST
+from ast_ import BaseAST
 import ast_
 import sys
 import inspect
@@ -32,18 +32,19 @@ def parse(input_string: str, i: int = 0):
     print(tree.pretty())
     # lark.tree.pydot__tree_to_png(tree, f"high-level-to-egg-transpiler/generated_images/tree{i}.png")
     # ast = GrammarToEggTransformer().transform(tree)
-    ast: BaseEggAST = EggASTTransformer().transform(tree)
+    ast: BaseAST = EggASTTransformer().transform(tree)
     print(ast)
-    print(ast.to_s_expr())
+    ast.pprint_types()
+    # print(ast.to_s_expr())
 
 
-def generate_egg_constructs():
-    skip_names = ["UnaryOp", "BinOp"]
-    for name, cls_ in inspect.getmembers(ast_):
-        if name in skip_names:
-            continue
-        if inspect.isclass(cls_) and issubclass(cls_, BaseEggAST):
-            print(f"Class: {name}, Abstract S-expression: {cls_.to_abstract_s_expr()}")
+# def generate_egg_constructs():
+#     skip_names = ["UnaryOp", "BinOp"]
+#     for name, cls_ in inspect.getmembers(ast_):
+#         if name in skip_names:
+#             continue
+#         if inspect.isclass(cls_) and issubclass(cls_, BaseAST):
+#             print(f"Class: {name}, Abstract S-expression: {cls_.to_abstract_s_expr()}")
 
 
 # generate_egg_constructs()
@@ -180,4 +181,4 @@ def a(b: int, c: str) -> int:
         parse(t, i)
 
 
-# testing_transformer()
+testing_transformer()

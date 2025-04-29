@@ -1,302 +1,129 @@
 from __future__ import annotations
 from dataclasses import dataclass, fields, asdict, field
-import types
 from typing import TypeVar, Generic, Callable, ClassVar, Any, TypeAlias
 
-from egglog import (
-    Expr,
-    i64Like,
-    f64Like,
-    BoolLike,
-    StringLike,
-    function,
-)
-
-py_to_rust_type_map = {
-    "int": "i64",
-    "str": "String",
-    "float": "f64",
-    "bool": "bool",
-    "None": "None",
-    "list": "Vec",
-    "dict": "HashMap",
-    "set": "HashSet",
-    "tuple": "Tuple",
-    "BaseEggAST": "Id",
-}
+from llvmlite import ir
 
 
 @dataclass
-class BaseEggAST:
-    def to_s_expr(self) -> str:
-        """Converts the AST node to an S-expression."""
-        if len(fields(self)) == 0:
-            return f"({self.__class__.__name__})"
+class BaseAST:
+    """Base class for all AST nodes."""
 
-        ordered_fields = []
-        for field in asdict(self):
-            field_value = getattr(self, field)
-            if isinstance(field_value, BaseEggAST):
-                ordered_fields.append(field_value.to_s_expr())
+    # TODO remove
+    # def to_s_expr(self) -> str:
+    #     """Converts the AST node to an S-expression."""
+    #     if len(fields(self)) == 0:
+    #         return f"({self.__class__.__name__})"
+
+    #     ordered_fields = []
+    #     for field in asdict(self):
+    #         field_value = getattr(self, field)
+    #         if isinstance(field_value, BaseAST):
+    #             ordered_fields.append(field_value.to_s_expr())
+    #         elif isinstance(field_value, list):
+    #             for item in field_value:
+    #                 if isinstance(item, BaseAST):
+    #                     ordered_fields.append(item.to_s_expr())
+    #                 else:
+    #                     ordered_fields.append(str(item))
+    #         else:
+    #             ordered_fields.append(str(field_value))
+    #     return f"({self.__class__.__name__} {' '.join(ordered_fields)})"
+
+    # @classmethod
+    # def to_abstract_s_expr(cls) -> str:
+    #     """Converts the AST node to an abstract S-expression (for use in passing to Rust's egg crate)."""
+
+    #     if len(fields(cls)) == 0:
+    #         return f"({cls.__name__})"
+
+    #     ordered_field_types = []
+    #     for field in fields(cls):
+    #         field_type = field.type
+    #         if hasattr(field_type, "__name__"):
+    #             type_name = field_type.__name__
+    #             if type_name in py_to_rust_type_map:
+    #                 ordered_field_types.append(py_to_rust_type_map[type_name])
+    #             else:
+    #                 raise TypeError(f"Failed to convert field type {field_type} with name {type_name} to string (not found in mapping py_to_rust_type_map).")
+    #         else:
+    #             raise TypeError(f"Failed to convert field type {field_type} to string (could not find name of field type).")
+    #             # Field type {field_type} is not a valid type for S-expression conversion (failed to convert to string).")
+    #         # else:
+    #         # ordered_field_types.append(str(field_type))
+    #     return f"{cls.__name__}({', '.join(ordered_field_types)})"
+
+    def pprint_types(self, indent=0) -> None:
+        """Recursively pretty prints the types of the AST node and its fields."""
+        indentation = " " * indent
+        print(indentation + f"{self.__class__.__name__}:")
+        for field in fields(self):
+            field_value = getattr(self, field.name)
+            if isinstance(field_value, BaseAST):
+                print(indentation + f"  {field.name}:")
+                field_value.pprint_types(indent + 2)
             elif isinstance(field_value, list):
+                print(indentation + f"  {field.name}: [")
                 for item in field_value:
-                    if isinstance(item, BaseEggAST):
-                        ordered_fields.append(item.to_s_expr())
+                    if isinstance(item, BaseAST):
+                        item.pprint_types(indent + 4)
                     else:
-                        ordered_fields.append(str(item))
+                        print(indentation + f"    {item}")
+                print(indentation + "  ]")
             else:
-                ordered_fields.append(str(field_value))
-        return f"({self.__class__.__name__} {' '.join(ordered_fields)})"
+                print(indentation + f"  {field.name}: {type(field_value).__name__}")
 
-    @classmethod
-    def to_abstract_s_expr(cls) -> str:
-        """Converts the AST node to an abstract S-expression (for use in passing to Rust's egg crate)."""
-
-        if len(fields(cls)) == 0:
-            return f"({cls.__name__})"
-
-        ordered_field_types = []
-        for field in fields(cls):
-            field_type = field.type
-            if hasattr(field_type, "__name__"):
-                type_name = field_type.__name__
-                if type_name in py_to_rust_type_map:
-                    ordered_field_types.append(py_to_rust_type_map[type_name])
-                else:
-                    raise TypeError(f"Failed to convert field type {field_type} with name {type_name} to string (not found in mapping py_to_rust_type_map).")
-            else:
-                raise TypeError(f"Failed to convert field type {field_type} to string (could not find name of field type).")
-                # Field type {field_type} is not a valid type for S-expression conversion (failed to convert to string).")
-            # else:
-            # ordered_field_types.append(str(field_type))
-        return f"{cls.__name__}({', '.join(ordered_field_types)})"
-
-    def to_egg(self) -> Expr:
-        """Converts the AST node to an egglog expression."""
-        raise NotImplementedError(f"to_egg() not implemented for {self.__class__.__name__}")
+    def llvm_codegen(self) -> str:
+        """Generates LLVM IR code for the AST node."""
+        raise NotImplementedError(f"Code generation not implemented for {self.__class__.__name__}.")
 
 
 # PRIMITIVE LITERALS, take in a Token and return an AST node
 
-# Egglog doesnt support generic types yet, so have to do it manually. Otherwise, we could just add this to the inheritance chain
-# T = TypeVar("T")
-# class EggLiteral(Generic[T]):
-
-#     class Egged(Expr):
-#         def __init__(self, value: T) -> None: ...
-
-#     @classmethod
-#     def egg_init(cls, value: T) -> Egged:
-#         return cls.Egged(value)
-
 
 @dataclass
-class Int(BaseEggAST):
+class Int(BaseAST):
     value: int
 
-    # TODO figure out a way to get rid of the I in EggedI
-    # - needed because egglog automatically converts everything to a runtimeexpr, which unfortunately
-    #   removes the parent class name (and any and all parameters, methods, properties, etc.) from the object
-    class EggedI(Expr):
-        def __init__(self, value: i64Like) -> None: ...
-
-    Egged: ClassVar[type] = EggedI
-
-    @classmethod
-    def egg_init(cls, value: i64Like) -> Egged:
-        return cls.Egged(value)
-
-    def to_egg(self) -> Egged:
-        return self.Egged(self.value)
-
 
 @dataclass
-class Float(BaseEggAST):
+class Float(BaseAST):
     value: float
 
-    class EggedF(Expr):
-        def __init__(self, value: f64Like) -> None: ...
-
-    Egged: ClassVar[type] = EggedF
-
-    @classmethod
-    def egg_init(cls, value: f64Like) -> Egged:
-        return cls.Egged(value)
-
-    def to_egg(self) -> Egged:
-        return self.Egged(self.value)
-
 
 @dataclass
-class String(BaseEggAST):
+class String(BaseAST):
     value: str
 
-    class EggedS(Expr):
-        def __init__(self, value: StringLike) -> None: ...
 
-    Egged: ClassVar[type] = EggedS
-
-    @classmethod
-    def egg_init(cls, value: StringLike) -> Egged:
-        return cls.Egged(value)
-
-    def to_egg(self) -> Egged:
-        return self.Egged(self.value)
+@dataclass
+class None_(BaseAST):
+    pass
 
 
 @dataclass
-class None_(BaseEggAST):
-    class EggedN(Expr):
-        def __init__(self) -> None: ...
-
-    Egged: ClassVar[type] = EggedN
-
-    @classmethod
-    def egg_init(cls) -> Egged:
-        return cls.Egged()
-
-    def to_egg(self) -> Egged:
-        return self.Egged()
-
-
-@dataclass
-class Bool(BaseEggAST):
+class Bool(BaseAST):
     value: bool
 
-    class EggedB(Expr):
-        def __init__(self, value: BoolLike) -> None: ...
-
-    Egged: ClassVar[type] = EggedB
-
-    @classmethod
-    def egg_init(cls, value: BoolLike) -> Egged:
-        return cls.Egged(value)
-
-    def to_egg(self) -> Egged:
-        return self.Egged(self.value)
-
 
 @dataclass
-class Primitive(BaseEggAST):
-    # Assume types are already checked by this point?
-    # TODO auto detect the type to make it easier to write
-    value: Int | Float | Bool | None_ | String
-
-    class EggedP(Expr):
-        def __init__(self, value: Int.Egged | Float.Egged | Bool.Egged | None_.Egged | String.Egged) -> None: ...
-
-    Egged: ClassVar[type] = EggedP
-
-    def to_egg(self) -> Egged:
-        return self.Egged(self.value.to_egg())
-
-
-@dataclass
-class Identifier(BaseEggAST):
+class Identifier(BaseAST):
     value: str
-
-    class EggedId(Expr):
-        def __init__(self, value: StringLike) -> None: ...
-
-    Egged: ClassVar[type] = EggedId
-
-    @classmethod
-    def egg_init(cls, value: StringLike) -> Egged:
-        return cls.Egged(value)
-
-    # TODO move this to base class and use for both function like and class like AST nodes
-    def to_egg(self) -> Egged:
-        return self.Egged(self.value)
-
-
-# def primitive_class_identifier(value) -> str:
-#     class_decl = value.__egg_class_decl__
-#     if class_decl == "EggedI":
-#         return "Int"
 
 
 # Operators
 @dataclass
-class BinOp(BaseEggAST):
-    left: BaseEggAST
-    right: BaseEggAST
-
-    @classmethod
-    def to_egg_func(cls) -> Callable:
-        func_prefix = cls.__name__.lower()
-
-        def prim_prim_func(left: Primitive.Egged, right: Primitive.Egged) -> Primitive.Egged: ...
-
-        prim_prim_func.__name__ = f"{func_prefix}_p_p"
-        prim_prim_func = function(prim_prim_func)
-
-        def prim_id_func(left: Primitive.Egged, right: Identifier.Egged) -> Primitive.Egged: ...
-
-        prim_id_func.__name__ = f"{func_prefix}_p_id"
-        prim_id_func = function(prim_id_func)
-
-        def id_prim_func(left: Identifier.Egged, right: Primitive.Egged) -> Primitive.Egged: ...
-
-        id_prim_func.__name__ = f"{func_prefix}_id_p"
-        id_prim_func = function(id_prim_func)
-
-        def id_id_func(left: Identifier.Egged, right: Identifier.Egged) -> Identifier.Egged: ...
-
-        id_id_func.__name__ = f"{func_prefix}_id_id"
-        id_id_func = function(id_id_func)
-
-        def func(left: Primitive.Egged | Identifier.Egged, right: Primitive.Egged | Identifier.Egged) -> Expr:
-            if left.__egg_class_name__ == "EggedP" and right.__egg_class_name__ == "EggedP":
-                return prim_prim_func(left, right)
-            if left.__egg_class_name__ == "EggedP" and right.__egg_class_name__ == "EggedId":
-                return prim_id_func(left, right)
-            if left.__egg_class_name__ == "EggedId" and right.__egg_class_name__ == "EggedP":
-                return id_prim_func(left, right)
-            if left.__egg_class_name__ == "EggedId" and right.__egg_class_name__ == "EggedId":
-                return id_id_func(left, right)
-            else:
-                raise TypeError(f"Unsupported type(s) for {func_prefix}: {left.__egg_class_name__}, {right.__egg_class_name__}")
-
-        return func
-
-    def to_egg(self) -> Expr:
-        return self.to_egg_func()(self.left.to_egg(), self.right.to_egg())
+class BinOp(BaseAST):
+    left: PrimaryStmt | UnaryOp | BinOp
+    right: PrimaryStmt | UnaryOp | BinOp
 
 
 @dataclass
-class UnaryOp(BaseEggAST):
-    value: BaseEggAST
-
-    @classmethod
-    def to_egg_func(cls, func_prefix: str | None = None) -> Callable:
-        func_prefix = func_prefix or cls.__name__.lower()
-
-        def primitive_func(value: Primitive.Egged) -> Primitive.Egged: ...
-
-        primitive_func.__name__ = f"{func_prefix}_p"
-        primitive_func = function(primitive_func)  # need to manually apply the decorator after dynamic name change
-
-        def identifier_func(value: Identifier.Egged) -> Identifier.Egged: ...
-
-        identifier_func.__name__ = f"{func_prefix}_id"
-        identifier_func = function(identifier_func)
-
-        def func(value: Primitive.Egged | Identifier.Egged) -> Expr:
-            if value.__egg_class_name__ == "EggedP":
-                return primitive_func(value)
-            if value.__egg_class_name__ == "EggedId":
-                return identifier_func(value)
-            else:
-                raise TypeError(f"Unsupported type for {func_prefix}: {value.__egg_class_name__}")
-
-        return func
-
-        # raise NotImplementedError(f"to_egg_func() not implemented for {cls.__name__}")
-
-    def to_egg(self) -> Expr:
-        return self.to_egg_func()(self.value.to_egg())
+class UnaryOp(BaseAST):
+    value: PrimaryStmt | UnaryOp | BinOp
 
 
+# UnaryOp classes
 class Neg(UnaryOp):
     pass
 
@@ -446,190 +273,220 @@ class Power(BinOp):
     pass
 
 
+@dataclass
+class EquivalenceStmt(BaseAST):
+    value: BinOp | UnaryOp | PrimaryStmt
+
+
 # Calling
 @dataclass
-class StructAccess(BaseEggAST):
-    struct: BaseEggAST
-    field_name: str
+class StructAccess(BaseAST):
+    struct: PrimaryStmt
+    field_name: Identifier
 
 
 @dataclass
-class Call(BaseEggAST):
-    function: BaseEggAST
-    arguments: BaseEggAST
+class Call(BaseAST):
+    function: PrimaryStmt
+    arguments: Arguments
 
 
 @dataclass
-class Arguments(BaseEggAST):
-    arguments: list[BaseEggAST]
+class Arguments(BaseAST):
+    arguments: list[Expr]
 
 
 @dataclass
-class TypedName(BaseEggAST):
-    name: BaseEggAST
-    type: BaseEggAST
+class TypedName(BaseAST):
+    name: Identifier
+    type: Type_
 
 
 @dataclass
-class Indexing(BaseEggAST):
-    target: BaseEggAST
-    index: BaseEggAST = field(default_factory=lambda: None_())
+class Indexing(BaseAST):
+    target: PrimaryStmt
+    index: Slice | EquivalenceStmt | None_ = field(default_factory=lambda: None_())
 
 
 @dataclass
-class Slice(BaseEggAST):
-    slices: list[BaseEggAST]
+class Slice(BaseAST):
+    slices: list[EquivalenceStmt | None_]
 
 
 # Statements
 @dataclass
-class Assignment(BaseEggAST):
-    target: BaseEggAST
-    value: BaseEggAST
+class Expr(BaseAST):
+    value: EquivalenceStmt | LambdaDef
 
 
 @dataclass
-class ArgDef(BaseEggAST):
-    args: list[BaseEggAST]
+class Assignment(BaseAST):
+    target: TypedName
+    value: Expr
 
 
 @dataclass
-class Return(BaseEggAST):
-    value: BaseEggAST
+class ArgDef(BaseAST):
+    args: list[TypedName]
 
 
 @dataclass
-class LambdaDef(BaseEggAST):
-    args: BaseEggAST
-    body: BaseEggAST
+class Return(BaseAST):
+    value: Expr | None_
 
 
 @dataclass
-class Break(BaseEggAST):
+class LambdaDef(BaseAST):
+    args: ArgDef
+    body: EquivalenceStmt
+
+
+@dataclass
+class Break(BaseAST):
     pass
 
 
 @dataclass
-class Continue(BaseEggAST):
+class Continue(BaseAST):
     pass
 
 
 @dataclass
-class Pass(BaseEggAST):
+class Pass(BaseAST):
     pass
 
 
 @dataclass
-class Type_(BaseEggAST):
-    type_: BaseEggAST
+class Type_(BaseAST):
+    type_: Expr
 
 
 # Compound Statements
 @dataclass
-class If(BaseEggAST):
-    condition: BaseEggAST
-    body: BaseEggAST
-    else_body: BaseEggAST = field(default_factory=lambda: None_())
+class If(BaseAST):
+    condition: EquivalenceStmt
+    body: SimpleStatement | Statements
+    else_body: Elif | Else | None_ = field(default_factory=lambda: None_())
 
 
 @dataclass
-class Elif(BaseEggAST):
-    condition: BaseEggAST
-    body: BaseEggAST
-    else_body: BaseEggAST = field(default_factory=lambda: None_())
+class Elif(BaseAST):
+    condition: EquivalenceStmt
+    body: SimpleStatement | Statements
+    else_body: Elif | Else | None_ = field(default_factory=lambda: None_())
 
 
 @dataclass
-class Else(BaseEggAST):
-    body: BaseEggAST
+class Else(BaseAST):
+    body: SimpleStatement | Statements
 
 
 @dataclass
-class For(BaseEggAST):
-    iterable_names: BaseEggAST
-    loop_over: BaseEggAST
-    body: BaseEggAST
+class For(BaseAST):
+    iterable_names: IterableNames
+    loop_over: Expr
+    body: SimpleStatement | Statements
 
 
 @dataclass
-class Struct(BaseEggAST):
-    name: BaseEggAST
-    fields: list[BaseEggAST]
+class Struct(BaseAST):
+    name: Identifier
+    fields: list[TypedName]
 
 
 @dataclass
-class Enum(BaseEggAST):
-    name: BaseEggAST
-    variants: list[BaseEggAST]
+class Enum(BaseAST):
+    name: Identifier
+    variants: list[Identifier]
 
 
 @dataclass
-class Func(BaseEggAST):
-    name: BaseEggAST
-    args: BaseEggAST
-    return_type: BaseEggAST
-    body: BaseEggAST
+class Func(BaseAST):
+    name: Identifier
+    args: ArgDef
+    return_type: Type_
+    body: SimpleStatement | Statements
 
 
 # Complex Literals (collections, iterables, etc.)
 @dataclass
-class IterableNames(BaseEggAST):
-    names: list[BaseEggAST]
+class IterableNames(BaseAST):
+    names: list[Identifier]
 
 
 @dataclass
-class SuchThat(BaseEggAST):
-    condition: BaseEggAST
+class Tuple(BaseAST):
+    elements: list[Expr]
 
 
 @dataclass
-class Comprehension(BaseEggAST):
-    iterable_names: BaseEggAST
-    loop_over: BaseEggAST
-    condition: BaseEggAST
-    action: BaseEggAST
+class List(BaseAST):
+    elements: list[Expr]
 
 
 @dataclass
-class KeyPairComprehension(BaseEggAST):
-    iterable_names: BaseEggAST
-    loop_over: BaseEggAST
-    condition: BaseEggAST
-    action: BaseEggAST
+class Dict(BaseAST):
+    elements: list[KeyPair]
 
 
 @dataclass
-class Tuple(BaseEggAST):
-    elements: list[BaseEggAST]
+class Set(BaseAST):
+    elements: list[Expr]
 
 
 @dataclass
-class List(BaseEggAST):
-    elements: list[BaseEggAST]
+class Bag(BaseAST):
+    elements: list[Expr]
 
 
 @dataclass
-class Dict(BaseEggAST):
-    elements: list[BaseEggAST]
+class SetComprehension(BaseAST):
+    elem: Expr
+    generator: Expr
 
 
 @dataclass
-class Set(BaseEggAST):
-    elements: list[BaseEggAST]
+class DictComprehension(BaseAST):
+    elem: KeyPair
+    generator: Expr
 
 
 @dataclass
-class KeyPair(BaseEggAST):
-    key: BaseEggAST
-    value: BaseEggAST
+class BagComprehension(BaseAST):
+    elem: Expr
+    generator: Expr
+
+
+@dataclass
+class ListComprehension(BaseAST):
+    elem: Expr
+    generator: Expr
+
+
+@dataclass
+class KeyPair(BaseAST):
+    key: Expr
+    value: Expr
 
 
 # Top level AST nodes
 @dataclass
-class Start(BaseEggAST):
-    body: BaseEggAST
+class Statements(BaseAST):
+    statements: list[SimpleStatement | CompoundStatement]
 
 
 @dataclass
-class Statements(BaseEggAST):
-    statements: list[BaseEggAST]
+class Start(BaseAST):
+    body: Statements | None_
+
+
+# Type aliases for readability
+PrimitiveLiteral = Int | Float | String | None_ | Bool
+ComplexLiteral = Tuple | List | Dict | Set | Bag
+ComplexComprehensionLiteral = SetComprehension | DictComprehension | BagComprehension | ListComprehension
+
+Atom = PrimitiveLiteral | ComplexLiteral | ComplexComprehensionLiteral | Expr
+PrimaryStmt = StructAccess | Call | Indexing | Atom
+
+SimpleStatement = Expr | Assignment | Return | Break | Continue | Pass
+CompoundStatement = If | For | Struct | Enum | Func

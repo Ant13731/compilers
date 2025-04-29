@@ -22,8 +22,8 @@ statements: _NEWLINE* statement (_NEWLINE+ statement)* _NEWLINE*
 //////////////////////////////////////////////////////////////////////
 // Expression operators below follow the table of precedences from "A Logical Approach to Discrete Math"
 // Deal with bools first (lowest precedence)
-?expr_stmt: equivalence | lambdef
-?equivalence: equivalence (EQUIV | N_EQUIV) implication | implication
+expr_stmt: equivalence | lambdef
+equivalence: equivalence (EQUIV | N_EQUIV) implication | implication
 ?implication: impl | rev_impl | disjunction
 impl: disjunction _IMPLIES implication
 rev_impl: implication _REV_IMPLIES disjunction
@@ -69,29 +69,57 @@ type_: equivalence // TODO refine this
 typed_name: NAME _COLON type_
 
 //////////////////////////////////////////////////////////////////////
+// Compound Statements: Blocks of code that can be indented
+//////////////////////////////////////////////////////////////////////
+// TODO:
+//  - try_stmt for exception handling
+//  - with_stmt for context managers? probably not
+//  - while_stmt?
+//  - match_stmt
+?compound_stmt: if_stmt | for_stmt | struct_stmt | enum_stmt | func_stmt
+if_stmt: _IF equivalence _COLON block (elif_stmt | else_stmt)?
+elif_stmt: _ELIF equivalence _COLON block (elif_stmt | else_stmt)?
+else_stmt: _ELSE _COLON block
+for_stmt: _FOR iterable_names _IN expr_stmt _COLON block // TODO add support for destructuring
+struct_stmt: _STRUCT NAME _COLON _NEWLINE _INDENT ((typed_name (_NEWLINE typed_name)*) | PASS) _NEWLINE* _DEDENT
+enum_stmt: _ENUM NAME _COLON _NEWLINE _INDENT ((NAME (_NEWLINE NAME)*) | PASS) _NEWLINE* _DEDENT
+func_stmt: _DEF NAME _L_PAREN arg_def _R_PAREN _RIGHTARROW type_ _COLON block
+?block: simple_stmt | _NEWLINE _INDENT statements _DEDENT
+iterable_names: NAME (_COMMA NAME)* // TODO add destructuring
+
+
+//////////////////////////////////////////////////////////////////////
 // Literals (primitive and iterable types)
 //////////////////////////////////////////////////////////////////////
 // no star patterns for now
-?atom: literals | iterable_literals | _L_PAREN expr_stmt _R_PAREN // TODO add ellipsis?
+?atom: literals | complex_literals | complex_comprehension_literals | _L_PAREN expr_stmt _R_PAREN // TODO add ellipsis?
 // Primitive literals
 ?literals: BOOL | NAME | NONE | string | num
 ?string: STRING | LONG_STRING
 ?num: INT | FLOAT
 // Complex literals
-?iterable_literals: tuple_ | list_ | dict_ | set_ | bag_
+?complex_literals: tuple_ | list_ | dict_ | set_ | bag_
 tuple_: _L_PAREN (expr_stmt (_COMMA | (_COMMA expr_stmt)+) )? _R_PAREN // Tuple with one entry requires a comma to differentiate from paren expr
 list_: _L_BRACKET _iterable_inside? _R_BRACKET
 set_: _L_BRACE _iterable_inside _R_BRACE // empty sets are assumed to be dictionaries
 dict_: _L_BRACE _key_pair_iterable_inside? _R_BRACE
 bag_: _L_BRACE_BAR _iterable_inside? _R_BRACE_BAR
-_iterable_inside: (expr_stmt | comp_stmt) (_COMMA (expr_stmt | comp_stmt))*
-iterable_names: NAME (_COMMA NAME)* // TODO add destructuring
-// Include iterable comprehensions too
-comp_stmt: _FOR iterable_names _IN expr_stmt such_that? _COLON expr_stmt // Attempt to make comprehensions more similar to discrete math than python
-_key_pair_iterable_inside: (key_pair | key_pair_comp_stmt) (_COMMA (key_pair | key_pair_comp_stmt))*
+_iterable_inside: expr_stmt (_COMMA expr_stmt)*
+_key_pair_iterable_inside: key_pair (_COMMA key_pair)*
 key_pair: expr_stmt _COLON expr_stmt
-key_pair_comp_stmt: _FOR iterable_names _IN expr_stmt such_that? _COLON _L_PAREN key_pair _R_PAREN // TODO see if this actually works out
-such_that: _VBAR equivalence
+// Complex comprehension literals
+?complex_comprehension_literals: list_comp| set_comp | dict_comp | bag_comp
+list_comp: _L_BRACKET comprehension _R_BRACKET
+set_comp: _L_BRACE comprehension _R_BRACE
+dict_comp: _L_BRACE key_pair_comprehension _R_BRACE
+bag_comp: _L_BRACE_BAR comprehension _R_BRACE_BAR
+_comprehension: expr_stmt _VBAR expr_stmt
+_key_pair_comprehension: key_pair _VBAR expr_stmt
+// TODO remove these
+// comp_stmt: _FOR iterable_names _IN expr_stmt such_that? _COLON expr_stmt // Attempt to make comprehensions more similar to discrete math than python
+// key_pair_comp_stmt: _FOR iterable_names _IN expr_stmt such_that? _COLON _L_PAREN key_pair _R_PAREN // TODO see if this actually works out
+// such_that: _VBAR equivalence
+
 
 //////////////////////////////////////////////////////////////////////
 // Terminals
@@ -170,24 +198,6 @@ _DEF: "def"
 _RIGHTARROW: "->"
 _NEWLINE: ( /\r?\n[\t ]*/ | COMMENT )+
 COMMENT: /#[^\n]*/
-
-//////////////////////////////////////////////////////////////////////
-// Compound Statements: Blocks of code that can be indented
-//////////////////////////////////////////////////////////////////////
-// TODO:
-//  - try_stmt for exception handling
-//  - with_stmt for context managers? probably not
-//  - while_stmt?
-//  - match_stmt
-?compound_stmt: if_stmt | for_stmt | struct_stmt | enum_stmt | func_stmt
-if_stmt: _IF equivalence _COLON block (elif_stmt | else_stmt)?
-elif_stmt: _ELIF equivalence _COLON block (elif_stmt | else_stmt)?
-else_stmt: _ELSE _COLON block
-for_stmt: _FOR iterable_names _IN expr_stmt _COLON block // TODO add support for destructuring
-struct_stmt: _STRUCT NAME _COLON _NEWLINE _INDENT ((typed_name (_NEWLINE typed_name)*) | PASS) _NEWLINE* _DEDENT
-enum_stmt: _ENUM NAME _COLON _NEWLINE _INDENT ((NAME (_NEWLINE NAME)*) | PASS) _NEWLINE* _DEDENT
-func_stmt: _DEF NAME _L_PAREN arg_def _R_PAREN _RIGHTARROW type_ _COLON block
-?block: simple_stmt | _NEWLINE _INDENT statements _DEDENT
 
 // Directives to tell lark how to handle whitespace and comments
 %ignore /[\t \f]+/  // WS
