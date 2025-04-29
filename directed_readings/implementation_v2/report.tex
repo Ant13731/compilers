@@ -238,10 +238,15 @@ A proof of correctness for these types of rules is directly given by the definit
     =&\Set{x}{x \in S \lor x \in T}\\
   \end{align*}
 \end{proof}
-Although the proof is relatively simple, such proofs are of particular importance to ensuring correctness of variables used within one another.
+Although the proof is relatively simple, such proofs are of particular importance to ensuring correctness of variables used within one another. A generalized form of these rules, involving additional predicates $p,q: Any \rightarrow Boolean$, may be required. We observe that predicates joined to a generator $x\in S$ with $\lor$ are malformed, since any $x$ satisfying the predicate may be valid.
+\begin{align}
+  \Set{x}{x \in S \land p(x)} \cup \Set{y}{y \in T \land q(y)} &\rightarrow \Set{x}{(x \in S \land p(x)) \lor (x \in T  \land q(x))}\\
+  \Set{x}{x \in S \land p(x)} \cap \Set{y}{y \in T \land q(y)} &\rightarrow \Set{x}{x \in S \land x \in T \land p(x) \land q(x)}\\
+  \Set{x}{x \in S \land p(x)} \setminus \Set{y}{y \in T \land q(y)} &\rightarrow \Set{x}{x \in S \land x \notin T \land p(x) \land q(x)}
+\end{align}
 
 % TODO DOES THIS WORK FOR UNIONS?? Yes, I think
-Often times, we find that functions are applied to the generated elements, similar to $\Set{f(x)}{x \in S}$. A more general form of the above operator-based rules can therefore be expressed as:
+Often times, we find that functions are applied to the generated elements, similar to $\Set{f(x)}{x \in S}$. The above operator-based rules can therefore be expressed as:
 \begin{align}
   \Set{f(x)}{x \in S} \cup \Set{y}{y \in T} &\rightarrow \Set{f(x)}{x \in S \lor f(x) \in T}\\
   \Set{f(x)}{x \in S} \cap \Set{y}{y \in T} &\rightarrow \Set{f(x)}{x \in S \land f(x) \in T}\\
@@ -249,7 +254,7 @@ Often times, we find that functions are applied to the generated elements, simil
 \end{align}
 
 % TODO DOES THIS WORK FOR UNIONS??
-A further generic form might be considered in which functions can be mapped over both operator arguments, however, the lack of relationship between a function mapped over the first set versus a possibly different function mapped over the second set restricts the amount of feasible algebraic manipulation. In this case, we first evaluate one operation fully to then apply one of the rules in the previous paragraph. Note that unions of this form gain no tangible benefit from an extra set construction, so we opt to join entries together as seen in the partial derivation of rewrite rule 2.
+A further generic form might be considered in which functions can be mapped over both operator arguments, however, the lack of relationship between a function mapped over the first set versus a possibly different function mapped over the second set restricts the amount of feasible algebraic manipulation. In this case, we first evaluate one operation fully to then apply one of the rules in the previous paragraph. Note that unions of this form gain no tangible benefit from an extra set construction, so we opt to join entries together as seen in the partial derivation of rewrite rule two. An optional predicate within each set construction may be carried through the rewrite rule as seen in equations five to seven, but for conciseness, we omit these rules for now.
 \begin{align}
   \Set{f(x)}{x \in S} \cup \Set{g(y)}{y \in T} &\rightarrow
     \begin{split}
@@ -267,17 +272,20 @@ A further generic form might be considered in which functions can be mapped over
     \end{split}
 \end{align}
 
-Additionally, a few specialized cases arise when the function $f$ is injective and identical between set constructions.
+Additionally, a few specialized cases arise when the function $f$ is injective and identical between set constructions. Further predicate clauses (as seen in equations five to seven) may be brought over as above and renamed as functions of $x$.
 \begin{align}
   \Set{f(x)}{x \in S} \cup \Set{f(y)}{y \in T} &\rightarrow \Set{f(x)}{x \in S \lor x \in T}\\
   \Set{f(x)}{x \in S} \cap \Set{f(y)}{y \in T} &\rightarrow \Set{f(x)}{x \in S \land x \in T}\\
   \Set{f(x)}{x \in S} \setminus \Set{f(y)}{y \in T} &\rightarrow \Set{f(x)}{x \in S \land x \notin T}
 \end{align}
 
-In targeting expressions that make use of set operators nested within set constructors, like $\Set{x}{x \in f(S, T)}$, we create the following rule:
-\begin{equation}
-  \Set{x}{x \in \Set{y}{y \in S}} \rightarrow \Set{x}{x \in S}
-\end{equation}
+In targeting expressions that make use of set operators nested within set constructors, like $\Set{x}{x \in f(S, T)}$, we create the following rules:
+\begin{align}
+  \Set{x}{x \in \Set{y}{y \in S}} &\rightarrow \Set{x}{x \in S}\\
+  \Set{x}{x \in \Set{y}{y \in S \land p(x)} \land q(x)} &\rightarrow \Set{x}{x \in S \land p(x) \land q(x)}\\
+  \Set{x}{x \in \Set{y}{y \in S \land p(x)}} &\rightarrow \Set{x}{x \in S \land p(x)}\\
+  \Set{x}{x \in \Set{y}{y \in S} \land q(x)} &\rightarrow \Set{x}{x \in S \land q(x)}
+\end{align}
 
 Finally, we can now target the boolean statements within set constructions. However, we first give some intuition towards the overarching principles behind non-trivial terms. Generally, breaking down each operation into set builder notation enables us to perform the following actions:
 \begin{itemize}
@@ -294,13 +302,13 @@ The following rules formalize this intuition, where generators $S$ (and $T$) are
   \Set{z}{(x \in S \land f(x) = z \land p(x)) \lor (y \in T \land g(y) = z \land q(y))} &\rightarrow \text{Algorithm~\ref{fig:eq16alg}}\\
   \Set{f(x)}{x \in S \land p(x)} &\rightarrow \text{Algorithm~\ref{fig:eq17alg}}
 \end{align}
-And a specialized version of equation 15, preferring the use of intersections to reduce sequential ``or''-clause loops:
+And a specialized version of equation 21, preferring the use of intersections to reduce sequential ``or''-clause loops:
 \begin{equation}
   \Set{f(x)}{(x \in S \land p(x)) \lor (x \in S \land q(x))} \rightarrow \Set{f(x)}{x \in S \land (p(x) \lor q(x))}
 \end{equation}
 
 \begin{algorithm}
-  \caption{RHS of Rewrite Rule 15}
+  \caption{RHS of Rewrite Rule 21}
   \begin{algorithmic}
     \Require $x,f,S,T,p,q$
     \State $A \gets \emptyset$
@@ -320,7 +328,7 @@ And a specialized version of equation 15, preferring the use of intersections to
 \end{algorithm}
 
 \begin{algorithm}
-  \caption{RHS of Rewrite Rule 16}
+  \caption{RHS of Rewrite Rule 22}
   \begin{algorithmic}
     \Require $x,y,f,g,S,T,p,q$
     \State $A \gets \emptyset$
@@ -340,7 +348,7 @@ And a specialized version of equation 15, preferring the use of intersections to
 \end{algorithm}
 
 \begin{algorithm}
-  \caption{RHS of Rewrite Rule 17}
+  \caption{RHS of Rewrite Rule 23}
   \begin{algorithmic}
     \Require $x,f,S,p$
     \State $A \gets \emptyset$
@@ -354,7 +362,9 @@ And a specialized version of equation 15, preferring the use of intersections to
   \label{fig:eq17alg}
 \end{algorithm}
 
+Assuming associativity and commutativity of boolean operations, the collection of equations presented here is sufficient to cover all possible set constructions involving routine set operators $\cup, \cap, \setminus$ and boolean condition operators $\lor, \land, \lnot$.
 
+% TODO are these rules complete? how to check?
 % TODO completion chap 7, (made from confluence through critical pair calculation and termination through reduction order)
 % TODO give a strategy that can be applied to this
 % TODO converting AST to LLVM IR
