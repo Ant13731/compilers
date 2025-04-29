@@ -1,11 +1,10 @@
+import pprint
+
 import lark
 from lark.indenter import PythonIndenter
 
 from transformer import EggASTTransformer
-from ast_ import BaseAST
-import ast_
-import sys
-import inspect
+from ast_ import BaseAST, Start
 
 
 def parse(input_string: str, i: int = 0):
@@ -34,22 +33,22 @@ def parse(input_string: str, i: int = 0):
     # ast = GrammarToEggTransformer().transform(tree)
     ast: BaseAST = EggASTTransformer().transform(tree)
     print(ast)
+    print(pprint.pprint(ast))
     ast.pprint_types()
     # print(ast.to_s_expr())
 
 
-# def generate_egg_constructs():
-#     skip_names = ["UnaryOp", "BinOp"]
-#     for name, cls_ in inspect.getmembers(ast_):
-#         if name in skip_names:
-#             continue
-#         if inspect.isclass(cls_) and issubclass(cls_, BaseAST):
-#             print(f"Class: {name}, Abstract S-expression: {cls_.to_abstract_s_expr()}")
+comprehension_test = r"""
+{x | x in A and x in B and -1 < x < 0}
+"""
+print("Comprehension test:")
+parse(comprehension_test)
 
 
 # generate_egg_constructs()
 
 
+# TODO: update old tests for comprehensions
 def testing_transformer():
     test_str = r"""
     1
@@ -181,4 +180,4 @@ def a(b: int, c: str) -> int:
         parse(t, i)
 
 
-testing_transformer()
+# testing_transformer()

@@ -74,6 +74,9 @@ class EggASTTransformer(Transformer):
     def num_and_set_op_mult(self, tokens: list[Token]) -> str:
         return " ".join([str(token.value) for token in tokens])
 
+    def un_op(self, tokens: list[Token]) -> str:
+        return " ".join([str(token.value) for token in tokens])
+
     def comparison(self, tokens: tuple[PrimaryStmt | UnaryOp | BinOp, str, PrimaryStmt | UnaryOp | BinOp]) -> BinOp:
         map_symbol_to_ast = {
             "<": Lt,
@@ -97,10 +100,10 @@ class EggASTTransformer(Transformer):
         return Not(tokens[1])
 
     def conjunction(self, tokens: list[PrimaryStmt | UnaryOp | BinOp]) -> And:
-        return And(*tokens)
+        return And(tokens)
 
     def disjunction(self, tokens: list[PrimaryStmt | UnaryOp | BinOp]) -> Or:
-        return Or(*tokens)
+        return Or(tokens)
 
     def impl(self, tokens: list[PrimaryStmt | UnaryOp | BinOp]) -> Implies:
         return Implies(*tokens)

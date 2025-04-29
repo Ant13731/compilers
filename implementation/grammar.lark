@@ -32,7 +32,7 @@ rev_impl: implication _REV_IMPLIES disjunction
 ?negation: NOT negation | comparison
 // Skipping bitwise operators, can always add later
 // Move to numbers and sets (same level of precedence)
-?comparison: num_and_set_expr (comp_op num_and_set_expr)*
+?comparison: comparison comp_op num_and_set_expr | num_and_set_expr
 !comp_op: EQ | NE | LT | GT | LE | GE | (NOT? _IN) | (IS NOT?) | SUBSET | SUBSET_EQ | SUPERSET | SUPERSET_EQ // ! is a bit of a hack since `in` is technically hidden
 // Skipping sequence operators (triangleright, triangleleft, concatenate, etc.), since these can be done with more natural pythonic notation
 // Skipping min, max, etc since these are best left as functions
@@ -44,7 +44,7 @@ rev_impl: implication _REV_IMPLIES disjunction
 !num_and_set_op_mult : MUL | DIV | REM | MOD | INTERSECTION | CARTESIAN_PRODUCT | RELATION_COMPOSITION
 ?factor: un_op factor | power
 // Unary operators have highest precedence (except for power)
-un_op: ADD | SUB | COMPLEMENT | POWERSET
+!un_op: ADD | SUB | COMPLEMENT | POWERSET
 ?power: primary _POW factor | primary
 
 //////////////////////////////////////////////////////////////////////
@@ -109,10 +109,10 @@ _key_pair_iterable_inside: key_pair (_COMMA key_pair)*
 key_pair: expr_stmt _COLON expr_stmt
 // Complex comprehension literals
 ?complex_comprehension_literals: list_comp| set_comp | dict_comp | bag_comp
-list_comp: _L_BRACKET comprehension _R_BRACKET
-set_comp: _L_BRACE comprehension _R_BRACE
-dict_comp: _L_BRACE key_pair_comprehension _R_BRACE
-bag_comp: _L_BRACE_BAR comprehension _R_BRACE_BAR
+list_comp: _L_BRACKET _comprehension _R_BRACKET
+set_comp: _L_BRACE _comprehension _R_BRACE
+dict_comp: _L_BRACE _key_pair_comprehension _R_BRACE
+bag_comp: _L_BRACE_BAR _comprehension _R_BRACE_BAR
 _comprehension: expr_stmt _VBAR expr_stmt
 _key_pair_comprehension: key_pair _VBAR expr_stmt
 // TODO remove these

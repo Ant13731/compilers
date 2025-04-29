@@ -209,12 +209,14 @@ class IsNot(BinOp):
     pass
 
 
-class And(BinOp):
-    pass
+@dataclass
+class And(BaseAST):
+    clauses: list[PrimaryStmt | UnaryOp | BinOp]
 
 
+@dataclass
 class Or(BinOp):
-    pass
+    clauses: list[PrimaryStmt | UnaryOp | BinOp]
 
 
 class Implies(BinOp):
