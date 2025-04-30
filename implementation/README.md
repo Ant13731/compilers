@@ -34,3 +34,7 @@ Companion to the report in directed_readings/implementation_v2.
     - [ ] Other...
   - [ ] Pass 4: Lower AST into LLVM IR
     - [ ] Make a system that can handle multiple targets (eg. WebAssembly)
+
+# Compiler Architecture
+
+![](../directed_readings/implementation_v2/images/compiler_architecture.drawio.png)

@@ -11,7 +11,7 @@ Welcome to the very high level language repo! The repository is organized as fol
   - `rewrite_strategy_select_examples`: Collection of files used in `rewrite_strategy_select_examples_test.py`
     - `set_strategy.py`: A simplified implementation of the rewrite rule process, as described in Section 3.2 of `directed_readings/implementation_v2/report.pdf`. The current implementation does not handle conditions on the properties of dummy variables, multiple dummy variables, or functions on the dummy variable. Instead, it offers basic rewrite rules for denesting, union, intersection, and set difference.
     - `test_items.py`: Ground truth objects to test the rewrite rule set against. Generally, the process goes from plaintext -> Simple AST -> Verbose AST (where sets are all in constructor form) -> Verbose AST with no set operations (only boolean operations) -> Concrete AST -> Code output.
-  - `ast\_.py`: Collection of (empty-for-now) classes to represent the AST of our very high level language
+  - `ast_.py`: Collection of (empty-for-now) classes to represent the AST of our very high level language
   - `grammar.lark`: A CFG for our very high level language, written in a dialect suitable for the Lark Python library
   - `parser.py`: Contains a function that accepts a plaintext language input and returns an AST if valid in the language.
   - `README.md`: Progress tracker for the language

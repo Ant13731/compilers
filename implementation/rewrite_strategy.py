@@ -1,6 +1,7 @@
 from ast_ import *
 
 
+# NOTE: Currently unused, planning for future organization of rewrite strategies
 class RewritingStrategies:
     """
     Not so much a class, but a collection of rewriting strategies for transforming our language ASTs.

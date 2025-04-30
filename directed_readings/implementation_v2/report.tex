@@ -1,7 +1,6 @@
 \documentclass{article}
 
 \usepackage[T1]{fontenc}
-\usepackage{minted}
 \usepackage{amsmath, amsthm}
 \usepackage{amssymb}
 \usepackage{listings}
@@ -15,6 +14,7 @@
 \usepackage{mathtools}
 \usepackage{xcolor}
 \usepackage{subcaption}
+\usepackage{wrapfig}
 \usepackage{hyperref}
 
 \newcommand{\Set}[2]{%
@@ -33,8 +33,7 @@
 \newcommand{\leftplus}{\mathbin{\mathpalette\superimpose{{\leftarrow}{+}}}}
 \newcommand{\disquare}{\mathbin{\text{\tikz [x=1ex,y=1ex,line width=.1ex,line join=round] \draw (0,0) rectangle (1,1) (.5\pgflinewidth,.5) -- (.5,1ex-.5\pgflinewidth) -- (1ex-.5\pgflinewidth,.5) -- (.5,.5\pgflinewidth) -- (.5\pgflinewidth,.5) -- cycle;}}}
 
-\usemintedstyle{solarized-light}
-\setminted{fontsize=\footnotesize, bgcolor=Beige}
+\graphicspath{{./images/}}
 
 % NOTE: need to run `biber report` to ensure up-to-date references
 \addbibresource{report.bib}
@@ -113,7 +112,7 @@ To resolve any collisions from our pre-hash function $h$, we can define a modifi
 
 By keeping one complete dictionary, the other can rely on cross-dictionary lookups to resolve hashing collisions. Unfortunately, we still need to duplicate at least one set of either names or dates to resolve hashing collisions, but for larger data types, this method could use 25\% less space with a little runtime cost.
 
-Similar data structures with less overhead and clever elimination of duplicated data via pointers could prove useful in providing O(1) reverse lookups. For example, C++'s Boost.Bimap library \cite{boostBimap1, boostBimap2} stores pairs of values and provides efficient views for both forward and reverse lookups, with the caveat that the relation must be one-to-one. Alternatively, a post on StackOverflow \cite{bimapStackOverflow} describes a solution with two maps of type $A \rightarrow B*$ and $B \rightarrow A*$. In this case, data is stored in two sets of pairs that couple a concrete value with its opposing pointer. Then, the $lookup$ function can dereference the pointer received from the $A \rightarrow B*$ to find the concrete value of $B$ stored in the second set.
+Similar data structures with less overhead and clever elimination of duplicated data via pointers could prove useful in providing O(1) reverse lookups. For example, C++'s Boost.Bimap library \cite{boostBimap1, boostBimap2} stores pairs of values and provides efficient views for both forward and reverse lookups, with the caveat that the relation must be one-to-one. Alternatively, a post on StackOverflow \cite{bimapStackOverflow} describes a solution with two maps of values to pointers (with types $A \rightarrow B*$ and $B \rightarrow A*$). In this case, data is stored in two sets of pairs that couple a concrete value with its opposing pointer. Then, the $lookup$ function can dereference the pointer received from the $A \rightarrow B*$ to find the concrete value of $B$ stored in the second set.
 
 \subsubsection{Extending the Problem with Two Birthday Books}
 Extending the problem, we demonstrate the ergonomics of set operators over real world models. With consideration for the bidirectional mapping setup from the previous questions, we seek to efficiently implement the following scenarios:
@@ -190,12 +189,16 @@ In Python, set construction for the most part translates to a set comprehension 
 We now list a few simple but common examples of set-based expression optimizations:
 \begin{itemize}
   \item A function $f$ applied over the difference of two sets may be written in a modelling language as $\{f(x) | x \in S \setminus T\}$. Translated to more Python-like syntax, this becomes \texttt{\{f(x) for x in S - T\}}. The default implementation of such an expression, with no knowledge over the side effects of $S$, $T$, and $f$, would first construct a temporary set \texttt{text = S - T}, then perform \texttt{\{f(x) for x in temp\}}. However, a more efficient implementation would rewrite the initial expression to \texttt{\{f(x) for x in S if x not in T\}}, effectively trading the overhead of temporary set construction for $|S|$ $O(1)$ lookup operations.
-  \item Calculating the intersection of sets with a sorted representation may be done in $O(m+n)$ time through a mergesort-like step, or even in $O(n\log{\frac{m}{n}})$ using exponential search \cite{sortedIntersectionStackOverflow}.
+  % \item Calculating the intersection of sets with a sorted representation may be done in $O(m+n)$ time through a mergesort-like step, or even in $O(n\log{\frac{m}{n}})$ using exponential search \cite{sortedIntersectionStackOverflow}.
   \item Mapping over a difference of sets $S \setminus T$ where $T << S$ could also be performed by successive \texttt{[S.pop(x) for x in T]} operations, mutating $S$ directly and avoiding another set construction. An implementation of \texttt{pop} could also move selected elements to one end of the list and keep track of an index of ``deleted'' elements for future operations. Likewise, $S \cup T$ with $T << S$ may be serviced with sequential \texttt{add} operations
   \item A similar index tracking idea could be used for sets that ``consume'' another set. For example, consider Algorithm~\ref{fig:prodcons}, where $P$ and $C$ represent a producer and consumer set respectively. The $P$ set may be needed elsewhere in the code, so we cannot destroy its contents to build $C$. In this case, internally representing $P$ as an array of ordered elements and $C$ as an index into the first $n$ elements of $P$ will be suitable. New elements are appended to the list representation of $P$ (assuming no duplicates), so the addition and consumption of elements remain completely isolated while reducing duplicate data and repeated set constructions.
+  % TODO add more here, need to cover all types of problems
+  % Existential quantification
+  \item Early stopping in quantification based expressions. For example, the statement $\forall x \mid x \in S \cap T \land p(x)$ would normally require construction of an intermediate set for $S \cap T$ and then a loop to check the property of all resulting elements. However, we do not necessarily need to construct any sets in this question. Instead, we can combine all terms into a single for-loop over only one of the sets, as seen in Algorithm~\ref{fig:earlyStoppingQuant}. Similar set manipulations can be used for existential quantification.
+  % multiple loop generation
 \end{itemize}
 
-\begin{algorithm}
+\begin{algorithm}[h]
   \caption{Set Producer-Consumer}
   \begin{algorithmic}
     \Require $P: Set, C: Set, C = \emptyset$
@@ -207,6 +210,21 @@ We now list a few simple but common examples of set-based expression optimizatio
     \EndWhile
   \end{algorithmic}
   \label{fig:prodcons}
+\end{algorithm}
+
+\begin{algorithm}[h]
+  \caption{Early Stopping for Universal Quantification over Intersection}
+  \begin{algorithmic}
+    \Require $S, T, p$
+    \State $M \gets min(S,T)$ \Comment{$min$ compares the number of elements in a set}
+    \For{$x \in M$}
+      \If $\lnot(x \in T \land p(x))$
+        \Return $false$
+      \EndIf
+    \EndFor\\
+    \Return $true$
+  \end{algorithmic}
+  \label{fig:earlyStoppingQuant}
 \end{algorithm}
 
 Different flavours of optimizations for complex expressions and other ``collection'' data types will be added as needed, but the deep static analysis and code awareness is evidently integral to the optimization process. In the next section, we discuss the concepts of such a language, an optimization process, and an interface for continuous, extendable optimizations.
@@ -306,63 +324,66 @@ The following rules formalize this intuition, where generators $S$ (and $T$ when
 \end{align}
 And a specialized version of equation 21, preferring the use of intersections to reduce duplicate ``or''-clause loops:
 \begin{equation}
-  \Set{f(x)}{(x \in S \land p(x)) \lor (x \in T \land q(x))} \rightarrow \Set{f(x)}{x \in S \land (p(x) \lor q(x))}
+  \Set{f(x)}{(x \in S \land p(x)) \lor (x \in S \land q(x))} \rightarrow \Set{f(x)}{x \in S \land (p(x) \lor q(x))}
 \end{equation}
 
-\begin{algorithm}
-  \caption{RHS of Rewrite Rule 21}
-  \begin{algorithmic}
-    \Require $x,f,S,T,p,q$
-    \State $A \gets \emptyset$
-    \For{$x \in S$}
-      \If{$p(x)$}
-        \State $A.add(f(x))$
-      \EndIf
-    \EndFor
-    \For{$x \in T$}
-      \If{$q(x)$}
-        \State $A.add(f(x))$
-      \EndIf
-    \EndFor\\
-  \Return $A$
-  \end{algorithmic}
-  \label{fig:eq15alg}
-\end{algorithm}
 
-\begin{algorithm}
-  \caption{RHS of Rewrite Rule 22}
-  \begin{algorithmic}
-    \Require $x,y,f,g,S,T,p,q$
-    \State $A \gets \emptyset$
-    \For{$x \in S$}
-      \If{$p(x)$}
-        \State $A.add(f(x))$
-      \EndIf
-    \EndFor
-    \For{$y \in T$}
-      \If{$q(y)$}
-        \State $A.add(f(y))$
-      \EndIf
-    \EndFor\\
-  \Return $A$
-  \end{algorithmic}
-  \label{fig:eq16alg}
-\end{algorithm}
+    \begin{algorithm}[h]
+      \begin{algorithmic}
+        \Require $x,f,S,T,p,q$
+        \State $A \gets \emptyset$
+        \For{$x \in S$}
+          \If{$p(x)$}
+            \State $A.add(f(x))$
+          \EndIf
+        \EndFor
+        \For{$x \in T$}
+          \If{$q(x)$}
+            \State $A.add(f(x))$
+          \EndIf
+        \EndFor\\
+      \Return $A$
+      \end{algorithmic}
+      \caption{RHS of Rewrite Rule 21}
+      \label{fig:eq15alg}
+    \end{algorithm}
 
-\begin{algorithm}
-  \caption{RHS of Rewrite Rule 23}
-  \begin{algorithmic}
-    \Require $x,f,S,p$
-    \State $A \gets \emptyset$
-    \For{$x \in S$}
+    \begin{algorithm}[h]
+      \begin{algorithmic}
+        \Require $x,y,f,g,S,T,p,q$
+        \State $A \gets \emptyset$
+        \For{$x \in S$}
+          \If{$p(x)$}
+            \State $A.add(f(x))$
+          \EndIf
+        \EndFor
+        \For{$y \in T$}
+          \If{$q(y)$}
+            \State $A.add(f(y))$
+          \EndIf
+        \EndFor\\
+      \Return $A$
+      \end{algorithmic}
+      \caption{RHS of Rewrite Rule 22}
+      \label{fig:eq16alg}
+    \end{algorithm}
+
+    \begin{algorithm}[h]
+    \begin{algorithmic}
+      \Require $x,f,S,p$
+      \State $A \gets \emptyset$
+      \For{$x \in S$}
       \If{$p(x)$}
-        \State $A.add(f(x))$
+      \State $A.add(f(x))$
       \EndIf
-    \EndFor\\
-  \Return $A$
-  \end{algorithmic}
-  \label{fig:eq17alg}
-\end{algorithm}
+      \EndFor\\
+      \Return $A$
+    \end{algorithmic}
+    \caption{RHS of Rewrite Rule 23}
+      \label{fig:eq17alg}
+    \end{algorithm}
+
+
 
 Further rules are possible, provided relationships between sets are programmed alongside the programmed model. For example, subset properties enable the following:
 \begin{align}
@@ -524,6 +545,13 @@ All of the types mentioned here have been meticulously studied as fundamental pa
 \subsection{Compiler Pipeline}
 \subsubsection{Grammar}
 
+% \begin{wrapfigure}{R}{.3\textwidth}
+%   \centering
+%   \includegraphics[width=.3\textwidth]{compiler_architecture.drawio.png}
+%   \caption{Compiler pipeline, from plaintext source to LLVM IR}
+%   \label{fig:compArch}
+% \end{wrapfigure}
+
 As the first step in processing the language, a CFG is used to convert plain text into a structured AST. For this draft, we have selected a grammar based on Python's familiar syntax \cite{pythonGrammar} and discrete mathematics based on a book by Gries and Schneider \cite{griesAndSchneider}. Aside from standardized language expression operators, control flow statements, and function definitions, the main features of this grammar are as follows:
 \begin{itemize}
   \item Additional operators (and overloaded operators) dedicated to sets, sequences, and relations. With static typing, these will enable expressive statements closely resembling modelling specifications.
@@ -538,95 +566,20 @@ The complete current grammar is available on \href{https://github.com/Ant13731/c
 
 The next step of our compiler is translating the CFG into a malleable AST. The Python library Lark \cite{lark} provides several choices of parsers, lexers, tree traversal methods, and top level interfaces to ease the process of parsing. From the grammar, Lark generates a generic AST \texttt{Transformer} that is traversable through methods corresponding to each grammar rule.
 
-With the frontend of the compiler complete, we now move on to the optimization stage. This stage is perhaps the most complex to design and implement, since these decisions directly impact the balance of optimization capabilities and extensibility.
-
+With the frontend of the compiler complete, we now move on to the optimization stage. This stage is perhaps the most complex to design and implement, since these decisions directly impact the balance of optimization capabilities and extensibility. For the subset of the language related to sets and set notation, we have implemented a simplified version of the rewrite strategy described at the end of Section 3.2. The current implementation collapses all sets connected by operators $\cup, \cap,$ and $\setminus$ into a single set connected by booleans. Then, generators are extracted from a list of candidates (ie. from the right side of the vertical bar in standard set notation, $p$ in the structure $\Set{x}{p}$). Unions, or ``or''-clauses within set notation, generally require two sequential set loops, while top-level ``and''-clauses for intersections and set differences share a single construction loop. Specifically, the prototype compiler is compliant with rewrite rules 1-4, 17, 21, and 23.
 
 % TODO Show pipeline from lang to LLVM (entire section) - maybe add a picture/diagram?
 
 % TODO Implement Rewrite Rules from AST to AST, use python pattern matching to do so
 % TODO converting AST to LLVM IR
 
-% TODO remove next section or address all comments
-
-
-
-
-
-
-% In consideration for the design, we present two possibilities:
-% \begin{enumerate}
-%   \item Create a sub-language to define rewrite rules for the entire modelling language, using variables to represent abstraction over internal structures. This language would look similar to the language we are attempting to build, but domain-specific to rewriting. For example, we could create a list of generic rewrite rules in the following manner:
-%   \begin{lstlisting}[language=python]
-% a: int
-% b: int
-% c: int | c != 0
-
-% # BEGIN REWRITE RULES
-% a + b - b = a
-% a + 0 = a
-% a * c / c = a
-% a * 0 = 0
-% \end{lstlisting}
-%   This notation is simple for integer optimization, but could be extended to include iterable actions and structures:
-%   \begin{lstlisting}[language=python]
-% S: Set
-% T: Set
-% R: Relation[Any, A] # type of A is generic
-% a: A
-% E: Set | len(E) == 1
-
-% # BEGIN REWRITE RULES
-% S - T + T = S # set difference and union
-% S := S + E = S.add(E.pop())
-% S := {x | x in S - T} = S := {x | x in S if x not in T}
-
-% for (fst, snd) in R:
-%   if snd == a:
-%     return fst
-% =
-% # Requires efficient inverse structure
-% return (R ** -1)[a]
-
-% # Requires assumption about the data structure's internal API
-% R ** -1[a] = R.lookup_reverse(a)
-% \end{lstlisting}
-%   The advantages of this approach are clear: new rewrite rules can be specified in programming language format, allowing developers to extend optimizations in a manner similar to writing regular library functions. Then, once these rules are parsed into AST form and passed to a rewrite system, they can be broadly applied across an entire program. Assuming this interface can provide all the dials and switches necessary to provide optimization steps, expert users can quickly advance the language for entire codebases. However, providing in depth rewrite rules for function inlining, determining properties of set implementations (ie. intersection of internally sorted sets) may be difficult to implement or otherwise extremely verbose. Both the target language AST and rewrite rules would need some context attachment to ensure correct optimizations are made in both the actions and representation of a program.
-%   \item Embedding rewrite steps directly in the compiler through specific, targeted, AST translations. For example, writing the first addition rule of method one directly in Python may look something like \texttt{Sub(Add(id1(), id2()), id2()) = id1()}. This effectively skips the ``middle-man'' grammar but requires direct AST setup within the compiler source text. Results of function applications may carry necessary corresponding information that could allow for deeper optimizations. For example, expressing the optimal intersection of two internally sorted sets may look something like:
-%   \begin{lstlisting}[language=python]
-% class SortedSet(Set):
-%   properties=["sorted"]
-%   values: list
-
-% # Rough idea for a modified version of the last step in mergesort
-% def merge_sorted_lists(lst1: list, lst2: list) -> list:
-%   longest_list, other_list = lst1, lst2 if len(lst1) > len(lst2) else lst2, lst1
-%   ret_list = []
-%   i, j = 0, 0
-%   while i < len(longest_list):
-%     if j >= len(other_list):
-%       break
-
-%     if longest_list[i] == longest_list[j]
-%       ret_list.append(longest_list[i])
-%       i += 1
-%       j += 1
-%     elif longest_list[i] > other_list[j]:
-%       j += 1
-%     else: # longest_list[i] < other_list[j]
-%       i += 1
-%   return ret_list
-
-% def rewrite_sorted_intersection(lhs: Intersection[SortedSet, SortedSet]) -> SortedSet:
-%   # Caller would need to check for the "sorted" property
-%   return SortedSet(merge_sorted_lists(lhs.left, lhs.right))
-% \end{lstlisting}
-% \end{enumerate}
-
-% Both methods take inspiration from realized rewrite systems: the mini-language approach is used in GHC through \texttt{Haskell Core} \cite{haskellCore}, and the latter through Egglog, an equality saturation library \cite{egglogPython, eggPaper}. Since we expect the number of example-based optimizations to increase with continued data gathering from relevant domains, keeping a handwritten list of such optimizations may be necessary. By selecting a rewrite rule input style similar to method one, the handwritten records may serve doubly as a fundamental part of our optimizer.
-
-% The particular system of rewriting remains undecided due to upfront time investments and struggles in working with niche tools. An initial test with Egglog's equality saturation techniques revealed inflexible APIs that failed to accommodate custom types and non-standard operators. Exploring an older but more mature version of equality saturation through the Rust library Egg \cite{eggRust}, we again faced challenges related to type restrictions and purely AST-based rewrite rules. In the coming weeks, a dedicated rewriting system may be chosen or written from scratch based on equality saturation or rewriting with strategies.
-
 After rewriting terms to eliminate all superfluous operators, the compiler must decide on the best representation of data, given the context of relevant operations, object lifetimes, and expected memory usage. Finding generic optimizations across all possible use cases of data types may very well be undecidable, requiring complete knowledge of the code's runtime behaviours before the code has actually executed, but optimizing common operations may reach an acceptable level of improvement. We may further make use of modelling domain knowledge to heuristically optimize data representations (ex. bi-directional maps for the birthday book problem).
+
+More concretely, LLVM defines several different types of sets that may be optimal depending on actions and expected size \cite{llvmSetDocs}. The built-in \texttt{SmallSet} saves large quantities of memory, for instance, but comes with linear access times. \texttt{Dense}- and \texttt{Sparse}-Sets on the other hand, provide access through hash tables and use more memory to prevent several \texttt{malloc} calls every insertion. Ordered elements within \texttt{Vector}s can enable extremely fast insertions and reasonably fast lookups. For our compiler, efficient lookups are preferred over efficient insertions, since we aim to trade intermediary set constructions for extra lookups for each element.
+
+The remaining compilation step then lowers the optimized AST into LLVM IR. The Python library \texttt{llvmlite} \cite{llvmliteLib} provides APIs to generate IR statements directly from within Python, enabling straightforward code generation through tree traversals. However, since LLM uses static single assignment form and C++-level constructs for high efficiency, a post-optimization concrete AST may be necessary to replace chunks of the AST with a closer-to-executable representation.
+
+% Given that LLVM IR is a programming language in-and-of-itself, effectively lower optimized ASTs into IR.
 
 \section{Future Work}
 
@@ -634,7 +587,7 @@ Before we conclude this paper, it is important to illustrate two key points of r
 
 In addition to set construction notation, we observed that a noticeable number of modelling examples make use of quantification logic within set generators. Currently, rewrite rules to optimize quantifier logic are not part of the Section 3 system. Instead, the language currently treats such expressions naively, looping over a given domain to find existential and universal quantification.
 
-Second, generators for multiple variables within a comprehension must be optimized. A naive implementation may start with a double nested loop over both variable generators, however, any optimizations to reduce the number of superfluous loops will result in large leaps in runtime efficiency. Any opportunity to remove $O(n^2)$ and beyond code should be followed aggressively, but such a topic will need to be explored in detail, beyond the work of this project.
+Second, generators for multiple variables within a comprehension must be optimized. A naive implementation may start with a double nested loop over both variable generators, however, any optimizations to reduce the number of superfluous loops will result in large leaps in runtime efficiency. Any opportunity to remove $O(n^2)$ and beyond code should be followed aggressively, but such a topic will need to be explored in detail, beyond the work of this current project.
 
 % allow quantification logic in place of a set generator - ex. {n | (\exists k | n = 2k)}
 % allow more than one variable on the LHS of a comprehension (ie. double nested loop, maybe some optimization there)

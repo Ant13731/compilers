@@ -5,7 +5,7 @@ Note that this file is independent from the rest of the compiler, intended only 
 """
 
 import unittest
-from parameterized import parameterized
+from parameterized import parameterized  # type: ignore
 
 from ast_ import *
 from parser import parse

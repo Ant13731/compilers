@@ -99,10 +99,10 @@ class EggASTTransformer(Transformer):
     def negation(self, tokens: list[PrimaryStmt | UnaryOp | BinOp]) -> Not:
         return Not(tokens[1])
 
-    def conjunction(self, tokens: list[PrimaryStmt | UnaryOp | BinOp]) -> And:
+    def conjunction(self, tokens: list[PrimaryStmt | UnaryOp | BinOp | Or]) -> And:
         return And(tokens)
 
-    def disjunction(self, tokens: list[PrimaryStmt | UnaryOp | BinOp]) -> Or:
+    def disjunction(self, tokens: list[PrimaryStmt | UnaryOp | BinOp | And]) -> Or:
         return Or(tokens)
 
     def impl(self, tokens: list[PrimaryStmt | UnaryOp | BinOp]) -> Implies:
@@ -129,11 +129,6 @@ class EggASTTransformer(Transformer):
 
     def typed_name(self, tokens: tuple[Identifier, Type_]) -> TypedName:
         return TypedName(*tokens)
-
-    # def slice_or_index(self, tokens: list[str]) -> str:
-    #     if len(tokens) == 0:
-    #         return ""
-    #     return tokens[0]
 
     def indexing(self, tokens: tuple[PrimaryStmt, Slice | EquivalenceStmt | None_]) -> Indexing:
         return Indexing(*tokens)
@@ -167,7 +162,7 @@ class EggASTTransformer(Transformer):
         }
         if isinstance(tokens[0], str) and tokens[0] in map_symbol_to_ast:
             return map_symbol_to_ast[tokens[0]]()
-        assert not isinstance(tokens[0], str)  # if this assertion fails, that means we got a string value we didnt expect
+        assert not isinstance(tokens[0], str)  # if this assertion fails, that means we got a string value we didn't expect
         return tokens[0]
 
     def type_(self, tokens: list[Expr]) -> Type_:
