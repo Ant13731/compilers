@@ -3,7 +3,7 @@ import unittest
 from parser import parse
 from ast_ import *
 
-unittest.util._MAX_LENGTH = 2000
+unittest.util._MAX_LENGTH = 2000  # type: ignore
 
 
 class TestParserRules(unittest.TestCase):

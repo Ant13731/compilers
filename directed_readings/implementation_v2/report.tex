@@ -14,6 +14,7 @@
 \usepackage{algorithm}
 \usepackage{mathtools}
 \usepackage{xcolor}
+\usepackage{subcaption}
 \usepackage{hyperref}
 
 \newcommand{\Set}[2]{%
@@ -431,20 +432,77 @@ Now that we have a complete rewrite system for sets, we give attention to more c
 % TODO completion chap 7, (made from confluence through critical pair calculation and termination through reduction order)
 % TODO give a strategy that can be applied to this
 
-\section{A Concrete Implementation}
+% \section{A Concrete Implementation}
+\section{A Backdrop for Concrete Sets}
 
+\subsection{Sets in Other Languages}
+Before exploring our own concrete implementation of sets, we first examine the current state of work within this subdomain.
 
-% TODO converting AST to LLVM IR
+List comprehensions have been a standardized construct in several paradigms of programming, ranging from relational databases to functional languages. Generally, there are three methods of set-like comprehension:
+\begin{enumerate}
+  \item SQL-like queries on relational databases of the form \texttt{SELECT entry FROM table WHERE property(entry)}.
+  \item Functional list comprehensions similar to set construction, like the Haskell statement \texttt{[x | x <- xs, p x]}.
+  \item Python-like comprehensions that are more akin to syntactic sugar for nested loops: \texttt{\{x for x in xs if pp(x)\}}.
+\end{enumerate}
+
+Microsoft's implementation of SQL Server contains an entire engine dedicated to optimizing queries to and from a relational database. Optimization steps relevant to our domain make use of constant folding, early subexpression evaluation, and clause manipulation. However, since databases often deal with massive quantities of stable data chunks, concepts like indexing, intermediate evaluation, parallel query processing, batch evaluation, and distributed architectures are far more valuable to reducing overall runtimes. Compared to modelling domains, which often involve rapid changes of relatively small pieces of data, the overhead from all these optimization steps are unlikely to bear fruit.
+
+In Haskell, list comprehensions are integral to the concise manipulation of individual elements. Essentially, comprehensions of this functional flavour act as syntactic sugar for \texttt{map} and \texttt{filter} functions, using plain discrete mathematics expressions. Haskell provides additional syntax for multi-generator comprehensions (eg. \texttt{[(a,b) | a <- as, b <- bs]}) and zipped multi-generator comprehensions (eg. \texttt{[(a,b) | a <- as | b <- bs]}). The former acts as a nested for loop, creating $|as|\times|bs|$ elements in total, while the latter processes elements from both sources in a single loop, generating only $min(|as|,|bs|)$ elements.
+
+Similarly, Python places for-loop notation directly within the list, where multiple ``for'' keywords within a comprehension behave as directly nested loops. For example, a comprehension matching the same output as Haskell's multi-generator comprehension would be denoted by \texttt{[(a,b) for a in as for b in bs]}.
+
+The language of comprehensions in our notation will draw directly from discrete mathematics but act as a hybrid between Haskell and Python. A key difference, however, is the optimization steps we are able to make through the compilation process. In Python, side-effectful functions and a very strict for-loop like syntax prevent rewrite rules from being effective mediums for optimization. Such functions also mean that execution order is constrained to the location in which the statement was written. On the other hand, Haskell performs lazy evaluation of elements, which may avoid complete construction of intermediate sets but requires an unpredictable amount of overhead in both memory and running time.
+
+\subsection{Running Time of Optimized Sets}
+
+By applying optimizing rewrite rules at compile time, we retain the benefit of Haskell-like set comprehension semantics while cutting out the uncertainty of lazy evaluation. The optimizations themselves are similar in essence to Haskell's standard library, as shown in Figure~\ref{fig:intersectComparison} but we attempt to perform them earlier, more aggressively, and with modelling-oriented semantics. To this point, while Haskell's use of \texttt{any} requires folding the entire list of \texttt{ys} and thus runs in $O(n)$, an efficient check for set membership through a hash table would require only $O(1)$ time.
+
+\begin{figure}
+  \centering
+  \begin{subfigure}[T]{.4\textwidth}
+    \centering
+    \begin{lstlisting}[language=Haskell,basicstyle=\small]
+intersect :: [a] -> [a] -> [a]
+intersect [] _  = []
+intersect _  [] = []
+intersect xs ys =
+    [x | x <- xs, any ((==) x) ys]
+    \end{lstlisting}
+    \caption{A simplified version of Haskell's intersection function, adapted from \cite{haskellIntersect}}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[T]{.4\textwidth}
+    \centering
+    \begin{algorithmic}
+      \Require $x,f,S,p$
+      \State $A \gets \emptyset$
+      \For{$x \in S$}
+        \If{$p(x)$}
+          \State $A.add(f(x))$
+        \EndIf
+      \EndFor\\
+      \Return $A$
+    \end{algorithmic}
+    \caption{The output of intersection rewrite rule 23.}
+  \end{subfigure}
+  \caption{Comparison of Haskell's definition of intersection versus our rewrite rule optimization}
+  \label{fig:intersectComparison}
+\end{figure}
+
+In the set of rewrite rules that generate code from Section 3.1, we optimize under the assumptions that set membership is efficient and loops will always iterate over the smallest viable set. Then, all loops defined by the rewrite set generally take time proportional to $O(n)$, provided non-membership conditions only require constant time. More specifically, union operations for sets $S$ and $T$ with one generating element should only require at most $O(|S| + |T|)$ time, since loops are executed sequentially. Then, intersections only use at most $O(min(|S|,|T|))$ time, generating over the shorter of the two sets. Finally, set differences always loop over the first operator, requiring $O(|S|)$ time.
+
+Memory usage for all operations is likely more than an entirely lazy approach, but far better compared to eager procedural languages. Most of the time, rewrite rules can eliminate intermediate set creation from temporary unions, intersections, and set differences. However, in more complex environments for intersection and set difference, as in equations 12 and 13 respectively, it becomes more prudent to make use of an intermediate set for the chance of future optimizations. For example, an unoptimized implementation of $\Set{f(x)}{x \in S} \cap \Set{g(y)}{y \in T}$ would construct both arguments and then calculate the intersection. However, by constructing only one of the arguments and incorporating that construction in the evaluation of the second, we effectively eliminate an entire loop over the larger set.
 
 % TODO List comprehensions in prev languages (look at wikipedia for list of set comprehensions - https://en.wikipedia.org/wiki/Set-builder_notation vs our language). do the same for map and list
 % TODO how are they implemented in those languages
 
 % TODO code guarantees of rewritten algos
+
+
+
 % TODO Show pipeline from lang to LLVM
-
+% TODO converting AST to LLVM IR
 % TODO Implement Rewrite Rules from AST to AST, use python pattern matching to do so
-
-
 % TODO remove next section or address all comments
 
 
@@ -461,10 +519,10 @@ The first of these goals is primarily motivated by language design and largely i
 \subsection{Supported Operators and ADTs}
 Within the language, we care about optimization for two types of data: primitive values like integers, floating point numbers, strings, etc, and collections, like sets, sequences, and relations, as mentioned in previous sections.
 
-On primitives, all standard operations will be supported:
+On primitives, all standard operations are supported:
 \begin{itemize}
-  \item For booleans, operators like $\lor$, $\land$, $\implies$, $\iff$, and $\impliedby$ will be part of the language core, in addition to quantification statements like $\exists$ and $\forall$. Enabling these operators will enhance the expressivity of set constructions and maintain parity between the specification and implementation source code as much as possible.
-  \item Integers and floats will contain standard mathematical operations, from addition to exponentiation. Most other operations can be implemented efficiently by way of functions, so we are not as concerned. Range notation of the form $x \in 1..n$ may prove useful. Depending on the implementation of our optimizer, the rewrite system may be extendable with custom rules particularly for complex mathematical expressions. However, we disregard most of these optimizations for now, since low level numerical optimization is made available through optimizers like LLVM.
+  \item For booleans, operators like $\lor$, $\land$, $\implies$, $\iff$, and $\impliedby$ are part of the language core, in addition to quantification statements like $\exists$ and $\forall$. Enabling these operators enhances the expressivity of set constructions and maintains parity between the specification and implementation source code as much as possible.
+  \item Integers and floats are coupled with standard mathematical operations, from addition to exponentiation. Most numerical operations can be implemented efficiently by way of functions, so we are not as concerned with numbers as a core part of the language. Depending on the implementation of our optimizer, the rewrite system may be extendable with custom rules particularly for complex mathematical expressions. However, we disregard most of these optimizations for now, since low level numerical optimization is made available through optimizers like LLVM.
   \item Strings as specialized sequences of characters with syntactic sugar.
 \end{itemize}
 
@@ -484,7 +542,7 @@ As the first step in processing the language, a CFG is used to convert plain tex
 \begin{itemize}
   \item Additional operators (and overloaded operators) dedicated to sets, sequences, and relations. With static typing, these will enable expressive statements closely resembling modelling specifications.
   \item Set construction-like comprehension statements for sets, sequences, and relations.
-  \item Record types (structs) in place of classes. These may be implemented as named tuples or relations, depending on implementation testing.
+  \item Record types (structs) in place of classes, implemented as relations.
   \item Enums as static sets to collect names into a specific type. For example, when modelling a stop light intersection, the three stages of a light may be most clearly modelled as an enum with 3 states: red, yellow, and green.
 \end{itemize}
 
@@ -495,81 +553,95 @@ The complete current grammar is available on \href{https://github.com/Ant13731/c
 
 The next step of our compiler is translating the CFG into a malleable AST. The Python library Lark \cite{lark} provides several choices of parsers, lexers, tree traversal methods, and top level interfaces to ease the process of parsing. From the grammar, Lark generates a generic AST \texttt{Transformer} that is traversable through methods corresponding to each grammar rule.
 
-With the frontend of the compiler complete, we now move on to the optimization stage. This stage is perhaps the most complex to design and implement, since these decisions directly impact the balance of optimization capabilities and extensibility. In consideration for the design, we present two possibilities:
-\begin{enumerate}
-  \item Create a sub-language to define rewrite rules for the entire modelling language, using variables to represent abstraction over internal structures. This language would look similar to the language we are attempting to build, but domain-specific to rewriting. For example, we could create a list of generic rewrite rules in the following manner:
-  \begin{lstlisting}[language=python]
-a: int
-b: int
-c: int | c != 0
+With the frontend of the compiler complete, we now move on to the optimization stage. This stage is perhaps the most complex to design and implement, since these decisions directly impact the balance of optimization capabilities and extensibility.
 
-# BEGIN REWRITE RULES
-a + b - b = a
-a + 0 = a
-a * c / c = a
-a * 0 = 0
-\end{lstlisting}
-  This notation is simple for integer optimization, but could be extended to include iterable actions and structures:
-  \begin{lstlisting}[language=python]
-S: Set
-T: Set
-R: Relation[Any, A] # type of A is generic
-a: A
-E: Set | len(E) == 1
 
-# BEGIN REWRITE RULES
-S - T + T = S # set difference and union
-S := S + E = S.add(E.pop())
-S := {x | x in S - T} = S := {x | x in S if x not in T}
+% In consideration for the design, we present two possibilities:
+% \begin{enumerate}
+%   \item Create a sub-language to define rewrite rules for the entire modelling language, using variables to represent abstraction over internal structures. This language would look similar to the language we are attempting to build, but domain-specific to rewriting. For example, we could create a list of generic rewrite rules in the following manner:
+%   \begin{lstlisting}[language=python]
+% a: int
+% b: int
+% c: int | c != 0
 
-for (fst, snd) in R:
-  if snd == a:
-    return fst
-=
-# Requires efficient inverse structure
-return (R ** -1)[a]
+% # BEGIN REWRITE RULES
+% a + b - b = a
+% a + 0 = a
+% a * c / c = a
+% a * 0 = 0
+% \end{lstlisting}
+%   This notation is simple for integer optimization, but could be extended to include iterable actions and structures:
+%   \begin{lstlisting}[language=python]
+% S: Set
+% T: Set
+% R: Relation[Any, A] # type of A is generic
+% a: A
+% E: Set | len(E) == 1
 
-# Requires assumption about the data structure's internal API
-R ** -1[a] = R.lookup_reverse(a)
-\end{lstlisting}
-  The advantages of this approach are clear: new rewrite rules can be specified in programming language format, allowing developers to extend optimizations in a manner similar to writing regular library functions. Then, once these rules are parsed into AST form and passed to a rewrite system, they can be broadly applied across an entire program. Assuming this interface can provide all the dials and switches necessary to provide optimization steps, expert users can quickly advance the language for entire codebases. However, providing in depth rewrite rules for function inlining, determining properties of set implementations (ie. intersection of internally sorted sets) may be difficult to implement or otherwise extremely verbose. Both the target language AST and rewrite rules would need some context attachment to ensure correct optimizations are made in both the actions and representation of a program.
-  \item Embedding rewrite steps directly in the compiler through specific, targeted, AST translations. For example, writing the first addition rule of method one directly in Python may look something like \texttt{Sub(Add(id1(), id2()), id2()) = id1()}. This effectively skips the ``middle-man'' grammar but requires direct AST setup within the compiler source text. Results of function applications may carry necessary corresponding information that could allow for deeper optimizations. For example, expressing the optimal intersection of two internally sorted sets may look something like:
-  \begin{lstlisting}[language=python]
-class SortedSet(Set):
-  properties=["sorted"]
-  values: list
+% # BEGIN REWRITE RULES
+% S - T + T = S # set difference and union
+% S := S + E = S.add(E.pop())
+% S := {x | x in S - T} = S := {x | x in S if x not in T}
 
-# Rough idea for a modified version of the last step in mergesort
-def merge_sorted_lists(lst1: list, lst2: list) -> list:
-  longest_list, other_list = lst1, lst2 if len(lst1) > len(lst2) else lst2, lst1
-  ret_list = []
-  i, j = 0, 0
-  while i < len(longest_list):
-    if j >= len(other_list):
-      break
+% for (fst, snd) in R:
+%   if snd == a:
+%     return fst
+% =
+% # Requires efficient inverse structure
+% return (R ** -1)[a]
 
-    if longest_list[i] == longest_list[j]
-      ret_list.append(longest_list[i])
-      i += 1
-      j += 1
-    elif longest_list[i] > other_list[j]:
-      j += 1
-    else: # longest_list[i] < other_list[j]
-      i += 1
-  return ret_list
+% # Requires assumption about the data structure's internal API
+% R ** -1[a] = R.lookup_reverse(a)
+% \end{lstlisting}
+%   The advantages of this approach are clear: new rewrite rules can be specified in programming language format, allowing developers to extend optimizations in a manner similar to writing regular library functions. Then, once these rules are parsed into AST form and passed to a rewrite system, they can be broadly applied across an entire program. Assuming this interface can provide all the dials and switches necessary to provide optimization steps, expert users can quickly advance the language for entire codebases. However, providing in depth rewrite rules for function inlining, determining properties of set implementations (ie. intersection of internally sorted sets) may be difficult to implement or otherwise extremely verbose. Both the target language AST and rewrite rules would need some context attachment to ensure correct optimizations are made in both the actions and representation of a program.
+%   \item Embedding rewrite steps directly in the compiler through specific, targeted, AST translations. For example, writing the first addition rule of method one directly in Python may look something like \texttt{Sub(Add(id1(), id2()), id2()) = id1()}. This effectively skips the ``middle-man'' grammar but requires direct AST setup within the compiler source text. Results of function applications may carry necessary corresponding information that could allow for deeper optimizations. For example, expressing the optimal intersection of two internally sorted sets may look something like:
+%   \begin{lstlisting}[language=python]
+% class SortedSet(Set):
+%   properties=["sorted"]
+%   values: list
 
-def rewrite_sorted_intersection(lhs: Intersection[SortedSet, SortedSet]) -> SortedSet:
-  # Caller would need to check for the "sorted" property
-  return SortedSet(merge_sorted_lists(lhs.left, lhs.right))
-\end{lstlisting}
-\end{enumerate}
+% # Rough idea for a modified version of the last step in mergesort
+% def merge_sorted_lists(lst1: list, lst2: list) -> list:
+%   longest_list, other_list = lst1, lst2 if len(lst1) > len(lst2) else lst2, lst1
+%   ret_list = []
+%   i, j = 0, 0
+%   while i < len(longest_list):
+%     if j >= len(other_list):
+%       break
 
-Both methods take inspiration from realized rewrite systems: the mini-language approach is used in GHC through \texttt{Haskell Core} \cite{haskellCore}, and the latter through Egglog, an equality saturation library \cite{egglogPython, eggPaper}. Since we expect the number of example-based optimizations to increase with continued data gathering from relevant domains, keeping a handwritten list of such optimizations may be necessary. By selecting a rewrite rule input style similar to method one, the handwritten records may serve doubly as a fundamental part of our optimizer.
+%     if longest_list[i] == longest_list[j]
+%       ret_list.append(longest_list[i])
+%       i += 1
+%       j += 1
+%     elif longest_list[i] > other_list[j]:
+%       j += 1
+%     else: # longest_list[i] < other_list[j]
+%       i += 1
+%   return ret_list
 
-The particular system of rewriting remains undecided due to upfront time investments and struggles in working with niche tools. An initial test with Egglog's equality saturation techniques revealed inflexible APIs that failed to accommodate custom types and non-standard operators. Exploring an older but more mature version of equality saturation through the Rust library Egg \cite{eggRust}, we again faced challenges related to type restrictions and purely AST-based rewrite rules. In the coming weeks, a dedicated rewriting system may be chosen or written from scratch based on equality saturation or rewriting with strategies.
+% def rewrite_sorted_intersection(lhs: Intersection[SortedSet, SortedSet]) -> SortedSet:
+%   # Caller would need to check for the "sorted" property
+%   return SortedSet(merge_sorted_lists(lhs.left, lhs.right))
+% \end{lstlisting}
+% \end{enumerate}
+
+% Both methods take inspiration from realized rewrite systems: the mini-language approach is used in GHC through \texttt{Haskell Core} \cite{haskellCore}, and the latter through Egglog, an equality saturation library \cite{egglogPython, eggPaper}. Since we expect the number of example-based optimizations to increase with continued data gathering from relevant domains, keeping a handwritten list of such optimizations may be necessary. By selecting a rewrite rule input style similar to method one, the handwritten records may serve doubly as a fundamental part of our optimizer.
+
+% The particular system of rewriting remains undecided due to upfront time investments and struggles in working with niche tools. An initial test with Egglog's equality saturation techniques revealed inflexible APIs that failed to accommodate custom types and non-standard operators. Exploring an older but more mature version of equality saturation through the Rust library Egg \cite{eggRust}, we again faced challenges related to type restrictions and purely AST-based rewrite rules. In the coming weeks, a dedicated rewriting system may be chosen or written from scratch based on equality saturation or rewriting with strategies.
 
 After rewriting terms to eliminate all superfluous operators, the compiler must decide on the best representation of data, given the context of relevant operations, object lifetimes, and expected memory usage. Finding generic optimizations across all possible use cases of data types may very well be undecidable, requiring complete knowledge of the code's runtime behaviours before the code has actually executed, but optimizing common operations may reach an acceptable level of improvement. We may further make use of modelling domain knowledge to heuristically optimize data representations (ex. bi-directional maps for the birthday book problem).
 
+\section{Future Work}
+
+Before we conclude this paper, it is important to illustrate two key points of research that should be resolved for a very high level language but are beyond the scope of this project.
+
+In addition to set construction notation, we observed that a noticeable number of modelling examples make use of quantification logic within set generators. Currently, rewrite rules to optimize quantifier logic are not part of the Section 3 system. Instead, the language currently treats such expressions naively, looping over a given domain to find existential and universal quantification.
+
+Second, generators for multiple variables within a comprehension must be optimized. A naive implementation may start with a double nested loop over both variable generators, however, any optimizations to reduce the number of superfluous loops will result in large leaps in runtime efficiency. Any opportunity to remove $O(n^2)$ and beyond code should be followed aggressively, but such a topic will need to be explored in detail, beyond the work of this project.
+
+% allow quantification logic in place of a set generator - ex. {n | (\exists k | n = 2k)}
+% allow more than one variable on the LHS of a comprehension (ie. double nested loop, maybe some optimization there)
+%  - ex.  \{(k,x)\ |\ k\in K \land x\in X \land p(x)\}
 
 \section{Conclusion}
 The beginning stages of building a new programming language are arguably one of the most exciting and fundamental parts of the compiler development process. Exploring theoretical optimizations isolated from specific architectures and system limitations can lead to drastic improvements in overall performance with zero additional hardware costs. For our very high level language, we attempt to combine focused optimization techniques on a discrete mathematics language familiar to all computer scientists and software developers.
