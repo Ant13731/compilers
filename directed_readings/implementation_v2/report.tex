@@ -493,20 +493,6 @@ In the set of rewrite rules that generate code from Section 3.1, we optimize und
 
 Memory usage for all operations is likely more than an entirely lazy approach, but far better compared to eager procedural languages. Most of the time, rewrite rules can eliminate intermediate set creation from temporary unions, intersections, and set differences. However, in more complex environments for intersection and set difference, as in equations 12 and 13 respectively, it becomes more prudent to make use of an intermediate set for the chance of future optimizations. For example, an unoptimized implementation of $\Set{f(x)}{x \in S} \cap \Set{g(y)}{y \in T}$ would construct both arguments and then calculate the intersection. However, by constructing only one of the arguments and incorporating that construction in the evaluation of the second, we effectively eliminate an entire loop over the larger set.
 
-% TODO List comprehensions in prev languages (look at wikipedia for list of set comprehensions - https://en.wikipedia.org/wiki/Set-builder_notation vs our language). do the same for map and list
-% TODO how are they implemented in those languages
-
-% TODO code guarantees of rewritten algos
-
-
-
-% TODO Show pipeline from lang to LLVM
-% TODO converting AST to LLVM IR
-% TODO Implement Rewrite Rules from AST to AST, use python pattern matching to do so
-% TODO remove next section or address all comments
-
-
-
 \section{A Very High Level Language}
 
 Although the details of implementation, representation, and optimization are still in their infancy, we will eventually require a vehicle to rapidly test optimizations as they appear. This project therefore involves the creation of a compiler pipeline that supports swift iteration, extension, and execution. To reiterate, the goals of our very high level language are as follows:
@@ -521,7 +507,7 @@ Within the language, we care about optimization for two types of data: primitive
 
 On primitives, all standard operations are supported:
 \begin{itemize}
-  \item For booleans, operators like $\lor$, $\land$, $\implies$, $\iff$, and $\impliedby$ are part of the language core, in addition to quantification statements like $\exists$ and $\forall$. Enabling these operators enhances the expressivity of set constructions and maintains parity between the specification and implementation source code as much as possible.
+  \item For booleans, operators like $\lor$, $\land$, $\implies$, $\iff$, and $\impliedby$ are part of the language core, with future additions for quantification statements like $\exists$ and $\forall$. Enabling these operators enhances the expressivity of set constructions and maintains parity between the specification and implementation source code as much as possible.
   \item Integers and floats are coupled with standard mathematical operations, from addition to exponentiation. Most numerical operations can be implemented efficiently by way of functions, so we are not as concerned with numbers as a core part of the language. Depending on the implementation of our optimizer, the rewrite system may be extendable with custom rules particularly for complex mathematical expressions. However, we disregard most of these optimizations for now, since low level numerical optimization is made available through optimizers like LLVM.
   \item Strings as specialized sequences of characters with syntactic sugar.
 \end{itemize}
@@ -548,12 +534,23 @@ As the first step in processing the language, a CFG is used to convert plain tex
 
 The complete current grammar is available on \href{https://github.com/Ant13731/compilers/blob/main/implementation/grammar.lark}{GitHub}.
 
-% \subsubsection{Parsing with Lark}
 \subsubsection{AST and AST transformations}
 
 The next step of our compiler is translating the CFG into a malleable AST. The Python library Lark \cite{lark} provides several choices of parsers, lexers, tree traversal methods, and top level interfaces to ease the process of parsing. From the grammar, Lark generates a generic AST \texttt{Transformer} that is traversable through methods corresponding to each grammar rule.
 
 With the frontend of the compiler complete, we now move on to the optimization stage. This stage is perhaps the most complex to design and implement, since these decisions directly impact the balance of optimization capabilities and extensibility.
+
+
+% TODO Show pipeline from lang to LLVM (entire section) - maybe add a picture/diagram?
+
+% TODO Implement Rewrite Rules from AST to AST, use python pattern matching to do so
+% TODO converting AST to LLVM IR
+
+% TODO remove next section or address all comments
+
+
+
+
 
 
 % In consideration for the design, we present two possibilities:
