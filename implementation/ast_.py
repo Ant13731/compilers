@@ -9,29 +9,86 @@ from llvmlite import ir
 class BaseAST:
     """Base class for all AST nodes."""
 
-    def pprint_types(self, indent=0) -> None:
-        """Recursively pretty prints the types of the AST node and its fields."""
-        indentation = " " * indent
-        print(indentation + f"{self.__class__.__name__}:")
-        for field in fields(self):
-            field_value = getattr(self, field.name)
-            if isinstance(field_value, BaseAST):
-                print(indentation + f"  {field.name}:")
-                field_value.pprint_types(indent + 2)
-            elif isinstance(field_value, list):
-                print(indentation + f"  {field.name}: [")
-                for item in field_value:
-                    if isinstance(item, BaseAST):
-                        item.pprint_types(indent + 4)
-                    else:
-                        print(indentation + f"    {item}")
-                print(indentation + "  ]")
-            else:
-                print(indentation + f"  {field.name}: {type(field_value).__name__}")
+    # def pprint_types(self, indent=0) -> None:
+    #     """Recursively pretty prints the types of the AST node and its fields."""
+    #     indentation = " " * indent
+    #     print(indentation + f"{self.__class__.__name__}:")
+    #     for field in fields(self):
+    #         field_value = getattr(self, field.name)
+    #         if isinstance(field_value, BaseAST):
+    #             print(indentation + f"  {field.name}:")
+    #             field_value.pprint_types(indent + 2)
+    #         elif isinstance(field_value, list):
+    #             print(indentation + f"  {field.name}: [")
+    #             for item in field_value:
+    #                 if isinstance(item, BaseAST):
+    #                     item.pprint_types(indent + 4)
+    #                 else:
+    #                     print(indentation + f"    {item}")
+    #             print(indentation + "  ]")
+    #         else:
+    #             print(indentation + f"  {field.name}: {type(field_value).__name__}")
 
     def llvm_codegen(self) -> str:
         """Generates LLVM IR code for the AST node."""
         raise NotImplementedError(f"Code generation not implemented for {self.__class__.__name__}.")
+
+    def contains(self, node: type[BaseAST]) -> bool:
+        """Checks if the AST node contains a specific type of node."""
+        if isinstance(self, node):
+            return True
+        for field in fields(self):
+            field_value = getattr(self, field.name)
+            if isinstance(field_value, list):
+                for item in field_value:
+                    if isinstance(item, BaseAST) and item.contains(node):
+                        return True
+            elif isinstance(field_value, BaseAST) and field_value.contains(node):
+                return True
+        return False
+
+    def pretty_print(
+        self,
+        ignore_fields: list[str] | None = None,
+        indent=2,
+    ) -> str:
+        if ignore_fields is not None and self.__class__.__name__ in ignore_fields:
+            indent_ = ""
+            indent -= 2
+            ret = ""
+        else:
+            if isinstance(self, PrimitiveLiteral | Identifier):
+                if isinstance(self, None_):
+                    ret = f"{self.__class__.__name__}\n"
+                    return ret
+                ret = f"{self.__class__.__name__}: {self.value}\n"
+                return ret
+
+            ret = f"{self.__class__.__name__}:\n"
+            indent_ = indent * " "
+
+        for field in fields(self):
+            field_value = getattr(self, field.name)
+
+            if isinstance(field_value, BaseAST):
+                if len(fields(self)) == 1:
+                    ret += f"{indent_}{field_value.pretty_print(ignore_fields, indent+2)}"
+                else:
+                    ret += f"{indent_}{field.name}={field_value.pretty_print(ignore_fields,indent + 2)}"
+                continue
+
+            if isinstance(field_value, list):
+                ret += f"{indent_}[\n"
+                for item in field_value:
+                    if isinstance(item, BaseAST):
+                        ret += f"{indent_}{item.pretty_print(ignore_fields,indent + 2)}"
+                    else:
+                        ret += f"{indent_}    {item}\n"
+                ret += f"{indent_}]\n"
+                continue
+
+            ret += f"{indent_}{field.name}**: {field_value}\n"
+        return ret
 
 
 # Below collection of classes vaguely matches the rules of grammar.lark.
@@ -171,12 +228,34 @@ class IsNot(BinOp):
 
 @dataclass
 class And(BaseAST):
-    clauses: list[PrimaryStmt | UnaryOp | BinOp]
+    clauses: list[PrimaryStmt | UnaryOp | BinOp | Or]
+
+    @staticmethod
+    def flatten_and_join(clauses: list[PrimaryStmt | UnaryOp | BinOp | Or | And]) -> And:
+        """Flattens nested And clauses and joins them into a single And clause."""
+        flattened_clauses = []
+        for clause in clauses:
+            if isinstance(clause, And):
+                flattened_clauses += clause.clauses
+            else:
+                flattened_clauses.append(clause)
+        return And(clauses=flattened_clauses)
 
 
 @dataclass
 class Or(BaseAST):
-    clauses: list[PrimaryStmt | UnaryOp | BinOp]
+    clauses: list[PrimaryStmt | UnaryOp | BinOp | And]
+
+    @staticmethod
+    def flatten_and_join(clauses: list[PrimaryStmt | UnaryOp | BinOp | Or | And]) -> Or:
+        """Flattens nested Or clauses and joins them into a single Or clause."""
+        flattened_clauses = []
+        for clause in clauses:
+            if isinstance(clause, Or):
+                flattened_clauses += clause.clauses
+            else:
+                flattened_clauses.append(clause)
+        return Or(clauses=flattened_clauses)
 
 
 class Implies(BinOp):
@@ -237,7 +316,7 @@ class Power(BinOp):
 
 @dataclass
 class EquivalenceStmt(BaseAST):
-    value: BinOp | UnaryOp | PrimaryStmt
+    value: BinOp | UnaryOp | PrimaryStmt | And | Or
 
 
 # Calling
@@ -447,7 +526,7 @@ PrimitiveLiteral = Int | Float | String | None_ | Bool
 ComplexLiteral = Tuple | List | Dict | Set | Bag
 ComplexComprehensionLiteral = SetComprehension | DictComprehension | BagComprehension | ListComprehension
 
-Atom = PrimitiveLiteral | ComplexLiteral | ComplexComprehensionLiteral | Expr
+Atom = Identifier | PrimitiveLiteral | ComplexLiteral | ComplexComprehensionLiteral | Expr
 PrimaryStmt = StructAccess | Call | Indexing | Atom
 
 SimpleStatement = Expr | Assignment | Return | Break | Continue | Pass

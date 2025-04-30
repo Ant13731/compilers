@@ -12,6 +12,9 @@ Welcome to the very high level language repo! The repository is organized as fol
     └─ ast_.py: Collection of (empty-for-now) classes to represent the AST of our very high level language
     └─ grammar.lark: A CFG for our very high level language, written in a dialect suitable for the Lark Python library
     └─ parser.py: Contains a function that accepts a plaintext language input and returns an AST if valid in the language.
+    └─ README.md: Progress tracker for the language
+    └─ rewrite_strategy.py: Plan for rewrite pass of the optimizing compiler. Currently not implemented.
+    └─ rewrite_strategy_select_examples.py: Select examples of rewrite strategy implementations, independent from the rest of the compiler.
     └─ transformer.py: An API into lark that converts Lark Tree tokens into our custom AST classes.
     └─ transformer_unit_test.py: Unit tests for transformer.py
 └─ proposals: Proposals discussing the problems and justification of our work, WIP

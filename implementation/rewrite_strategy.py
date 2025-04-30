@@ -1,36 +1,38 @@
 from ast_ import *
 
 
-class RewriteStrategyBase:
+class RewritingStrategies:
     """
-    Base class for rewrite strategies.
-    """
-
-    def rewrite(self, ast: BaseAST) -> BaseAST:
-        """
-        Rewrite the given AST using the strategy.
-        """
-        raise NotImplementedError("Rewrite method not implemented in base class.")
-
-
-class StageOneSetStrategy(RewriteStrategyBase):
-    """
-    Stage one rewrite strategy for converting all Sets into constructor notation.
-
-    Intended for use with other stages as listed in Section 3.2 of the Implementation paper.
+    Not so much a class, but a collection of rewriting strategies for transforming our language ASTs.
     """
 
     @staticmethod
-    def rewrite_visitor(ast: BaseAST) -> BaseAST:
-        pass
-        # TODO tomorrow
-        # - add type information to variables, both where they are defined and used.
-        # - eventually every class will need to have an associated type, particularly operators. use None type for things that have no value, like statements
-        # - maybe a separate pass for the context too? that way we could, look up the type or value of an identifier, for example?
-        # maybe we will need a middle pass to find and attach that information?
-        # Need to differentiate where they are defined and used, only convert used variables set notation here
+    def set_rewrite(ast: BaseAST) -> BaseAST:
+        """Rewrite strategy for all set-based constructs.
 
-    #     match ast:
-    #         case Identifier(value):
+        Follows the multi-stage outline as listed in Section 3.2 of the Implementation paper."""
+        ast = RewritingStrategies.set_rewrite_stage_1(ast)
+        ast = RewritingStrategies.set_rewrite_stage_2(ast)
+        ast = RewritingStrategies.set_rewrite_stage_3(ast)
+        return ast
 
-    # def rewrite(self, ast: BaseAST) -> BaseAST:
+    @staticmethod
+    def set_rewrite_stage_1(ast: BaseAST) -> BaseAST:
+        """
+        Stage one: Convert all Sets into constructor notation.
+        """
+        raise NotImplementedError("Stage 1 not implemented yet.")
+
+    @staticmethod
+    def set_rewrite_stage_2(ast: BaseAST) -> BaseAST:
+        """
+        Stage two: Convert set operators into boolean-based set constructions.
+        """
+        raise NotImplementedError("Stage 2 not implemented yet.")
+
+    @staticmethod
+    def set_rewrite_stage_3(ast: BaseAST) -> BaseAST:
+        """
+        Stage three: Logical condition manipulation. Selects "generators" for each set.
+        """
+        raise NotImplementedError("Stage 3 not implemented yet.")
