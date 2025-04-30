@@ -13,24 +13,6 @@ from parser import parse
 from rewrite_strategy_select_examples import *
 
 
-# ignore_fields = ["Expr", "EquivalenceStmt"]
-ignore_fields = []
-for test_str, expected in tests_3.items():
-    print(f"Test case: {test_str}")
-    ast = parse(test_str)
-    res = test_rewrite_strategy_1(ast)
-    res = test_rewrite_strategy_1_denest(res)
-    res = test_rewrite_strategy_2(res)
-    res = test_rewrite_strategy_3(res)
-    if res != expected:
-        print("Test failed!")
-        print("Expected:")
-        print(expected.pretty_print(ignore_fields))
-        print("Got:")
-        print(res.pretty_print(ignore_fields))
-    # print(res.pretty_print(ignore_fields=["Expr", "EquivalenceStmt"]))
-
-
 class TestRewriteStrategy(unittest.TestCase):
     @parameterized.expand([(test_str, expected) for test_str, expected in tests_1.items()])
     def test_rewrite_strategy_1(self, test_str, expected):
