@@ -119,7 +119,7 @@ Extending the problem, we demonstrate the ergonomics of set operators over real 
 \begin{enumerate}
   \item Two groups of friends become acquainted, each with an originally independent birthday book. Eventually, they wish to merge their records together, removing duplicate entries for mutual friends.
   \item A subset of the original friend group eventually have a falling out and wish to separate from the main group. This problem then requires one birthday book to be separated into two.
-  \item When planning for a birthday party, a group of friends group wants to acknowledge not only the person's birthday, but any and all national holidays associated with that day.
+  \item When planning for a birthday party, the group wants to acknowledge not only the person's birthday, but any and all national holidays associated with that day.
 \end{enumerate}
 
 A straightforward model for the first scene would assume that two groups $A$ and $B$ have an existing birthday book. Then the new birthday book will consist of the union of these two relations. Keeping in mind the invariant that names within friend groups must remain unique, the new set $C$ can be constructed as in Algorithm~\ref{fig:birthdayUnion}.
@@ -188,14 +188,10 @@ In Python, set construction for the most part translates to a set comprehension 
 
 We now list a few simple but common examples of set-based expression optimizations:
 \begin{itemize}
-  \item A function $f$ applied over the difference of two sets may be written in a modelling language as $\{f(x) | x \in S \setminus T\}$. Translated to more Python-like syntax, this becomes \texttt{\{f(x) for x in S - T\}}. The default implementation of such an expression, with no knowledge over the side effects of $S$, $T$, and $f$, would first construct a temporary set \texttt{text = S - T}, then perform \texttt{\{f(x) for x in temp\}}. However, a more efficient implementation would rewrite the initial expression to \texttt{\{f(x) for x in S if x not in T\}}, effectively trading the overhead of temporary set construction for $|S|$ $O(1)$ lookup operations.
-  % \item Calculating the intersection of sets with a sorted representation may be done in $O(m+n)$ time through a mergesort-like step, or even in $O(n\log{\frac{m}{n}})$ using exponential search \cite{sortedIntersectionStackOverflow}.
-  \item Mapping over a difference of sets $S \setminus T$ where $T << S$ could also be performed by successive \texttt{[S.pop(x) for x in T]} operations, mutating $S$ directly and avoiding another set construction. An implementation of \texttt{pop} could also move selected elements to one end of the list and keep track of an index of ``deleted'' elements for future operations. Likewise, $S \cup T$ with $T << S$ may be serviced with sequential \texttt{add} operations
+  \item A function $f$ applied over the difference of two sets may be written in a modelling language as $\Set{f(x)}{x \in S \setminus T}$. Translated to more Python-like syntax, this becomes \texttt{\{f(x) for x in S - T\}}. The default implementation of such an expression, with no knowledge over the side effects of $S$, $T$, and $f$, would first construct a temporary set \texttt{text = S - T}, then perform \texttt{\{f(x) for x in temp\}}. However, a more efficient implementation would rewrite the initial expression to \texttt{\{f(x) for x in S if x not in T\}}, effectively trading the overhead of temporary set construction for $|S|$ $O(1)$ lookup operations.
+  \item Mapping over a difference of sets $S \setminus T$ where $|T| << |S|$ could also be performed by successive \texttt{[S.pop(x) for x in T]} operations, mutating $S$ directly and avoiding another set construction. An implementation of \texttt{pop} could also move selected elements to one end of the list and keep track of an index of ``deleted'' elements for future operations. Likewise, $S \cup T$ with $|T| << |S|$ may be serviced with sequential \texttt{add} operations
   \item A similar index tracking idea could be used for sets that ``consume'' another set. For example, consider Algorithm~\ref{fig:prodcons}, where $P$ and $C$ represent a producer and consumer set respectively. The $P$ set may be needed elsewhere in the code, so we cannot destroy its contents to build $C$. In this case, internally representing $P$ as an array of ordered elements and $C$ as an index into the first $n$ elements of $P$ will be suitable. New elements are appended to the list representation of $P$ (assuming no duplicates), so the addition and consumption of elements remain completely isolated while reducing duplicate data and repeated set constructions.
-  % TODO add more here, need to cover all types of problems
-  % Existential quantification
   \item Early stopping in quantification based expressions. For example, the statement $\forall x \mid x \in S \cap T \land p(x)$ would normally require construction of an intermediate set for $S \cap T$ and then a loop to check the property of all resulting elements. However, we do not necessarily need to construct any sets in this question. Instead, we can combine all terms into a single for-loop over only one of the sets, as seen in Algorithm~\ref{fig:earlyStoppingQuant}. Similar set manipulations can be used for existential quantification.
-  % multiple loop generation
 \end{itemize}
 
 \begin{algorithm}[h]
@@ -227,15 +223,14 @@ We now list a few simple but common examples of set-based expression optimizatio
   \label{fig:earlyStoppingQuant}
 \end{algorithm}
 
-Different flavours of optimizations for complex expressions and other ``collection'' data types will be added as needed, but the deep static analysis and code awareness is evidently integral to the optimization process. In the next section, we discuss the concepts of such a language, an optimization process, and an interface for continuous, extendable optimizations.
+Different flavours of optimizations for complex expressions and other ``collection'' data types will be added as needed, but the deep static analysis and code awareness is evidently integral to the optimization process. In the next section, we discuss a rewrite system to facilitate the optimization process.
+
+% the concepts of such a language, an optimization process, and an interface for continuous, extendable optimizations.
 
 \section{A TRS for a Very High Level Language}
 \subsection{Rewriting Rules for Set Notation}
 
 In Section 2, we presented a selection of examples wherein expressive set notation for modelling could be rewritten for efficient code generation. Now, we extend this collection to optimize generic combinations of set operators as a complete collection of set-oriented rewrite rules. As we derive this system, assume each iterable data type holds efficient representations of size calculation and set membership.
-
-
-% TODO GIVE INTUITION
 
 To simplify all terms in the rewrite system, we introduce a rule to exhaustively reduce sets into set construction notation. Note that for all rules, capital letters represent sets and lowercase for elements and functions:
 \begin{equation}
@@ -265,7 +260,6 @@ Although the proof is relatively simple, such proofs are of particular importanc
   \Set{x}{x \in S \land p(x)} \setminus \Set{y}{y \in T \land q(y)} &\rightarrow \Set{x}{x \in S \land x \notin T \land p(x) \land q(x)}
 \end{align}
 
-% TODO DOES THIS WORK FOR UNIONS?? Yes, I think
 Often times, we find that functions are applied to the generated elements, similar to $\Set{f(x)}{x \in S}$. The above operator-based rules can therefore be expressed as:
 \begin{align}
   \Set{f(x)}{x \in S} \cup \Set{y}{y \in T} &\rightarrow \Set{f(x)}{x \in S \lor f(x) \in T}\\
@@ -273,8 +267,7 @@ Often times, we find that functions are applied to the generated elements, simil
   \Set{f(x)}{x \in S} \setminus \Set{y}{y \in T} &\rightarrow \Set{f(x)}{x \in S \land f(x) \notin T}
 \end{align}
 
-% TODO DOES THIS WORK FOR UNIONS??
-A further generic form might be considered in which functions can be mapped over both operator arguments, however, the lack of relationship between a function mapped over the first set versus a possibly different function mapped over the second set restricts the amount of feasible algebraic manipulation. In this case, we first evaluate one operation fully to then apply one of the rules in the previous paragraph. Note that unions of this form gain no tangible benefit from an extra set construction, so we opt to join entries together as seen in the partial derivation of rewrite rule two. An optional predicate within each set construction may be carried through the rewrite rule as seen in equations five to seven, but for conciseness, we omit these rules for now.
+A further generic form might be considered for sets built from mapped-over operands. However, the lack of relationship between a function mapped over the first set versus a different function mapped over the second set restricts the amount of feasible algebraic manipulation. In this case, we first evaluate one operation fully to then apply one of the rules in the previous paragraph. Note that unions of this form gain no tangible benefit from an extra set construction, so we opt to join entries together as seen in the partial derivation of rewrite rule 11. An optional predicate within each set construction may be carried through the rewrite rule as seen in equations 5-7, but for conciseness, we omit these rules for now.
 \begin{align}
   \Set{f(x)}{x \in S} \cup \Set{g(y)}{y \in T} &\rightarrow
     \begin{split}
@@ -292,7 +285,7 @@ A further generic form might be considered in which functions can be mapped over
     \end{split}
 \end{align}
 
-Additionally, a few specialized cases arise when the function $f$ is injective and identical between set constructions. Further predicate clauses (as seen in equations five to seven) may be brought over as above and renamed as functions of $x$.
+Additionally, a few specialized cases arise when the function $f$ is injective and identical between set constructions. Further predicate clauses (as seen in equations 5-7) may be brought over as above and renamed as functions of $x$.
 \begin{align}
   \Set{f(x)}{x \in S} \cup \Set{f(y)}{y \in T} &\rightarrow \Set{f(x)}{x \in S \lor x \in T}\\
   \Set{f(x)}{x \in S} \cap \Set{f(y)}{y \in T} &\rightarrow \Set{f(x)}{x \in S \land x \in T}\\
@@ -310,7 +303,7 @@ In targeting expressions that make use of set operators nested within set constr
 Finally, we can now target the boolean statements within set constructions. However, we first give some intuition towards the overarching principles behind non-trivial terms. Generally, breaking down each operation into set builder notation enables us to perform the following actions:
 \begin{itemize}
   \item One membership operator within each set of ``and''-clauses will act as an element generator. Then, other clauses will act as conditions for an internal if-statement. For example, if the rewrite system observes an intersection of the form $\Set{x}{x \in S \land x \in T}$, the set construction operation must iterate over at least one of $S$ and $T$. Then, the other will act as a condition to check every iteration.
-  \item A collection of ``or''-clauses will generally be split into multiple sequential loops. Therefore, each clause must contain at least one element generator. Any ``and''-clauses nested within an ``or''-clause group will then act as a condition as specified above.
+  \item A collection of ``or''-clauses will generally be split into multiple sequential loops. Therefore, each clause must contain at least one element generator. Any ``and''-clauses nested within a single top-level ``or''-clause group will then act as a condition as specified above.
   \item Generators must be statements of the form $x \in S$, where $x$ is used in the ``element'' portion of the set construction. Statements like $x \notin T$ or checking a property $p(x)$ must act like conditions since they do not produce any iterable elements.
   \item Any boolean expression for conditions may be rewritten as a combination of $\lnot, \lor$, and $\land$ expressions. Therefore, by converting all set notation down into boolean notation and then generating code based on set constructor booleans, we can accommodate any form of predicate function.
 \end{itemize}
@@ -401,13 +394,13 @@ Assuming associativity and commutativity of boolean operations, the collection o
 
 \subsection{Completeness of Rewriting Set Notation}
 
-With the approximately 30 or so equations presented in Section 3, we now provide a proof of TRS termination through lexicographic path orders. Referring to the algorithm noted in Section 2.3.2 of our previous Term Rewriting Survey, we list all rules with associated passing conditions. For the purpose of lexicographic ordering, set notation can be rewritten as a function application on the generated elements and conditions (ie. $\Set{x}{x \in S} = b(x, x\in S)$ where $b$ represents set construction). Further, the costs of operations are organized as listed in Table~\ref{tab:lpoTable}
+With the approximately 30 or so equations presented in Section 3, we now provide a proof of TRS termination through lexicographic path orders \cite{baader1998term}. Referring to the algorithm noted in Section 2.3.2 of our previous Term Rewriting Survey \footnote{Algorithm adapted from \cite{baader1998term}}, we list all rules with associated passing conditions. For the purpose of lexicographic ordering, set notation can be rewritten as a function application on the generated elements and conditions (ie. $\Set{x}{x \in S} = b(x, x\in S)$ where $b$ represents set construction). Further, the costs of operations are organized as listed in Table~\ref{tab:lpoTable}.
 
 \begin{table}
   \begin{center}
-  \begin{tabular}{| p{10cm} | c |}
+  \begin{tabular}{| p{8cm} | c |}
     \hline
-    Function structure & Cost \\
+    Function Structure & Lexicographic Cost \\
     \hline
     Set operators $\cup, \cap, \setminus$ & 50\\
     Closed-set notation like $S$ and $T$, symbolized by capital letters & 49\\
@@ -428,16 +421,16 @@ With the approximately 30 or so equations presented in Section 3, we now provide
 
 A full formal proof is rather verbose, but outlines for condition applications follow below:
 \begin{itemize}
-  \item Equation 1: LHS function cost is 49, and RHS function cost is 10. Then, by Condition 2.2, closed set notation costs more than both children of the RHS.
+  \item Equation 1: LHS function cost is 49, and RHS function cost is 10. Then, by Condition 2.2, closed set notation costs more than both child terms of the RHS.
   \item Equations 2-4, 5-11, and 14-16: Set operators have the highest cost. By Condition 2.2, LHS $>_{lpo}$ RHS
   \item Equations 12, 13: Set operations cost more than sequential statements. Then, the first child of the sequential statement costs less than a set operation, so repeated applications of Condition 2.2 are satisfied. For the second child of the sequential statement (which contains a set operator), Condition 2.3 is satisfiable since a function application is reduced to a lone variable.
   \item Equation 17: Directly satisfies Condition 2.1 since RHS is equal in cost to the nested child of the LHS.
   \item Equations 18-20: Intuitively, these equations eliminate nested sets and logically should become lexicographically simpler. Nested applications of Conditions 2.2 and 2.3 are sufficient.
   \item Equations 21-29: Require nested applications of Conditions 2.2 and 2.3, but are all straightforward simplifications of subterms.
 \end{itemize}
-Although most of this simplification process logically conforms to a termination proof, it is not without its flaws. The clause made in the set operator entry of Table~\ref{tab:lpoTable} is the root of the fallacy: Unbounded application of the first equation results in a non-terminating TRS, since set construction notation for $S$ can be infinitely nested upon itself. To alleviate this, we make use of rewriting strategies as discussed below.
+Although most of this simplification process logically conforms to a termination proof, it is not without its flaws. The clause made in the set operator entry of Table~\ref{tab:lpoTable} is the root of the fallacy: Unbounded application of the first equation results in a non-terminating TRS, since set construction notation for $S$ can be infinitely nested upon itself. To alleviate this, we make use of rewriting strategies \cite{elco1998building} as discussed below.
 
-With a semi-termination guarantee for our rewrite system, we can now focus on resolving overlapping rules to prove confluence. Critical pairs within this system are created primarily by specialized versions of general rules. For example, if we assume a boolean function $t(x) = x \land True$ can be substituted within the TRS, rules like equations 2-4 become obsolete in favour of more general equations 5-7. Although the result of both paths will evaluate the same, we opt to separate these rules, preventing $t(x)$ from becoming a rewrite rule to prevent further complications with termination. Similarly, equations 8-10 can be considered specialized forms of equations 11-13, where $g(y) = y$, and 25-29 as subset-only rules for 21 and 23. Finally, the last critical pairs may be considered for 14-16 as specializations of 11-13.
+With a semi-termination guarantee for our rewrite system, we can now focus on resolving overlapping rules to prove confluence. Critical pairs within this system are created primarily by specialized versions of general rules. For example, if we assume a boolean function $t(x) = x \land True$ can be substituted within the TRS, rules like equations 2-4 become obsolete in favour of more general equations 5-7. Although the result of both paths will evaluate the same, we opt to separate these rules, prohibiting $t(x)$ from becoming a rewrite rule to prevent further complications with termination. Similarly, equations 8-10 can be considered specialized forms of equations 11-13, where $g(y) = y$, and 25-29 as subset-only rules for 21 and 23. Finally, the last critical pairs may be considered for 14-16 as specializations of 11-13.
 
 While these specializations generate functionally identical code to their generic counterparts, additional properties may vastly increase efficiency and are thus desired. Making use of strategies, we can design a function that will first attempt to apply specialized equations whenever generic equations are considered. More specifically, we can break down our strategy into the following:
 \begin{enumerate}
@@ -449,11 +442,6 @@ While these specializations generate functionally identical code to their generi
 
 Now that we have a complete rewrite system for sets, we give attention to more concrete implementations of set-based loops.
 
-% TODO are these rules complete? how to check?
-% TODO completion chap 7, (made from confluence through critical pair calculation and termination through reduction order)
-% TODO give a strategy that can be applied to this
-
-% \section{A Concrete Implementation}
 \section{A Backdrop for Concrete Sets}
 
 \subsection{Sets in Other Languages}
@@ -466,7 +454,7 @@ List comprehensions have been a standardized construct in several paradigms of p
   \item Python-like comprehensions that are more akin to syntactic sugar for nested loops: \texttt{\{x for x in xs if pp(x)\}}.
 \end{enumerate}
 
-Microsoft's implementation of SQL Server contains an entire engine dedicated to optimizing queries to and from a relational database. Optimization steps relevant to our domain make use of constant folding, early subexpression evaluation, and clause manipulation. However, since databases often deal with massive quantities of stable data chunks, concepts like indexing, intermediate evaluation, parallel query processing, batch evaluation, and distributed architectures are far more valuable to reducing overall runtimes. Compared to modelling domains, which often involve rapid changes of relatively small pieces of data, the overhead from all these optimization steps are unlikely to bear fruit.
+Microsoft's implementation of SQL Server \cite{microsoftSQL} contains an entire engine dedicated to optimizing queries to and from a relational database. Optimization steps relevant to our domain make use of constant folding, early subexpression evaluation, and clause manipulation. However, since databases often deal with massive quantities of stable data chunks, concepts like indexing, intermediate evaluation, parallel query processing, batch evaluation, and distributed architectures are far more valuable to reducing overall runtimes. Compared to modelling domains, which often involve rapid changes of relatively small pieces of data, the overhead from all these optimization steps are unlikely to bear fruit.
 
 In Haskell, list comprehensions are integral to the concise manipulation of individual elements. Essentially, comprehensions of this functional flavour act as syntactic sugar for \texttt{map} and \texttt{filter} functions, using plain discrete mathematics expressions. Haskell provides additional syntax for multi-generator comprehensions (eg. \texttt{[(a,b) | a <- as, b <- bs]}) and zipped multi-generator comprehensions (eg. \texttt{[(a,b) | a <- as | b <- bs]}). The former acts as a nested for loop, creating $|as|\times|bs|$ elements in total, while the latter processes elements from both sources in a single loop, generating only $min(|as|,|bs|)$ elements.
 
@@ -516,20 +504,20 @@ Memory usage for all operations is likely more than an entirely lazy approach, b
 
 \section{A Very High Level Language}
 
-Although the details of implementation, representation, and optimization are still in their infancy, we will eventually require a vehicle to rapidly test optimizations as they appear. This project therefore involves the creation of a compiler pipeline that supports swift iteration, extension, and execution. To reiterate, the goals of our very high level language are as follows:
+Although the details of implementation, representation, and optimization are still in their infancy, we require a vehicle to rapidly test optimizations as they appear. This project therefore involves the creation of a compiler pipeline that supports swift iteration, extension, and execution. To reiterate, the goals of our very high level language are as follows:
 \begin{itemize}
   \item Provide a natural, expressive, easy-to-use medium of communicating modelling specifications.
-  \item Compile programmed models into efficient, correct, and verifiable code.
+  \item Compile programmed models into runtime-reliable, efficient, and correct code.
 \end{itemize}
 The first of these goals is primarily motivated by language design and largely impacted by real-world user testing. For the target audience of domain experts who may not necessarily be the most adept at low level programming, this objective is essential to creating a viable solution. Then, our work on the second goal justifies the existence of the language over a dialect of another easy-to-use language. The overarching belief is that data types carry powerful innate semantics that could be harnessed for aggressive optimization, providing efficient executable code.
 
 \subsection{Supported Operators and ADTs}
-Within the language, we care about optimization for two types of data: primitive values like integers, floating point numbers, strings, etc, and collections, like sets, sequences, and relations, as mentioned in previous sections.
+Within the language, we care about optimization for two types of data: primitive values (like integers, floating point numbers, strings, etc), and collections (like sets, sequences, and relations), as mentioned in previous sections.
 
 On primitives, all standard operations are supported:
 \begin{itemize}
   \item For booleans, operators like $\lor$, $\land$, $\implies$, $\iff$, and $\impliedby$ are part of the language core, with future additions for quantification statements like $\exists$ and $\forall$. Enabling these operators enhances the expressivity of set constructions and maintains parity between the specification and implementation source code as much as possible.
-  \item Integers and floats are coupled with standard mathematical operations, from addition to exponentiation. Most numerical operations can be implemented efficiently by way of functions, so we are not as concerned with numbers as a core part of the language. Depending on the implementation of our optimizer, the rewrite system may be extendable with custom rules particularly for complex mathematical expressions. However, we disregard most of these optimizations for now, since low level numerical optimization is made available through optimizers like LLVM.
+  \item Integers and floats are coupled with standard mathematical operations, from addition to exponentiation. Most numerical operations can be implemented efficiently by way of functions, so we are not as concerned with numbers as a core part of the language. Depending on the implementation of our optimizer, the rewrite system may be extendable with custom rules particularly for complex mathematical expressions. However, we disregard most of these optimizations for now, since low level numerical optimization is made available through dedicated optimizers like LLVM.
   \item Strings as specialized sequences of characters with syntactic sugar.
 \end{itemize}
 
@@ -568,30 +556,19 @@ The next step of our compiler is translating the CFG into a malleable AST. The P
 
 With the frontend of the compiler complete, we now move on to the optimization stage. This stage is perhaps the most complex to design and implement, since these decisions directly impact the balance of optimization capabilities and extensibility. For the subset of the language related to sets and set notation, we have implemented a simplified version of the rewrite strategy described at the end of Section 3.2. The current implementation collapses all sets connected by operators $\cup, \cap,$ and $\setminus$ into a single set connected by booleans. Then, generators are extracted from a list of candidates (ie. from the right side of the vertical bar in standard set notation, $p$ in the structure $\Set{x}{p}$). Unions, or ``or''-clauses within set notation, generally require two sequential set loops, while top-level ``and''-clauses for intersections and set differences share a single construction loop. Specifically, the prototype compiler is compliant with rewrite rules 1-4, 17, 21, and 23.
 
-% TODO Show pipeline from lang to LLVM (entire section) - maybe add a picture/diagram?
-
-% TODO Implement Rewrite Rules from AST to AST, use python pattern matching to do so
-% TODO converting AST to LLVM IR
-
 After rewriting terms to eliminate all superfluous operators, the compiler must decide on the best representation of data, given the context of relevant operations, object lifetimes, and expected memory usage. Finding generic optimizations across all possible use cases of data types may very well be undecidable, requiring complete knowledge of the code's runtime behaviours before the code has actually executed, but optimizing common operations may reach an acceptable level of improvement. We may further make use of modelling domain knowledge to heuristically optimize data representations (ex. bi-directional maps for the birthday book problem).
 
 More concretely, LLVM defines several different types of sets that may be optimal depending on actions and expected size \cite{llvmSetDocs}. The built-in \texttt{SmallSet} saves large quantities of memory, for instance, but comes with linear access times. \texttt{Dense}- and \texttt{Sparse}-Sets on the other hand, provide access through hash tables and use more memory to prevent several \texttt{malloc} calls every insertion. Ordered elements within \texttt{Vector}s can enable extremely fast insertions and reasonably fast lookups. For our compiler, efficient lookups are preferred over efficient insertions, since we aim to trade intermediary set constructions for extra lookups for each element.
 
-The remaining compilation step then lowers the optimized AST into LLVM IR. The Python library \texttt{llvmlite} \cite{llvmliteLib} provides APIs to generate IR statements directly from within Python, enabling straightforward code generation through tree traversals. However, since LLM uses static single assignment form and C++-level constructs for high efficiency, a post-optimization concrete AST may be necessary to replace chunks of the AST with a closer-to-executable representation.
-
-% Given that LLVM IR is a programming language in-and-of-itself, effectively lower optimized ASTs into IR.
+The remaining compilation step then lowers the optimized AST into LLVM IR. The Python library \texttt{llvmlite} \cite{llvmliteLib} provides APIs to generate IR statements directly from within Python, enabling straightforward code generation through tree traversals. However, since LLVM uses static single assignment form and C++ constructs for high efficiency, a post-optimization concrete AST may be necessary to replace chunks of the original AST with a closer-to-executable representation.
 
 \section{Future Work}
 
 Before we conclude this paper, it is important to illustrate two key points of research that should be resolved for a very high level language but are beyond the scope of this project.
 
-In addition to set construction notation, we observed that a noticeable number of modelling examples make use of quantification logic within set generators. Currently, rewrite rules to optimize quantifier logic are not part of the Section 3 system. Instead, the language currently treats such expressions naively, looping over a given domain to find existential and universal quantification.
+In addition to set construction notation, we observed that a noticeable number of modelling examples make use of quantification logic within set generators. Currently, rewrite rules to optimize quantifier logic are not part of the Section 3 system. Instead, the language treats such expressions naively, looping over a given domain to find existential and universal quantification.
 
 Second, generators for multiple variables within a comprehension must be optimized. A naive implementation may start with a double nested loop over both variable generators, however, any optimizations to reduce the number of superfluous loops will result in large leaps in runtime efficiency. Any opportunity to remove $O(n^2)$ and beyond code should be followed aggressively, but such a topic will need to be explored in detail, beyond the work of this current project.
-
-% allow quantification logic in place of a set generator - ex. {n | (\exists k | n = 2k)}
-% allow more than one variable on the LHS of a comprehension (ie. double nested loop, maybe some optimization there)
-%  - ex.  \{(k,x)\ |\ k\in K \land x\in X \land p(x)\}
 
 \section{Conclusion}
 The beginning stages of building a new programming language are arguably one of the most exciting and fundamental parts of the compiler development process. Exploring theoretical optimizations isolated from specific architectures and system limitations can lead to drastic improvements in overall performance with zero additional hardware costs. For our very high level language, we attempt to combine focused optimization techniques on a discrete mathematics language familiar to all computer scientists and software developers.

@@ -1,6 +1,9 @@
-% haskellIntersect: https://hackage.haskell.org/package/ghc-internal-9.1201.0/docs/src/GHC.Internal.Data.OldList.html#intersect or https://hackage.haskell.org/package/base-4.21.0.0/docs/Data-List.html#v:intersect
-% llvmSetDocs: https://llvm.org/docs/ProgrammersManual.html#ds-set
-% llvmliteLib: https://llvmlite.readthedocs.io/en/latest/index.html
+@online{microsoftSQL,
+    title={Query processing architecture guide},
+    url={https://learn.microsoft.com/en-us/sql/relational-databases/query-processing-architecture-guide?view=sql-server-ver16},
+    urldate={2025-04-30},
+    year={2025},
+    }
 @online{haskellIntersect,
     title={Core data structures and operations - Data.List},
     url={https://hackage.haskell.org/package/base-4.21.0.0/docs/Data-List.html#v:intersect},
@@ -92,36 +95,31 @@ numpages = {11}
   url={https://aosabook.org/en/v2/ghc.html},
   year={2012},
 }
-
-% # egglogPython
-% @online{egglogPython,
-%     title={Egglog Python},
-%     url={https://egglog-python.readthedocs.io/latest/},
-%     urldate={2025-04-27},
-%     year={2025},
-% }
-% # eggPaper
-% @article{eggPaper,
-% author = {Willsey, Max and Nandi, Chandrakana and Wang, Yisu Remy and Flatt, Oliver and Tatlock, Zachary and Panchekha, Pavel},
-% title = {egg: Fast and extensible equality saturation},
-% year = {2021},
-% issue_date = {January 2021},
-% publisher = {Association for Computing Machinery},
-% address = {New York, NY, USA},
-% volume = {5},
-% number = {POPL},
-% doi = {10.1145/3434304},
-% abstract = {An e-graph efficiently represents a congruence relation over many expressions. Although they were originally developed in the late 1970s for use in automated theorem provers, a more recent technique known as equality saturation repurposes e-graphs to implement state-of-the-art, rewrite-driven compiler optimizations and program synthesizers. However, e-graphs remain unspecialized for this newer use case. Equality saturation workloads exhibit distinct characteristics and often require ad-hoc e-graph extensions to incorporate transformations beyond purely syntactic rewrites.  This work contributes two techniques that make e-graphs fast and extensible, specializing them to equality saturation. A new amortized invariant restoration technique called rebuilding takes advantage of equality saturation's distinct workload, providing asymptotic speedups over current techniques in practice. A general mechanism called e-class analyses integrates domain-specific analyses into the e-graph, reducing the need for ad hoc manipulation.  We implemented these techniques in a new open-source library called egg. Our case studies on three previously published applications of equality saturation highlight how egg's performance and flexibility enable state-of-the-art results across diverse domains.},
-% journal = {Proc. ACM Program. Lang.},
-% month = {jan},
-% articleno = {23},
-% numpages = {29},
-% keywords = {equality saturation, e-graphs}
-% }
-% # eggRust
-% @online{eggRust,
-%     title={Crate Egg},
-%     url={https://docs.rs/egg/latest/egg/},
-%     urldate={2025-04-27},
-%     year={2025},
-% }
+@article{elco1998building,
+author = {Visser, Eelco and Benaissa, Zine-el-Abidine and Tolmach, Andrew},
+title = {Building program optimizers with rewriting strategies},
+year = {1998},
+issue_date = {Jan. 1999},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {34},
+number = {1},
+issn = {0362-1340},
+% url = {https://doi.org/10.1145/291251.289425},
+doi = {10.1145/291251.289425},
+journal = {SIGPLAN Not.},
+% month = {September},
+pages = {13–26},
+numpages = {14}
+}
+@book{baader1998term,
+author = {Baader, Franz and Nipkow, Tobias},
+title = {Term Rewriting and All That},
+year = {1998},
+publisher = {Cambridge University Press},
+doi = {10.1017/CBO9781139172752},
+% isbn = {0521455200},
+% lccn={97028286},
+% isbn={9780521779203},
+% 10.5555/280474,
+}
