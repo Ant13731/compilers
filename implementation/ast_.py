@@ -9,26 +9,6 @@ from llvmlite import ir
 class BaseAST:
     """Base class for all AST nodes."""
 
-    # def pprint_types(self, indent=0) -> None:
-    #     """Recursively pretty prints the types of the AST node and its fields."""
-    #     indentation = " " * indent
-    #     print(indentation + f"{self.__class__.__name__}:")
-    #     for field in fields(self):
-    #         field_value = getattr(self, field.name)
-    #         if isinstance(field_value, BaseAST):
-    #             print(indentation + f"  {field.name}:")
-    #             field_value.pprint_types(indent + 2)
-    #         elif isinstance(field_value, list):
-    #             print(indentation + f"  {field.name}: [")
-    #             for item in field_value:
-    #                 if isinstance(item, BaseAST):
-    #                     item.pprint_types(indent + 4)
-    #                 else:
-    #                     print(indentation + f"    {item}")
-    #             print(indentation + "  ]")
-    #         else:
-    #             print(indentation + f"  {field.name}: {type(field_value).__name__}")
-
     def llvm_codegen(self) -> str:
         """Generates LLVM IR code for the AST node."""
         raise NotImplementedError(f"Code generation not implemented for {self.__class__.__name__}.")
