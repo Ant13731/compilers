@@ -20,3 +20,13 @@ Welcome to the very high level language repo! The repository is organized as fol
   - `transformer.py`: An API into lark that converts Lark Tree tokens into our custom AST classes.
   - `transformer_unit_test.py`: Unit tests for transformer.py
 - `proposals`: Proposals discussing the problems and justification of our work, WIP
+
+# Important dates
+
+- OGS - May 14
+- SYNT 2025 - May 18
+- CASCON 2025 - May 19
+- NSERC - Dec 1
+- Google - Apr 30 (next year I assume)
+
+# TODO (non-implementation)
