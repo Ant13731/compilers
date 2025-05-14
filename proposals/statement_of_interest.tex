@@ -1,0 +1,46 @@
+\documentclass[11pt]{article}
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage[dvipsnames]{xcolor}
+\usepackage[backend=biber, maxbibnames=9]{biblatex}
+\usepackage{fontawesome5}
+\usepackage[hidelinks]{hyperref}
+
+
+\addbibresource{statement_of_interest.bib}
+
+
+\title{Statement of Interest}
+\author{Anthony Hunt}
+
+\begin{document}
+
+\maketitle
+
+\newpage
+
+\section*{Statement of Interest}
+
+Intuitive, simple, and powerful languages have fundamentally transformed our approach to programming and continue to define the future of software engineering. From 19th century mechanical calculators to high-level compilers, abstract computational interfaces have exponentially increased the expressiveness and efficiency of program execution. Within the vast field of computer science, my quest for ergonomic and performant programming workflows has paved the way for a Master's in programming languages.
+
+Throughout my undergraduate degree, I was privileged to work with several McMaster professors on a variety of topics. My first-year research assistantship with Dr. Jacques Carette and Dr. Spencer Smith served as the initial spark for my interest in languages, where I was introduced to code generation techniques for several programming paradigms. At the end of the term, I presented an overview of software information encapsulation at McMaster's undergraduate poster event \cite{hunt2021information}, solidifying my passion for research and technical communication.
+
+Later on, a 16-month position at Intel presented several opportunities to experiment with the effects of usability-focused domain-specific languages. Under the tutelage of my co-op supervisor Dr. Hamid Hosseiny, I authored an internally published peer-reviewed paper on interface usability and parallelism in the context of test automation \cite{hunt2024memautogui}. Based on our findings, I worked with the team to create a parallel-oriented DSL with a flow-based visual programming GUI, streamlining the process of creating and modifying automation tests.
+
+Recent coursework has continued this trend towards programming language projects. My capstone project, for example, explored visual methods of programming language interaction, using diagrams to gain a deeper understanding of information flow. Simultaneously, a one-on-one directed readings course with Dr. Emil Sekerinski allowed me to explore recent literature on languages, modelling methods \cite{eventBBook}, and rewriting \cite{baader1998term}. I spent several weeks researching formal mathematics in ten diverse languages, making note of strengths, weaknesses, and possible efficiency improvements. Then, I completed a survey on historical and recent rewriting techniques, from strategies \cite{elco1998building} to equational saturation \cite{tate2009equality}. In the final weeks of my undergrad, I built a prototypical optimizing compiler for set-based operations.
+
+Continuing work on the optimizing compiler in the summer months initiates the first phase of my Master's project: generating efficient implementations of abstract data types \cite{hunt2025generating}. Oftentimes, formal specifications for real-world modelling only make use of boolean logic, number theory, and collection types foundational to discrete mathematics (as seen in the birthday book problem \cite{spivey1989birthday}). Sets, sequences, and relations may very well be powerful enough to accomplish a large subset of programming tasks that otherwise demand complex, concrete data types. Further, collection types come with a rich set of universally agreed-upon semantics \cite{griesAndSchneider} that allow extensive compilation time optimizations. Through my research, I seek to answer the following: To what extent can abstract data types be used to model real world phenomena? Then, using semantics as a foundation for optimization, are abstract data type operations more efficient than similar tasks in conventional languages?
+
+McMaster's depth and breadth in formal methods, programming language theory, and compilation align closely with my goal of building a more usable interface for reasoning and communicating. By continuing my education, I plan to learn about type theory, compiler optimization, and influential approaches to modeling computation. Further, I am excited about advancing the core areas of modern languages, especially data structure optimization, formal computation techniques, and industry-standard code generation. Researching under this program and experimenting with compilation techniques will grant me the skills needed to back my ideals for future language development.
+
+\pagebreak
+\nocite{*} % keeps all references, even those not referred to
+\printbibliography %Prints bibliography
+
+\end{document}
