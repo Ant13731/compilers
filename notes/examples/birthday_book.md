@@ -1,4 +1,4 @@
-#The Birthday Book Problem
+# The Birthday Book Problem
 
 A birthday book tracks the relationship between the names of people and their birthdays. All names are assumed to be unique, yet two or more people may share the same birthday. Using this book, we attempt to answer two main questions:
 
