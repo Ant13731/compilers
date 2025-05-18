@@ -45,6 +45,7 @@
 }
 
 % Other preamble
+\allowdisplaybreaks
 \graphicspath{{./images/}}
 % NOTE: need to run `biber <name>` to ensure up-to-date references
 \addbibresource{spec.bib}
@@ -191,10 +192,43 @@ The TRS for this language primarily involves lowering collection data type expre
     \end{tabular}
     \label{tab:relOps}
 \end{table}
+
 \section{Rules}
+Below is a list of rewrite rules for key abstract data types.
 \subsection{Sets}
+
+% Template code rule:
+% \begin{minipage}[]{.45\textwidth}
+% \end{minipage}
+\begin{align}
+  \tag{Set Construction}
+  S &\rightarrow \bSetT{x}{x \in S}
+  \\
+  \tag{Singleton Membership}
+  x \in {e} &\rightarrow x = e
+  \\
+  \tag{Membership Collapse}
+  x \in \bSet{y}{E}{P} &\rightarrow x \in E \mid P\\
+  \\
+  \tag{Union}
+  \Set{x}{x \in S} \cup \Set{y}{y \in T} &\rightarrow \Set{x}{x \in S \lor x \in T}
+  \\
+  \tag{Intersection}
+  \Set{x}{x \in S} \cap \Set{y}{y \in T} &\rightarrow \Set{x}{x \in S \land x \in T}
+  \\
+  \tag{Difference}
+  \Set{x}{x \in S} \setminus \Set{y}{y \in T} &\rightarrow \Set{x}{x \in S \land x \notin T}
+\end{align}
+
 \subsection{Relations}
-\subsection{Lists}
+  \begin{align}
+  \tag{Relation Construction}
+  R &\rightarrow \bSetT{x \mapsto y}{x \mapsto y \in R}
+  \\
+\end{align}
+
+% TODO:
+% \subsection{Lists}
 
 
 \end{document}
