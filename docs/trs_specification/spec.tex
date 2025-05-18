@@ -1,0 +1,54 @@
+\documentclass{article}
+
+\usepackage[T1]{fontenc}
+\usepackage{amsmath, amsthm}
+\usepackage{amssymb}
+\usepackage{listings}
+\usepackage[svgnames]{xcolor}
+\usepackage{tikz}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage[backend=biber, maxbibnames=9]{biblatex}
+\usepackage{algpseudocode}
+\usepackage{algorithm}
+\usepackage{mathtools}
+\usepackage{xcolor}
+\usepackage{subcaption}
+\usepackage{wrapfig}
+\usepackage{hhline}
+\usepackage{bsymb}
+\usepackage{hyperref}
+
+% Commands
+\newcommand{\Set}[2]{%
+  \{\, #1 \mid #2 \, \}%
+}
+\newcommand{\bSet}[3]{%
+  \{\, #1 \cdot #2 \mid #3 \, \}%
+}
+\newcommand{\bSetT}[2]{%
+  \{\, #1 \cdot #2 \,\}%
+}
+
+% Other preamble
+\graphicspath{{./images/}}
+% NOTE: need to run `biber <name>` to ensure up-to-date references
+\addbibresource{spec.bib}
+
+\title{Complete TRS Specification for Abstract Collection Types}
+\author{Anthony Hunt}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+\section{High Level Strategy}
+\section{Supported Operations}
+\section{Rules}
+\subsection{Sets}
+\subsection{Relations}
+\subsection{Lists}
+
+
+\end{document}
