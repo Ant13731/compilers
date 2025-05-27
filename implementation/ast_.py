@@ -27,6 +27,24 @@ class BaseAST:
                 return True
         return False
 
+    def find_all_instances(self, type_: type[BaseAST]) -> list[BaseAST]:
+        """Returns a flattened list of all instances of a specific type in the AST.
+
+        Most useful for finding identifiers nested within expressions.
+        """
+        if isinstance(self, type_):
+            return [self]
+        ret = []
+        for field in fields(self):
+            field_value = getattr(self, field.name)
+            if isinstance(field_value, list):
+                for item in field_value:
+                    if isinstance(item, BaseAST):
+                        ret += item.find_all_instances(type_)
+            elif isinstance(field_value, BaseAST):
+                ret += field_value.find_all_instances(type_)
+        return ret
+
     def pretty_print(
         self,
         ignore_fields: list[str] | None = None,

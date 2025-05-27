@@ -38,7 +38,7 @@ class EggASTTransformer(Transformer):
             "+": Pos,
             "-": Neg,
             "~": Complement,
-            r"\powerset": PowerSet,
+            r"powerset": PowerSet,
         }
         if tokens[0] in map_symbol_to_ast:
             return map_symbol_to_ast[tokens[0]](tokens[1])
@@ -50,9 +50,9 @@ class EggASTTransformer(Transformer):
             "/": Div,
             "%": Mod,
             "//": Rem,
-            r"\cap": Intersect,
-            r"\ctimes": CartesianProduct,
-            r"\circ": RelationComposition,
+            r"/\\": Intersect,
+            r"><": CartesianProduct,
+            r"circ": RelationComposition,
         }
         return map_symbol_to_ast[tokens[1]](tokens[0], tokens[2])
 
@@ -60,8 +60,8 @@ class EggASTTransformer(Transformer):
         map_symbol_to_ast = {
             "+": Add,
             "-": Sub,
-            r"\cup": Union,
-            r"\setminus": Difference,
+            r"\\/": Union,
+            r"\\": Difference,
         }
         return map_symbol_to_ast[tokens[1]](tokens[0], tokens[2])
 
@@ -89,10 +89,10 @@ class EggASTTransformer(Transformer):
             "not in": NotIn,
             "is": Is,
             "is not": IsNot,
-            r"\subset": Subset,
-            r"\subseteq": SubsetEq,
-            r"\supset": Superset,
-            r"\supseteq": SupersetEq,
+            r"<<:": Subset,
+            r"<:": SubsetEq,
+            r":>>": Superset,
+            r":>": SupersetEq,
         }
         return map_symbol_to_ast[tokens[1]](tokens[0], tokens[2])
 

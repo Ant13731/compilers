@@ -89,3 +89,65 @@ procedure diningRooms (m : Meeting)
 procedure diningRoomOccupancy(d : DiningRoom)
     print(card((eats⁻ ¹ ◦ attends⁻ ¹)[{d}])
 ```
+
+# Derivation of SYNT Rewrite Rules applied to `diningRoomOccupancy`
+
+The SYNT abstract replaces `eats` with `location`, so that is what we will be using here.
+
+<!-- $$
+\begin{align*}
+&card((location^{-1} \circ attends^{-1})[\{room\}])\\
+\rightarrow & \sum 1 \cdot x \in (location^{-1} \circ attends^{-1})[\{room\}]\\
+\rightarrow & \sum 1 \cdot x \in \{b \cdot a \mapsto b \in location^{-1} \circ attends^{-1} \mid a \in \{room\}\}\\
+\rightarrow & \sum 1 \cdot x \in \{b \cdot a \mapsto b \in location^{-1} \circ attends^{-1} \mid a = room\}\\
+\rightarrow & \sum 1 \cdot x \cdot a \mapsto b \in location^{-1} \circ attends^{-1} \mid a = room\\
+\rightarrow &\\
+\rightarrow & \sum 1 \cdot a \mapsto b \in location^{-1} \circ attends^{-1} \mid a = room\\
+\rightarrow & \sum 1 \cdot a \mapsto c \in location^{-1} \land c \mapsto b \in attends^{-1} \mid a = room\\
+\rightarrow & \sum 1 \cdot c \mapsto a \in location \land b \mapsto c \in attends \mid a = room\\
+\end{align*}
+$$ -->
+
+$$
+\begin{align*}
+&card((location^{-1} \circ attends^{-1})[\{room\}])\\
+\rightarrow & \sum 1 \cdot x \in (location^{-1} \circ attends^{-1})[\{room\}]\\
+\rightarrow & \sum 1 \cdot x \in \{b \cdot a \mapsto b \in location^{-1} \circ attends^{-1} \mid a \in \{room\}\}\\
+\rightarrow & \sum 1 \cdot x \in \{b \cdot a \mapsto b \in location^{-1} \circ attends^{-1} \mid a = room\}\\
+% NOTE: "eliminating" b in this fashion really only works because the parent enumeration (\sum 1) doesn't care about the exact value of b or a \mapsto b, just that some value exists
+% \rightarrow & \sum 1 \cdot x \cdot a \mapsto b \in location^{-1} \circ attends^{-1} \mid a = room\\
+% \rightarrow & \text{Missing collapse of x and b?} \\
+\rightarrow & \sum 1 \cdot a \mapsto b \in location^{-1} \circ attends^{-1} \mid a = room\\
+\rightarrow & \sum 1 \cdot a \mapsto c \in location^{-1} \land c' \mapsto b \in attends^{-1} \mid a = room \land c = c'\\
+\rightarrow & \sum 1 \cdot c \mapsto a \in location \land b \mapsto c' \in attends \mid a = room \land c = c'\\
+\rightarrow &
+% \begin{minipage}[]{.7\textwidth}
+% \begin{algorithmic}
+    % \State $c := 0$
+    % \For{$c \mapsto a$ in $location$}
+    %     \If{$b \mapsto c$ in $attends$ and $a = room$ and $c = c'$}
+    %         \State $c := c + 1$
+    %     \EndIf
+    % \EndFor
+% \end{algorithmic}
+% \end{minipage}
+\\
+\rightarrow &
+% \begin{minipage}[]{.7\textwidth}
+% \begin{algorithmic}
+    % \State $c := 0$
+    % \For{$c \mapsto a$ in $location$}
+    %     \If{$a = room$}
+    %         \For{$b \mapsto c$ in $attends$}
+    %             \If{$c = c'$}
+    %                 \State $c := c + 1$
+    %             \EndIf
+    %         \EndFor
+    %     \EndIf
+    % \EndFor
+% \end{algorithmic}
+% \end{minipage}
+\end{align*}
+$$
+
+Now from set notation to code portion
