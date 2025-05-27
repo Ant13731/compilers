@@ -6,9 +6,6 @@ visitor_relation = "card((location ** -1 circ attends ** -1)[{room}])"
 
 visitor_relation_parsed_ast = parse(visitor_relation)
 
-# print(visitor_relation_parsed_ast.pretty_print())
-# print(visitor_relation_parsed_ast)
-
 
 #### TEMP ASTS
 @dataclass
@@ -246,6 +243,7 @@ assert expected_set_construction_visitor_relation_ast == bool_manipulation(
 )
 
 
+# TODO move this to a proper spot, add types, etc.
 def flatten(xss):
     return [x for xs in xss for x in xs]
 
@@ -272,15 +270,10 @@ def generated_summation(ast: BaseAST) -> BaseAST:
                 return ast
             # TODO make this a proper part of the AST infrastructure - easy traversal, etc.
             identifiers_bound_by_unlooped_relations = flatten([cond.find_all_instances(Identifier) for cond in nested_generators])
-            # print(identifiers_bound_by_unlooped_relations)
             parent_conditions = []
             nested_conditions = []
             for cond in conditions:
                 identifiers = cond.find_all_instances(Identifier)
-                # print(identifiers)
-                # print(list(map(lambda id_: id_ in identifiers_bound_by_unlooped_relations, identifiers)))
-                # print(Identifier("c'") in identifiers)
-                # print(Identifier("c'") in identifiers_bound_by_unlooped_relations)
                 if any(map(lambda id_: id_ in identifiers_bound_by_unlooped_relations, identifiers)):
                     nested_conditions.append(cond)
                 else:
@@ -315,4 +308,12 @@ def generated_summation(ast: BaseAST) -> BaseAST:
             return ast
 
 
-print(generated_summation(expected_set_construction_visitor_relation_ast).pretty_print())
+print(
+    generated_summation(
+        bool_manipulation(
+            hack_for_membership_collapse_with_card(
+                to_set_construction_notation(visitor_relation_parsed_ast),
+            )
+        )
+    ).pretty_print()
+)
