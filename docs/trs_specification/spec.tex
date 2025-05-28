@@ -9,7 +9,7 @@
 \usepackage{array}
 \usepackage{graphicx}
 \usepackage[backend=biber, maxbibnames=9]{biblatex}
-\usepackage{algpseudocode}
+\usepackage[noend]{algpseudocode}
 \usepackage{algorithm}
 \usepackage{mathtools}
 \usepackage{xcolor}
@@ -208,23 +208,185 @@ Below is a list of rewrite rules for key abstract data types.
   x \in {e} &\rightarrow x = e
   \\
   \tag{Membership Collapse}
-  x \in \bSet{y}{E}{P} &\rightarrow x \in E \mid P\\
+  f(x) \cdot x \in \bSet{g(y)}{y \in S}{P} &\rightarrow f(g(y)) \cdot y \in S \mid P
   \\
+  \tag{Predicate Promotion}
+  x \cdot x \in S \land p(x) &\rightarrow x \cdot x \in S \mid p(x)
+  \\
+  \cline{1-2}
   \tag{Union}
-  \Set{x}{x \in S} \cup \Set{y}{y \in T} &\rightarrow \Set{x}{x \in S \lor x \in T}
+  x \in S \cup T &\rightarrow x \in S \lor x \in T
   \\
   \tag{Intersection}
-  \Set{x}{x \in S} \cap \Set{y}{y \in T} &\rightarrow \Set{x}{x \in S \land x \in T}
+  x \in S \cap T &\rightarrow x \in S \land x \in T
   \\
   \tag{Difference}
-  \Set{x}{x \in S} \setminus \Set{y}{y \in T} &\rightarrow \Set{x}{x \in S \land x \notin T}
+  x \in S \setminus T &\rightarrow x \in S \land x \notin T
+  \\
+  \tag{Cardinality}
+  card(S) &\rightarrow \sum x \in S \cdot 1
+  \\
+  \cline{1-2}
+  \tag{Predicate Operations}
+  filter(p, S) \oplus filter(q, T) &\rightarrow \bSetT{x}{(x \in S \land p(x)) \oplus_{bool} (x \in T \land q(y))}
+  % \\
+  % \tag{Single Operator Mapping}
+  % map(f, S) \oplus T &\rightarrow \bSetT{f(x)}{x \in S \oplus_{bool} f(x) \in T}
+  \\
+  \tag{Filter Over Operators}
+  filter(p, S) \oplus filter(p, T) &\rightarrow filter(p, S \oplus T)
+  \\
+  \tag{Mapping Operations}
+  map(f, S) \oplus map(g, T) &\rightarrow \bSetT{z}{(x \in S \land f(x) = z) \oplus_{bool} (x \in T \land g(y) = z)}
+  \\
+  \tag{Mapping Over Operators}
+  map(f, S) \oplus map(f, T) &\rightarrow map(f, S \oplus T)
+  \\
+  \tag{Map}
+  map(f, S)  &\rightarrow \bSetT{f(x)}{x \in S}
+  \\
+  \tag{Filter}
+  filter(p, S)  &\rightarrow \bSet{x}{x \in S}{p(x)}
+  \\
+  \cline{1-2}
+  \tag{Union Subset Simplification}
+  S \cup T \text{ where } S \subseteq T &\rightarrow T
+  \\
+  \tag{Intersection Subset Simplification}
+  S \cap T \text{ where } S \subseteq T &\rightarrow S
+  \\
+  \tag{Difference Subset Simplification}
+  S \setminus T \text{ where } S \subseteq T &\rightarrow \emptyset
+  \\
+  \tag{Predicate Union with Subset}
+  filter(p, S) \cup filter(q, T) \text{ where } S \subseteq T &\rightarrow filter(p \lor q, T)
+  \\
+  \tag{Predicate Intersection with Subset}
+  filter(p, S) \cap filter(q, T) \text{ where } S \subseteq T &\rightarrow filter(p \land q, S)
+  \\
+  \cline{1-2}
+  \tag{Set generation}
+  \bSet{E}{x \in S}{P}
+  &\rightarrow
+  \begin{minipage}[]{0.4\textwidth}
+  \begin{algorithmic}
+  \State $ret := \emptyset$
+  \For{$x \in S$}
+      \If{$P$} % should we use the \in operator here, or just plaintext in?
+          ret.append(E)
+      \EndIf
+  \EndFor
+  \end{algorithmic}
+  \end{minipage}
+  \\
+  \tag{Summation}
+  \sum x \in S \mid P \cdot E
+  &\rightarrow
+  \begin{minipage}[]{0.4\textwidth}
+  \begin{algorithmic}
+  \State $c := 0$
+  \For{$x \in S$}
+      \If{$P$} % should we use the \in operator here, or just plaintext in?
+          $c := c + E$
+      \EndIf
+  \EndFor
+  \end{algorithmic}
+  \end{minipage}
+  \\
+  \tag{Composed conditional}
+  \begin{minipage}[]{0.33\textwidth}
+  \begin{algorithmic}
+      \If{$P \land x \in S \land Q$}
+          $p$
+      \EndIf
+  \end{algorithmic}
+  where $x$ not free in $P$
+  \end{minipage}
+  & \rightarrow
+  \begin{minipage}[]{0.27\textwidth}
+  \begin{algorithmic}
+  \If{$P$}
+      \For{$x \in S$}
+          \If{$Q$}
+              $p$
+          \EndIf
+      \EndFor
+  \EndIf
+  \end{algorithmic}
+  \end{minipage}
+  \\
+  \tag{Conjunct conditional}
+  \begin{minipage}[]{0.4\textwidth}
+  \begin{algorithmic}
+      \If{$P \land ((x \in S \land V) \lor W) \land Q$}
+          $p$
+      \EndIf
+  \end{algorithmic}
+  where $x$ not free in $P$
+  \end{minipage}
+  & \rightarrow
+  \begin{minipage}[]{0.4\textwidth}
+  \begin{algorithmic}
+  \If{$P$}
+      \For{$x \in S$}
+          \If{$V \land Q$}
+              $p$
+          \EndIf
+      \EndFor
+      \If{$W \land Q$}
+        $p$
+      \EndIf
+  \EndIf
+  \end{algorithmic}
+  \end{minipage}
 \end{align}
+
+Additional notes and extended context:
+\begin{description}
+  \item[General] When the intention is clear, operands are written in a concise variable form instead of constructor notation, although the implementation should assume that variables are fully expanded by the (Set Construction) phase. The functions $map$ and $filter$ correspond to applying a function to all elements of a set and adding a predicate to the set respectively, so $map(f,S) = \bSetT{f(x)}{x \in S}$ and $filter(p, S) = \bSet{x}{x \in S}{p(x)}$.
+  \item[Membership Collapse] Assumes context of the initial term results in a valid expression. For example, this rewrite would be reasonable within a quantification statement or set construction. The intention of this rule is to simplify nested set constructions and should only be used after the (Set Construction) phase.
+  \item[Predicate Promotion] If a predicate within set construction cannot be considered as a loop iterator, it is promoted to a purely conditional role. The meaning of the before and after term does not necessarily change, but it clarifies the difference between candidate generators and regular predicates.
+  \item[Operations involving $\oplus$] The operator $\oplus$ represents any union, intersection, or difference operation, with $\oplus_{bool}$ representing the corresponding construction operation.
+  \item[Summation] The summation operation may be replaced with any reduction/folding operation, provided the correct low-level operation. More specific forms may be needed to consider non-associative operations.
+  \item[Composed Conditional] $x$ not free in $P$ means $x$ must already be bound. More clearly, no candidate generator variables that have not been defined should occur in $P$. We differentiate $P$ from $Q$ so that if-statements may leave behind predicates that are not needed in the nested loop. In the case of top-level AND-separated generators that bind to the same variable, the larger generator should be promoted to a conditional.
+\end{description}
 
 \subsection{Relations}
   \begin{align}
-  \tag{Relation Construction}
-  R &\rightarrow \bSetT{x \mapsto y}{x \mapsto y \in R}
+  \tag{Image}
+  R[S] &\rightarrow \bSet{x \mapsto y \in R}{x \in S}{y}
   \\
+  \tag{Product}
+  x \mapsto y \in S \times T &\rightarrow x \in S \land y \in T
+  \\
+  \tag{Inverse}
+  x \mapsto y \in R^{-1} &\rightarrow y \mapsto x \in R
+  \\
+  \tag{Composition}
+  x \mapsto y \in (Q \circ R) &\rightarrow x \mapsto z \in Q \land z' \mapsto y \in R \land z=z'
+  \\
+  \tag{Override}
+  R \ovl Q &\rightarrow Q \cup (dom(Q) \domsub R)
+  \\
+  \cline{1-2}
+  \tag{Domain}
+  dom(R) &\rightarrow map(fst, R)
+  \\
+  \tag{Range}
+  ran(R) &\rightarrow map(snd, R)
+  \\
+  \cline{1-2}
+  \tag{Domain Restriction}
+  S \triangleleft R &\rightarrow filter(fst \in S, R)
+  \\
+  \tag{Domain Subtraction}
+  S \domsub R &\rightarrow filter(fst \notin S, R)
+  \\
+  \tag{Range Restriction}
+  S \triangleright R &\rightarrow filter(snd \in S, R)
+  \\
+  \tag{Range Subtraction}
+  S \ransub R &\rightarrow filter(snd \notin S, R)
 \end{align}
 
 % TODO:
