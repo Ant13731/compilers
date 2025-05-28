@@ -326,4 +326,4 @@ target/
 __pycache__/
 
 # Obsidian
-.obsidian/workspace.json
+notes/.obsidian/workspace.json
