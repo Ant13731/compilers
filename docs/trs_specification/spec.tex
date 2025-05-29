@@ -32,6 +32,16 @@
   \{\, #1 \cdot #2 \,\}%
 }
 
+% Bag notation
+\newcommand{\lbbar}{\{\kern-0.5ex|}
+\newcommand{\rbbar}{|\kern-0.5ex\}}
+\newcommand{\bag}[3]{%
+  \lbbar \, #1 \cdot #2 \mid #3 \, \rbbar%
+}
+\newcommand{\bagT}[2]{%
+  \lbbar \, #1 \cdot #2 \,\rbbar%
+}
+
 % List comprehension notation
 \newcommand{\List}[3]{%
   [\, #1 \cdot #2 \mid #3 \, ]%
@@ -135,6 +145,37 @@ The TRS for this language primarily involves lowering collection data type expre
         % Reduction & $f / S = $ %& $/:(T\times T \rightarrow T) \times set[T] \rightarrow T$ &
         Set Quantification (Folding) & $\oplus x \cdot x \in S \mid P$\\
         Cardinality & $card(S) = \sum 1 \cdot x \in S$\\
+        \hline
+    \end{tabular}
+    \label{tab:setOps}
+\end{table}
+\begin{table}[H]
+    \centering
+    \caption{Collection of operators on bag/multiset data types.}
+    \begin{tabular}{|c|c|}
+        \hline
+        Name & Definition \\ %& Type &
+        \hline
+        Empty Set & Creates a set with no elements.\\ %& $\emptyset: set[]$ &
+        Bag Enumeration & Literal collection of elements to create a set \\ & (for now, stored as a tuple of elements and number of occurrences).\\ %& $\{x, y, ...\}: set[T]$ &
+        Bag Membership & The term $x \in S$ is True if $S$ contains one or more occurrences of $x$. \\ %& $\in: T \times set[T] \rightarrow bool$ &
+        \hline
+        Union & $S \cup T = \bag{(x, a+b)}{(x,a) \in S \land (x,b) \in T}{a, b \geq 0}$ \\ %& $\cup: set[T] \times set[T] \rightarrow set[T]$ &
+        Intersection & $S \cap T = \bag{(x, min(a,b))}{(x,a) \in S \land (x,b) \in T}{a, b \geq 0}$ \\ %& $\cap: set[T] \times set[T] \rightarrow set[T]$ &
+        Difference & $S - T = \bag{(x, a-b)}{(x,a) \in S \land (x,b) \in T}{a, b \geq 0 \land a-b > 0}$ \\ %& $\setminus: set[T] \times set[T] \rightarrow set[T]$ &
+        % Cartesian Product & $S \times T = \bSetT{x \mapsto y}{x \in S \land y \in T}$ \\ %& $\times: set[T] \times set[V] \rightarrow relation[T,V]$ &
+        % \hline
+        % Powerset & $\mathbb{P}(S) = \bSetT{s}{s \subseteq S }$ \\ %& $\mathbb{P}: set[T] \rightarrow set[set[T]]$&
+        % Magnitude & $\#S = \sum_{x \in S} 1$\\ %& $\#:set[T] \rightarrow int$ &
+        % Subset & $S \subseteq T \equiv \forall x \in S: s \in T$ \\ %& $\subseteq: set[T] \times set[T] \rightarrow bool$ &
+        % Strict Subset & $S \subset T \equiv S \subseteq T \land S \neq T$ \\ %& $\subset: set[T] \times set[T] \rightarrow bool$ &
+        % Superset & $S \supseteq T \equiv \forall x \in T: s \in S$ \\ %& $\supseteq: set[T] \times set[T] \rightarrow bool$ &
+        % Strict Superset & $S \supset T \equiv S \supseteq T \land S \neq T$ \\ %& $\supset: set[T] \times set[T] \rightarrow bool$ &
+        % \hline
+        Bag Mapping & $f * S = \bagT{(f(x), r)}{(x, r) \in S}$\\ %& $*: (T \rightarrow T') \times set[T] \rightarrow set[T']$ &
+        Bag Filter & $p \triangleleft S = \bag{(x, r)}{(x, r) \in S}{p(x)}$\\ %& $\triangleleft: (T \rightarrow bool)
+        Size & $size(S) = \sum r \cdot (x, r) \in S$\\
+        Zero Occurrences & $(x,0) \in S \implies x \notin S$\\
         \hline
     \end{tabular}
     \label{tab:setOps}
@@ -389,8 +430,32 @@ Additional notes and extended context:
   S \ransub R &\rightarrow filter(snd \notin S, R)
 \end{align}
 
+\subsection{Bags}
+Since bags can be interpreted as a set of tuples $(element, repetitions)$, all set operations apply, except for the overriding operations below.
+\begin{align}
+  \tag{Union}
+  S \cup T &\rightarrow \bag{(x, a+b)}{(x,a) \in S \land (x,b) \in T}{a, b \geq 0}
+  \\
+  \tag{Intersection}
+  S \cap T &\rightarrow \bag{(x, min(a,b))}{(x,a) \in S \land (x,b) \in T}{a, b \geq 0}
+  \\
+  \tag{Difference}
+  S - T &\rightarrow \bag{(x, a-b)}{(x,a) \in S \land (x,b) \in T}{a, b \geq 0 \land a-b > 0}
+  \\
+  \tag{Size}
+  size(S) &\rightarrow \sum (x,r) \in S \cdot r
+\end{align}
+
 % TODO:
 % \subsection{Lists}
 
+\section{Implementation Representation}
+Different implementations of each data type will have varying strengths and weaknesses. With regards to implementation of the data structure representing these types, we will need to consider the theoretical asymptotic times in addition to smaller, concrete tests. Since this document is only concerned with the theoretical compiler specification, we examine only the theoretical time and space complexity. However, paired with the gathered examples, we outline a plan to test the real-world usage of these operations.
+
+A first approach to tackling these type representations would likely constitute a linked list. The space requirements for enumeration are straightforward, with extra allocations for pointers to subsequent elements. Insertions for unordered collections are $O(1)$, and $O(n)$ for sequences. Lookups for all collections are $O(n)$, an unfortunate trait that does not pair well with the often-used \texttt{in} operator for set-generated code.
+
+On the other hand, hashmaps, with $O(1)$ membership lookups and element lookups, are useful for all unordered collections. Relations may need bidirectional hashmaps that can efficiently handle many-to-many relations.
+
+Bags may be implemented either as a (linked) list, a set of tuples where the number of element occurrences is stored in the second tuple component, or a relation where the number of occurrences is the codomain.
 
 \end{document}
