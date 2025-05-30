@@ -9,7 +9,7 @@ Consider a visitor information system for managing a conference site. The system
 - bookDiningRoom, cancelDiningRoom: for a particular meeting.
 - bookConferenceRoom, cancelConferenceRoom: for a particular meeting.
 
-```
+```python
 module VisitorInformationSystem
 
 var visitors: set Visitor := ∅

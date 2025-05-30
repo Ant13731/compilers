@@ -434,27 +434,42 @@ Additional notes and extended context:
 Since bags can be interpreted as a set of tuples $(element, repetitions)$, all set operations apply, except for the overriding operations below.
 \begin{align}
   \tag{Union}
-  S \cup T &\rightarrow \bag{(x, a+b)}{(x,a) \in S \land (x,b) \in T}{a, b \geq 0}
+  % S \cup T &\rightarrow \bag{(x, max(a,b))}{(x,a) \in S \land (x,b) \in T}{a, b \geq 0}
+  S \cup T &\rightarrow \bag{(x, r)}{x \in set(S) \cup set(T)}{r = max(\#(x,S), \#(x,T))}
   \\
   \tag{Intersection}
   S \cap T &\rightarrow \bag{(x, min(a,b))}{(x,a) \in S \land (x,b) \in T}{a, b \geq 0}
   \\
+  \tag{Sum}
+  % S + T &\rightarrow \bag{(x, a+b)}{(x,a) \in S \land (x,b) \in T}{a, b \geq 0}
+  S + T &\rightarrow \bag{(x, r)}{x \in set(S) \cup set(T)}{r = \#(x,S) + \#(x, T)}
+  \\
   \tag{Difference}
-  S - T &\rightarrow \bag{(x, a-b)}{(x,a) \in S \land (x,b) \in T}{a, b \geq 0 \land a-b > 0}
+  % S - T &\rightarrow \bag{(x, a-b)}{(x,a) \in S \land (x,b) \in T}{a, b \geq 0 \land a-b > 0}
+  S - T &\rightarrow \bag{(x, r)}{(x,a) \in S}{r = a-\#(x, T) \land r > 0}
   \\
   \tag{Size}
   size(S) &\rightarrow \sum (x,r) \in S \cdot r
 \end{align}
 
+Additional notes and extended context:
+\begin{description}
+  \item[The $\#$ Operator] Defined as the number of occurrences of an element in a bag. If bags are represented by a relation, this corresponds to a direct lookup $\#(x, S) = S[x]$.
+  \item[Intersection, Difference] Since the intersection and difference operators are always decreasing (ex. $S \cap T \subseteq S \land S \cap T \subseteq T$ and $S - T \subseteq S$), we can short-circuit operations that would require looping over both sets instead of just $S$. \textit{But how do we define this short-circuiting behaviour?} Intersections can make use of this property for both operands, but difference will always iterate over the first operand.
+  \item[Difference] $a-b > 0 \implies a > 0$.
+  \item[Sum, Union] The cast to set of $set(S)$ can be implemented by taking the domain of the bag-representing relations.
+\end{description}
 % TODO:
 % \subsection{Lists}
 
 \section{Implementation Representation}
-Different implementations of each data type will have varying strengths and weaknesses. With regards to implementation of the data structure representing these types, we will need to consider the theoretical asymptotic times in addition to smaller, concrete tests. Since this document is only concerned with the theoretical compiler specification, we examine only the theoretical time and space complexity. However, paired with the gathered examples, we outline a plan to test the real-world usage of these operations.
+Different implementations of each data type will have varying strengths and weaknesses, not only in theoretical asymptotic time and space, but in concrete real-world tests. Cache usage and additional information through object metadata may prove influential on smaller tests. Since this document is only concerned with the theoretical compiler specification, we analyze the theoretical time and space complexity, then pair gathered examples with a test plan for hardware considerations.
 
-A first approach to tackling these type representations would likely constitute a linked list. The space requirements for enumeration are straightforward, with extra allocations for pointers to subsequent elements. Insertions for unordered collections are $O(1)$, and $O(n)$ for sequences. Lookups for all collections are $O(n)$, an unfortunate trait that does not pair well with the often-used \texttt{in} operator for set-generated code.
+A first approach to tackling these type representations would likely constitute a linked list. The space requirements for enumeration are straightforward, with extra allocations for link pointers. Insertions for unordered collections or append/concat operations are $O(1)$, but $O(n)$ for indexed insertion and union with one element. Lookups for all collections are $O(n)$, but this running time is undesirable for the often-used \texttt{in} operator for set-generated code. Since linked lists naturally enforce element order, this structure may be suitable for fast-changing sequences. Although, a limited-size sequence may be better suited for a contiguous array for $O(1)$ indexing. \textit{TODO: For sequences, we should also see if trees/heaps or bloom filters could provide efficient membership checking. Bloom filters are probabilistic but can determine $\neq$ operations.}
 
-On the other hand, hashmaps, with $O(1)$ membership lookups and element lookups, are useful for all unordered collections. Relations may need bidirectional hashmaps that can efficiently handle many-to-many relations.
+On the other hand, hashmaps with $O(1)$ membership and element lookups are useful for all unordered collections. Relations may need bidirectional hashmaps that can efficiently handle many-to-many relations.
+
+Compressed bitmaps may be used for sets, but require a lot of space for sparse elements.
 
 Bags may be implemented either as a (linked) list, a set of tuples where the number of element occurrences is stored in the second tuple component, or a relation where the number of occurrences is the codomain.
 
