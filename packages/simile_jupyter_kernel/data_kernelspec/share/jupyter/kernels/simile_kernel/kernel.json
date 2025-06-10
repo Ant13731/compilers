@@ -1,0 +1,1 @@
+{"argv": ["python", "-m", "simile_jupyter_kernel", "-f", "{connection_file}"], "display_name": "Simile Kernel", "language": "simile", "name": "simile_kernel"}

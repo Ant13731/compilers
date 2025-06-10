@@ -42,20 +42,17 @@ Name idea: Simile (or facsimile)
 
 # Running Simile in Jupyter
 
-1. Install the kernel with
+Run:
 
-   ```powershell
-   python -m simile --install
-   ```
+```powershell
+pip install -ve packages/simile_compiler
+pip install -ve packages/simile_jupyter_kernel
+pip install -ve packages/simile_jupyter_extension
+jupyter labextension develop --overwrite packages/simile_jupyter_extension
+```
 
-   Check that it is installed properly by running the following command without error:
+Check that the kernel is installed properly by running the following command without error:
 
-   ```powershell
-   jupyter console --kernel simile_kernel
-   ```
-
-2. Install the corresponding extension with
-   ```powershell
-   pip install -ve packages/simile_jupyter_extension
-   jupyter labextension develop --overwrite packages/simile_jupyter_extension
-   ```
+```powershell
+jupyter console --kernel simile_kernel
+```
