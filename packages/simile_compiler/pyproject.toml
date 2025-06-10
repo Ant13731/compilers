@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling>=1.10.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "simile-compiler"
+dynamic = ["version"]
+description = "Simile language compiler"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Anthony Hunt", email = "hunt.ant137@gmail.com" }]
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3",
+]
+requires-python = ">=3.11"
+dependencies = []
+
+# [project.optional-dependencies]
+# test = ["jupyter_kernel_test"]
+
+# [project.urls]
+# Homepage = "https://github.com/jupyter/echo_kernel"
+
+[tool.hatch.version]
+path = "simile_compiler/__init__.py"
+
+# Used to call hatch_build.py
+# [tool.hatch.build.hooks.custom]
+
+
+# [tool.hatch.build.targets.sdist]
+# include = ["/simile_compiler"]
+
+# [tool.hatch.build.targets.wheel.shared-data]
+# "data_kernelspec/share" = "share"

@@ -23,3 +23,36 @@ Welcome to the very high level language repo! The repository is organized as fol
 - `proposals`: Proposals discussing the problems and justification of our work, WIP
 
 <!-- # TODO (non-implementation) -->
+
+Name idea: Simile (or facsimile)
+
+- kind of like simulation, also similar to modelling languages
+
+# SYNT Presentation Plan
+
+- Make a working PoC compiler
+  - Handrolled frontend (scanner, parser)
+  - Revise AST
+  - Make a proper TRS to apply optimizations
+  - Code gen for LLVM (either gen IR or use LLVM APIs)
+  - Get warehouse and visitor info system examples working
+- Make a Jupyter notebook for testing/explanations?
+- Make a presentation, maybe a quick demo
+-
+
+# Running Simile in Jupyter
+
+Run:
+
+```powershell
+pip install -ve packages/simile_compiler
+pip install -ve packages/simile_jupyter_kernel
+pip install -ve packages/simile_jupyter_extension
+jupyter labextension develop --overwrite packages/simile_jupyter_extension
+```
+
+Check that the kernel is installed properly by running the following command without error:
+
+```powershell
+jupyter console --kernel simile_kernel
+```
