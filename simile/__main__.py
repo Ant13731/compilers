@@ -25,6 +25,8 @@ def install_kernel() -> None:
         "name": "simile_kernel",
     }
     temp_dir = tempfile.mkdtemp()
+    # TODO If we must add a kernel.js file or icons,
+    # store them in jupyter_/frontend and copy to temp_dir before installing
     try:
         # Write the kernel spec to a temporary directory
         json.dump(

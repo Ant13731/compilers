@@ -39,3 +39,23 @@ Name idea: Simile (or facsimile)
 - Make a Jupyter notebook for testing/explanations?
 - Make a presentation, maybe a quick demo
 -
+
+# Running Simile in Jupyter
+
+1. Install the kernel with
+
+   ```powershell
+   python -m simile --install
+   ```
+
+   Check that it is installed properly by running the following command without error:
+
+   ```powershell
+   jupyter console --kernel simile_kernel
+   ```
+
+2. Install the corresponding extension with
+   ```powershell
+   pip install -ve simile/lexer_extension
+   jupyter labextension develop --overwrite simile/lexer_extension
+   ```
