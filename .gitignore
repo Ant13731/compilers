@@ -329,3 +329,5 @@ __pycache__/
 notes/.obsidian/workspace.json
 .obsidian/workspace.json
 .prob
+
+node_modules/
