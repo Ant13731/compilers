@@ -56,6 +56,6 @@ Name idea: Simile (or facsimile)
 
 2. Install the corresponding extension with
    ```powershell
-   pip install -ve simile/lexer_extension
-   jupyter labextension develop --overwrite simile/lexer_extension
+   pip install -ve packages/simile_jupyter_extension
+   jupyter labextension develop --overwrite packages/simile_jupyter_extension
    ```
