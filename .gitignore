@@ -329,5 +329,5 @@ __pycache__/
 notes/.obsidian/workspace.json
 .obsidian/workspace.json
 .prob
-
+.DS_Store
 node_modules/
