@@ -5,17 +5,28 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "Python: Simile",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/simile/__main__.py",
             "console": "integratedTerminal",
             "env": {
                 "PYTHONPATH": "${workspaceRoot}"
             },
-        }
+        },
+        // {
+        //     "name": "Python: Simile",
+        //     "type": "debugpy",
+        //     "request": "launch",
+        //     "program": "${workspaceFolder}/simile/__main__.py",
+        //     "console": "integratedTerminal",
+        //     "env": {
+        //         "PYTHONPATH": "${workspaceRoot}"
+        //     },
+        // }
+        // ,
+        // {
+        //     "name": "Python: Simile Compiler",
+        //     "type": "debugpy",
+        //     "request": "launch",
+        //     "program": "${workspaceFolder}/simile/__main__.py",
+        //     "console": "integratedTerminal",
+        // }
     ]
 }
