@@ -96,8 +96,8 @@ class TokenType(Enum):
     GE = auto()
 
     # Sets
-    ELEMENT_OF = auto()  # also used for in
-    NOT_ELEMENT_OF = auto()  # also used for not in
+    IN = auto()  # also used for in
+    NOT_IN = auto()  # also used for not in
     UNION = auto()
     INTERSECTION = auto()
     BACKSLASH = auto()  # set difference
@@ -199,8 +199,8 @@ OPERATOR_TOKEN_TABLE = {
     "<=": TokenType.LE,
     ">": TokenType.GT,
     ">=": TokenType.GE,
-    "∈": TokenType.ELEMENT_OF,
-    "∉": TokenType.NOT_ELEMENT_OF,
+    "∈": TokenType.IN,
+    "∉": TokenType.NOT_IN,
     "∪": TokenType.UNION,
     "\\/": TokenType.UNION,
     "∩": TokenType.INTERSECTION,
@@ -281,8 +281,8 @@ KEYWORD_TABLE = {
     "def": TokenType.DEF,
     "is": TokenType.IS,
     "is not": TokenType.IS_NOT,
-    "in": TokenType.ELEMENT_OF,
-    "not in": TokenType.NOT_ELEMENT_OF,
+    "in": TokenType.IN,
+    "not in": TokenType.NOT_IN,
     "and": TokenType.AND,
     "or": TokenType.OR,
     "not": TokenType.NOT,
@@ -321,18 +321,27 @@ class Token:
 
 @dataclass
 class Scanner:
-    """Configuration options for the scanner."""
+    """Scanner methods and state. This class should not be initialized directly, but used through the :func:`scan` function."""
 
     text: str
+    """Source code/input text to scan."""
 
     current_index_lexeme_start: int = 0
+    """Pointer for the start of the currently examined token."""
     current_index: int = 0
+    """Pointer for the currently examined character."""
     location: Location = field(default_factory=lambda: Location(0, 0))
+    """:attr:`current_index` in Line/Column format (for better error messages)."""
 
-    # Since we want significant whitespace, we need to preserve indentation context
     indentation_stack: list[str] = field(default_factory=list)
+    """Stack of indentation levels. Each level is a string of whitespace characters that represent the indentation level.
+
+    Whitespace is significant, so we need to keep track of the indentation levels."""
 
     scanned_tokens: list[Token] = field(default_factory=list)
+    """Return value of the scanner. Contains all tokens scanned from the text.
+
+    We store this in an object to catch as many errors as possible through one run."""
 
     @property
     def max_location(self) -> Location:
@@ -350,18 +359,21 @@ class Scanner:
         return self.current_index - self.current_index_lexeme_start
 
     def peek(self, offset: int = 0) -> str | None:
+        """Peek at the next character without consuming it. Offset is used as a lookahead."""
         if self.at_end_of_text:
             return None
         return self.text[self.current_index + offset]
 
     def advance(self) -> str:
+        """Consume and return one character."""
         c = self.text[self.current_index]
         self.current_index += 1
         self.location.column += 1
         return c
 
     def match(self, expected: str) -> bool:
-        assert len(expected) == 1  # only one character of matching
+        """Consume the next character if it matches the expected character (only one character at a time may be matched)."""
+        assert len(expected) == 1, "Only one character of matching is allowed at a time."
         if self.at_end_of_text:
             return False
         if self.peek() != expected:
@@ -370,10 +382,23 @@ class Scanner:
         return True
 
     def match_phrase(self, expected: str) -> bool:
+        """Repeatedly call :meth:`~self.match` until the expected string is completely matched.
+
+        Upon matching failure, this will backtrack character indices to the beginning of the phrase."""
+        start_location = self.location
+        start_current = self.current_index
+
         expected_index = 0
         while expected_index < len(expected) and self.match(expected[expected_index]):
             expected_index += 1
-        return expected_index == len(expected)
+
+        if expected_index == len(expected):
+            return True
+        else:
+            # Backtrack to the start of the phrase
+            self.location = start_location
+            self.current_index = start_current
+            return False
 
     def add_token(self, type_: TokenType, start_location: Location | None = None, end_location: Location | None = None, value: str = "") -> None:
         """Adds a token to the scanner's output.
@@ -392,18 +417,14 @@ class Scanner:
         self.scanned_tokens.append(Token(type_, value, start_location, end_location))
 
     def scan_next(self) -> None:
+        """Scans the next token from the text.
+
+        This method will update the scanner's state and add tokens to the scanned_tokens list."""
+
         # End of file check
         if self.peek() is None:
-            self.add_token(TokenType.EOF)
             return
-
         c = self.advance()
-
-        # Skip newlines
-        if c == "\n":
-            self.location.line += 1
-            self.location.column = 0
-            return
 
         # Handle indentation
         # If we are at the start of a line...
@@ -414,9 +435,10 @@ class Scanner:
                 if not self.match_phrase(indent_str):
                     break
                 matched_up_to_index += 1
+                c = self.text[self.current_index - 1]  # If theres indentation, we're safe to look back one character
 
             # Indentation doesn't match but no content on line - ignore indentation for line
-            if self.peek() == "\n" or self.peek() == "#":
+            if c in "\n#":
                 return
 
             indentation_difference = matched_up_to_index - len(self.indentation_stack)
@@ -434,18 +456,21 @@ class Scanner:
                 for _ in range(-indentation_difference):
                     self.add_token(TokenType.DEDENT)
             else:  # we've matched up to the indentation point
-                if self.peek() == " " or self.peek() == "\t":
+                if c in " \t":  # and (self.peek() == " " or self.peek() == "\t"):
                     # Add new indentation level
-                    new_indent = self.move_until_no_whitespace()
-                    # ignore new indentation on blank/comment lines
-                    if self.peek() == "\n" or self.peek() == "#":
+                    new_indent = c + self.move_until_no_whitespace()
+                    # ignore new indentation on blank/comment/EOF lines, also ignore if we didn't indent at all
+                    if self.peek() == "\n" or self.peek() == "#" or self.peek() is None:  # or new_indent == "":
                         return
                     self.indentation_stack.append(new_indent)
                     self.add_token(TokenType.INDENT)
-                # Maintain indentation level
-                return
+                # Maintain indentation level (do nothing; continue)
 
         match c:
+            case "\n":
+                self.location.line += 1
+                self.location.column = 0
+                return
             case "\r":
                 return
             case " " | "\t":
@@ -539,6 +564,12 @@ class Scanner:
                     self.advance()
                 value = self.text[self.current_index_lexeme_start : self.current_index]
                 token_type = KEYWORD_TABLE.get(value, TokenType.IDENTIFIER)
+                if token_type == TokenType.IS:
+                    if self.match_phrase(" not"):
+                        token_type = TokenType.IS_NOT
+                elif token_type == TokenType.NOT:
+                    if self.match_phrase(" in"):
+                        token_type = TokenType.NOT_IN
                 self.add_token(token_type, start_location, self.location, value)
             case _:
                 raise ScanException(self.location, self.peek(), "Unexpected character")
@@ -581,4 +612,10 @@ def scan(text: str) -> list[Token]:
             print(f"Error at {scanner.location}: {e}")
             scanner.move_to_next_whitespace()
 
+    # Cleanup indentation, eof
+    if scanner.indentation_stack:
+        for _ in scanner.indentation_stack:
+            scanner.add_token(TokenType.DEDENT)
+        scanner.indentation_stack.clear()
+    scanner.add_token(TokenType.EOF)
     return scanner.scanned_tokens
