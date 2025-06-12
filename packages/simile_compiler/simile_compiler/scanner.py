@@ -392,57 +392,107 @@ class Scanner:
         self.scanned_tokens.append(Token(type_, value, start_location, end_location))
 
     def scan_next(self) -> None:
+        # End of file check
         if self.peek() is None:
+            self.add_token(TokenType.EOF)
             return
+
         c = self.advance()
+
+        # Skip newlines
+        if c == "\n":
+            self.location.line += 1
+            self.location.column = 0
+            return
+
+        # Handle indentation
+        # If we are at the start of a line...
+        if self.location.column == 1:
+            # Match existing indentation as much as possible
+            matched_up_to_index = 0
+            for indent_str in self.indentation_stack:
+                if not self.match_phrase(indent_str):
+                    break
+                matched_up_to_index += 1
+
+            # Indentation doesn't match but no content on line - ignore indentation for line
+            if self.peek() == "\n" or self.peek() == "#":
+                return
+
+            indentation_difference = matched_up_to_index - len(self.indentation_stack)
+
+            if indentation_difference < 0:
+                if self.peek() == " " or self.peek() == "\t":
+                    # There is more "indentation" left to consume, but the leftover does not match what we expect so far.
+                    raise ScanException(
+                        self.location,
+                        self.peek(),
+                        f"Indentation does not match. Expected {self.indentation_stack[indentation_difference:]} but got {self.move_until_no_whitespace()}",
+                    )
+                # Next character is another token with less indentation, so record all required dedents
+                self.indentation_stack = self.indentation_stack[:indentation_difference]
+                for _ in range(-indentation_difference):
+                    self.add_token(TokenType.DEDENT)
+            else:  # we've matched up to the indentation point
+                if self.peek() == " " or self.peek() == "\t":
+                    # Add new indentation level
+                    new_indent = self.move_until_no_whitespace()
+                    # ignore new indentation on blank/comment lines
+                    if self.peek() == "\n" or self.peek() == "#":
+                        return
+                    self.indentation_stack.append(new_indent)
+                    self.add_token(TokenType.INDENT)
+                # Maintain indentation level
+                return
+
         # Need to handle dedents back to the first level
-        if self.location.column == 1 and c not in " \t\n":
-            # All indentations will need to be matched with a corresponding dedent (these are basically like parenthesis)
-            for indentation_level in self.indentation_stack:
-                self.add_token(TokenType.DEDENT)
+        # if self.location.column == 1 and c not in " \t\n":
+        #     # All indentations will need to be matched with a corresponding dedent (these are basically like parenthesis)
+        #     for indentation_level in self.indentation_stack:
+        #         self.add_token(TokenType.DEDENT)
         match c:
-            case "\n":
-                self.location.line += 1
-                self.location.column = 0
             case "\r":
                 return
             case " " | "\t":
+                # self.location.column will never be equal to 1 here (covered above)
+                return
+
                 # We must be at the start of a line (and not in a set, sequence, or relation)
-                if self.location.column != 1:  # also ignore when we are inside a set, sequence, or relation?
-                    return
+                # if self.location.column != 1:  # also ignore when we are inside a set, sequence, or relation?
+                #     return
 
-                # Indentation should always match up until the topmost indentation level
-                for indent_str in self.indentation_stack[:-1]:
-                    if self.match_phrase(indent_str):
-                        continue
-                    # Indentation doesn't match but no content on line - ignore line
-                    if self.peek() == "\n":
-                        return
-                    # Indentation doesn't match
-                    # if not self.indentation_stack or indentation_level_difference != -self.indentation_stack[-1]:
-                    raise ScanException(self.location, self.peek(), f"Indentation at {self.location} does not match previous indentations")
+                # # Indentation should always match up until the topmost indentation level
+                # for indent_str in self.indentation_stack[:-1]:
+                #     if self.match_phrase(indent_str):
+                #         continue
+                #     # Indentation doesn't match but no content on line - ignore line
+                #     if self.peek() == "\n":
+                #         return
+                #     # Indentation doesn't match
+                #     # if not self.indentation_stack or indentation_level_difference != -self.indentation_stack[-1]:
+                #     raise ScanException(self.location, self.peek(), f"Indentation at {self.location} does not match previous indentations")
 
-                if not self.indentation_stack or self.match_phrase(self.indentation_stack[-1]):
-                    peek = self.peek()
-                    if peek is None or peek not in " \t":
-                        return
+                # if not self.indentation_stack or self.match_phrase(self.indentation_stack[-1]):
+                #     peek = self.peek()
+                #     if peek is None or peek not in " \t":
+                #         return
 
-                    # We are entering a new indentation level
-                    new_indentation = self.move_until_no_whitespace()
-                    # (ignoring empty lines, of course)
-                    if self.peek() == "\n" or self.at_end_of_text:
-                        return
+                #     # We are entering a new indentation level
+                #     new_indentation = self.move_until_no_whitespace()
+                #     # (ignoring empty lines, of course)
+                #     if self.peek() == "\n" or self.at_end_of_text:
+                #         return
 
-                    self.indentation_stack.append(new_indentation)
-                    self.add_token(TokenType.INDENT)
-                    return
-                else:
-                    if self.peek() == "\n":
-                        return
-                    # We are leaving an indentation level
-                    self.indentation_stack.pop()
-                    self.add_token(TokenType.DEDENT)
-                    return
+                #     self.indentation_stack.append(new_indentation)
+                #     self.add_token(TokenType.INDENT)
+                #     return
+                # else:
+                #     if self.peek() == "\n":
+                #         return
+                #     # We are leaving an indentation level
+                #     self.indentation_stack.pop()
+                #     self.add_token(TokenType.DEDENT)
+                #     return
             # # Notation
             # case ":":
             #     if self.match("="):
@@ -807,6 +857,4 @@ def scan(text: str) -> list[Token]:
             print(f"Error at {scanner.location}: {e}")
             scanner.move_to_next_whitespace()
 
-    tokens = scanner.scanned_tokens
-    tokens.append(Token(TokenType.EOF, "", scanner.location, scanner.location))
-    return tokens
+    return scanner.scanned_tokens

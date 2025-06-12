@@ -51,7 +51,11 @@ if __name__ == "__main__":
     simile_input = "<->><<<->"
     simile_input = """
 def test(a):
-    test2
+    if statement:
+        while loop:
+            item
+    else:
+        test2
 
 def test3(b):
     test4
