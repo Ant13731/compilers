@@ -34,13 +34,34 @@ class Parser:
     current_index: int = 0
     errors: list[ParseError] = field(default_factory=list)
 
-    @property
-    def current_token(self) -> Token:
-        return self.tokens[self.current_index]
+    # Idea: store the first sets and the corresponding functions (that would otherwise be "matched" when making decisions)
+    # It may be nice to allow for nested first sets and then a lookup (using the idea of getting all leaves from a tree...)
+    first_sets: ClassVar[dict[str, dict[TokenType, Callable]]] = {
+        # "statement": {""},
+    }
 
     @property
     def eof(self) -> bool:
         return self.current_token.type_ == TokenType.EOF
+
+    def peek(self, offset: int = 0) -> Token:
+        return self.tokens[self.current_index + offset]
+
+    def advance(self) -> Token:
+        """Advance to the next token."""
+        if not self.eof:
+            self.current_index += 1
+        return self.peek(-1)
+
+    def check(self, token_type: TokenType) -> bool:
+        return not self.eof and self.peek() == token_type
+
+    def match(self, token_types: list[TokenType]) -> bool:
+        for token_type in token_types:
+            if self.check(token_type):
+                self.advance()
+                return True
+        return False
 
     # Parsing based (loosely) on the grammar in grammar.lark
     def start(self) -> ast_.Start:
@@ -49,11 +70,16 @@ class Parser:
         return ast_.Start(self.statements())
 
     def statements(self) -> ast_.Statements:
+
         statements = []
         while not self.eof:
-            statement = self.statement()
-            if statement:
-                statements.append(statement)
+            statement = None
+            match self.peek().type_:
+
+                case _:
+                    self.errors.append(ParseError(f"Unexpected token. Expected one of {first_statement}", self.peek()))
+
+            statements.append(statement)
         return ast_.Statements(statements)
 
 
