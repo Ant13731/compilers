@@ -2,7 +2,7 @@ import argparse
 
 try:
     from . import scanner
-except Exception:
+except ImportError:
     import scanner
 
 

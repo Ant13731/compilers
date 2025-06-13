@@ -1,0 +1,211 @@
+//////////////////////////////////////////////////////////////////////
+// Top Level Grammar
+//////////////////////////////////////////////////////////////////////
+// Loosely following the python grammar, just to get something executable started
+// - https://docs.python.org/3/reference/grammar.html
+// - https://github.com/lark-parser/lark/blob/master/lark/grammars/python.lark
+start: _NEWLINE* statements? _NEWLINE*
+statements: _NEWLINE* statement (_NEWLINE+ statement)* _NEWLINE*
+// Each statement corresponds to one block of code. Simple statements are one-liners,
+// while compound statements are blocks of code that can be indented.
+?statement: simple_stmt | compound_stmt
+
+// Simple Statements: expressions, operators, and literals
+// TODO:
+//  - del_stmt to denote the end-of-life for a var
+//  - assert_stmt, raise_stmt for assertions/exceptions
+//  - import_stmt for importing modules
+?simple_stmt: expr_stmt | assignment | control_flow_stmt
+
+//////////////////////////////////////////////////////////////////////
+// Expressions + Operators
+//////////////////////////////////////////////////////////////////////
+// Expression operators below follow the table of precedences from "A Logical Approach to Discrete Math"
+// Deal with bools first (lowest precedence)
+expr_stmt: equivalence | lambdef
+equivalence: equivalence (EQUIV | N_EQUIV) implication | implication
+?implication: impl | rev_impl | disjunction
+impl: disjunction _IMPLIES implication
+rev_impl: implication _REV_IMPLIES disjunction
+?disjunction: conjunction (_OR conjunction)*
+?conjunction: negation (_AND negation)*
+?negation: NOT negation | comparison
+// Skipping bitwise operators, can always add later
+// Move to numbers and sets (same level of precedence)
+?comparison: comparison comp_op num_and_set_expr | num_and_set_expr
+!comp_op: EQ | NE | LT | GT | LE | GE | (NOT? _IN) | (IS NOT?) | SUBSET | SUBSET_EQ | SUPERSET | SUPERSET_EQ // ! is a bit of a hack since `in` is technically hidden
+// Skipping sequence operators (triangleright, triangleleft, concatenate, etc.), since these can be done with more natural pythonic notation
+// Skipping min, max, etc since these are best left as functions
+?num_and_set_expr: num_and_set_expr num_and_set_op term | term
+// Skipping relation product, since this can be done through regular programming language syntax?. overload ADD and SUB with concat and diff, maybe union for add too?
+// TODO check precedence?
+!num_and_set_op: ADD | SUB | UNION | DIFFERENCE
+?term: term num_and_set_op_mult factor | factor
+!num_and_set_op_mult : MUL | DIV | REM | MOD | INTERSECTION | CARTESIAN_PRODUCT | RELATION_COMPOSITION
+?factor: un_op factor | power
+// Unary operators have highest precedence (except for power)
+!un_op: ADD | SUB | COMPLEMENT | POWERSET
+?power: primary _POW factor | primary
+
+//////////////////////////////////////////////////////////////////////
+// Statements: function calls, iterables, struct access
+//////////////////////////////////////////////////////////////////////
+?primary: struct_access | call | indexing | atom
+struct_access: primary _DOT NAME
+call: primary _L_PAREN arguments _R_PAREN //Func calls, arguments defined elsewhere
+indexing: primary _L_BRACKET _slice_or_index? _R_BRACKET //List indexing TODO check if its the same as arguments?
+_slice_or_index: slice | equivalence // bool expr here is just for normal indexing
+slice: [equivalence] (_COLON [equivalence])+
+lambdef: _LAMBDA _L_PAREN arg_def _R_PAREN _COLON equivalence
+// no varargs or kwargs for now
+arg_def: (typed_name (_COMMA typed_name)*)?
+arguments: (expr_stmt (_COMMA expr_stmt)*)? // TODO add support for *args and **kwargs
+// Also include control flow statements (return, break, continue, pass)
+control_flow_stmt: return_stmt | BREAK | CONTINUE | PASS
+return_stmt: _RETURN expr_stmt?
+// Also include assignment
+assignment: typed_name _ASSIGN expr_stmt // TODO add support for destructuring assignment, multiple assignment
+type_: equivalence // TODO refine this
+typed_name: NAME _COLON type_
+
+//////////////////////////////////////////////////////////////////////
+// Compound Statements: Blocks of code that can be indented
+//////////////////////////////////////////////////////////////////////
+// TODO:
+//  - try_stmt for exception handling
+//  - with_stmt for context managers? probably not
+//  - while_stmt?
+//  - match_stmt
+?compound_stmt: if_stmt | for_stmt | struct_stmt | enum_stmt | func_stmt
+if_stmt: _IF equivalence _COLON block else_stmt?
+// elif_stmt: _ELIF equivalence _COLON block (elif_stmt | else_stmt)?
+else_stmt: _ELSE _COLON block
+for_stmt: _FOR iterable_names _IN expr_stmt _COLON block // TODO add support for destructuring
+struct_stmt: _STRUCT NAME _COLON _NEWLINE _INDENT ((typed_name (_NEWLINE typed_name)*) | PASS) _NEWLINE* _DEDENT
+enum_stmt: _ENUM NAME _COLON _NEWLINE _INDENT ((NAME (_NEWLINE NAME)*) | PASS) _NEWLINE* _DEDENT
+func_stmt: _DEF NAME _L_PAREN arg_def _R_PAREN _RIGHTARROW type_ _COLON block
+?block: simple_stmt | _NEWLINE _INDENT statements _DEDENT
+iterable_names: NAME (_COMMA NAME)* // TODO add destructuring
+
+
+//////////////////////////////////////////////////////////////////////
+// Literals (primitive and iterable types)
+//////////////////////////////////////////////////////////////////////
+// no star patterns for now
+?atom: literals | complex_literals | complex_comprehension_literals | _L_PAREN expr_stmt _R_PAREN // TODO add ellipsis?
+// Primitive literals
+?literals: BOOL | NAME | NONE | string | num
+?string: STRING | LONG_STRING
+?num: INT | FLOAT
+// Complex literals
+?complex_literals: tuple_ | list_ | dict_ | set_ | bag_
+tuple_: _L_PAREN (expr_stmt (_COMMA | (_COMMA expr_stmt)+) )? _R_PAREN // Tuple with one entry requires a comma to differentiate from paren expr
+list_: _L_BRACKET _iterable_inside? _R_BRACKET
+set_: _L_BRACE _iterable_inside _R_BRACE // empty sets are assumed to be dictionaries
+dict_: _L_BRACE _key_pair_iterable_inside? _R_BRACE
+bag_: _L_BRACE_BAR _iterable_inside? _R_BRACE_BAR
+_iterable_inside: expr_stmt (_COMMA expr_stmt)*
+_key_pair_iterable_inside: key_pair (_COMMA key_pair)*
+key_pair: expr_stmt _COLON expr_stmt
+// Complex comprehension literals
+?complex_comprehension_literals: list_comp| set_comp | dict_comp | bag_comp
+list_comp: _L_BRACKET _comprehension _R_BRACKET
+set_comp: _L_BRACE _comprehension _R_BRACE
+dict_comp: _L_BRACE _key_pair_comprehension _R_BRACE
+bag_comp: _L_BRACE_BAR _comprehension _R_BRACE_BAR
+_comprehension: expr_stmt _VBAR expr_stmt
+_key_pair_comprehension: key_pair _VBAR expr_stmt
+// TODO remove these
+// comp_stmt: _FOR iterable_names _IN expr_stmt such_that? _COLON expr_stmt // Attempt to make comprehensions more similar to discrete math than python
+// key_pair_comp_stmt: _FOR iterable_names _IN expr_stmt such_that? _COLON _L_PAREN key_pair _R_PAREN // TODO see if this actually works out
+// such_that: _VBAR equivalence
+
+
+//////////////////////////////////////////////////////////////////////
+// Terminals
+//////////////////////////////////////////////////////////////////////
+// Primitive literal terminals
+// taken directly from https://github.com/lark-parser/lark/blob/master/lark/grammars/python.lark#L302
+STRING: /([ubf]?r?|r[ubf])("(?!"").*?(?<!\\)(\\\\)*?"|'(?!'').*?(?<!\\)(\\\\)*?')/i
+LONG_STRING: /([ubf]?r?|r[ubf])(""".*?(?<!\\)(\\\\)*?"""|'''.*?(?<!\\)(\\\\)*?''')/is
+INT: /0[xX][0-9a-fA-F]+|0o[0-7]+|0b[0-1]+|0|[1-9][0-9]*/ // hex, octal, bin, decimal
+FLOAT: DEC | SCI_NOTATION
+DEC: /[0-9]+\.[0-9]*|\.[0-9]+/
+SCI_NOTATION: /[0-9]+(\.[0-9]*)?[eE][+-]?[0-9]+/
+BOOL.2: "True" | "False"
+NONE: "None"
+NAME: /[a-zA-Z_][a-zA-Z0-9_]*/
+// Misc. symbols (underscores are used for syntax separation and are not passed to the transformer)
+_L_BRACE: "{"
+_L_BRACE_BAR: "{|"
+_L_BRACKET: "["
+_L_PAREN: "("
+_R_BRACE: "}"
+_R_BRACE_BAR: "|}"
+_R_BRACKET: "]"
+_R_PAREN: ")"
+_DOT: "."
+_COMMA: ","
+_COLON: ":"
+SEMICOLON: ";"
+ADD: "+"
+SUB: "-"
+MUL: "*"
+DIV: "/"
+REM: "//"
+MOD: "%"
+_POW: "**"
+_AND: "and"
+_OR: "or"
+NOT: "not"
+_IMPLIES: "==>"
+_REV_IMPLIES: "<=="
+EQUIV: "<==>"
+N_EQUIV: "<!==>"
+SUBSET: "<<:"
+SUBSET_EQ: "<:"
+SUPERSET: ":>>"
+SUPERSET_EQ: ":>"
+UNION: "\\/"
+INTERSECTION: "/\\"
+DIFFERENCE: "\\"
+CARTESIAN_PRODUCT: "><"
+RELATION_COMPOSITION: "circ"
+POWERSET: "powerset"
+COMPLEMENT: "~"
+// RAN_SUB: "|>>"
+// RAN_RESTR: "|>"
+// DOM_SUB: "<<|"
+// DOM_RESTR: "<|"
+_FOR: "for"
+_IN: "in"
+IS: "is"
+EQ: "=="
+NE: "!="
+LT: "<"
+GT: ">"
+LE: "<="
+GE: ">="
+_VBAR: "|"
+BREAK: "break"
+CONTINUE: "continue"
+_RETURN: "return"
+PASS: "pass"
+_LAMBDA: "lambda"
+_ASSIGN: "="
+_IF: "if"
+_ELIF: "elif"
+_ELSE: "else"
+_STRUCT: "struct"
+_ENUM: "enum"
+_DEF: "def"
+_RIGHTARROW: "->"
+_NEWLINE: ( /\r?\n[\t ]*/ | COMMENT )+
+COMMENT: /#[^\n]*/
+
+// Directives to tell lark how to handle whitespace and comments
+%ignore /[\t \f]+/  // WS
+%ignore /\\[\t \f]*\r?\n/   // LINE_CONT
+%ignore COMMENT
+
+%declare _INDENT _DEDENT
