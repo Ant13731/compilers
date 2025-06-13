@@ -22,6 +22,44 @@ simple_stmt: expr | assignment | control_flow_stmt | import_stmt
 //////////////////////////////////////////////////////////////////////
 // Expressions + Operators
 //////////////////////////////////////////////////////////////////////
+// Expression operators below follow the table of precedences from "A Logical Approach to Discrete Math"
+// and some from "The Event-B Mathematical Language", 2007
+
+// Predicate
+predicate: bool_quantification | unquantified_predicate
+
+// Quantification: Modified from Event-B 2007, S 3.2.4
+bool_quantification: (FORALL | EXISTS) ident_list CDOT predicate
+ident_list: ident_pattern (COMMA ident_pattern)* // This will not be associative - stored as a flat list
+ident_pattern: IDENTIFIER
+             | L_PAREN ident_list R_PAREN // Allows for maplet destructuring like in python or regular B
+             | ident_pattern (MAPLET ident_pattern)* // Left associative
+
+// Other predicate forms: Modified from Event-B 2007, S 3.2.4, LADM, and Python grammar
+unquantified_predicate: unquantified_predicate (EQUIVALENT | NOT_EQUIVALENT) implication | implication
+implication: impl | rev_impl | disjunction
+impl: disjunction IMPLIES implication
+rev_impl: implication REV_IMPLIES disjunction
+disjunction: conjunction (OR conjunction)*
+conjunction: negation (AND negation)*
+negation: (NOT | BANG) negation | atom_bool
+
+atom_bool: TRUE | FALSE
+         | L_PAREN predicate R_PAREN
+         | pair_expr comp_op pair_expr
+
+comp_op: EQUALS | NOT_EQUALS | IS | IS_NOT
+        | LT | GT | LE | GE
+        | NOT | NOT_IN
+        | SUBSET | SUBSET_EQ | SUPERSET | SUPERSET_EQ
+        | NOT_SUBSET | NOT_SUBSET_EQ | NOT_SUPERSET | NOT_SUPERSET_EQ
+
+
+// Other non-bool expressions
+
+
+
+// Attempt 1 (do not use)
 expr: quantification | predicate
 
 // Quantification
@@ -30,13 +68,9 @@ quantification_op: FORALL | EXISTS | UNION_ALL | INTERSECTION_ALL
 quantification_body: (ident_list CDOT predicate VBAR expr) // where expr differs from dummy vars
                    | (expr VBAR predicate) // were expr == dummy vars
 lambdadef: LAMBDA ident_pattern CDOT predicate VBAR expr
-ident_list: ident_pattern (COMMA ident_pattern)* // This will not be associative - stored as a flat list
-ident_pattern: IDENTIFIER
-             | L_PAREN ident_list R_PAREN // Allows for maplet destructuring like in python or regular B
-             | ident_pattern (MAPLET ident_pattern)* // Left associative
 
-// Expression operators below follow the table of precedences from "A Logical Approach to Discrete Math"
-// and some from "The Event-B Mathematical Language", 2007
+
+
 // Generally, we can group expressions into the following categories (ordered lowest to highest precedence):
 // - Predicate (boolean) expressions
 // - Numerical expressions
@@ -53,13 +87,7 @@ ident_pattern: IDENTIFIER
 //    x \/ y |-> z expects the union to bind tighter
 
 // Predicate: boolean expressions have the lowest precedence
-predicate: predicate (EQUIVALENT | NOT_EQUIVALENT) implication | implication
-implication: impl | rev_impl | disjunction
-impl: disjunction IMPLIES implication
-rev_impl: implication REV_IMPLIES disjunction
-disjunction: conjunction (OR conjunction)*
-conjunction: negation (AND negation)*
-negation: (NOT | BANG) negation | comparison
+
 
 // TODO: solidify expr operators, precedence, and associativity
 
@@ -68,11 +96,6 @@ negation: (NOT | BANG) negation | comparison
 // Skipping bitwise operators, can always add later
 // Move to numbers and sets (same level of precedence)
 comparison: comparison comp_op num_and_set_expr | num_and_set_expr
-!comp_op: EQUALS | NOT_EQUALS | IS | IS_NOT
-        | LT | GT | LE | GE
-        | NOT | NOT_IN
-        | SUBSET | SUBSET_EQ | SUPERSET | SUPERSET_EQ
-        | NOT_SUBSET | NOT_SUBSET_EQ | NOT_SUPERSET | NOT_SUPERSET_EQ
 // Skipping sequence operators (triangleright, triangleleft, concatenate, etc.), since these can be done with more natural pythonic notation
 // Skipping min, max, etc since these are best left as functions
 ?num_and_set_expr: num_and_set_expr num_and_set_op term | term

@@ -116,3 +116,15 @@ class ASTNode:
 
             ret += f"{indent_}{f.name}**: {field_value}\n"
         return ret
+
+
+# TODO:
+# 1. Finish grammar and parser
+# 2. Implement a TRS, based on TRAAT textbook
+#
+#
+# 3. Compare language:
+# - want better ease-of-use than python or haskell (maybe rust?)
+# - want better performance than hand-optimized C, rust
+# - see if our compiler does better than AI generated code
+# - Should implement examples in python and haskell, see if they are good enough for testing, maybe find some benchmarks
