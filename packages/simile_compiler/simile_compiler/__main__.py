@@ -3,7 +3,7 @@ import argparse
 try:
     from . import scanner
 except ImportError:
-    import scanner
+    import scanner  # type: ignore
 
 
 def parse_args() -> argparse.Namespace:

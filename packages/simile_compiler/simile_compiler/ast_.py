@@ -1,9 +1,9 @@
 from typing import TypeVar, Any
 
 try:
-    from .ast_generated import *
+    from .ast_generated import *  # noqa: F403
 except ImportError:
-    from ast_generated import *  # type: ignore
+    from ast_generated import *  # type: ignore  # noqa: F403
 
 
 # ListOp should be in the namespace after ast_generator() is called

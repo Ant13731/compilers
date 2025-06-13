@@ -1,3 +1,5 @@
+# Script to generate the AST nodes - this will overwrite ast_generated.py each time it is run.
+
 from __future__ import annotations
 from typing import Any
 

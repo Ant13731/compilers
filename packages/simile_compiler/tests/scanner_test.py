@@ -1,11 +1,11 @@
 import pytest
 
-from simile_compiler.scanner import (
+from simile_compiler.scanner import (  # type: ignore
     scan,
     OPERATOR_TOKEN_TABLE,
     KEYWORD_TABLE,
     TokenType,
-    ScanException,
+    # ScanException,
 )
 
 TOKENS_AND_KEYWORDS = list(OPERATOR_TOKEN_TABLE.items()) + list(KEYWORD_TABLE.items())
@@ -29,18 +29,6 @@ class TestSymbols:
     )
     def test_single_symbol(self, input_1: str, expected_1: TokenType):
         assert list(map(lambda tk: tk.type_, scan(input_1))) == [expected_1, TokenType.EOF]
-
-    # @pytest.mark.parametrize(
-    #     "input_1, expected_1",
-    #     list(OPERATOR_TOKEN_TABLE.items()),
-    # )
-    # @pytest.mark.parametrize(
-    #     "input_2, expected_2",
-    #     list(OPERATOR_TOKEN_TABLE.items()),
-    # )
-    # def test_double_operator(self, input_1: str, input_2: str, expected_1: TokenType, expected_2: TokenType):
-    #     input_ = input_1 + input_2
-    #     assert list(map(lambda tk: tk.type_, scan(input_))) == [expected_1, expected_2, TokenType.EOF]
 
     @pytest.mark.parametrize(
         "input_1, expected_1",
