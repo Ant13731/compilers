@@ -14,6 +14,10 @@ class TokenType(Enum):
     INDENT = auto()
     DEDENT = auto()
 
+    # Imports
+    FROM = auto()
+    IMPORT = auto()
+
     # Primitives
     INTEGER = auto()
     FLOAT = auto()
@@ -293,6 +297,8 @@ KEYWORD_TABLE = {
     "break": TokenType.BREAK,
     "continue": TokenType.CONTINUE,
     "circ": TokenType.COMPOSITION,
+    "from": TokenType.FROM,
+    "import": TokenType.IMPORT,
 }
 
 

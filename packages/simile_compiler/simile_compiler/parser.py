@@ -42,7 +42,7 @@ class Parser:
 
     @property
     def eof(self) -> bool:
-        return self.current_token.type_ == TokenType.EOF
+        return self.peek().type_ == TokenType.EOF
 
     def peek(self, offset: int = 0) -> Token:
         return self.tokens[self.current_index + offset]

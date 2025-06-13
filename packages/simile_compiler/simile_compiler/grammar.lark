@@ -1,51 +1,117 @@
+// NOTE: This grammar serves only as a reference for parser.py.
+// Lark has decent syntax highlighting for BNF grammars, so this is a good place to write it.
+// This file is not intended to be used directly by any parser, including Lark.
+
 //////////////////////////////////////////////////////////////////////
 // Top Level Grammar
 //////////////////////////////////////////////////////////////////////
 // Loosely following the python grammar, just to get something executable started
 // - https://docs.python.org/3/reference/grammar.html
 // - https://github.com/lark-parser/lark/blob/master/lark/grammars/python.lark
-start: _NEWLINE* statements? _NEWLINE*
-statements: _NEWLINE* statement (_NEWLINE+ statement)* _NEWLINE*
+start: statements?
 // Each statement corresponds to one block of code. Simple statements are one-liners,
 // while compound statements are blocks of code that can be indented.
-?statement: simple_stmt | compound_stmt
+statements: (simple_stmt | compound_stmt)+
 
 // Simple Statements: expressions, operators, and literals
 // TODO:
 //  - del_stmt to denote the end-of-life for a var
 //  - assert_stmt, raise_stmt for assertions/exceptions
-//  - import_stmt for importing modules
-?simple_stmt: expr_stmt | assignment | control_flow_stmt
+simple_stmt: expr | assignment | control_flow_stmt | import_stmt
 
 //////////////////////////////////////////////////////////////////////
 // Expressions + Operators
 //////////////////////////////////////////////////////////////////////
+expr: quantification | predicate
+
+// Quantification
+quantification: lambdadef | quantification_op quantification_body
+quantification_op: FORALL | EXISTS | UNION_ALL | INTERSECTION_ALL
+quantification_body: (ident_list CDOT predicate VBAR expr) // where expr differs from dummy vars
+                   | (expr VBAR predicate) // were expr == dummy vars
+lambdadef: LAMBDA ident_pattern CDOT predicate VBAR expr
+ident_list: ident_pattern (COMMA ident_pattern)* // This will not be associative - stored as a flat list
+ident_pattern: IDENTIFIER
+             | L_PAREN ident_list R_PAREN // Allows for maplet destructuring like in python or regular B
+             | ident_pattern (MAPLET ident_pattern)* // Left associative
+
 // Expression operators below follow the table of precedences from "A Logical Approach to Discrete Math"
-// Deal with bools first (lowest precedence)
-expr_stmt: equivalence | lambdef
-equivalence: equivalence (EQUIV | N_EQUIV) implication | implication
-?implication: impl | rev_impl | disjunction
-impl: disjunction _IMPLIES implication
-rev_impl: implication _REV_IMPLIES disjunction
-?disjunction: conjunction (_OR conjunction)*
-?conjunction: negation (_AND negation)*
-?negation: NOT negation | comparison
+// and some from "The Event-B Mathematical Language", 2007
+// Generally, we can group expressions into the following categories (ordered lowest to highest precedence):
+// - Predicate (boolean) expressions
+// - Numerical expressions
+// - Set expressions
+// - Relation expressions
+
+// Rough work to check intuition of precedence:
+// - Predicate expressions should be the lowest.
+//    Ex. x |-> y and y |-> z expects the maplet to bind tighter - or should it? what about x and y |-> z - if x,y,z are bools, parenthesis could go anywhere
+//    x > 1 == True expects the GT to bind tighter
+// - Numerical expressions
+//    x + y |-> z expects the addition to bind tighter
+// - Set expressions
+//    x \/ y |-> z expects the union to bind tighter
+
+// Predicate: boolean expressions have the lowest precedence
+predicate: predicate (EQUIVALENT | NOT_EQUIVALENT) implication | implication
+implication: impl | rev_impl | disjunction
+impl: disjunction IMPLIES implication
+rev_impl: implication REV_IMPLIES disjunction
+disjunction: conjunction (OR conjunction)*
+conjunction: negation (AND negation)*
+negation: (NOT | BANG) negation | comparison
+
+// TODO: solidify expr operators, precedence, and associativity
+
+//OLD STUFF
+
 // Skipping bitwise operators, can always add later
 // Move to numbers and sets (same level of precedence)
-?comparison: comparison comp_op num_and_set_expr | num_and_set_expr
-!comp_op: EQ | NE | LT | GT | LE | GE | (NOT? _IN) | (IS NOT?) | SUBSET | SUBSET_EQ | SUPERSET | SUPERSET_EQ // ! is a bit of a hack since `in` is technically hidden
+comparison: comparison comp_op num_and_set_expr | num_and_set_expr
+!comp_op: EQUALS | NOT_EQUALS | IS | IS_NOT
+        | LT | GT | LE | GE
+        | NOT | NOT_IN
+        | SUBSET | SUBSET_EQ | SUPERSET | SUPERSET_EQ
+        | NOT_SUBSET | NOT_SUBSET_EQ | NOT_SUPERSET | NOT_SUPERSET_EQ
 // Skipping sequence operators (triangleright, triangleleft, concatenate, etc.), since these can be done with more natural pythonic notation
 // Skipping min, max, etc since these are best left as functions
 ?num_and_set_expr: num_and_set_expr num_and_set_op term | term
 // Skipping relation product, since this can be done through regular programming language syntax?. overload ADD and SUB with concat and diff, maybe union for add too?
 // TODO check precedence?
-!num_and_set_op: ADD | SUB | UNION | DIFFERENCE
+!num_and_set_op: PLUS | MINUS
+               | UNION | BACKSLASH
+               | RELATION_OVERRIDING
 ?term: term num_and_set_op_mult factor | factor
-!num_and_set_op_mult : MUL | DIV | REM | MOD | INTERSECTION | CARTESIAN_PRODUCT | RELATION_COMPOSITION
-?factor: un_op factor | power
+!num_and_set_op_mult: STAR | SLASH | PERCENT
+                    | INTERSECTION
+                    | CARTESIAN_PRODUCT | COMPOSITION // ASK: should these go to the union section?
+?factor: un_op factor | rev_un_op
 // Unary operators have highest precedence (except for power)
-!un_op: ADD | SUB | COMPLEMENT | POWERSET
-?power: primary _POW factor | primary
+!un_op: PLUS | MINUS
+      | TILDE | POWERSET | NONEMPTY_POWERSET
+rev_un_op: rev_un_op INVERSE | power
+?power: primary DOUBLE_STAR factor | primary
+
+// ASK: where should these go? especially in relation to bool/num/set/relation exprs
+relation_type_op: RELATION
+           | TOTAL_RELATION
+           | SURJECTIVE_RELATION
+           | TOTAL_SURJECTIVE_RELATION
+           | PARTIAL_FUNCTION
+           | TOTAL_FUNCTION
+           | PARTIAL_INJECTION
+           | TOTAL_INJECTION
+           | PARTIAL_SURJECTION
+           | TOTAL_SURJECTION
+           | BIJECTION
+relation_dom_ran_op: DOMAIN_SUBTRACTION
+                   | DOMAIN_RESTRICTION
+                   | RANGE_SUBTRACTION
+                   | RANGE_RESTRICTION
+
+
+
+
 
 //////////////////////////////////////////////////////////////////////
 // Statements: function calls, iterables, struct access
@@ -56,7 +122,6 @@ call: primary _L_PAREN arguments _R_PAREN //Func calls, arguments defined elsewh
 indexing: primary _L_BRACKET _slice_or_index? _R_BRACKET //List indexing TODO check if its the same as arguments?
 _slice_or_index: slice | equivalence // bool expr here is just for normal indexing
 slice: [equivalence] (_COLON [equivalence])+
-lambdef: _LAMBDA _L_PAREN arg_def _R_PAREN _COLON equivalence
 // no varargs or kwargs for now
 arg_def: (typed_name (_COMMA typed_name)*)?
 arguments: (expr_stmt (_COMMA expr_stmt)*)? // TODO add support for *args and **kwargs
