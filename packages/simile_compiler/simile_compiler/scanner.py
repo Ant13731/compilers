@@ -199,6 +199,7 @@ OPERATOR_TOKEN_TABLE = {
     "/": TokenType.SLASH,
     "%": TokenType.PERCENT,
     "**": TokenType.DOUBLE_STAR,
+    "^": TokenType.DOUBLE_STAR,
     "<": TokenType.LT,
     "<=": TokenType.LE,
     ">": TokenType.GT,

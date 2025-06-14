@@ -120,7 +120,7 @@ class ASTNode:
 
 # TODO:
 # 1. Finish grammar and parser
-# 2. Implement a TRS, based on TRAAT textbook
+# 2. Implement a TRS, based on TRAAT textbook (pg 80)
 #
 #
 # 3. Compare language:
