@@ -8,6 +8,15 @@ from simile_compiler.scanner import (  # type: ignore
     # ScanException,
 )
 
+
+test_strs = [
+    "a\n \n\nb\n\n",
+]
+for str_ in test_strs:
+    print(f"Testing: {str_}")
+    print(scan(str_))
+
+
 TOKENS_AND_KEYWORDS = list(OPERATOR_TOKEN_TABLE.items()) + list(KEYWORD_TABLE.items())
 TOKENS_AND_KEYWORDS_NO_NOT = list(
     filter(
@@ -100,8 +109,10 @@ class TestSymbols:
                 "<\n\t<\n<",
                 [
                     TokenType.LT,
+                    TokenType.NEWLINE,
                     TokenType.INDENT,
                     TokenType.LT,
+                    TokenType.NEWLINE,
                     TokenType.DEDENT,
                     TokenType.LT,
                 ],
@@ -110,8 +121,10 @@ class TestSymbols:
                 "<\n <\n<",
                 [
                     TokenType.LT,
+                    TokenType.NEWLINE,
                     TokenType.INDENT,
                     TokenType.LT,
+                    TokenType.NEWLINE,
                     TokenType.DEDENT,
                     TokenType.LT,
                 ],
@@ -120,10 +133,13 @@ class TestSymbols:
                 "<\n <\n  <\n",
                 [
                     TokenType.LT,
+                    TokenType.NEWLINE,
                     TokenType.INDENT,
                     TokenType.LT,
+                    TokenType.NEWLINE,
                     TokenType.INDENT,
                     TokenType.LT,
+                    TokenType.NEWLINE,
                     TokenType.DEDENT,
                     TokenType.DEDENT,
                 ],
@@ -132,10 +148,13 @@ class TestSymbols:
                 "<\n <\n  <\n<",
                 [
                     TokenType.LT,
+                    TokenType.NEWLINE,
                     TokenType.INDENT,
                     TokenType.LT,
+                    TokenType.NEWLINE,
                     TokenType.INDENT,
                     TokenType.LT,
+                    TokenType.NEWLINE,
                     TokenType.DEDENT,
                     TokenType.DEDENT,
                     TokenType.LT,

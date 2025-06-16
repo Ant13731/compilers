@@ -23,7 +23,7 @@ class ParseError:
 
     def __str__(self) -> str:
         if self.token:
-            return f"ParseError at {self.token.start_location}: {self.message}"
+            return f"ParseError for token {self.token} at {self.token.start_location}: {self.message}"
         return f"ParseError: {self.message}"
 
 
@@ -40,64 +40,44 @@ class Parser:
 
     # Idea 2: store a mapping of production names -> first sets. first sets may include references to other productions
     # (ie. using strings instead of TokenTypes)
-    first_sets: ClassVar[dict[str, list[str | TokenType]]] = {
-        "start": [TokenType.EOF, "statements"],
-        "statements": ["simple_stmt", "compound_stmt"],
-        "simple_stmt": ["expr", "assignment", "control_flow_stmt", "import_stmt"],
-        "predicate": ["bool_quantification", "unquantified_predicate"],
-        "bool_quantification": [TokenType.FORALL, TokenType.EXISTS],
-        "ident_list": ["ident_pattern"],
-        "ident_pattern": [TokenType.IDENTIFIER, TokenType.L_PAREN],
-        "unquantified_predicate": ["implication"],
-        "implication": ["impl", "rev_impl", "disjunction"],
-        "impl": ["disjunction"],
-        "rev_impl": ["disjunction"],
-        "disjunction": ["conjunction"],
-        "conjunction": ["negation"],
-        "negation": [TokenType.NOT, TokenType.BANG, "atom_bool"],
-        "atom_bool": [TokenType.TRUE, TokenType.FALSE, TokenType.L_PAREN, "pair_expr"],
-        # "comp_op": [
-        #     TokenType.EQUALS,
-        #     TokenType.NOT_EQUALS,
-        #     TokenType.IS,
-        #     TokenType.IS_NOT,
-        #     TokenType.LT,
-        #     TokenType.GT,
-        #     TokenType.LE,
-        #     TokenType.GE,
-        #     TokenType.NOT,
-        #     TokenType.NOT_IN,
-        #     TokenType.SUBSET,
-        #     TokenType.SUBSET_EQ,
-        #     TokenType.SUPERSET,
-        #     TokenType.SUPERSET_EQ,
-        #     TokenType.NOT_SUBSET,
-        #     TokenType.NOT_SUBSET_EQ,
-        #     TokenType.NOT_SUPERSET,
-        #     TokenType.NOT_SUPERSET_EQ,
-        # ],
-        "expr": ["quantification", "pair_expr", "predicate"],
-        "quantification": ["lambdadef", "quantification_op"],
-        "quantification_op": [TokenType.UNION_ALL, TokenType.INTERSECTION_ALL],
-        "quantification_body": ["ident_list", "expr"],
-        "lambdadef": [TokenType.LAMBDA],
-        "pair_expr": ["rel_set_expr"],
-        "rel_set_expr": ["set_expr"],
-        "set_expr": ["interval_expr", "relation_expr"],
-        "rel_expr": ["interval_expr"],
-        "rel_sub_expr": ["range_modifier", TokenType.BACKSLASH],
-        "range_modifier": [TokenType.RANGE_RESTRICTION, TokenType.RANGE_SUBTRACTION],
-        "interval_expr": ["arithmetic_expr"],
-        "arithmetic_expr": ["term"],
-        "term": ["factor"],
-        "factor": [TokenType.PLUS, TokenType.MINUS, "power"],
-        "power": ["primary"],
-        "primary": ["struct_access", "call", "image", "inversable_atom"],
-        "inversable_atom": ["atom"],
-        "struct_access": ["atom"],
-        "call": ["atom"],
-        "image": ["atom"],
-        "atom": [
+    first_sets: ClassVar[dict[str, set[str | TokenType]]] = {
+        "start": {TokenType.EOF, "statements"},
+        "statements": {"simple_stmt", "compound_stmt"},
+        "simple_stmt": {"expr", "assignment", "control_flow_stmt", "import_stmt"},
+        "predicate": {"bool_quantification", "unquantified_predicate"},
+        "bool_quantification": {TokenType.FORALL, TokenType.EXISTS},
+        "ident_list": {"ident_pattern"},
+        "ident_pattern": {TokenType.IDENTIFIER, TokenType.L_PAREN},
+        "unquantified_predicate": {"implication"},
+        "implication": {"impl", "rev_impl", "disjunction"},
+        "impl": {"disjunction"},
+        "rev_impl": {"disjunction"},
+        "disjunction": {"conjunction"},
+        "conjunction": {"negation"},
+        "negation": {TokenType.NOT, TokenType.BANG, "atom_bool"},
+        "atom_bool": {TokenType.TRUE, TokenType.FALSE, TokenType.L_PAREN, "pair_expr"},
+        "expr": {"quantification", "pair_expr", "predicate"},
+        "quantification": {"lambdadef", "quantification_op"},
+        "quantification_op": {TokenType.UNION_ALL, TokenType.INTERSECTION_ALL},
+        "quantification_body": {"ident_list", "expr"},
+        "lambdadef": {TokenType.LAMBDA},
+        "pair_expr": {"rel_set_expr"},
+        "rel_set_expr": {"set_expr"},
+        "set_expr": {"interval_expr", "rel_expr"},
+        "rel_expr": {"interval_expr"},
+        "rel_sub_expr": {"range_modifier", TokenType.BACKSLASH},
+        "range_modifier": {TokenType.RANGE_RESTRICTION, TokenType.RANGE_SUBTRACTION},
+        "interval_expr": {"arithmetic_expr"},
+        "arithmetic_expr": {"term"},
+        "term": {"factor"},
+        "factor": {TokenType.PLUS, TokenType.MINUS, "power"},
+        "power": {"primary"},
+        "primary": {"struct_access", "call", "image", "inversable_atom"},
+        "inversable_atom": {"atom"},
+        "struct_access": {"atom"},
+        "call": {"atom"},
+        "image": {"atom"},
+        "atom": {
             TokenType.IDENTIFIER,
             TokenType.L_PAREN,
             TokenType.INTEGER,
@@ -108,37 +88,38 @@ class Parser:
             TokenType.NONE,
             "collections",
             "builtin_functions",
-        ],
-        "collections": ["set", "sequence", "bag"],  # handle relation inside the func
-        "set": [TokenType.L_BRACE],
-        "sequence": [TokenType.L_BRACKET],
-        "bag": [TokenType.L_BRACE_BAR],
-        "builtin_functions": [TokenType.POWERSET, TokenType.NONEMPTY_POWERSET],
-        "control_flow_statement": [TokenType.RETURN, TokenType.BREAK, TokenType.CONTINUE, TokenType.PASS],
-        "assignment": ["struct_access"],
-        "typed_name": [TokenType.IDENTIFIER],
-        "compound_stmt": ["if_stmt", "for_stmt", "while_stmt", "struct_stmt", "enum_stmt", "func_stmt"],
-        "if_stmt": [TokenType.IF],
-        "elif_stmt": [TokenType.ELIF],
-        "else_stmt": [TokenType.ELSE],
-        "for_stmt": [TokenType.FOR],
-        "while_stmt": [TokenType.WHILE],
-        "struct_stmt": [TokenType.STRUCT],
-        "enum_stmt": [TokenType.ENUM],
-        "func_stmt": [TokenType.DEF],
-        "block": ["simple_stmt", TokenType.INDENT],
-        "import_stmt": [TokenType.IMPORT, TokenType.FROM],
-        "import_name": [TokenType.DOT, TokenType.IDENTIFIER],
-        "import_list": [TokenType.STAR, TokenType.IDENTIFIER, TokenType.L_PAREN],
+        },
+        "collections": {"set", "sequence", "bag"},  # handle relation inside the parsing function
+        "set": {TokenType.L_BRACE},
+        "sequence": {TokenType.L_BRACKET},
+        "bag": {TokenType.L_BRACE_BAR},
+        "builtin_functions": {TokenType.POWERSET, TokenType.NONEMPTY_POWERSET},
+        "control_flow_stmt": {TokenType.RETURN, TokenType.BREAK, TokenType.CONTINUE, TokenType.PASS},
+        "assignment": {"struct_access"},
+        "typed_name": {TokenType.IDENTIFIER},
+        "compound_stmt": {"if_stmt", "for_stmt", "while_stmt", "struct_stmt", "enum_stmt", "func_stmt"},
+        "if_stmt": {TokenType.IF},
+        "elif_stmt": {TokenType.ELIF},
+        "else_stmt": {TokenType.ELSE},
+        "for_stmt": {TokenType.FOR},
+        "while_stmt": {TokenType.WHILE},
+        "struct_stmt": {TokenType.STRUCT},
+        "enum_stmt": {TokenType.ENUM},
+        "func_stmt": {TokenType.DEF},
+        "block": {"simple_stmt", TokenType.INDENT},
+        "import_stmt": {TokenType.IMPORT, TokenType.FROM},
+        "import_name": {TokenType.DOT, TokenType.IDENTIFIER},
+        "import_list": {TokenType.STAR, TokenType.IDENTIFIER, TokenType.L_PAREN},
     }
 
-    def get_first_set(self, production_name: str) -> list[TokenType]:
-        first_set = []
-        for elem in self.first_sets[production_name]:
+    @classmethod
+    def get_first_set(cls, production_name: str) -> set[TokenType]:
+        first_set = set()
+        for elem in cls.first_sets[production_name]:
             if isinstance(elem, str):
-                first_set += self.get_first_set(elem)
+                first_set |= cls.get_first_set(elem)
             else:
-                first_set.append(elem)
+                first_set.add(elem)
         return first_set
 
     @property
@@ -155,7 +136,7 @@ class Parser:
         return self.peek(-1)
 
     def check(self, token_type: TokenType) -> bool:
-        return not self.eof and self.peek() == token_type
+        return not self.eof and self.peek().type_ == token_type
 
     def match(self, token_type: TokenType) -> bool:
         if self.check(token_type):
@@ -165,16 +146,16 @@ class Parser:
 
     def consume(self, token_type: TokenType, msg: str) -> None:
         if not self.match(token_type):
-            self.error(msg)
+            self.error(msg, level_offset=1)
 
-    def error(self, msg: str) -> NoReturn:
+    def error(self, msg: str, level_offset: int = 0) -> NoReturn:
         self.errors.append(
-            ParseError(msg + f"\n\nExpected one of {self.get_first_set(inspect.stack()[1].function)}. Error originated from {inspect.stack()[1].function}", self.peek())
+            ParseError(
+                msg + f"\nExpected one of {self.get_first_set(inspect.stack()[1 + level_offset].function)}. Error originated from {inspect.stack()[1 + level_offset].function}",
+                self.peek(),
+            )
         )
-        raise Exception("Parse error")
-
-    def cur_first_set(self) -> list[TokenType]:
-        return self.get_first_set(inspect.stack()[0].function)
+        raise Exception("Parse error (see self.errors)")
 
     def left_associative_optional_parse(self, func: Callable[[], ast_.ASTNode], tokens_and_types: dict[TokenType, type[ast_.BinaryOp]]) -> ast_.ASTNode:
         left = func()
@@ -195,7 +176,7 @@ class Parser:
 
     def statements(self) -> ast_.Statements:
         statements = []
-        while self.peek().type_ in self.cur_first_set():
+        while self.peek().type_ in self.get_first_set("statements"):
             if self.peek().type_ in self.get_first_set("simple_stmt"):
                 statements.append(self.simple_stmt())
             elif self.peek().type_ in self.get_first_set("compound_stmt"):
@@ -210,14 +191,21 @@ class Parser:
         if t.type_ in self.get_first_set("expr"):
             expr = self.expr()
             if self.peek().type_ != TokenType.ASSIGN:
+                self.consume(TokenType.NEWLINE, "Expected end of simple statement after expression")
                 return expr
             # Since first of assignment and expr are shared, check if next token is an assignment
             self.advance()
-            return ast_.Assignment(target=expr, value=self.expr())
+            value = self.expr()
+            self.consume(TokenType.NEWLINE, "Expected end of simple statement after assignment")
+            return ast_.Assignment(target=expr, value=value)
         if t.type_ in self.get_first_set("control_flow_stmt"):
-            return self.control_flow_stmt()
+            stmt = self.control_flow_stmt()
+            self.consume(TokenType.NEWLINE, "Expected end of simple statement after control flow statement")
+            return stmt
         if t.type_ in self.get_first_set("import_stmt"):
-            return self.import_stmt()
+            stmt = self.import_stmt()
+            self.consume(TokenType.NEWLINE, "Expected end of simple statement after import statement")
+            return stmt
         self.error("Invalid start to simple_stmt")
 
     def predicate(self) -> ast_.Predicate:
@@ -378,7 +366,7 @@ class Parser:
             case _:
                 self.error("Invalid start to quantification")
 
-    def quantification_body(self) -> tuple[ast_.IdentList, ast_.ASTNode, ast_.ASTNode]:  # type: ignore
+    def quantification_body(self) -> tuple[ast_.IdentList, ast_.ASTNode, ast_.ASTNode]:
         # expr should cover the first entry in a list of identifiers,
         starting_index = self.current_index
         first_part = self.expr()
@@ -431,8 +419,7 @@ class Parser:
                 return set_expr
         return bin_op(set_expr, self.rel_set_expr())
 
-    def set_expr(self) -> ast_.ASTNode:  # type: ignore
-        starting_index = self.current_index
+    def set_expr(self) -> ast_.ASTNode:
         interval_expr = self.interval_expr()
         match self.peek().type_:
             case TokenType.UNION:
@@ -534,7 +521,7 @@ class Parser:
             return ast_.Exponent(primary, self.factor())
         return primary
 
-    def primary(self) -> ast_.ASTNode:  # type: ignore
+    def primary(self) -> ast_.ASTNode:
         inversable_atom = self.inversable_atom()
         while self.peek().type_ in [TokenType.DOT, TokenType.L_PAREN, TokenType.L_BRACKET]:
             match self.peek().type_:
@@ -673,11 +660,11 @@ class Parser:
         return self.collection_body(ast_.SequenceEnumeration, ast_.SequenceComprehension)
 
     def control_flow_stmt(self) -> ast_.ASTNode:
-        match self.advance():
+        match self.advance().type_:
             case TokenType.RETURN:
                 # This may try to eat up the next line? might need a statement separator...
                 if self.peek().type_ not in self.get_first_set("expr"):
-                    return ast_.Return(ast_.None_)
+                    return ast_.Return(ast_.None_())
                 return ast_.Return(self.expr())
             case TokenType.BREAK:
                 return ast_.Break()
@@ -804,6 +791,7 @@ class Parser:
         name = ast_.Identifier(t.value)
 
         self.consume(TokenType.COLON, "Expected colon after STRUCT name")
+        self.consume(TokenType.NEWLINE, "Expected newline after STRUCT definition")
         self.consume(TokenType.INDENT, "Expected indentation after STRUCT definition")
         if self.peek().type_ == TokenType.PASS:
             items = []
@@ -821,6 +809,7 @@ class Parser:
         name = ast_.Identifier(t.value)
 
         self.consume(TokenType.COLON, "Expected colon after ENUM name")
+        self.consume(TokenType.NEWLINE, "Expected newline after ENUM definition")
         self.consume(TokenType.INDENT, "Expected indentation after ENUM definition")
         if self.peek().type_ == TokenType.PASS:
             items = []
@@ -869,9 +858,10 @@ class Parser:
         return ast_.TypedName(name, ast_.None_())
 
     def block(self) -> ast_.Statements:
-        if self.peek().type_ != TokenType.INDENT:
+        if self.peek().type_ != TokenType.NEWLINE:
             return ast_.Statements([self.simple_stmt()])
 
+        self.consume(TokenType.NEWLINE, "Expected newline for block")
         self.consume(TokenType.INDENT, "Expected indentation for block")
         statements = self.statements()
         self.consume(TokenType.DEDENT, "Expected dedentation for block")
@@ -883,7 +873,16 @@ def parse(tokens: list[Token]) -> ast_.ASTNode | None:
     parser = Parser(tokens)
     try:
         return parser.start()
-    except Exception:
-        for err in parser.errors:
+    except Exception as e:
+        print("Errors found within in the parser:")
+        for i, err in enumerate(parser.errors):
+            print(f"{i}.")
             print(err)
+        print("Parser info:")
+        print(f"Tokens: {len(tokens)}")
+        print(f"Errors: {len(parser.errors)}")
+        print(f"Current index: {parser.current_index}")
+        print(f"Input tokens: {tokens}")
+
+        raise e
         return None

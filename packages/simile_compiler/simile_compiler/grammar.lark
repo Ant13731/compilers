@@ -13,7 +13,7 @@
 start: statements?
 // Each statement corresponds to one block of code. Simple statements are one-liners,
 // while compound statements are blocks of code that can be indented.
-statements: (simple_stmt | compound_stmt)+
+statements: ((simple_stmt NEWLINE) | compound_stmt)+
 
 // Simple Statements: expressions, operators, and literals
 // TODO:
@@ -148,10 +148,10 @@ elif_stmt: ELIF predicate COLON block (elif_stmt | else_stmt)?
 else_stmt: ELSE COLON block
 for_stmt: FOR ident_list IN expr COLON block
 while_stmt: WHILE predicate COLON block
-struct_stmt: STRUCT IDENTIFIER COLON INDENT ((typed_name (COMMA typed_name)*) | PASS) DEDENT
-enum_stmt: ENUM IDENTIFIER COLON INDENT ((IDENTIFIER (COMMA IDENTIFIER)*) | PASS) DEDENT
+struct_stmt: STRUCT IDENTIFIER COLON NEWLINE INDENT ((typed_name (COMMA typed_name)*) | PASS) DEDENT
+enum_stmt: ENUM IDENTIFIER COLON NEWLINE INDENT ((IDENTIFIER (COMMA IDENTIFIER)*) | PASS) DEDENT
 func_stmt: DEF IDENTIFIER L_PAREN (typed_name (COMMA typed_name)*)? R_PAREN RIGHTARROW expr COLON block
-block: simple_stmt | INDENT statements DEDENT
+block: simple_stmt | NEWLINE INDENT statements DEDENT
 
 // Import statments - no aliasing for now
 import_stmt: IMPORT import_name

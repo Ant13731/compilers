@@ -13,6 +13,7 @@ class TokenType(Enum):
     EOF = auto()  # End of file
     INDENT = auto()
     DEDENT = auto()
+    NEWLINE = auto()
 
     # Imports
     FROM = auto()
@@ -354,6 +355,9 @@ class Scanner:
 
     We store this in an object to catch as many errors as possible through one run."""
 
+    ignore_newline: bool = True
+    """State marker for the scanner - when true, do not generate newline tokens when scanning"""
+
     @property
     def max_location(self) -> Location:
         """Returns the maximum location in the text."""
@@ -440,6 +444,7 @@ class Scanner:
         # Handle indentation
         # If we are at the start of a line...
         if self.location.column == 1:
+            self.ignore_newline = True
             # Match existing indentation as much as possible
             matched_up_to_index = 0
             for indent_str in self.indentation_stack:
@@ -479,6 +484,8 @@ class Scanner:
 
         match c:
             case "\n":
+                if not self.ignore_newline:
+                    self.add_token(TokenType.NEWLINE)
                 self.location.line += 1
                 self.location.column = 0
                 return
@@ -497,6 +504,7 @@ class Scanner:
                 self.add_token(TokenType.COMMENT, start_location, end_location, value)
             # Primitives
             case '"':  # includes multiline?
+                self.ignore_newline = False
                 start_location = self.location
                 while self.peek() != '"' and not self.at_end_of_text:
                     if self.peek() == "\n":
@@ -510,6 +518,7 @@ class Scanner:
                 value = self.text[self.current_index_lexeme_start + 1 : self.current_index - 1]
                 self.add_token(TokenType.STRING, start_location, self.location, value)
             case _ if c.isdigit() or c == "." and (peek := self.peek()) is not None and peek.isdigit():
+                self.ignore_newline = False
                 start_location = self.location
                 while (peek := self.peek()) is not None and peek.isdigit():
                     self.advance()
@@ -524,6 +533,7 @@ class Scanner:
                     self.add_token(TokenType.INTEGER, start_location, self.location, value)
             # Operators
             case _ if c in {k[0] for k in OPERATOR_TOKEN_TABLE}:
+                self.ignore_newline = False
                 start_location = self.location
 
                 consumed_characters = c
@@ -565,6 +575,7 @@ class Scanner:
 
                 self.add_token(OPERATOR_TOKEN_TABLE[consumed_characters], start_location, self.location)
             case _ if c.isalpha() or c == "_":
+                self.ignore_newline = False
                 start_location = self.location
                 while True:
                     c_ = self.peek()
@@ -612,6 +623,8 @@ def scan(text: str) -> list[Token]:
     Returns:
         list[Token]: A list of tokens extracted from the source code
     """
+    if not text.endswith("\n"):
+        text += "\n"
 
     scanner = Scanner(text)
 

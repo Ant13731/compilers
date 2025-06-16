@@ -84,12 +84,12 @@ class ASTNode:
             indent -= 2
             ret = ""
         else:
-            if isinstance(self, PrimitiveLiteral | Identifier):  # type: ignore # noqa
-                if isinstance(self, None_):  # type: ignore # noqa
-                    ret = f"{self.__class__.__name__}\n"
-                    return ret
-                ret = f"{self.__class__.__name__}: {self.value}\n"
-                return ret
+            # if isinstance(self, PrimitiveLiteral | Identifier):  # type: ignore # noqa
+            #     if isinstance(self, None_):  # type: ignore # noqa
+            #         ret = f"{self.__class__.__name__}\n"
+            #         return ret
+            #     ret = f"{self.__class__.__name__}: {self.value}\n"
+            #     return ret
 
             ret = f"{self.__class__.__name__}:\n"
             indent_ = indent * " "
