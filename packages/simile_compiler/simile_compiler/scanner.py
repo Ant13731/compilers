@@ -45,6 +45,7 @@ class TokenType(Enum):
     ELIF = auto()
     ELSE = auto()
     FOR = auto()  # purposefully no while loop?
+    WHILE = auto()
 
     STRUCT = auto()
     ENUM = auto()
@@ -56,6 +57,7 @@ class TokenType(Enum):
     RETURN = auto()
     BREAK = auto()
     CONTINUE = auto()
+    PASS = auto()
 
     # Brackets
     L_PAREN = auto()
@@ -281,6 +283,7 @@ KEYWORD_TABLE = {
     "elif": TokenType.ELIF,
     "else": TokenType.ELSE,
     "for": TokenType.FOR,
+    "while": TokenType.WHILE,
     "struct": TokenType.STRUCT,
     "enum": TokenType.ENUM,
     "def": TokenType.DEF,
@@ -300,6 +303,7 @@ KEYWORD_TABLE = {
     "circ": TokenType.COMPOSITION,
     "from": TokenType.FROM,
     "import": TokenType.IMPORT,
+    "pass": TokenType.PASS,
 }
 
 

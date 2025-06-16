@@ -52,10 +52,12 @@ except ImportError:
 
 """
     ast_primitives_config = {
-        "Int": {"value": "int"},
-        "Float": {"value": "float"},
+        "Int": {"value": "str"},  # make these int and float? or leave as string for llvm interpretation?
+        "Float": {"value": "str"},
         "String": {"value": "str"},
-        "Bool": {"value": "bool"},
+        # "Bool": {"value": "bool"},
+        "True_": {},
+        "False_": {},
         "None_": {},  # Represents a None literal
         "Identifier": {"name": "str"},
     }
@@ -67,6 +69,8 @@ except ImportError:
     }
     ret_str += ast_config_to_str(op_config_base)
     op_config = {
+        "IdentList": "ListOp",
+        #
         "And": "ListOp",
         "Or": "ListOp",
         "Not": "UnaryOp",
@@ -80,6 +84,7 @@ except ImportError:
         "Multiply": "BinaryOp",
         "Divide": "BinaryOp",
         "Modulus": "BinaryOp",
+        "Negative": "UnaryOp",
         # "Remainder": "BinaryOp",
         "Exponent": "BinaryOp",
         "Equal": "BinaryOp",
@@ -105,9 +110,8 @@ except ImportError:
         "NotSubsetEq": "BinaryOp",
         "NotSuperset": "BinaryOp",
         "NotSupersetEq": "BinaryOp",
-        "UnionAll": "ListOp",
-        "IntersectionAll": "ListOp",
         "Powerset": "UnaryOp",
+        "NonemptyPowerset": "UnaryOp",
         #
         "Maplet": "BinaryOp",
         "RelationOverride": "BinaryOp",
@@ -135,23 +139,25 @@ except ImportError:
     }
     ret_str += ast_config_to_str(op_config)
     caller_nodes_config_pre = {
-        "Arguments": {"items": "list[ASTNode]"},
         "Type_": {"type_": "ASTNode"},
         "Slice": {"items": "list[ASTNode]"},
+        "UnionAll": {"bound_identifiers": "IdentList", "predicate": "ASTNode", "expression": "ASTNode"},
+        "IntersectionAll": {"bound_identifiers": "IdentList", "predicate": "ASTNode", "expression": "ASTNode"},
+        "Forall": {"bound_identifiers": "IdentList", "predicate": "ASTNode"},
+        "Exists": {"bound_identifiers": "IdentList", "predicate": "ASTNode"},
+        "LambdaDef": {"bound_identifiers": "IdentList", "predicate": "ASTNode", "expression": "ASTNode"},
     }
     ret_str += ast_config_to_str(caller_nodes_config_pre)
     caller_nodes_config = {
         "StructAccess": {"struct": "ASTNode", "field_name": "Identifier"},
-        "FunctionCall": {"function_name": "ASTNode", "args": "Arguments"},
+        "FunctionCall": {"function_name": "ASTNode", "args": "list[ASTNode]"},
         "TypedName": {"name": "Identifier", "type_": "Type_ | None_"},
         "Indexing": {"target": "ASTNode", "index": "ASTNode | Slice | None_"},
     }
     ret_str += ast_config_to_str(caller_nodes_config)
-    ret_str += ast_config_to_str({"ArgDef": {"items": "list[TypedName]"}})
     statements_config = {
         "Assignment": {"target": "ASTNode", "value": "ASTNode"},
         "Return": {"value": "ASTNode | None_"},
-        "LambdaDef": {"args": "ArgDef", "body": "ASTNode"},
         "Break": {},
         "Continue": {},
         "Pass": {},
@@ -160,51 +166,55 @@ except ImportError:
     ret_str += ast_config_to_str({"Statements": {"items": "list[ASTNode]"}})
     ret_str += ast_config_to_str({"Else": {"body": "ASTNode | Statements"}})
     compound_statements_config = {
-        "If": {"condition": "ASTNode", "body": "ASTNode | Statements", "else_body": "Else | None_"},
+        "If": {"condition": "ASTNode", "body": "ASTNode | Statements", "else_body": "Elif | Else | None_"},
         "Elif": {"condition": "ASTNode", "body": "ASTNode | Statements", "else_body": "Elif | Else | None_"},
-        "For": {"iterable_names": "list[Identifier]", "iterable": "ASTNode", "body": "ASTNode | Statements"},
+        "For": {"iterable_names": "IdentList", "iterable": "ASTNode", "body": "ASTNode | Statements"},
+        "While": {"condition": "ASTNode", "body": "ASTNode | Statements"},
         "StructDef": {"name": "Identifier", "items": "list[TypedName]"},
         "EnumDef": {"name": "Identifier", "items": "list[Identifier]"},
-        "FunctionDef": {"name": "Identifier", "args": "ArgDef", "body": "ASTNode | Statements", "return_type": "Type_ | None_"},
+        "FunctionDef": {"name": "Identifier", "args": "list[TypedName]", "body": "ASTNode | Statements", "return_type": "Type_"},
+        "ImportAll": {},
+        "Import": {"module_identifier": "list[Identifier]", "import_objects": "IdentList | None_ | ImportAll"},
     }
     ret_str += ast_config_to_str(compound_statements_config)
-    ret_str += ast_config_to_str({"KeyPair": {"key": "ASTNode", "value": "ASTNode"}})
     complex_literals_config_base = {
         "SeqLike": {"items": "list[ASTNode]"},
-        "MapLike": {"items": "list[KeyPair]"},
+        "MapLike": {"items": "list[Maplet]"},
     }
     ret_str += ast_config_to_str(complex_literals_config_base)
     complex_literals_config = {
-        "SequenceLiteral": "SeqLike",
-        "SetLiteral": "SeqLike",
-        "BagLiteral": "MapLike",
-        "MappingLiteral": "MapLike",
+        "SequenceEnumeration": "SeqLike",
+        "SetEnumeration": "SeqLike",
+        "BagEnumeration": "SeqLike",
+        "RelationEnumeration": "MapLike",
     }
     ret_str += ast_config_to_str(complex_literals_config)
     comprehension_config_base = {
-        "SeqLikeComprehension": {"bound_identifiers": "list[Identifier]", "generator": "ASTNode", "mapping_expression": "ASTNode | None_"},
-        "MapLikeComprehension": {"bound_identifiers": "list[KeyPair]", "generator": "ASTNode", "mapping_expression": "ASTNode | None_"},
+        "SeqLikeComprehension": {"bound_identifiers": "IdentList", "predicate": "ASTNode", "expression": "ASTNode"},
+        "MapLikeComprehension": {"bound_identifiers": "IdentList", "predicate": "ASTNode", "expression": "ASTNode"},
     }
     ret_str += ast_config_to_str(comprehension_config_base)
     comprehension_config = {
         "SequenceComprehension": "SeqLikeComprehension",
         "SetComprehension": "SeqLikeComprehension",
         "BagComprehension": "SeqLikeComprehension",
-        "MappingComprehension": "MapLikeComprehension",
+        "RelationComprehension": "MapLikeComprehension",
     }
     ret_str += ast_config_to_str(comprehension_config)
     ret_str += ast_config_to_str({"Start": {"body": "Statements | None_"}})
 
     var_defs = {
-        "PrimitiveLiteral": ["Int", "Float", "String", "Bool", "None_"],
-        "ComplexLiteral": ["SequenceLiteral", "SetLiteral", "BagLiteral", "MappingLiteral"],
-        "ComplexComprehension": ["SequenceComprehension", "SetComprehension", "BagComprehension", "MappingComprehension"],
+        "PrimitiveLiteral": ["Int", "Float", "String", "True_", "False_", "None_"],
+        "ComplexLiteral": ["SequenceEnumeration", "SetEnumeration", "BagEnumeration", "RelationEnumeration"],
+        "ComplexComprehension": ["SequenceComprehension", "SetComprehension", "BagComprehension", "RelationComprehension"],
         "PrimaryStmt": ["StructAccess", "FunctionCall", "Indexing", "PrimitiveLiteral", "ComplexLiteral", "ComplexComprehension", "Identifier"],
         "EquivalenceStmt": ["BinaryOp", "UnaryOp", "ListOp", "PrimaryStmt"],
         "Expr": ["EquivalenceStmt", "LambdaDef"],
         "Atom": ["Identifier", "Expr"],
-        "SimpleStmt": ["Expr", "Assignment", "Return", "Break", "Continue", "Pass"],
+        "ControlFlowStmt": ["Return", "Break", "Continue", "Pass"],
+        "SimpleStmt": ["Expr", "Assignment", "ControlFlowStmt", "Import"],
         "CompoundStmt": ["If", "For", "StructDef", "EnumDef", "FunctionDef"],
+        "Predicate": ["Forall", "Exists", "ASTNode"],
     }
 
     ret_str += add_vars_to_str(var_defs)

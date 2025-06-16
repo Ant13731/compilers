@@ -9,12 +9,12 @@ except ImportError:
 
 @dataclass
 class Int(ASTNode):
-    value: int
+    value: str
 
 
 @dataclass
 class Float(ASTNode):
-    value: float
+    value: str
 
 
 @dataclass
@@ -23,8 +23,13 @@ class String(ASTNode):
 
 
 @dataclass
-class Bool(ASTNode):
-    value: bool
+class True_(ASTNode):
+    pass
+
+
+@dataclass
+class False_(ASTNode):
+    pass
 
 
 @dataclass
@@ -51,6 +56,11 @@ class UnaryOp(ASTNode):
 @dataclass
 class ListOp(ASTNode):
     items: list[ASTNode]
+
+
+@dataclass
+class IdentList(ListOp):
+    pass
 
 
 @dataclass
@@ -110,6 +120,11 @@ class Divide(BinaryOp):
 
 @dataclass
 class Modulus(BinaryOp):
+    pass
+
+
+@dataclass
+class Negative(UnaryOp):
     pass
 
 
@@ -224,17 +239,12 @@ class NotSupersetEq(BinaryOp):
 
 
 @dataclass
-class UnionAll(ListOp):
-    pass
-
-
-@dataclass
-class IntersectionAll(ListOp):
-    pass
-
-
-@dataclass
 class Powerset(UnaryOp):
+    pass
+
+
+@dataclass
+class NonemptyPowerset(UnaryOp):
     pass
 
 
@@ -344,11 +354,6 @@ class UpTo(BinaryOp):
 
 
 @dataclass
-class Arguments(ASTNode):
-    items: list[ASTNode]
-
-
-@dataclass
 class Type_(ASTNode):
     type_: ASTNode
 
@@ -356,6 +361,39 @@ class Type_(ASTNode):
 @dataclass
 class Slice(ASTNode):
     items: list[ASTNode]
+
+
+@dataclass
+class UnionAll(ASTNode):
+    bound_identifiers: IdentList
+    predicate: ASTNode
+    expression: ASTNode
+
+
+@dataclass
+class IntersectionAll(ASTNode):
+    bound_identifiers: IdentList
+    predicate: ASTNode
+    expression: ASTNode
+
+
+@dataclass
+class Forall(ASTNode):
+    bound_identifiers: IdentList
+    predicate: ASTNode
+
+
+@dataclass
+class Exists(ASTNode):
+    bound_identifiers: IdentList
+    predicate: ASTNode
+
+
+@dataclass
+class LambdaDef(ASTNode):
+    bound_identifiers: IdentList
+    predicate: ASTNode
+    expression: ASTNode
 
 
 @dataclass
@@ -367,7 +405,7 @@ class StructAccess(ASTNode):
 @dataclass
 class FunctionCall(ASTNode):
     function_name: ASTNode
-    args: Arguments
+    args: list[ASTNode]
 
 
 @dataclass
@@ -383,11 +421,6 @@ class Indexing(ASTNode):
 
 
 @dataclass
-class ArgDef(ASTNode):
-    items: list[TypedName]
-
-
-@dataclass
 class Assignment(ASTNode):
     target: ASTNode
     value: ASTNode
@@ -396,12 +429,6 @@ class Assignment(ASTNode):
 @dataclass
 class Return(ASTNode):
     value: ASTNode | None_
-
-
-@dataclass
-class LambdaDef(ASTNode):
-    args: ArgDef
-    body: ASTNode
 
 
 @dataclass
@@ -433,7 +460,7 @@ class Else(ASTNode):
 class If(ASTNode):
     condition: ASTNode
     body: ASTNode | Statements
-    else_body: Else | None_
+    else_body: Elif | Else | None_
 
 
 @dataclass
@@ -445,8 +472,14 @@ class Elif(ASTNode):
 
 @dataclass
 class For(ASTNode):
-    iterable_names: list[Identifier]
+    iterable_names: IdentList
     iterable: ASTNode
+    body: ASTNode | Statements
+
+
+@dataclass
+class While(ASTNode):
+    condition: ASTNode
     body: ASTNode | Statements
 
 
@@ -465,15 +498,20 @@ class EnumDef(ASTNode):
 @dataclass
 class FunctionDef(ASTNode):
     name: Identifier
-    args: ArgDef
+    args: list[TypedName]
     body: ASTNode | Statements
-    return_type: Type_ | None_
+    return_type: Type_
 
 
 @dataclass
-class KeyPair(ASTNode):
-    key: ASTNode
-    value: ASTNode
+class ImportAll(ASTNode):
+    pass
+
+
+@dataclass
+class Import(ASTNode):
+    module_identifier: list[Identifier]
+    import_objects: IdentList | None_ | ImportAll
 
 
 @dataclass
@@ -483,41 +521,41 @@ class SeqLike(ASTNode):
 
 @dataclass
 class MapLike(ASTNode):
-    items: list[KeyPair]
+    items: list[Maplet]
 
 
 @dataclass
-class SequenceLiteral(SeqLike):
+class SequenceEnumeration(SeqLike):
     pass
 
 
 @dataclass
-class SetLiteral(SeqLike):
+class SetEnumeration(SeqLike):
     pass
 
 
 @dataclass
-class BagLiteral(MapLike):
+class BagEnumeration(SeqLike):
     pass
 
 
 @dataclass
-class MappingLiteral(MapLike):
+class RelationEnumeration(MapLike):
     pass
 
 
 @dataclass
 class SeqLikeComprehension(ASTNode):
-    bound_identifiers: list[Identifier]
-    generator: ASTNode
-    mapping_expression: ASTNode | None_
+    bound_identifiers: IdentList
+    predicate: ASTNode
+    expression: ASTNode
 
 
 @dataclass
 class MapLikeComprehension(ASTNode):
-    bound_identifiers: list[KeyPair]
-    generator: ASTNode
-    mapping_expression: ASTNode | None_
+    bound_identifiers: IdentList
+    predicate: ASTNode
+    expression: ASTNode
 
 
 @dataclass
@@ -536,7 +574,7 @@ class BagComprehension(SeqLikeComprehension):
 
 
 @dataclass
-class MappingComprehension(MapLikeComprehension):
+class RelationComprehension(MapLikeComprehension):
     pass
 
 
@@ -545,12 +583,14 @@ class Start(ASTNode):
     body: Statements | None_
 
 
-PrimitiveLiteral = Int | Float | String | Bool | None_
-ComplexLiteral = SequenceLiteral | SetLiteral | BagLiteral | MappingLiteral
-ComplexComprehension = SequenceComprehension | SetComprehension | BagComprehension | MappingComprehension
+PrimitiveLiteral = Int | Float | String | True_ | False_ | None_
+ComplexLiteral = SequenceEnumeration | SetEnumeration | BagEnumeration | RelationEnumeration
+ComplexComprehension = SequenceComprehension | SetComprehension | BagComprehension | RelationComprehension
 PrimaryStmt = StructAccess | FunctionCall | Indexing | PrimitiveLiteral | ComplexLiteral | ComplexComprehension | Identifier
 EquivalenceStmt = BinaryOp | UnaryOp | ListOp | PrimaryStmt
 Expr = EquivalenceStmt | LambdaDef
 Atom = Identifier | Expr
-SimpleStmt = Expr | Assignment | Return | Break | Continue | Pass
+ControlFlowStmt = Return | Break | Continue | Pass
+SimpleStmt = Expr | Assignment | ControlFlowStmt | Import
 CompoundStmt = If | For | StructDef | EnumDef | FunctionDef
+Predicate = Forall | Exists | ASTNode

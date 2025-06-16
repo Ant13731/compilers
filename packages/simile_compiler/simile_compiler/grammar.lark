@@ -1,6 +1,8 @@
 // NOTE: This grammar serves only as a reference for parser.py.
-// Lark has decent syntax highlighting for BNF grammars, so this is a good place to write it.
-// This file is not intended to be used directly by any parser, including Lark.
+//       Lark has decent syntax highlighting for BNF grammars, so this is a good place to write it.
+//       This file is not intended to be used directly by any parser, including Lark.
+// NOTE: Left associative operators (and thus direct left recursive productions) will be implemented as a weakly equivalent right production.
+//       Ex. E -> E + T | T is equivalent to E -> T (PLUS E)* given the right implementation in the parser
 
 //////////////////////////////////////////////////////////////////////
 // Top Level Grammar
@@ -50,20 +52,20 @@ atom_bool: TRUE | FALSE
 
 comp_op: EQUALS | NOT_EQUALS | IS | IS_NOT
         | LT | GT | LE | GE
-        | NOT | NOT_IN
+        | IN | NOT_IN
         | SUBSET | SUBSET_EQ | SUPERSET | SUPERSET_EQ
         | NOT_SUBSET | NOT_SUBSET_EQ | NOT_SUPERSET | NOT_SUPERSET_EQ
 
 
 // Other non-bool expressions
-expr: quantification | pair_expr | predicate
-
+expr: quantification | pair_expr | predicate // Grammar is ambiguous here between pair_expr and predicate, but we prefer pair_expr
+                                             // It is a little awkward, but we want bools to have the lowest precedence while separated from other types of expressions
 // Quantification
 quantification: lambdadef | quantification_op quantification_body
 quantification_op: UNION_ALL | INTERSECTION_ALL
 quantification_body: (ident_list CDOT predicate VBAR expr) // where expr differs from dummy vars
                    | (expr VBAR predicate) // were expr == dummy vars
-lambdadef: LAMBDA ident_pattern CDOT predicate VBAR expr
+lambdadef: LAMBDA ident_list CDOT predicate VBAR expr //maybe ident_pattern instead?
 
 // Continue expression derivation
 pair_expr: pair_expr MAPLET rel_set_expr | rel_set_expr // left associative
@@ -83,11 +85,9 @@ set_expr: interval_expr (UNION interval_expr)*
         | interval_expr (CARTESIAN_PRODUCT interval_expr)*
         | interval_expr (RELATION_OVERRIDING interval_expr)*
         | interval_expr (COMPOSITION interval_expr)*
-        | interval_expr (DOMAIN_SUBTRACTION | DOMAIN_RESTRICTION) relation_expr
-        | relation_expr
-rel_expr: interval_expr (INTERSECTION interval_expr)* rel_sub_expr
-rel_sub_expr: range_modifier | DIFFERENCE interval_expr
-range_modifier: (RANGE_SUBTRACTION | RANGE_RESTRICTION) interval_expr
+        | interval_expr (INTERSECTION interval_expr)* rel_sub_expr?
+        | interval_expr (DOMAIN_SUBTRACTION | DOMAIN_RESTRICTION) interval_expr (INTERSECTION interval_expr)* rel_sub_expr?
+rel_sub_expr: (RANGE_SUBTRACTION | RANGE_RESTRICTION | DIFFERENCE) interval_expr
 interval_expr: arithmmetic_expr UPTO arithmetic_expr | arithmetic_expr
 
 // Numerical expressions
@@ -103,25 +103,25 @@ power: primary DOUBLE_STAR factor | primary
 primary: struct_access | call | image | inversable_atom
 inversable_atom: inversable_atom INVERSE | atom
 struct_access: primary DOT IDENTIFIER
-call: primary L_PAREN arguments R_PAREN
-arguments: (expr (COMMA expr)*)?
+call: primary L_PAREN (expr (COMMA expr)*)? R_PAREN
 image: primary L_BRACKET expr R_BRACKET
 // slice: [equivalence] (_COLON [equivalence])+ // if we ever want python like list indexing, we could always just use lst[1][2][...] for multidimensional access though
 
 // Literals
-?atom: literals
+atom: literals
      | collections
      | builtin_functions
-     | L_PAREN expr_stmt R_PAREN
+     | L_PAREN expr R_PAREN
      | IDENTIFIER
 literals: INTEGER | FLOAT | STRING | TRUE | FALSE | NONE
-collections: set | sequence | bag | relation
-set: L_BRACE (ident_list | quantification_body) R_BRACE
-sequence: L_BRACKET (ident_list | quantification_body) R_BRACKET
+collections: set | sequence | bag | //relation
+expr_list: expr (COMMA expr)*
+set: L_BRACE (expr_list | quantification_body)? R_BRACE
+sequence: L_BRACKET (expr_list | quantification_body)? R_BRACKET
 // relation: L_BRACE (ident_list | quantification_body) R_BRACE // relations have the same syntax as sets? determine this after parsing?
-bag: L_BRACE_BAR (ident_list | quantification_body) R_BRACE_BAR
-builtin_functions: POWERSET L_PAREN expr_stmt R_PAREN
-                 | NONEMPTY_POWERSET L_PAREN expr_stmt R_PAREN // ...maybe builtin functions should use a library, not keywords?
+bag: L_BRACE_BAR (expr_list | quantification_body)? R_BRACE_BAR
+builtin_functions: POWERSET L_PAREN expr R_PAREN
+                 | NONEMPTY_POWERSET L_PAREN expr R_PAREN // ...maybe builtin functions should use a library, not keywords?
                 //  cardinality, domain, range, projections 1 and 2, min/max, id, union/inter, etc...
 
 
@@ -129,8 +129,7 @@ builtin_functions: POWERSET L_PAREN expr_stmt R_PAREN
 // Statements: function calls, iterables, struct access
 //////////////////////////////////////////////////////////////////////
 // Also include control flow statements (return, break, continue, pass)
-control_flow_stmt: return_stmt | BREAK | CONTINUE | PASS
-return_stmt: RETURN expr_stmt?
+control_flow_stmt: RETURN expr? | BREAK | CONTINUE | PASS
 // Also include assignment
 assignment: struct_access ASSIGN expr // need to be careful - maybe struct access is too broad? could just use IDENTIFIER (DOT IDENTIFIER)*
 typed_name: IDENTIFIER [COLON expr]
@@ -143,15 +142,15 @@ typed_name: IDENTIFIER [COLON expr]
 //  - with_stmt for context managers? probably not
 //  - while_stmt?
 //  - match_stmt
-?compound_stmt: if_stmt | for_stmt | struct_stmt | enum_stmt | func_stmt
-if_stmt: IF predicate COLON block else_stmt?
+compound_stmt: if_stmt | for_stmt | while_stmt | struct_stmt | enum_stmt | func_stmt
+if_stmt: IF predicate COLON block (elif_stmt | else_stmt)?
 elif_stmt: ELIF predicate COLON block (elif_stmt | else_stmt)?
 else_stmt: ELSE COLON block
 for_stmt: FOR ident_list IN expr COLON block
+while_stmt: WHILE predicate COLON block
 struct_stmt: STRUCT IDENTIFIER COLON INDENT ((typed_name (COMMA typed_name)*) | PASS) DEDENT
 enum_stmt: ENUM IDENTIFIER COLON INDENT ((IDENTIFIER (COMMA IDENTIFIER)*) | PASS) DEDENT
-func_stmt: DEF IDENTIFIER L_PAREN arg_def R_PAREN RIGHTARROW expr COLON block
-arg_def: (typed_name (COMMA typed_name)*)?
+func_stmt: DEF IDENTIFIER L_PAREN (typed_name (COMMA typed_name)*)? R_PAREN RIGHTARROW expr COLON block
 block: simple_stmt | INDENT statements DEDENT
 
 // Import statments - no aliasing for now
