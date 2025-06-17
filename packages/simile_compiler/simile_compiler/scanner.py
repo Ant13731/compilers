@@ -195,7 +195,7 @@ OPERATOR_TOKEN_TABLE = {
     "⇐": TokenType.REV_IMPLIES,
     "<==": TokenType.REV_IMPLIES,
     "⇔": TokenType.EQUIVALENT,
-    "<=>": TokenType.EQUIVALENT,
+    "<==>": TokenType.EQUIVALENT,
     "≡": TokenType.EQUIVALENT,
     "≢": TokenType.NOT_EQUIVALENT,
     "∀": TokenType.FORALL,

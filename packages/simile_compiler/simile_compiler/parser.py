@@ -333,9 +333,9 @@ class Parser:
             self.advance()
             match t.type_:
                 case TokenType.IMPLIES:
-                    disjunction = ast_.Equivalent(self.disjunction(), disjunction)
+                    disjunction = ast_.Implies(disjunction, self.disjunction())
                 case TokenType.REV_IMPLIES:
-                    disjunction = ast_.NotEquivalent(disjunction, self.disjunction())
+                    disjunction = ast_.RevImplies(disjunction, self.implication())
                 case _:
                     self.error("Unreachable state")
         return disjunction
@@ -729,14 +729,18 @@ class Parser:
 
         if isinstance(collection, ast_.SetComprehension):
             # Test only the identifiers for maplets. If no identifiers, test the (single) expression
-            for identifier in collection.bound_identifiers.items:
-                if not isinstance(identifier, ast_.Maplet):
-                    return collection
+            # for identifier in collection.bound_identifiers.items:
+            #     if not isinstance(identifier, ast_.Maplet):
+            #         return collection
 
-            # List is empty => shorthand version using the expression
-            if not collection.bound_identifiers.items:
-                if not isinstance(collection.expression, ast_.Maplet):
-                    return collection
+            # # List is empty => shorthand version using the expression
+            # if not collection.bound_identifiers.items:
+            #     if not isinstance(collection.expression, ast_.Maplet):
+            #         return collection
+
+            # Maplet should always be top level in the expression
+            if not isinstance(collection.expression, ast_.Maplet):
+                return collection
 
             # Otherwise, promote
             return ast_.RelationComprehension(collection.bound_identifiers, collection.predicate, collection.expression)
