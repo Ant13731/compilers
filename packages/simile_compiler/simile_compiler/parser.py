@@ -31,7 +31,6 @@ class ParseError:
             if self.offending_line is not None:
                 ret += f"Error occurred on line {self.token.start_location.line}:"
                 ret += f"\n{self.offending_line}\n"
-                print("DEBUG:", self.token.start_location.column)
                 ret += " " * self.token.start_location.column
                 if self.token.multiline():
                     ret += "^..."
@@ -183,13 +182,16 @@ class Parser:
 
     def consume(self, token_type: TokenType, msg: str) -> None:
         if not self.match(token_type):
-            self.error(msg, level_offset=1)
+            self.error(msg, expected_override_msg=f"Expected {token_type}, got {self.peek().type_}", level_offset=1)
 
-    def error(self, msg: str, level_offset: int = 0) -> NoReturn:
+    def error(self, msg: str, expected_override_msg: str = "", level_offset: int = 0) -> NoReturn:
         current_token = self.peek()
+        msg_2 = expected_override_msg
+        if not msg_2:
+            msg_2 = f"Expected one of {self.get_first_set(inspect.stack()[1 + level_offset].function)}"
         self.errors.append(
             ParseError(
-                msg + f"\nExpected one of {self.get_first_set(inspect.stack()[1 + level_offset].function)}. Error originated from {inspect.stack()[1 + level_offset].function}",
+                msg + f"\n{msg_2}. Error originated from {inspect.stack()[1 + level_offset].function}",
                 current_token,
                 self.current_index,
                 self.original_text.splitlines()[current_token.start_location.line - 1],
@@ -210,6 +212,7 @@ class Parser:
     def left_associative_optional_parse(self, func: Callable[[], ast_.ASTNode], tokens_and_types: dict[TokenType, type[ast_.BinaryOp]]) -> ast_.ASTNode:
         left = func()
         while (t := self.peek()).type_ in tokens_and_types:
+            self.advance()  # TODO check this?
             left = tokens_and_types[t.type_](left, func())
         return left
 
@@ -300,8 +303,7 @@ class Parser:
 
     @store_derivation
     def ident_pattern(self) -> ast_.ASTNode:
-        t = self.peek()
-        match t.type_:
+        match (t := self.advance()).type_:
             case TokenType.IDENTIFIER:
                 ident_pattern: ast_.ASTNode = ast_.Identifier(t.value)
             case TokenType.L_PAREN:
@@ -328,6 +330,7 @@ class Parser:
     def implication(self) -> ast_.ASTNode:
         disjunction = self.disjunction()
         while (t := self.peek()).type_ in [TokenType.IMPLIES, TokenType.REV_IMPLIES]:
+            self.advance()
             match t.type_:
                 case TokenType.IMPLIES:
                     disjunction = ast_.Equivalent(self.disjunction(), disjunction)
@@ -342,6 +345,8 @@ class Parser:
         conjunctions = [self.conjunction()]
         while self.match(TokenType.OR):
             conjunctions.append(self.conjunction())
+        if len(conjunctions) == 1:
+            return conjunctions[0]
         return ast_.Or(conjunctions)
 
     @store_derivation
@@ -349,6 +354,8 @@ class Parser:
         negation = [self.negation()]
         while self.match(TokenType.AND):
             negation.append(self.negation())
+        if len(negation) == 1:
+            return negation[0]
         return ast_.And(negation)
 
     @store_derivation
@@ -361,16 +368,16 @@ class Parser:
 
     @store_derivation
     def atom_bool(self) -> ast_.ASTNode:
-        if self.match(TokenType.TRUE):
-            return ast_.True_()
-        if self.match(TokenType.FALSE):
-            return ast_.False_()
-        if self.match(TokenType.L_PAREN):
-            predicate = self.predicate()
-            self.consume(TokenType.R_PAREN, "Missing closing parenthesis")
-            return predicate
+        # if self.match(TokenType.TRUE):
+        #     return ast_.True_()
+        # if self.match(TokenType.FALSE):
+        #     return ast_.False_()
+        # if self.match(TokenType.L_PAREN):
+        #     predicate = self.predicate()
+        #     self.consume(TokenType.R_PAREN, "Missing closing parenthesis")
+        #     return predicate
         pair_expr = self.pair_expr()
-        match (t := self.advance()).type_:
+        match self.peek().type_:
             case TokenType.EQUALS:
                 bin_op: type[ast_.BinaryOp] = ast_.Equal
             case TokenType.NOT_EQUALS:
@@ -408,7 +415,8 @@ class Parser:
             case TokenType.NOT_SUPERSET_EQ:
                 bin_op = ast_.NotSupersetEq
             case _:
-                self.error(f"Unexpected token {t.type_} in atom_bool, expected a comparison operator")
+                return pair_expr  # Since comparison is optional, we can return immediately if no comp op matches
+        self.advance()
         right = self.pair_expr()
         return bin_op(left=pair_expr, right=right)
 
@@ -417,10 +425,10 @@ class Parser:
         t = self.peek()
         if t.type_ in self.get_first_set("quantification"):
             return self.quantification()
-        if t.type_ in self.get_first_set("pair_expr"):
-            return self.pair_expr()
         if t.type_ in self.get_first_set("predicate"):
             return self.predicate()
+        # if t.type_ in self.get_first_set("pair_expr"):
+        # return self.pair_expr()
         self.error("Invalid start to expr")
 
     @store_derivation
@@ -494,6 +502,7 @@ class Parser:
                 bin_op = ast_.Bijection
             case _:
                 return set_expr
+        self.advance()
         return bin_op(set_expr, self.rel_set_expr())
 
     @store_derivation
@@ -559,8 +568,7 @@ class Parser:
     @store_derivation
     def interval_expr(self) -> ast_.ASTNode:
         arithmetic_expr = self.arithmetic_expr()
-        if self.peek().type_ == TokenType.UPTO:
-            self.advance()
+        if self.match(TokenType.UPTO):
             arithmetic_expr = ast_.UpTo(arithmetic_expr, self.arithmetic_expr())
         return arithmetic_expr
 
@@ -600,8 +608,7 @@ class Parser:
     @store_derivation
     def power(self) -> ast_.ASTNode:
         primary = self.primary()
-        if self.peek().type_ == TokenType.DOUBLE_STAR:
-            self.advance()
+        if self.match(TokenType.DOUBLE_STAR):
             return ast_.Exponent(primary, self.factor())
         return primary
 
@@ -620,7 +627,7 @@ class Parser:
                     args = []
                     if self.peek() != TokenType.R_PAREN:
                         args.append(self.expr())
-                        while self.peek().type_ == TokenType.COMMA:
+                        while self.match(TokenType.COMMA):
                             args.append(self.expr())
                     self.consume(TokenType.R_PAREN, "Expected closing parenthesis")
                     inversable_atom = ast_.FunctionCall(inversable_atom, args)
@@ -642,53 +649,40 @@ class Parser:
 
     @store_derivation
     def atom(self) -> ast_.ASTNode:
-        match (t := self.peek()).type_:
+        match (t := self.advance()).type_:
             case TokenType.INTEGER:
-                self.advance()
                 return ast_.Int(t.value)
             case TokenType.FLOAT:
-                self.advance()
                 return ast_.Float(t.value)
             case TokenType.STRING:
-                self.advance()
                 return ast_.String(t.value)
             case TokenType.TRUE:
-                self.advance()
                 return ast_.True_()
             case TokenType.FALSE:
-                self.advance()
                 return ast_.False_()
             case TokenType.NONE:
-                self.advance()
                 return ast_.None_()
             case TokenType.L_BRACE:
-                self.advance()
                 return self.set_()
             case TokenType.L_BRACKET:
-                self.advance()
                 return self.sequence()
             case TokenType.L_BRACE_BAR:
-                self.advance()
                 return self.bag()
             case TokenType.POWERSET:
-                self.advance()
                 self.consume(TokenType.L_PAREN, "Powerset requires function call notation")
                 powerset = ast_.Powerset(self.expr())
                 self.consume(TokenType.R_PAREN, "Need to close parenthesis")
                 return ast_.Powerset(powerset)
             case TokenType.NONEMPTY_POWERSET:
-                self.advance()
                 self.consume(TokenType.L_PAREN, "Nonempty Powerset requires function call notation")
                 powerset = ast_.Powerset(self.expr())
                 self.consume(TokenType.R_PAREN, "Need to close parenthesis")
                 return ast_.NonemptyPowerset(powerset)
             case TokenType.L_PAREN:
-                self.advance()
                 expr = self.expr()
                 self.consume(TokenType.R_PAREN, "Need to close parenthesis")
                 return expr
             case TokenType.IDENTIFIER:
-                self.advance()
                 return ast_.Identifier(t.value)
             case _:
                 self.error("Failed to interpret first token of expected atom")
@@ -713,7 +707,9 @@ class Parser:
 
         # backtrack - this is not an enumeration, rather a quantification
         self.current_index = starting_index
-        return comprehension_type(*self.quantification_body())
+        ret = comprehension_type(*self.quantification_body())
+        self.consume(closing_symbol, f"Expected closing symbol {closing_symbol} for collection")
+        return ret
 
     @store_derivation
     def set_(self) -> ast_.ASTNode:
@@ -899,7 +895,7 @@ class Parser:
         self.consume(TokenType.COLON, "Expected colon after STRUCT name")
         self.consume(TokenType.NEWLINE, "Expected newline after STRUCT definition")
         self.consume(TokenType.INDENT, "Expected indentation after STRUCT definition")
-        if self.peek().type_ == TokenType.PASS:
+        if self.match(TokenType.PASS):
             items = []
         else:
             items = [self.typed_name()]
@@ -918,7 +914,8 @@ class Parser:
         self.consume(TokenType.COLON, "Expected colon after ENUM name")
         self.consume(TokenType.NEWLINE, "Expected newline after ENUM definition")
         self.consume(TokenType.INDENT, "Expected indentation after ENUM definition")
-        if self.peek().type_ == TokenType.PASS:
+        if self.match(TokenType.PASS):
+            self.advance()
             items = []
         else:
             t = self.advance()

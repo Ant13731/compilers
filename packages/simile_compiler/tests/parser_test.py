@@ -48,15 +48,66 @@ manual_tests = dict(
             # "{||}": BagEnumeration([]),
             # "[]": SequenceEnumeration([]),
             # "[ ]": SequenceEnumeration([]),
-            "{x | x in [1, 2, 3]}": SetComprehension(
-                IdentList([]),
-                In(
-                    Identifier("x"),
-                    SequenceEnumeration(
-                        [Int("1"), Int("2"), Int("3")],
-                    ),
+            # "x >-> y": RelationOp(Identifier("x"), Identifier("y")),
+            # "x + y + z": Add(Add(Identifier("x"), Identifier("y")), Identifier("z")),
+            # "x > y": GreaterThan(Identifier("x"), Identifier("y")),
+            # "x ==> y": Implies(Identifier("x"), Identifier("y")),
+            # "x |-> y": Maplet(Identifier("x"), Identifier("y")),
+            # "{x | x in [1, 2, 3]}": SetComprehension(
+            #     IdentList([]),
+            #     In(
+            #         Identifier("x"),
+            #         SequenceEnumeration(
+            #             [Int("1"), Int("2"), Int("3")],
+            #         ),
+            #     ),
+            #     Identifier("x"),
+            # ),
+            # "{ x |-> y | x in [1, 2, 3] and y in [4, 5, 6] }": RelationComprehension(
+            #     IdentList([]),
+            #     And(
+            #         [
+            #             In(
+            #                 Identifier("x"),
+            #                 SequenceEnumeration(
+            #                     [Int("1"), Int("2"), Int("3")],
+            #                 ),
+            #             ),
+            #             In(
+            #                 Identifier("y"),
+            #                 SequenceEnumeration(
+            #                     [Int("4"), Int("5"), Int("6")],
+            #                 ),
+            #             ),
+            #         ]
+            #     ),
+            #     Maplet(
+            #         Identifier("x"),
+            #         Identifier("y"),
+            #     ),
+            # ),
+            "{ x, y · x in [1, 2, 3] and y in [4, 5, 6] | x |-> y }": RelationComprehension(
+                IdentList([Identifier("x"), Identifier("y")]),
+                And(
+                    [
+                        In(
+                            Identifier("x"),
+                            SequenceEnumeration(
+                                [Int("1"), Int("2"), Int("3")],
+                            ),
+                        ),
+                        In(
+                            Identifier("y"),
+                            SequenceEnumeration(
+                                [Int("4"), Int("5"), Int("6")],
+                            ),
+                        ),
+                    ]
                 ),
-                Identifier("x"),
+                Maplet(
+                    Identifier("x"),
+                    Identifier("y"),
+                ),
             ),
         }.items(),
     )

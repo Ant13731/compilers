@@ -191,8 +191,11 @@ OPERATOR_TOKEN_TABLE = {
     "∨": TokenType.OR,
     "¬": TokenType.NOT,
     "⇒": TokenType.IMPLIES,
+    "==>": TokenType.IMPLIES,
     "⇐": TokenType.REV_IMPLIES,
+    "<==": TokenType.REV_IMPLIES,
     "⇔": TokenType.EQUIVALENT,
+    "<=>": TokenType.EQUIVALENT,
     "≡": TokenType.EQUIVALENT,
     "≢": TokenType.NOT_EQUIVALENT,
     "∀": TokenType.FORALL,
@@ -328,7 +331,7 @@ class Token:
 
     def __repr__(self) -> str:
         if self.value:
-            return f"{self.type_.name}({self.value}):{self.start_location}:{self.end_location}"
+            return f"{self.type_.name}({self.value})"
         return self.type_.name
 
     def length(self) -> int:

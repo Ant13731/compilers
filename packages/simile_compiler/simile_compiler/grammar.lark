@@ -48,7 +48,7 @@ negation: (NOT | BANG) negation | atom_bool
 
 atom_bool: TRUE | FALSE
          | L_PAREN predicate R_PAREN
-         | pair_expr comp_op pair_expr
+         | pair_expr [comp_op pair_expr]
 
 comp_op: EQUALS | NOT_EQUALS | IS | IS_NOT
         | LT | GT | LE | GE
@@ -58,7 +58,7 @@ comp_op: EQUALS | NOT_EQUALS | IS | IS_NOT
 
 
 // Other non-bool expressions
-expr: quantification | pair_expr | predicate // Grammar is ambiguous here between pair_expr and predicate, but we prefer pair_expr
+expr: quantification | predicate //| pair_expr  // Grammar is ambiguous here between pair_expr and predicate, but we prefer pair_expr
                                              // It is a little awkward, but we want bools to have the lowest precedence while separated from other types of expressions
 // Quantification
 quantification: lambdadef | quantification_op quantification_body
