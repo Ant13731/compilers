@@ -60,6 +60,7 @@ except ImportError:
         "False_": {},
         "None_": {},  # Represents a None literal
         "Identifier": {"name": "str"},
+        # "ParseFailure": {},
     }
     ret_str += ast_config_to_str(ast_primitives_config)
     op_config_base = {

@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum, auto
+import copy
 
 
 class ScanException(Exception):
@@ -327,8 +328,16 @@ class Token:
 
     def __repr__(self) -> str:
         if self.value:
-            return f"{self.type_.name}({self.value})"
+            return f"{self.type_.name}({self.value}):{self.start_location}:{self.end_location}"
         return self.type_.name
+
+    def length(self) -> int:
+        """Returns the length of the token in characters."""
+        return self.end_location.column - self.start_location.column + 1
+
+    def multiline(self) -> bool:
+        """Checks if the token spans multiple lines."""
+        return self.start_location.line != self.end_location.line
 
 
 @dataclass
@@ -342,7 +351,10 @@ class Scanner:
     """Pointer for the start of the currently examined token."""
     current_index: int = 0
     """Pointer for the currently examined character."""
-    location: Location = field(default_factory=lambda: Location(0, 0))
+
+    current_location_lexeme_start: Location = field(default_factory=lambda: Location(0, 0))
+    """:attr:`current_index_lexeme_start` in Line/Column format (for better error messages)."""
+    current_location: Location = field(default_factory=lambda: Location(0, 0))
     """:attr:`current_index` in Line/Column format (for better error messages)."""
 
     indentation_stack: list[str] = field(default_factory=list)
@@ -383,7 +395,7 @@ class Scanner:
         """Consume and return one character."""
         c = self.text[self.current_index]
         self.current_index += 1
-        self.location.column += 1
+        self.current_location.column += 1
         return c
 
     def match(self, expected: str) -> bool:
@@ -400,7 +412,7 @@ class Scanner:
         """Repeatedly call :meth:`~self.match` until the expected string is completely matched.
 
         Upon matching failure, this will backtrack character indices to the beginning of the phrase."""
-        start_location = self.location
+        start_location = self.current_location
         start_current = self.current_index
 
         expected_index = 0
@@ -411,25 +423,19 @@ class Scanner:
             return True
         else:
             # Backtrack to the start of the phrase
-            self.location = start_location
+            self.current_location = start_location
             self.current_index = start_current
             return False
 
-    def add_token(self, type_: TokenType, start_location: Location | None = None, end_location: Location | None = None, value: str = "") -> None:
+    def add_token(self, type_: TokenType, value: str = "") -> None:
         """Adds a token to the scanner's output.
 
         Args:
             type_ (TokenType): The type of the token.
-            start_location (Location, optional): The starting location of the token. Defaults to current location.
-            end_location (Location, optional): The ending location of the token. Defaults to current location.
             value (str, optional): The value of the token. Defaults to an empty string.
         """
-        if start_location is None:
-            start_location = self.location
-        if end_location is None:
-            end_location = self.location
 
-        self.scanned_tokens.append(Token(type_, value, start_location, end_location))
+        self.scanned_tokens.append(Token(type_, value, copy.deepcopy(self.current_location_lexeme_start), copy.deepcopy(self.current_location)))
 
     def scan_next(self) -> None:
         """Scans the next token from the text.
@@ -443,7 +449,7 @@ class Scanner:
 
         # Handle indentation
         # If we are at the start of a line...
-        if self.location.column == 1:
+        if self.current_location.column == 1:
             self.ignore_newline = True
             # Match existing indentation as much as possible
             matched_up_to_index = 0
@@ -463,7 +469,7 @@ class Scanner:
                 if self.peek() == " " or self.peek() == "\t":
                     # There is more "indentation" left to consume, but the leftover does not match what we expect so far.
                     raise ScanException(
-                        self.location,
+                        self.current_location,
                         self.peek(),
                         f"Indentation does not match. Expected {self.indentation_stack[indentation_difference:]} but got {self.move_until_no_whitespace()}",
                     )
@@ -486,40 +492,38 @@ class Scanner:
             case "\n":
                 if not self.ignore_newline:
                     self.add_token(TokenType.NEWLINE)
-                self.location.line += 1
-                self.location.column = 0
+                self.current_location.line += 1
+                self.current_location.column = 0
                 return
             case "\r":
                 return
             case " " | "\t":
-                # self.location.column will never be equal to 1 here (covered above)
+                # self.current_location.column will never be equal to 1 here (covered above)
                 return
             # Comment
             case "#":
-                start_location = self.location
                 while not self.at_end_of_text and self.peek() != "\n":
                     self.advance()
-                end_location = self.location
                 value = self.text[self.current_index_lexeme_start + 1 : self.current_index]
-                self.add_token(TokenType.COMMENT, start_location, end_location, value)
+                self.add_token(TokenType.COMMENT, value)
             # Primitives
             case '"':  # includes multiline?
                 self.ignore_newline = False
-                start_location = self.location
                 while self.peek() != '"' and not self.at_end_of_text:
                     if self.peek() == "\n":
-                        self.location.line += 1
-                        self.location.column = 0
+                        self.current_location.line += 1
+                        self.current_location.column = 0
+                    if self.peek() == "\\":
+                        self.advance()
                     self.advance()
 
                 if self.at_end_of_text:
-                    raise ScanException(self.location, self.peek(), f'Unterminated string literal (expected ", found {self.peek()})')
+                    raise ScanException(self.current_location, self.peek(), f'Unterminated string literal (expected ", found {self.peek()})')
                 self.advance()  # will match \"
                 value = self.text[self.current_index_lexeme_start + 1 : self.current_index - 1]
-                self.add_token(TokenType.STRING, start_location, self.location, value)
+                self.add_token(TokenType.STRING, value)
             case _ if c.isdigit() or c == "." and (peek := self.peek()) is not None and peek.isdigit():
                 self.ignore_newline = False
-                start_location = self.location
                 while (peek := self.peek()) is not None and peek.isdigit():
                     self.advance()
                 if self.peek() == "." and (peek := self.peek(1)) is not None and (peek.isdigit() or peek.isspace()):
@@ -528,13 +532,12 @@ class Scanner:
                     self.advance()
                 value = self.text[self.current_index_lexeme_start : self.current_index]
                 if "." in value:
-                    self.add_token(TokenType.FLOAT, start_location, self.location, value)
+                    self.add_token(TokenType.FLOAT, value)
                 else:
-                    self.add_token(TokenType.INTEGER, start_location, self.location, value)
+                    self.add_token(TokenType.INTEGER, value)
             # Operators
             case _ if c in {k[0] for k in OPERATOR_TOKEN_TABLE}:
                 self.ignore_newline = False
-                start_location = self.location
 
                 consumed_characters = c
                 possible_tokens: dict[str, TokenType] = {k: v for (k, v) in OPERATOR_TOKEN_TABLE.items() if k.startswith(consumed_characters)}
@@ -568,15 +571,14 @@ class Scanner:
                 #     )
                 if possible_tokens.get(consumed_characters) is None:
                     raise ScanException(
-                        self.location,
+                        self.current_location,
                         self.peek(),
                         f"Cannot find symbol {consumed_characters} in operator token table. Possible matches are {possible_tokens}, but none were valid with the next character {self.peek()}",
                     )
 
-                self.add_token(OPERATOR_TOKEN_TABLE[consumed_characters], start_location, self.location)
+                self.add_token(OPERATOR_TOKEN_TABLE[consumed_characters])
             case _ if c.isalpha() or c == "_":
                 self.ignore_newline = False
-                start_location = self.location
                 while True:
                     c_ = self.peek()
                     if c_ is None:
@@ -592,9 +594,9 @@ class Scanner:
                 elif token_type == TokenType.NOT:
                     if self.match_phrase(" in"):
                         token_type = TokenType.NOT_IN
-                self.add_token(token_type, start_location, self.location, value)
+                self.add_token(token_type, value)
             case _:
-                raise ScanException(self.location, self.peek(), "Unexpected character")
+                raise ScanException(self.current_location, self.peek(), "Unexpected character")
 
     def move_to_next_whitespace(self) -> None:
         """Advances the scanner past the next whitespace character in the text."""
@@ -623,6 +625,7 @@ def scan(text: str) -> list[Token]:
     Returns:
         list[Token]: A list of tokens extracted from the source code
     """
+    assert isinstance(text, str), "Input text must be a string"
     if not text.endswith("\n"):
         text += "\n"
 
@@ -631,9 +634,11 @@ def scan(text: str) -> list[Token]:
     while not scanner.at_end_of_text:
         try:
             scanner.current_index_lexeme_start = scanner.current_index
+            scanner.current_location_lexeme_start.line = scanner.current_location.line
+            scanner.current_location_lexeme_start.column = scanner.current_location.column
             scanner.scan_next()
         except ScanException as e:
-            print(f"Error at {scanner.location}: {e}")
+            print(f"Error at {scanner.current_location}: {e}")
             scanner.move_to_next_whitespace()
 
     # Cleanup indentation, eof

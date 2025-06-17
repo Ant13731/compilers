@@ -2,11 +2,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TypeVar, Generic, Callable, ClassVar, Any, TypeAlias, NoReturn
 import inspect
+from functools import wraps
 
 try:
-    from .scanner import Token, TokenType
+    from .scanner import Token, TokenType, scan
 except ImportError:
-    from scanner import Token, TokenType  # type: ignore
+    from scanner import Token, TokenType, scan  # type: ignore
 
 try:
     from . import ast_
@@ -20,11 +21,45 @@ class ParseError:
 
     message: str
     token: Token | None = None
+    token_index: int | None = None
+    offending_line: str | None = None
+    derivation: list[str] = field(default_factory=list)
 
     def __str__(self) -> str:
         if self.token:
-            return f"ParseError for token {self.token} at {self.token.start_location}: {self.message}"
+            ret = ""
+            if self.offending_line is not None:
+                ret += f"Error occurred on line {self.token.start_location.line}:"
+                ret += f"\n{self.offending_line}\n"
+                print("DEBUG:", self.token.start_location.column)
+                ret += " " * self.token.start_location.column
+                if self.token.multiline():
+                    ret += "^..."
+                else:
+                    ret += "^" * (self.token.length() - 1)
+            ret += f"\nParseError for token {self.token} at parser index {self.token_index}: {self.message}"
+            ret += "\nDerivation: " + " -> ".join(self.derivation)
+            return ret
         return f"ParseError: {self.message}"
+
+
+class ParseException(Exception):
+    """Used to enter panic mode (and should be recovered through the parser)"""
+
+    pass
+
+
+def store_derivation(func: Callable[..., Any]) -> Callable[..., Any]:
+    """Decorator to store the derivation of the parse tree as a state in the parser."""
+
+    @wraps(func)
+    def wrapper(self: Parser, *args, **kwargs) -> Any:
+        self.derivation.append(func.__name__)
+        res = func(self, *args, **kwargs)
+        self.derivation = self.derivation[:-1]  # Remove the last entry after the function call
+        return res
+
+    return wrapper
 
 
 @dataclass
@@ -32,8 +67,10 @@ class Parser:
     """Parser class to handle parsing of tokens into an AST."""
 
     tokens: list[Token]
+    original_text: str = ""  # Used only for error messages
     current_index: int = 0
     errors: list[ParseError] = field(default_factory=list)
+    derivation: list[str] = field(default_factory=list)
 
     # Idea: store the first sets and the corresponding functions (that would otherwise be "matched" when making decisions)
     # It may be nice to allow for nested first sets and then a lookup (using the idea of getting all leaves from a tree...)
@@ -149,13 +186,26 @@ class Parser:
             self.error(msg, level_offset=1)
 
     def error(self, msg: str, level_offset: int = 0) -> NoReturn:
+        current_token = self.peek()
         self.errors.append(
             ParseError(
                 msg + f"\nExpected one of {self.get_first_set(inspect.stack()[1 + level_offset].function)}. Error originated from {inspect.stack()[1 + level_offset].function}",
-                self.peek(),
+                current_token,
+                self.current_index,
+                self.original_text.splitlines()[current_token.start_location.line - 1],
+                self.derivation,
             )
         )
-        raise Exception("Parse error (see self.errors)")
+        raise ParseException("Parse error - this error should be caught within the parser (otherwise, see self.errors)")
+
+    def synchronize(self) -> None:
+        """Skip tokens until we reach a token that can start a new statement."""
+        first_set = self.get_first_set("compound_stmt")
+        while not self.eof:
+            if self.peek().type_ in first_set or self.peek().type_ == TokenType.NEWLINE:
+                self.derivation = []
+                return
+            self.advance()
 
     def left_associative_optional_parse(self, func: Callable[[], ast_.ASTNode], tokens_and_types: dict[TokenType, type[ast_.BinaryOp]]) -> ast_.ASTNode:
         left = func()
@@ -169,23 +219,36 @@ class Parser:
         # return left
 
     # Parsing based (loosely) on the grammar in grammar.lark
+    @store_derivation
     def start(self) -> ast_.Start:
         if not self.tokens or self.eof:
             return ast_.Start(ast_.None_())
-        return ast_.Start(self.statements())
+        statements = self.statements()
+        try:
+            if not self.eof and self.peek().type_ != TokenType.NEWLINE and self.peek(1).type_ != TokenType.EOF:
+                self.error(f"Unexpected token(s) after parsing statements (all tokens should be consumed by this point). Leftover tokens: {self.tokens[self.current_index :]}")
+        except ParseException:
+            pass
+        return ast_.Start(statements)
 
+    @store_derivation
     def statements(self) -> ast_.Statements:
         statements = []
-        while self.peek().type_ in self.get_first_set("statements"):
-            if self.peek().type_ in self.get_first_set("simple_stmt"):
-                statements.append(self.simple_stmt())
-            elif self.peek().type_ in self.get_first_set("compound_stmt"):
-                statements.append(self.compound_stmt())
-            else:
-                self.error("Unexpected statement starter")
+        statements_first_set = self.get_first_set("statements")
+        while self.peek().type_ in statements_first_set:
+            try:
+                if self.peek().type_ in self.get_first_set("simple_stmt"):
+                    statements.append(self.simple_stmt())
+                elif self.peek().type_ in self.get_first_set("compound_stmt"):
+                    statements.append(self.compound_stmt())
+                else:
+                    self.error("Unexpected statement starter")
+            except ParseException:
+                self.synchronize()
 
         return ast_.Statements(statements)
 
+    @store_derivation
     def simple_stmt(self) -> ast_.SimpleStmt | ast_.ASTNode:
         t = self.peek()
         if t.type_ in self.get_first_set("expr"):
@@ -208,6 +271,7 @@ class Parser:
             return stmt
         self.error("Invalid start to simple_stmt")
 
+    @store_derivation
     def predicate(self) -> ast_.Predicate:
         match t := self.peek():
             case TokenType.FORALL:
@@ -227,12 +291,14 @@ class Parser:
             case _:
                 self.error("Predicate token not found")
 
+    @store_derivation
     def ident_list(self) -> ast_.IdentList:
         ident_patterns = [self.ident_pattern()]
         while self.match(TokenType.COMMA):
             ident_patterns.append(self.ident_pattern())
         return ast_.IdentList(ident_patterns)
 
+    @store_derivation
     def ident_pattern(self) -> ast_.ASTNode:
         t = self.peek()
         match t.type_:
@@ -248,6 +314,7 @@ class Parser:
             return ast_.Maplet(ident_pattern, self.ident_pattern())
         return ident_pattern
 
+    @store_derivation
     def unquantified_predicate(self) -> ast_.ASTNode:
         return self.left_associative_optional_parse(
             self.implication,
@@ -257,6 +324,7 @@ class Parser:
             },
         )
 
+    @store_derivation
     def implication(self) -> ast_.ASTNode:
         disjunction = self.disjunction()
         while (t := self.peek()).type_ in [TokenType.IMPLIES, TokenType.REV_IMPLIES]:
@@ -269,18 +337,21 @@ class Parser:
                     self.error("Unreachable state")
         return disjunction
 
+    @store_derivation
     def disjunction(self) -> ast_.ASTNode:
         conjunctions = [self.conjunction()]
         while self.match(TokenType.OR):
             conjunctions.append(self.conjunction())
         return ast_.Or(conjunctions)
 
+    @store_derivation
     def conjunction(self) -> ast_.ASTNode:
         negation = [self.negation()]
         while self.match(TokenType.AND):
             negation.append(self.negation())
         return ast_.And(negation)
 
+    @store_derivation
     def negation(self) -> ast_.ASTNode:
         if self.match(TokenType.NOT):
             return ast_.Not(self.negation())
@@ -288,6 +359,7 @@ class Parser:
             return ast_.Not(self.negation())
         return self.atom_bool()
 
+    @store_derivation
     def atom_bool(self) -> ast_.ASTNode:
         if self.match(TokenType.TRUE):
             return ast_.True_()
@@ -340,6 +412,7 @@ class Parser:
         right = self.pair_expr()
         return bin_op(left=pair_expr, right=right)
 
+    @store_derivation
     def expr(self) -> ast_.ASTNode:
         t = self.peek()
         if t.type_ in self.get_first_set("quantification"):
@@ -350,6 +423,7 @@ class Parser:
             return self.predicate()
         self.error("Invalid start to expr")
 
+    @store_derivation
     def quantification(self) -> ast_.ASTNode:
         t = self.advance()
         match t.type_:
@@ -366,6 +440,7 @@ class Parser:
             case _:
                 self.error("Invalid start to quantification")
 
+    @store_derivation
     def quantification_body(self) -> tuple[ast_.IdentList, ast_.ASTNode, ast_.ASTNode]:
         # expr should cover the first entry in a list of identifiers,
         starting_index = self.current_index
@@ -387,9 +462,11 @@ class Parser:
         predicate = self.predicate()
         return ast_.IdentList([]), predicate, first_part
 
+    @store_derivation
     def pair_expr(self) -> ast_.ASTNode:
         return self.left_associative_optional_parse(self.rel_set_expr, {TokenType.MAPLET: ast_.Maplet})
 
+    @store_derivation
     def rel_set_expr(self) -> ast_.ASTNode:
         set_expr = self.set_expr()
         match self.peek().type_:
@@ -419,6 +496,7 @@ class Parser:
                 return set_expr
         return bin_op(set_expr, self.rel_set_expr())
 
+    @store_derivation
     def set_expr(self) -> ast_.ASTNode:
         interval_expr = self.interval_expr()
         match self.peek().type_:
@@ -466,6 +544,7 @@ class Parser:
                 n = self.rel_sub_expr()(n)
         return n
 
+    @store_derivation
     def rel_sub_expr(self) -> Callable[[ast_.ASTNode], ast_.ASTNode]:
         match self.advance():
             case TokenType.BACKSLASH:
@@ -477,6 +556,7 @@ class Parser:
             case _:
                 self.error("Unexpected token")
 
+    @store_derivation
     def interval_expr(self) -> ast_.ASTNode:
         arithmetic_expr = self.arithmetic_expr()
         if self.peek().type_ == TokenType.UPTO:
@@ -484,6 +564,7 @@ class Parser:
             arithmetic_expr = ast_.UpTo(arithmetic_expr, self.arithmetic_expr())
         return arithmetic_expr
 
+    @store_derivation
     def arithmetic_expr(self) -> ast_.ASTNode:
         return self.left_associative_optional_parse(
             self.term,
@@ -493,6 +574,7 @@ class Parser:
             },
         )
 
+    @store_derivation
     def term(self) -> ast_.ASTNode:
         return self.left_associative_optional_parse(
             self.factor,
@@ -503,6 +585,7 @@ class Parser:
             },
         )
 
+    @store_derivation
     def factor(self) -> ast_.ASTNode:
         match self.peek().type_:
             case TokenType.PLUS:
@@ -514,6 +597,7 @@ class Parser:
             case _:
                 return self.power()
 
+    @store_derivation
     def power(self) -> ast_.ASTNode:
         primary = self.primary()
         if self.peek().type_ == TokenType.DOUBLE_STAR:
@@ -521,6 +605,7 @@ class Parser:
             return ast_.Exponent(primary, self.factor())
         return primary
 
+    @store_derivation
     def primary(self) -> ast_.ASTNode:
         inversable_atom = self.inversable_atom()
         while self.peek().type_ in [TokenType.DOT, TokenType.L_PAREN, TokenType.L_BRACKET]:
@@ -548,12 +633,14 @@ class Parser:
                     self.error("Unreachable state")
         return inversable_atom
 
+    @store_derivation
     def inversable_atom(self) -> ast_.ASTNode:
         atom = self.atom()
         while self.match(TokenType.INVERSE):
             atom = ast_.Inverse(atom)
         return atom
 
+    @store_derivation
     def atom(self) -> ast_.ASTNode:
         match (t := self.peek()).type_:
             case TokenType.INTEGER:
@@ -606,13 +693,14 @@ class Parser:
             case _:
                 self.error("Failed to interpret first token of expected atom")
 
-    def collection_body(self, enumeration_type: type[ast_.SeqLike], comprehension_type: type[ast_.SeqLikeComprehension]) -> ast_.ASTNode:
+    @store_derivation
+    def collection_body(self, enumeration_type: type[ast_.SeqLike], comprehension_type: type[ast_.SeqLikeComprehension], closing_symbol: TokenType) -> ast_.ASTNode:
         # Since sets may start with an ident_list even if they are just set enumeration,
         # we need to use similar hacks to quantification body
         starting_index = self.current_index
 
         # Handle empty set
-        if self.match(TokenType.R_BRACE):
+        if self.match(closing_symbol):
             return enumeration_type([])
 
         # Then try set enumeration with one elem
@@ -620,17 +708,22 @@ class Parser:
         while self.match(TokenType.COMMA):
             enumeration.append(self.expr())
 
-        if self.match(TokenType.R_BRACE):
+        if self.match(closing_symbol):
             return enumeration_type(enumeration)
 
         # backtrack - this is not an enumeration, rather a quantification
         self.current_index = starting_index
         return comprehension_type(*self.quantification_body())
 
+    @store_derivation
     def set_(self) -> ast_.ASTNode:
-        collection = self.collection_body(ast_.SetEnumeration, ast_.SetComprehension)
+        collection = self.collection_body(ast_.SetEnumeration, ast_.SetComprehension, TokenType.R_BRACE)
         # Awkwardly, we separate relations from sets post tree creation
         if isinstance(collection, ast_.SetEnumeration):
+            if not collection.items:
+                # Empty set, return empty set enumeration
+                return collection
+
             # Test all enum elements for maplets. If even one is not of maplet form, keep everything as a set
             for elem in collection.items:
                 if not isinstance(elem, ast_.Maplet):
@@ -653,12 +746,15 @@ class Parser:
             return ast_.RelationComprehension(collection.bound_identifiers, collection.predicate, collection.expression)
         self.error("Unreachable state in set derivation. The type of the parsed value should be either a SetEnumeration or SetComprehension")
 
+    @store_derivation
     def bag(self) -> ast_.ASTNode:
-        return self.collection_body(ast_.BagEnumeration, ast_.BagComprehension)
+        return self.collection_body(ast_.BagEnumeration, ast_.BagComprehension, TokenType.R_BRACE_BAR)
 
+    @store_derivation
     def sequence(self) -> ast_.ASTNode:
-        return self.collection_body(ast_.SequenceEnumeration, ast_.SequenceComprehension)
+        return self.collection_body(ast_.SequenceEnumeration, ast_.SequenceComprehension, TokenType.R_BRACKET)
 
+    @store_derivation
     def control_flow_stmt(self) -> ast_.ASTNode:
         match self.advance().type_:
             case TokenType.RETURN:
@@ -675,6 +771,7 @@ class Parser:
             case _:
                 self.error("Invalid start to control flow statement")
 
+    @store_derivation
     def import_stmt(self) -> ast_.ASTNode:
         t = self.advance()
         import_name = self.import_name()
@@ -687,6 +784,7 @@ class Parser:
         else:
             self.error("Unexpected token")
 
+    @store_derivation
     def import_name(self) -> list[ast_.Identifier]:
         import_path = []
         if self.match(TokenType.DOT):
@@ -707,6 +805,7 @@ class Parser:
 
         return import_path
 
+    @store_derivation
     def import_list(self) -> ast_.IdentList | ast_.ImportAll:
         if self.match(TokenType.STAR):
             return ast_.ImportAll()
@@ -726,6 +825,7 @@ class Parser:
             self.consume(TokenType.R_PAREN, "Expected closing parenthesis for import list")
         return ast_.IdentList(import_list)
 
+    @store_derivation
     def compound_stmt(self) -> ast_.ASTNode:
         match self.advance().type_:
             case TokenType.IF:
@@ -743,6 +843,7 @@ class Parser:
             case _:
                 self.error("Invalid start to compound statement")
 
+    @store_derivation
     def if_stmt(self) -> ast_.If:
         condition = self.predicate()
         self.consume(TokenType.COLON, "Expected colon after IF condition")
@@ -754,6 +855,7 @@ class Parser:
         else:
             return ast_.If(condition, block, ast_.None_())
 
+    @store_derivation
     def elif_stmt(self) -> ast_.Elif:
         condition = self.predicate()
         self.consume(TokenType.COLON, "Expected colon after ELIF condition")
@@ -765,11 +867,13 @@ class Parser:
         else:
             return ast_.Elif(condition, block, ast_.None_())
 
+    @store_derivation
     def else_stmt(self) -> ast_.Else:
         self.consume(TokenType.COLON, "Expected colon after ELSE")
         block = self.block()
         return ast_.Else(block)
 
+    @store_derivation
     def for_stmt(self) -> ast_.For:
         ident_list = self.ident_list()
         self.consume(TokenType.IN, "Expected 'in' after identifier list in FOR statement")
@@ -778,12 +882,14 @@ class Parser:
         block = self.block()
         return ast_.For(ident_list, iterable, block)
 
+    @store_derivation
     def while_stmt(self) -> ast_.While:
         condition = self.predicate()
         self.consume(TokenType.COLON, "Expected colon after WHILE condition")
         block = self.block()
         return ast_.While(condition, block)
 
+    @store_derivation
     def struct_stmt(self) -> ast_.StructDef:
         t = self.advance()
         if t.type_ != TokenType.IDENTIFIER:
@@ -802,6 +908,7 @@ class Parser:
         self.consume(TokenType.DEDENT, "Expected dedent after STRUCT definition")
         return ast_.StructDef(name, items)
 
+    @store_derivation
     def enum_stmt(self) -> ast_.EnumDef:
         t = self.advance()
         if t.type_ != TokenType.IDENTIFIER:
@@ -827,6 +934,7 @@ class Parser:
         self.consume(TokenType.DEDENT, "Expected dedent after ENUM definition")
         return ast_.EnumDef(name, items)
 
+    @store_derivation
     def func_stmt(self) -> ast_.FunctionDef:
         t = self.advance()
         if t.type_ != TokenType.IDENTIFIER:
@@ -846,6 +954,7 @@ class Parser:
         block = self.block()
         return ast_.FunctionDef(name, params, block, return_type)
 
+    @store_derivation
     def typed_name(self) -> ast_.TypedName:
         t = self.advance()
         if t.type_ != TokenType.IDENTIFIER:
@@ -857,6 +966,7 @@ class Parser:
             return ast_.TypedName(name, ast_.Type_(type_annotation))
         return ast_.TypedName(name, ast_.None_())
 
+    @store_derivation
     def block(self) -> ast_.Statements:
         if self.peek().type_ != TokenType.NEWLINE:
             return ast_.Statements([self.simple_stmt()])
@@ -868,21 +978,23 @@ class Parser:
         return statements
 
 
-def parse(tokens: list[Token]) -> ast_.ASTNode | None:
+def parse(source_text: str) -> ast_.ASTNode | list[ParseError]:
     """Parse a list of tokens into an abstract syntax tree (AST)."""
-    parser = Parser(tokens)
-    try:
-        return parser.start()
-    except Exception as e:
-        print("Errors found within in the parser:")
-        for i, err in enumerate(parser.errors):
-            print(f"{i}.")
-            print(err)
-        print("Parser info:")
-        print(f"Tokens: {len(tokens)}")
-        print(f"Errors: {len(parser.errors)}")
-        print(f"Current index: {parser.current_index}")
-        print(f"Input tokens: {tokens}")
+    tokens = scan(source_text)
+    parser = Parser(tokens, source_text)
+    res = parser.start()
 
-        raise e
-        return None
+    if not parser.errors:
+        return res
+
+    print("Failed to parse input! (Errors found within in the parser):")
+    for i, err in enumerate(parser.errors):
+        print(f"{i}.")
+        print(err)
+    print("Parser info:")
+    print(f"Tokens: {len(tokens)}")
+    print(f"Errors: {len(parser.errors)}")
+    print(f"Current index: {parser.current_index}")
+    print(f"Input tokens: {tokens}")
+
+    return parser.errors
