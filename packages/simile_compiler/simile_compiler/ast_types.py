@@ -28,7 +28,9 @@ except ImportError:
         CollectionType,
     )
 
-
+# TODO generate constructors for the typed dataclasses
+# as a sort of shorthand. maybe even make it a class method that returns a partial func
+# def constructor(cls, op_type) -> Callable... 
 @dataclass
 class Int(ASTNode):
     value: str
