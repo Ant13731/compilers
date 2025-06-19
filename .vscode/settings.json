@@ -33,5 +33,15 @@
         "packages",
         "-vvl"
     ],
-    "python.testing.autoTestDiscoverOnSaveEnabled": true
+    "python.testing.autoTestDiscoverOnSaveEnabled": true,
+    "workbench.colorCustomizations": {
+        "editor.background": "#070707",
+        "sideBar.background": "#070707",
+        "terminal.background": "#070707",
+        "menu.background": "#070707",
+        "statusBar.background": "#070707",
+        "activityBar.background": "#070707",
+        "titleBar.background": "#070707",
+        "banner.background": "#070707",
+    }
 }

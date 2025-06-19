@@ -1,6 +1,7 @@
 from __future__ import annotations
-from dataclasses import dataclass, fields, is_dataclass
+from dataclasses import dataclass, field, fields, is_dataclass
 from typing import TypeVar, Callable, Any
+from enum import Enum, auto
 
 T = TypeVar("T")
 
@@ -35,9 +36,28 @@ def _dataclass_traverse_helper(
             accumulator.append(visit(field_value))
 
 
+@dataclass(kw_only=True)
+class NewBoundVariableMixin:
+    binds: set[Identifier] = field(default_factory=set)
+    with_free: set[Identifier] = field(default_factory=set)
+
+
 @dataclass
-class ASTNode:
+class ASTNode(NewBoundVariableMixin):
     """Base class for all AST nodes."""
+
+    def well_formed(self) -> bool:
+        return True
+
+    @property
+    def bound(self) -> set[Identifier]:
+        """Returns the set of bound variables in the AST node."""
+        return set()
+
+    @property
+    def free(self) -> set[Identifier]:
+        """Returns the set of free variables in the AST node."""
+        return set()
 
     def contains(self, node: type[ASTNode]) -> bool:
         """Check if the AST node contains a specific type of node."""
@@ -116,6 +136,123 @@ class ASTNode:
 
             ret += f"{indent_}{f.name}**: {field_value}\n"
         return ret
+
+
+@dataclass
+class Identifier(ASTNode):
+    name: str
+
+    def __hash__(self) -> int:
+        return hash(self.name)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Identifier):
+            return False
+        return self.name == other.name
+
+
+# Properties to determine node operations
+
+
+class BinaryOpType(Enum):
+    # Bools
+    IMPLIES = auto()
+    REV_IMPLIES = auto()
+    EQUIVALENT = auto()
+    NOT_EQUIVALENT = auto()
+    # Numbers
+    ADD = auto()
+    SUBTRACT = auto()
+    MULTIPLY = auto()
+    DIVIDE = auto()
+    MODULO = auto()
+    EXPONENT = auto()
+    # Num-to-bool operators
+    LESS_THAN = auto()
+    LESS_THAN_OR_EQUAL = auto()
+    GREATER_THAN = auto()
+    GREATER_THAN_OR_EQUAL = auto()
+    # Equality
+    EQUAL = auto()
+    NOT_EQUAL = auto()
+    IS = auto()
+    IS_NOT = auto()
+    # Set operators
+    IN = auto()
+    NOT_IN = auto()
+    UNION = auto()
+    INTERSECTION = auto()
+    DIFFERENCE = auto()
+    # Set-to-bool operators
+    SUBSET = auto()
+    SUBSET_EQ = auto()
+    SUPERSET = auto()
+    SUPERSET_EQ = auto()
+    NOT_SUBSET = auto()
+    NOT_SUBSET_EQ = auto()
+    NOT_SUPERSET = auto()
+    NOT_SUPERSET_EQ = auto()
+    # Relation operators
+    MAPLET = auto()
+    RELATION_OVERRIDING = auto()
+    COMPOSITION = auto()
+    CARTESIAN_PRODUCT = auto()
+    UPTO = auto()
+    # Relation/Set operations
+    DOMAIN_SUBTRACTION = auto()
+    DOMAIN_RESTRICTION = auto()
+    RANGE_SUBTRACTION = auto()
+    RANGE_RESTRICTION = auto()
+
+
+class RelationTypes(Enum):
+    RELATION = auto()
+    TOTAL_RELATION = auto()
+    SURJECTIVE_RELATION = auto()
+    TOTAL_SURJECTIVE_RELATION = auto()
+    PARTIAL_FUNCTION = auto()
+    TOTAL_FUNCTION = auto()
+    PARTIAL_INJECTION = auto()
+    TOTAL_INJECTION = auto()
+    PARTIAL_SURJECTION = auto()
+    TOTAL_SURJECTION = auto()
+    BIJECTION = auto()
+
+
+class UnaryOpType(Enum):
+    NOT = auto()
+    NEGATIVE = auto()
+    POWERSET = auto()
+    NONEMPTY_POWERSET = auto()
+    INVERSE = auto()
+
+
+class ListBoolType(Enum):
+    AND = auto()
+    OR = auto()
+
+
+class BoolQuantifierType(Enum):
+    FORALL = auto()
+    EXISTS = auto()
+
+
+class QuantifierType(Enum):
+    UNION_ALL = auto()
+    INTERSECTION_ALL = auto()
+
+
+class ControlFlowType(Enum):
+    BREAK = auto()
+    CONTINUE = auto()
+    PASS = auto()
+
+
+class CollectionType(Enum):
+    SEQUENCE = auto()
+    SET = auto()
+    RELATION = auto()
+    BAG = auto()
 
 
 # TODO:

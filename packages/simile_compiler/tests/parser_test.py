@@ -42,74 +42,76 @@ manual_tests = dict(
             "True": True_(),
             "False": False_(),
             "None": None_(),
-            "{}": SetEnumeration([]),
-            "{ }": SetEnumeration([]),
-            "{| |}": BagEnumeration([]),
-            "{||}": BagEnumeration([]),
-            "[]": SequenceEnumeration([]),
-            "[ ]": SequenceEnumeration([]),
-            "x <-> y": RelationOp(Identifier("x"), Identifier("y")),
-            "x + y + z": Add(Add(Identifier("x"), Identifier("y")), Identifier("z")),
-            "x > y": GreaterThan(Identifier("x"), Identifier("y")),
-            "x ==> y": Implies(Identifier("x"), Identifier("y")),
-            "x ==> y ==> z": Implies(Implies(Identifier("x"), Identifier("y")), Identifier("z")),
-            "x <== y <== z": RevImplies(Identifier("x"), RevImplies(Identifier("y"), Identifier("z"))),
-            "x |-> y": Maplet(Identifier("x"), Identifier("y")),
-            "{x | x in [1, 2, 3]}": SetComprehension(
+            "{}": Enumeration([], op_type=CollectionType.SET),
+            "{ }": Enumeration([], op_type=CollectionType.SET),
+            "{| |}": Enumeration([], op_type=CollectionType.BAG),
+            "{||}": Enumeration([], op_type=CollectionType.BAG),
+            "[]": Enumeration([], op_type=CollectionType.SEQUENCE),
+            "[ ]": Enumeration([], op_type=CollectionType.SEQUENCE),
+            "x <-> y": RelationOp(Identifier("x"), Identifier("y"), op_type=RelationTypes.RELATION),
+            "x + y + z": BinaryOp(BinaryOp(Identifier("x"), Identifier("y"), op_type=BinaryOpType.ADD), Identifier("z"), op_type=BinaryOpType.ADD),
+            "x > y": BinaryOp(Identifier("x"), Identifier("y"), op_type=BinaryOpType.GREATER_THAN),
+            "x ==> y": BinaryOp(Identifier("x"), Identifier("y"), op_type=BinaryOpType.IMPLIES),
+            "x ==> y ==> z": BinaryOp(BinaryOp(Identifier("x"), Identifier("y"), op_type=BinaryOpType.IMPLIES), Identifier("z"), op_type=BinaryOpType.IMPLIES),
+            "x <== y <== z": BinaryOp(Identifier("x"), BinaryOp(Identifier("y"), Identifier("z"), op_type=BinaryOpType.REV_IMPLIES), op_type=BinaryOpType.REV_IMPLIES),
+            "x |-> y": BinaryOp(Identifier("x"), Identifier("y"), op_type=BinaryOpType.MAPLET),
+            "{x | x in [1, 2, 3]}": Comprehension(
                 IdentList([]),
-                In(
+                BinaryOp(
                     Identifier("x"),
-                    SequenceEnumeration(
-                        [Int("1"), Int("2"), Int("3")],
-                    ),
+                    Enumeration([Int("1"), Int("2"), Int("3")], op_type=CollectionType.SEQUENCE),
+                    op_type=BinaryOpType.IN,
                 ),
                 Identifier("x"),
+                op_type=CollectionType.SET,
             ),
-            "{ x |-> y | x in [1, 2, 3] and y in [4, 5, 6] }": RelationComprehension(
+            "{ x |-> y | x in [1, 2, 3] and y in [4, 5, 6] }": Comprehension(
                 IdentList([]),
-                And(
+                ListOp(
                     [
-                        In(
+                        BinaryOp(
                             Identifier("x"),
-                            SequenceEnumeration(
-                                [Int("1"), Int("2"), Int("3")],
-                            ),
+                            Enumeration([Int("1"), Int("2"), Int("3")], op_type=CollectionType.SEQUENCE),
+                            op_type=BinaryOpType.IN,
                         ),
-                        In(
+                        BinaryOp(
                             Identifier("y"),
-                            SequenceEnumeration(
-                                [Int("4"), Int("5"), Int("6")],
-                            ),
+                            Enumeration([Int("4"), Int("5"), Int("6")], op_type=CollectionType.SEQUENCE),
+                            op_type=BinaryOpType.IN,
                         ),
-                    ]
+                    ],
+                    op_type=ListBoolType.AND,
                 ),
-                Maplet(
+                BinaryOp(
                     Identifier("x"),
                     Identifier("y"),
+                    op_type=BinaryOpType.MAPLET,
                 ),
+                op_type=CollectionType.RELATION,
             ),
-            "{ x, y · x in [1, 2, 3] and y in [4, 5, 6] | x |-> y }": RelationComprehension(
+            "{ x, y · x in [1, 2, 3] and y in [4, 5, 6] | x |-> y }": Comprehension(
                 IdentList([Identifier("x"), Identifier("y")]),
-                And(
+                ListOp(
                     [
-                        In(
+                        BinaryOp(
                             Identifier("x"),
-                            SequenceEnumeration(
-                                [Int("1"), Int("2"), Int("3")],
-                            ),
+                            Enumeration([Int("1"), Int("2"), Int("3")], op_type=CollectionType.SEQUENCE),
+                            op_type=BinaryOpType.IN,
                         ),
-                        In(
+                        BinaryOp(
                             Identifier("y"),
-                            SequenceEnumeration(
-                                [Int("4"), Int("5"), Int("6")],
-                            ),
+                            Enumeration([Int("4"), Int("5"), Int("6")], op_type=CollectionType.SEQUENCE),
+                            op_type=BinaryOpType.IN,
                         ),
-                    ]
+                    ],
+                    op_type=ListBoolType.AND,
                 ),
-                Maplet(
+                BinaryOp(
                     Identifier("x"),
                     Identifier("y"),
+                    op_type=BinaryOpType.MAPLET,
                 ),
+                op_type=CollectionType.RELATION,
             ),
         }.items(),
     )
