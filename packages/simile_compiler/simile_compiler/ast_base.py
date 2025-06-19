@@ -36,14 +36,14 @@ def _dataclass_traverse_helper(
             accumulator.append(visit(field_value))
 
 
-@dataclass(kw_only=True)
-class NewBoundVariableMixin:
-    binds: set[Identifier] = field(default_factory=set)
-    with_free: set[Identifier] = field(default_factory=set)
+# @dataclass(kw_only=True)
+# class NewBoundVariableMixin:
+#     binds: set[Identifier] = field(default_factory=set)
+#     with_free: set[Identifier] = field(default_factory=set)
 
 
 @dataclass
-class ASTNode(NewBoundVariableMixin):
+class ASTNode:
     """Base class for all AST nodes."""
 
     def well_formed(self) -> bool:
@@ -75,7 +75,7 @@ class ASTNode(NewBoundVariableMixin):
         #         return True
         # return False
 
-    def find_all_instances(self, type_: type[ASTNode]) -> list[ASTNode]:
+    def find_all_instances(self, type_: type[T]) -> list[T]:
         """Returns a flattened list of all instances of a specific type in the AST.
 
         Most useful for finding identifiers nested within expressions.
@@ -149,6 +149,10 @@ class Identifier(ASTNode):
         if not isinstance(other, Identifier):
             return False
         return self.name == other.name
+
+    @property
+    def free(self) -> set[Identifier]:
+        return {self}
 
 
 # Properties to determine node operations

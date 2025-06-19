@@ -113,6 +113,108 @@ manual_tests = dict(
                 ),
                 op_type=CollectionType.RELATION,
             ),
+            """
+struct A:
+    a: int,
+    b: str, d: int
+    c: float
+""": StructDef(
+                Identifier("A"),
+                [
+                    TypedName(Identifier("a"), Type_(Identifier("int"))),
+                    TypedName(Identifier("b"), Type_(Identifier("str"))),
+                    TypedName(Identifier("d"), Type_(Identifier("int"))),
+                    TypedName(Identifier("c"), Type_(Identifier("float"))),
+                ],
+            ),
+            """
+enum B:
+    A, B, C
+""": EnumDef(
+                Identifier("B"),
+                [
+                    Identifier("A"),
+                    Identifier("B"),
+                    Identifier("C"),
+                ],
+            ),
+            """
+def test_func(a: int, b: str) -> bool:
+    return a > 0 and b != ""
+""": FunctionDef(
+                Identifier("test_func"),
+                [
+                    TypedName(Identifier("a"), Type_(Identifier("int"))),
+                    TypedName(Identifier("b"), Type_(Identifier("str"))),
+                ],
+                Statements(
+                    [
+                        Return(
+                            ListOp(
+                                [
+                                    BinaryOp(Identifier("a"), Int("0"), op_type=BinaryOpType.GREATER_THAN),
+                                    BinaryOp(Identifier("b"), String(""), op_type=BinaryOpType.NOT_EQUAL),
+                                ],
+                                op_type=ListBoolType.AND,
+                            )
+                        ),
+                    ]
+                ),
+                Type_(Identifier("bool")),
+            ),
+            "import test_import": Import([Identifier("test_import")], None_()),
+            "from test_import import *": Import([Identifier("test_import")], ImportAll()),
+            "from test_import import test": Import([Identifier("test_import")], IdentList([Identifier("test")])),
+            """
+for i in [1, 2, 3]:
+    print(i)
+""": For(
+                IdentList([Identifier("i")]),
+                Enumeration(
+                    [Int("1"), Int("2"), Int("3")],
+                    op_type=CollectionType.SEQUENCE,
+                ),
+                Statements([FunctionCall(Identifier("print"), [Identifier("i")])]),
+            ),
+            """
+while True:
+    print("Hello")
+""": While(
+                condition=True_(),
+                body=Statements([FunctionCall(Identifier("print"), [String("Hello")])]),
+            ),
+            """
+if a > b:
+    print("a is greater")
+elif a < b:
+    print("b is greater")
+else:
+    print("a and b are equal")
+""": If(
+                condition=BinaryOp(Identifier("a"), Identifier("b"), op_type=BinaryOpType.GREATER_THAN),
+                body=Statements(
+                    [
+                        FunctionCall(Identifier("print"), [String("a is greater")]),
+                    ]
+                ),
+                else_body=Elif(
+                    condition=BinaryOp(Identifier("a"), Identifier("b"), op_type=BinaryOpType.LESS_THAN),
+                    body=Statements(
+                        [
+                            FunctionCall(Identifier("print"), [String("b is greater")]),
+                        ]
+                    ),
+                    else_body=Else(
+                        body=Statements(
+                            [
+                                FunctionCall(Identifier("print"), [String("a and b are equal")]),
+                            ]
+                        )
+                    ),
+                ),
+            ),
+            "a := 1": Assignment(Identifier("a"), Int("1")),
+            "a: int := 1": Assignment(TypedName(Identifier("a"), Type_(Identifier("int"))), Int("1")),
         }.items(),
     )
 )

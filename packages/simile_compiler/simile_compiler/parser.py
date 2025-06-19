@@ -260,11 +260,17 @@ class Parser:
         t = self.peek()
         if t.type_ in self.get_first_set("expr"):
             expr = self.expr()
-            if self.peek().type_ != TokenType.ASSIGN:
+            if self.peek().type_ not in [TokenType.COLON, TokenType.ASSIGN]:
                 self.consume(TokenType.NEWLINE, "Expected end of simple statement after expression")
                 return expr
+
+            # now in assignment rule - could either see a type annotation or not
+            if self.match(TokenType.COLON):
+                type_ = self.expr()
+                expr = ast_.TypedName(expr, ast_.Type_(type_))
+
+            self.consume(TokenType.ASSIGN, "Expected assignment after an expression not ending with a newline")
             # Since first of assignment and expr are shared, check if next token is an assignment
-            self.advance()
             value = self.expr()
             self.consume(TokenType.NEWLINE, "Expected end of simple statement after assignment")
             return ast_.Assignment(target=expr, value=value)
@@ -306,10 +312,10 @@ class Parser:
         return ast_.IdentList(ident_patterns)  # TODO figure out ident patterns vs ident list,,,
 
     @store_derivation
-    def ident_pattern(self) -> ast_.ASTNode:
+    def ident_pattern(self) -> ast_.Identifier | ast_.BinaryOp | ast_.IdentList:
         match (t := self.advance()).type_:
             case TokenType.IDENTIFIER:
-                ident_pattern: ast_.ASTNode = ast_.Identifier(t.value)
+                ident_pattern: ast_.Identifier | ast_.BinaryOp | ast_.IdentList = ast_.Identifier(t.value)
             case TokenType.L_PAREN:
                 self.advance()
                 ident_pattern = self.ident_list()
@@ -440,7 +446,7 @@ class Parser:
         t = self.advance()
         match t.type_:
             case TokenType.LAMBDA:
-                ident_pattern = self.ident_list().items
+                ident_pattern = self.ident_list()
                 self.consume(TokenType.CDOT, "Expected LAMBDA quantification separator")
                 predicate = self.predicate()
                 self.consume(TokenType.VBAR, "Expected LAMBDA quantification predicate separator")
@@ -796,7 +802,7 @@ class Parser:
             import_objects = self.import_list()
             return ast_.Import(import_name, import_objects)
         elif t.type_ == TokenType.IMPORT:
-            return ast_.Import(import_name, ast_.IdentList([]))
+            return ast_.Import(import_name, ast_.None_())
         else:
             self.error("Unexpected token")
 
@@ -826,10 +832,10 @@ class Parser:
         if self.match(TokenType.STAR):
             return ast_.ImportAll()
         matched_paren = self.match(TokenType.L_PAREN)
-        t = self.advance()
-        import_list: list[ast_.Identifier] = []
-        if t.type_ != TokenType.IDENTIFIER:
-            self.error("Expected identifier in import list")
+
+        t = self.peek()
+        self.consume(TokenType.IDENTIFIER, "Expected identifier in import list")
+        import_list: list[ast_.Identifier | ast_.IdentList | ast_.BinaryOp] = [ast_.Identifier(t.value)]
 
         while self.match(TokenType.COMMA):
             t = self.advance()
@@ -919,7 +925,14 @@ class Parser:
             items = []
         else:
             items = [self.typed_name()]
-            while self.match(TokenType.COMMA):
+            while self.peek().type_ == TokenType.COMMA or self.peek().type_ == TokenType.NEWLINE:
+                if self.peek(1).type_ == TokenType.DEDENT:
+                    self.consume(TokenType.NEWLINE, "Expected newline after last STRUCT item")
+                    break
+                if self.match(TokenType.COMMA):
+                    self.match(TokenType.NEWLINE)
+                else:
+                    self.consume(TokenType.NEWLINE, "Expected newline or comma after STRUCT item")
                 items.append(self.typed_name())
         self.consume(TokenType.DEDENT, "Expected dedent after STRUCT definition")
         return ast_.StructDef(name, items)
@@ -942,10 +955,17 @@ class Parser:
             if t.type_ != TokenType.IDENTIFIER:
                 self.error("Expected identifier after ENUM keyword")
             items = [ast_.Identifier(t.value)]
-            while self.match(TokenType.COMMA):
-                t = self.advance()
-                if t.type_ != TokenType.IDENTIFIER:
-                    self.error("Expected identifier after ENUM item")
+            while self.peek().type_ == TokenType.COMMA or self.peek().type_ == TokenType.NEWLINE:
+                if self.peek(1).type_ == TokenType.DEDENT:
+                    self.consume(TokenType.NEWLINE, "Expected newline after last ENUM item")
+                    break
+                if self.match(TokenType.COMMA):
+                    self.match(TokenType.NEWLINE)
+                else:
+                    self.consume(TokenType.NEWLINE, "Expected newline or comma after ENUM item")
+
+                t = self.peek()
+                self.consume(TokenType.IDENTIFIER, "Expected identifier after ENUM separator (comma/newline)")
                 items.append(ast_.Identifier(t.value))
 
         self.consume(TokenType.DEDENT, "Expected dedent after ENUM definition")

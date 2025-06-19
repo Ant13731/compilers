@@ -61,17 +61,17 @@ class None_(ASTNode):
 
 @dataclass
 class IdentList(ASTNode):
-    items: list[Identifier]
+    items: list[Identifier | IdentList | BinaryOp]  # This binaryop can only be a maplet
 
-    def __post_init__(self):
-        self.with_free = set(self.items)
+    @property
+    def free(self) -> set[Identifier]:
+        return set(self.find_all_instances(Identifier))
 
     def well_formed(self) -> bool:
-        for i in range(len(self.items)):
-            for j in range(i + 1, len(self.items)):
-                if i == j:
-                    continue
-                if self.items[i] == self.items[j]:
+        identifiers = self.find_all_instances(Identifier)
+        for i in range(len(identifiers)):
+            for j in range(i + 1, len(identifiers)):
+                if identifiers[i] == identifiers[j]:
                     return False
         return True
 
@@ -121,9 +121,9 @@ class RelationOp(ASTNode):
             [
                 self.left.well_formed(),
                 self.right.well_formed(),
-                self.left.free & self.right.bound == set(),
-                self.left.bound & self.right.free == set(),
-                self.left.bound & self.right.bound == set(),
+                self.left.free.isdisjoint(self.right.bound),
+                self.left.bound.isdisjoint(self.right.free),
+                self.left.bound.isdisjoint(self.right.bound),
             ]
         )
 
@@ -165,11 +165,11 @@ class ListOp(ASTNode):
             for other in self.items:
                 if item == other:
                     continue
-                if item.free & other.bound != set():
+                if not item.free.isdisjoint(other.bound):
                     return False
-                if item.bound & other.free != set():
+                if not item.bound.isdisjoint(other.free):
                     return False
-                if item.bound & other.bound != set():
+                if not item.bound.isdisjoint(other.bound):
                     return False
         return True
 
@@ -180,6 +180,23 @@ class BoolQuantifier(ASTNode):
     predicate: ASTNode
     op_type: BoolQuantifierType
 
+    @property
+    def bound(self) -> set[Identifier]:
+        return self.bound_identifiers.free | self.predicate.bound
+
+    @property
+    def free(self) -> set[Identifier]:
+        return self.predicate.free - self.bound_identifiers.free
+
+    def well_formed(self) -> bool:
+        return all(
+            [
+                self.bound_identifiers.well_formed(),
+                self.predicate.well_formed(),
+                self.predicate.bound.isdisjoint(self.bound_identifiers.free),
+            ]
+        )
+
 
 @dataclass
 class Quantifier(ASTNode):
@@ -187,6 +204,36 @@ class Quantifier(ASTNode):
     predicate: ASTNode
     expression: ASTNode
     op_type: QuantifierType
+
+    @property
+    def bound(self) -> set[Identifier]:
+        if self.bound_identifiers.items:
+            return self.predicate.bound | self.expression.bound | self.bound_identifiers.free
+        return self.predicate.bound | self.expression.bound | self.expression.free
+
+    @property
+    def free(self) -> set[Identifier]:
+        if self.bound_identifiers.items:
+            return (self.predicate.free | self.expression.free) - self.bound_identifiers.free
+        return self.predicate.free - self.expression.free
+
+    def well_formed(self) -> bool:
+        check_list = [
+            self.bound_identifiers.well_formed(),
+            self.predicate.well_formed(),
+            self.expression.well_formed(),
+            self.predicate.bound.isdisjoint(self.expression.bound),
+            self.predicate.bound.isdisjoint(self.expression.free),
+        ]
+
+        if self.bound_identifiers.items:
+            check_list += [
+                self.predicate.free.isdisjoint(self.expression.bound),
+                self.predicate.bound.isdisjoint(self.bound_identifiers.free),
+                self.expression.bound.isdisjoint(self.bound_identifiers.free),
+            ]
+
+        return all(check_list)
 
 
 @dataclass
@@ -199,6 +246,29 @@ class Enumeration(ASTNode):
     items: list[ASTNode]
     op_type: CollectionType
 
+    @property
+    def bound(self) -> set[Identifier]:
+        return set.union(*(item.bound for item in self.items))
+
+    @property
+    def free(self) -> set[Identifier]:
+        return set.union(*(item.free for item in self.items))
+
+    def well_formed(self) -> bool:
+        if not all(item.well_formed() for item in self.items):
+            return False
+        for i in range(len(self.items)):
+            for j in range(len(self.items)):
+                if i == j:
+                    continue
+                # Is this too restrictive? this would block statements like {{x | x > 0}, {x | x > 0}}
+                # which may be perfectly valid if x is only locally bound...
+                if not self.items[i].bound.isdisjoint(self.items[j].bound):
+                    return False
+                if not self.items[i].bound.isdisjoint(self.items[j].free):
+                    return False
+        return True
+
 
 @dataclass
 class Comprehension(ASTNode):
@@ -207,22 +277,106 @@ class Comprehension(ASTNode):
     expression: ASTNode
     op_type: CollectionType
 
+    @property
+    def bound(self) -> set[Identifier]:
+        if self.bound_identifiers.items:
+            return self.predicate.bound | self.expression.bound | self.bound_identifiers.free
+        return self.predicate.bound | self.expression.bound | self.expression.free
+
+    @property
+    def free(self) -> set[Identifier]:
+        if self.bound_identifiers.items:
+            return (self.predicate.free | self.expression.free) - self.bound_identifiers.free
+        return self.predicate.free - self.expression.free
+
+    def well_formed(self) -> bool:
+        check_list = [
+            self.bound_identifiers.well_formed(),
+            self.predicate.well_formed(),
+            self.expression.well_formed(),
+            self.predicate.bound.isdisjoint(self.expression.bound),
+            self.predicate.bound.isdisjoint(self.expression.free),
+        ]
+
+        if self.bound_identifiers.items:
+            check_list += [
+                self.predicate.free.isdisjoint(self.expression.bound),
+                self.predicate.bound.isdisjoint(self.bound_identifiers.free),
+                self.expression.bound.isdisjoint(self.bound_identifiers.free),
+            ]
+
+        return all(check_list)
+
 
 @dataclass
 class Type_(ASTNode):
     type_: ASTNode
+
+    @property
+    def free(self) -> set[Identifier]:
+        return self.type_.free
+
+    @property
+    def bound(self) -> set[Identifier]:
+        return self.type_.bound
+
+    def well_formed(self) -> bool:
+        return self.type_.well_formed()
 
 
 @dataclass
 class Slice(ASTNode):
     items: list[ASTNode]
 
+    @property
+    def free(self) -> set[Identifier]:
+        return set.union(*(item.free for item in self.items))
+
+    @property
+    def bound(self) -> set[Identifier]:
+        return set.union(*(item.bound for item in self.items))
+
+    def well_formed(self) -> bool:
+        if not all(item.well_formed() for item in self.items):
+            return False
+        for i in range(len(self.items)):
+            for j in range(len(self.items)):
+                if i == j:
+                    continue
+                if not self.items[i].bound.isdisjoint(self.items[j].bound):
+                    return False
+                if not self.items[i].bound.isdisjoint(self.items[j].free):
+                    return False
+        return True
+
 
 @dataclass
 class LambdaDef(ASTNode):
-    ident_pattern: list[ASTNode]
+    ident_pattern: IdentList
     predicate: ASTNode
     expression: ASTNode
+
+    @property
+    def bound(self) -> set[Identifier]:
+        return self.ident_pattern.free | self.predicate.bound | self.expression.bound
+
+    @property
+    def free(self) -> set[Identifier]:
+        return (self.predicate.free | self.expression.free) - self.ident_pattern.free
+
+    def well_formed(self) -> bool:
+        return all(
+            [
+                self.ident_pattern.well_formed(),
+                self.predicate.well_formed(),
+                self.expression.well_formed(),
+                self.predicate.bound.isdisjoint(self.expression.free),
+                self.expression.bound.isdisjoint(self.predicate.free),
+                self.predicate.bound.isdisjoint(self.expression.bound),
+                self.predicate.bound.isdisjoint(self.ident_pattern.free),
+                self.expression.bound.isdisjoint(self.ident_pattern.free),
+            ]
+        )
 
 
 @dataclass
@@ -239,8 +393,19 @@ class FunctionCall(ASTNode):
 
 @dataclass
 class TypedName(ASTNode):
-    name: Identifier
+    name: Identifier | ASTNode
     type_: Type_ | None_
+
+    @property
+    def free(self) -> set[Identifier]:
+        return self.name.free | self.type_.free
+
+    @property
+    def bound(self) -> set[Identifier]:
+        return self.name.bound | self.type_.bound
+
+    def well_formed(self) -> bool:
+        return self.name.well_formed() and self.type_.well_formed()
 
 
 @dataclass
