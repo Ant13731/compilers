@@ -77,6 +77,16 @@ class UnifyException(Exception):
     pass
 
 
+# cases for match_aux:
+# lh = RuleVar, ast = Term
+# lh = Term, ast = RuleVar
+# lh = Term, ast = Term
+#  - try to match children in order (may be tricky bc we use builtin lists...)
+#  - idea: use dataclass_traverse to get children in a specific order
+#
+# then when writing out rules, make sure each match gets a separate rulevar identifier
+
+
 # trying the book stuff, likely need to change into more imperative style...
 # term is built very differently,,, (based off of page 89 of baader)
 def match_aux(match_list: list[tuple[ast_.ASTNode, ast_.ASTNode]], s: Substitution) -> Substitution:
@@ -84,7 +94,7 @@ def match_aux(match_list: list[tuple[ast_.ASTNode, ast_.ASTNode]], s: Substituti
         return s
 
     lh, ast = match_list.pop(0)
-    if isinstance(lh, ast_.RuleVar):
+    if isinstance(lh, RuleVar):
         if lh in s:
             if s[lh] == ast:
                 return match_aux(match_list, s)
@@ -92,11 +102,11 @@ def match_aux(match_list: list[tuple[ast_.ASTNode, ast_.ASTNode]], s: Substituti
                 raise UnifyException
         else:
             return match_aux(match_list, {**s, lh: ast})
-    if isinstance(ast, ast_.RuleVar):
+    if isinstance(ast, RuleVar):
         raise UnifyException
     if type(lh) != type(ast):
         raise UnifyException
-    return match_aux(...)
+    return match_aux(zip(lh.children, ast.children), s)
 
 
 def substitute(rh: ast_.ASTNode, s: Substitution) -> ast_.ASTNode: ...

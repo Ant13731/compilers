@@ -124,6 +124,10 @@ class ASTNode:
         #         ret += field_value.find_all_instances(type_)
         # return ret
 
+    def list_children(self) -> list[ASTNode]:
+        # Note, may need to not visit leaves (since elems wouldnt be of type dataclass?, or make the visit function only use dataclasses)
+        return dataclass_traverse(self, lambda n: n, True)
+
     def pretty_print(
         self,
         ignore_fields: list[str] | None = None,
