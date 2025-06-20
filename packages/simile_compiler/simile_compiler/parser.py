@@ -292,13 +292,13 @@ class Parser:
                 ident_list = self.ident_list()
                 self.consume(TokenType.CDOT, "Expected FORALL quantification separator")
                 predicate = self.predicate()
-                return ast_.BoolQuantifier(ident_list, predicate, ast_.BoolQuantifierType.FORALL)
+                return ast_.Forall(ident_list, predicate)
             case TokenType.EXISTS:
                 self.advance()
                 ident_list = self.ident_list()
                 self.consume(TokenType.CDOT, "Expected EXISTS quantification separator")
                 predicate = self.predicate()
-                return ast_.BoolQuantifier(ident_list, predicate, ast_.BoolQuantifierType.EXISTS)
+                return ast_.Exists(ident_list, predicate)
             case _ if t.type_ in self.get_first_set("unquantified_predicate"):
                 return self.unquantified_predicate()
             case _:
@@ -323,7 +323,7 @@ class Parser:
             case _:
                 self.error("No identifier or sub-pattern found")
         if self.match(TokenType.MAPLET):
-            return ast_.BinaryOp(ident_pattern, self.ident_pattern(), ast_.BinaryOpType.MAPLET)
+            return ast_.Maplet(ident_pattern, self.ident_pattern())
         return ident_pattern
 
     @store_derivation
@@ -331,8 +331,8 @@ class Parser:
         return self.left_associative_optional_parse(
             self.implication,
             {
-                TokenType.EQUIVALENT: lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.EQUIVALENT),
-                TokenType.NOT_EQUIVALENT: lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.NOT_EQUIVALENT),
+                TokenType.EQUIVALENT: ast_.Equivalent,
+                TokenType.NOT_EQUIVALENT: ast_.NotEquivalent,
             },
         )
 
@@ -343,9 +343,9 @@ class Parser:
             self.advance()
             match t.type_:
                 case TokenType.IMPLIES:
-                    disjunction = ast_.BinaryOp(disjunction, self.disjunction(), ast_.BinaryOpType.IMPLIES)
+                    disjunction = ast_.Implies(disjunction, self.disjunction())
                 case TokenType.REV_IMPLIES:
-                    disjunction = ast_.BinaryOp(disjunction, self.implication(), ast_.BinaryOpType.REV_IMPLIES)
+                    disjunction = ast_.RevImplies(disjunction, self.implication())
                 case _:
                     self.error("Unreachable state")
         return disjunction
@@ -357,7 +357,7 @@ class Parser:
             conjunctions.append(self.conjunction())
         if len(conjunctions) == 1:
             return conjunctions[0]
-        return ast_.ListOp(conjunctions, ast_.ListBoolType.OR)
+        return ast_.Or(conjunctions)
 
     @store_derivation
     def conjunction(self) -> ast_.ASTNode:
@@ -366,14 +366,14 @@ class Parser:
             negation.append(self.negation())
         if len(negation) == 1:
             return negation[0]
-        return ast_.ListOp(negation, ast_.ListBoolType.AND)
+        return ast_.And(negation)
 
     @store_derivation
     def negation(self) -> ast_.ASTNode:
         if self.match(TokenType.NOT):
-            return ast_.UnaryOp(self.negation(), ast_.UnaryOpType.NOT)
+            return ast_.Not(self.negation())
         if self.match(TokenType.BANG):
-            return ast_.UnaryOp(self.negation(), ast_.UnaryOpType.NOT)
+            return ast_.Not(self.negation())
         return self.atom_bool()
 
     @store_derivation
@@ -389,41 +389,41 @@ class Parser:
         pair_expr = self.pair_expr()
         match self.peek().type_:
             case TokenType.EQUALS:
-                bin_op: Callable[[ast_.ASTNode, ast_.ASTNode], ast_.BinaryOp] = lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.EQUAL)  # noqa: E731
+                bin_op = ast_.Equal
             case TokenType.NOT_EQUALS:
-                bin_op = lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.NOT_EQUAL)  # noqa: E731
+                bin_op = ast_.NotEqual
             case TokenType.IS:
-                bin_op = lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.IS)  # noqa: E731
+                bin_op = ast_.Is
             case TokenType.IS_NOT:
-                bin_op = lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.IS_NOT)  # noqa: E731
+                bin_op = ast_.IsNot
             case TokenType.LT:
-                bin_op = lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.LESS_THAN)  # noqa: E731
+                bin_op = ast_.LessThan
             case TokenType.GT:
-                bin_op = lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.GREATER_THAN)  # noqa: E731
+                bin_op = ast_.GreaterThan
             case TokenType.LE:
-                bin_op = lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.LESS_THAN_OR_EQUAL)  # noqa: E731
+                bin_op = ast_.LessThanOrEqual
             case TokenType.GE:
-                bin_op = lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.GREATER_THAN_OR_EQUAL)  # noqa: E731
+                bin_op = ast_.GreaterThanOrEqual
             case TokenType.IN:
-                bin_op = lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.IN)  # noqa: E731
+                bin_op = ast_.In
             case TokenType.NOT_IN:
-                bin_op = lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.NOT_IN)  # noqa: E731
+                bin_op = ast_.NotIn
             case TokenType.SUBSET:
-                bin_op = lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.SUBSET)  # noqa: E731
+                bin_op = ast_.Subset
             case TokenType.SUBSET_EQ:
-                bin_op = lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.SUBSET_EQ)  # noqa: E731
+                bin_op = ast_.SubsetEq
             case TokenType.SUPERSET:
-                bin_op = lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.SUPERSET)  # noqa: E731
+                bin_op = ast_.SuperSet
             case TokenType.SUPERSET_EQ:
-                bin_op = lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.SUPERSET_EQ)  # noqa: E731
+                bin_op = ast_.SuperSetEq
             case TokenType.NOT_SUBSET:
-                bin_op = lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.NOT_SUBSET)  # noqa: E731
+                bin_op = ast_.NotSubset
             case TokenType.NOT_SUBSET_EQ:
-                bin_op = lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.NOT_SUBSET_EQ)  # noqa: E731
+                bin_op = ast_.NotSubsetEq
             case TokenType.NOT_SUPERSET:
-                bin_op = lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.NOT_SUPERSET)  # noqa: E731
+                bin_op = ast_.NotSuperSet
             case TokenType.NOT_SUPERSET_EQ:
-                bin_op = lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.NOT_SUPERSET_EQ)  # noqa: E731
+                bin_op = ast_.NotSuperSetEq
             case _:
                 return pair_expr  # Since comparison is optional, we can return immediately if no comp op matches
         self.advance()
@@ -453,10 +453,10 @@ class Parser:
                 return ast_.LambdaDef(ident_pattern, predicate, self.expr())
             case TokenType.UNION_ALL:
                 ident_list, predicate, expression = self.quantification_body()
-                return ast_.Quantifier(ident_list, predicate, expression, ast_.QuantifierType.UNION_ALL)
+                return ast_.UnionAll(ident_list, predicate, expression)
             case TokenType.INTERSECTION_ALL:
                 ident_list, predicate, expression = self.quantification_body()
-                return ast_.Quantifier(ident_list, predicate, expression, ast_.QuantifierType.INTERSECTION_ALL)
+                return ast_.IntersectionAll(ident_list, predicate, expression)
             case _:
                 self.error("Invalid start to quantification")
 
@@ -486,7 +486,7 @@ class Parser:
     def pair_expr(self) -> ast_.ASTNode:
         return self.left_associative_optional_parse(
             self.rel_set_expr,
-            {TokenType.MAPLET: lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.MAPLET)},
+            {TokenType.MAPLET: ast_.Maplet},
         )
 
     @store_derivation
@@ -494,27 +494,27 @@ class Parser:
         set_expr = self.set_expr()
         match self.peek().type_:
             case TokenType.RELATION:
-                bin_op: Callable[[ast_.ASTNode, ast_.ASTNode], ast_.RelationOp] = lambda left, right: ast_.RelationOp(left, right, ast_.RelationTypes.RELATION)  # noqa: E731
+                bin_op: Callable[[ast_.ASTNode, ast_.ASTNode], ast_.RelationOp] = ast_.Relation
             case TokenType.TOTAL_RELATION:
-                bin_op = lambda left, right: ast_.RelationOp(left, right, ast_.RelationTypes.TOTAL_RELATION)  # noqa: E731
+                bin_op = ast_.TotalRelation
             case TokenType.SURJECTIVE_RELATION:
-                bin_op = lambda left, right: ast_.RelationOp(left, right, ast_.RelationTypes.SURJECTIVE_RELATION)  # noqa: E731
+                bin_op = ast_.SurjectiveRelation
             case TokenType.TOTAL_SURJECTIVE_RELATION:
-                bin_op = lambda left, right: ast_.RelationOp(left, right, ast_.RelationTypes.TOTAL_SURJECTIVE_RELATION)  # noqa: E731
+                bin_op = ast_.TotalSurjectiveRelation
             case TokenType.PARTIAL_FUNCTION:
-                bin_op = lambda left, right: ast_.RelationOp(left, right, ast_.RelationTypes.PARTIAL_FUNCTION)  # noqa: E731
+                bin_op = ast_.PartialFunction
             case TokenType.TOTAL_FUNCTION:
-                bin_op = lambda left, right: ast_.RelationOp(left, right, ast_.RelationTypes.TOTAL_FUNCTION)  # noqa: E731
+                bin_op = ast_.TotalFunction
             case TokenType.PARTIAL_INJECTION:
-                bin_op = lambda left, right: ast_.RelationOp(left, right, ast_.RelationTypes.PARTIAL_INJECTION)  # noqa: E731
+                bin_op = ast_.PartialInjection
             case TokenType.TOTAL_INJECTION:
-                bin_op = lambda left, right: ast_.RelationOp(left, right, ast_.RelationTypes.TOTAL_INJECTION)  # noqa: E731
+                bin_op = ast_.TotalInjection
             case TokenType.PARTIAL_SURJECTION:
-                bin_op = lambda left, right: ast_.RelationOp(left, right, ast_.RelationTypes.PARTIAL_SURJECTION)  # noqa: E731
+                bin_op = ast_.PartialSurjection
             case TokenType.TOTAL_SURJECTION:
-                bin_op = lambda left, right: ast_.RelationOp(left, right, ast_.RelationTypes.TOTAL_SURJECTION)  # noqa: E731
+                bin_op = ast_.TotalSurjection
             case TokenType.BIJECTION:
-                bin_op = lambda left, right: ast_.RelationOp(left, right, ast_.RelationTypes.BIJECTION)  # noqa: E731
+                bin_op = ast_.Bijection
             case _:
                 return set_expr
         self.advance()
@@ -525,25 +525,25 @@ class Parser:
         interval_expr = self.interval_expr()
         match self.peek().type_:
             case TokenType.UNION:
-                bin_op: Callable[[ast_.ASTNode, ast_.ASTNode], ast_.BinaryOp] = lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.UNION)  # noqa: E731
-                bin_token = TokenType.UNION
+                bin_op = ast_.Union
+                bin_token: TokenType = TokenType.UNION
             case TokenType.CARTESIAN_PRODUCT:
-                bin_op = lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.CARTESIAN_PRODUCT)  # noqa: E731
+                bin_op = ast_.CartesianProduct
                 bin_token = TokenType.CARTESIAN_PRODUCT
             case TokenType.RELATION_OVERRIDING:
-                bin_op = lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.RELATION_OVERRIDING)  # noqa: E731
+                bin_op = ast_.RelationOverriding
                 bin_token = TokenType.RELATION_OVERRIDING
             case TokenType.COMPOSITION:
-                bin_op = lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.COMPOSITION)  # noqa: E731
+                bin_op = ast_.Composition
                 bin_token = TokenType.COMPOSITION
             case TokenType.INTERSECTION:
-                bin_op = lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.INTERSECTION)  # noqa: E731
+                bin_op = ast_.Intersection
                 bin_token = TokenType.INTERSECTION
             case TokenType.DOMAIN_SUBTRACTION:
                 self.advance()
                 right = self.left_associative_optional_parse(
                     self.interval_expr,
-                    {TokenType.INTERSECTION: lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.INTERSECTION)},  # noqa: E731
+                    {TokenType.INTERSECTION: ast_.Intersection},
                 )
                 if self.peek().type_ in self.get_first_set("rel_sub_expr"):
                     right = self.rel_sub_expr()(right)
@@ -552,7 +552,7 @@ class Parser:
                 self.advance()
                 right = self.left_associative_optional_parse(
                     self.interval_expr,
-                    {TokenType.INTERSECTION: lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.INTERSECTION)},  # noqa: E731
+                    {TokenType.INTERSECTION: ast_.Intersection},
                 )
                 if self.peek().type_ in self.get_first_set("rel_sub_expr"):
                     right = self.rel_sub_expr()(right)
@@ -592,8 +592,8 @@ class Parser:
         return self.left_associative_optional_parse(
             self.term,
             {
-                TokenType.PLUS: lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.ADD),
-                TokenType.MINUS: lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.SUBTRACT),
+                TokenType.PLUS: ast_.Add,
+                TokenType.MINUS: ast_.Subtract,
             },
         )
 
@@ -602,9 +602,9 @@ class Parser:
         return self.left_associative_optional_parse(
             self.factor,
             {
-                TokenType.STAR: lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.MULTIPLY),
-                TokenType.SLASH: lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.DIVIDE),
-                TokenType.PERCENT: lambda left, right: ast_.BinaryOp(left, right, ast_.BinaryOpType.MODULO),
+                TokenType.STAR: ast_.Multiply,
+                TokenType.SLASH: ast_.Divide,
+                TokenType.PERCENT: ast_.Modulo,
             },
         )
 
@@ -616,7 +616,7 @@ class Parser:
                 return self.factor()
             case TokenType.MINUS:
                 self.advance()
-                return ast_.UnaryOp(self.factor(), ast_.UnaryOpType.NEGATIVE)
+                return ast_.Negative(self.factor())
             case _:
                 return self.power()
 
@@ -624,7 +624,7 @@ class Parser:
     def power(self) -> ast_.ASTNode:
         primary = self.primary()
         if self.match(TokenType.DOUBLE_STAR):
-            return ast_.BinaryOp(primary, self.factor(), ast_.BinaryOpType.EXPONENT)
+            return ast_.Exponent(primary, self.factor())
         return primary
 
     @store_derivation
@@ -659,7 +659,7 @@ class Parser:
     def inversable_atom(self) -> ast_.ASTNode:
         atom = self.atom()
         while self.match(TokenType.INVERSE):
-            atom = ast_.UnaryOp(atom, ast_.UnaryOpType.INVERSE)
+            atom = ast_.Inverse(atom)
         return atom
 
     @store_derivation
@@ -687,12 +687,12 @@ class Parser:
                 self.consume(TokenType.L_PAREN, "Powerset requires function call notation")
                 powerset = self.expr()
                 self.consume(TokenType.R_PAREN, "Need to close parenthesis")
-                return ast_.UnaryOp(powerset, ast_.UnaryOpType.POWERSET)
+                return ast_.Powerset(powerset)
             case TokenType.NONEMPTY_POWERSET:
                 self.consume(TokenType.L_PAREN, "Nonempty Powerset requires function call notation")
                 powerset = self.expr()
                 self.consume(TokenType.R_PAREN, "Need to close parenthesis")
-                return ast_.UnaryOp(powerset, ast_.UnaryOpType.NONEMPTY_POWERSET)
+                return ast_.NonemptyPowerset(powerset)
             case TokenType.L_PAREN:
                 expr = self.expr()
                 self.consume(TokenType.R_PAREN, "Need to close parenthesis")
@@ -785,11 +785,11 @@ class Parser:
                     return ast_.Return(ast_.None_())
                 return ast_.Return(self.expr())
             case TokenType.BREAK:
-                return ast_.ControlFlowStmt(ast_.ControlFlowType.BREAK)
+                return ast_.Break()
             case TokenType.CONTINUE:
-                return ast_.ControlFlowStmt(ast_.ControlFlowType.CONTINUE)
+                return ast_.Continue()
             case TokenType.PASS:
-                return ast_.ControlFlowStmt(ast_.ControlFlowType.PASS)
+                return ast_.Pass()
             case _:
                 self.error("Invalid start to control flow statement")
 

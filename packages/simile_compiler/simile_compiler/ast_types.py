@@ -1,5 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
+from typing import Callable
 
 try:
     from .ast_base import (
@@ -13,6 +14,8 @@ try:
         QuantifierType,
         ControlFlowType,
         CollectionType,
+        dataclass_traverse,
+        find_and_replace,
     )
 except ImportError:
     from ast_base import (  # type: ignore
@@ -26,11 +29,12 @@ except ImportError:
         QuantifierType,
         ControlFlowType,
         CollectionType,
+        dataclass_traverse,
+        find_and_replace,
     )
 
-# TODO generate constructors for the typed dataclasses
-# as a sort of shorthand. maybe even make it a class method that returns a partial func
-# def constructor(cls, op_type) -> Callable... 
+
+# TODO generate constructors for the typed dataclasses as a sort of shorthand, especially useful for matching/TRS rule creation
 @dataclass
 class Int(ASTNode):
     value: str
@@ -84,6 +88,10 @@ class BinaryOp(ASTNode):
     right: ASTNode
     op_type: BinaryOpType
 
+    @classmethod
+    def construct_with_op(cls, op_type: BinaryOpType) -> Callable[[ASTNode, ASTNode], BinaryOp]:
+        return lambda left, right: cls(left=left, right=right, op_type=op_type)
+
     @property
     def bound(self) -> set[Identifier]:
         return self.left.bound | self.right.bound
@@ -110,6 +118,10 @@ class RelationOp(ASTNode):
     right: ASTNode
     op_type: RelationTypes
 
+    @classmethod
+    def construct_with_op(cls, op_type: RelationTypes) -> Callable[[ASTNode, ASTNode], RelationOp]:
+        return lambda left, right: cls(left=left, right=right, op_type=op_type)
+
     @property
     def bound(self) -> set[Identifier]:
         return self.left.bound | self.right.bound
@@ -135,6 +147,10 @@ class UnaryOp(ASTNode):
     value: ASTNode
     op_type: UnaryOpType
 
+    @classmethod
+    def construct_with_op(cls, op_type: UnaryOpType) -> Callable[[ASTNode], UnaryOp]:
+        return lambda value: cls(value=value, op_type=op_type)
+
     @property
     def bound(self) -> set[Identifier]:
         return self.value.bound
@@ -151,6 +167,10 @@ class UnaryOp(ASTNode):
 class ListOp(ASTNode):
     items: list[ASTNode]
     op_type: ListBoolType
+
+    @classmethod
+    def construct_with_op(cls, op_type: ListBoolType) -> Callable[[list[ASTNode]], ListOp]:
+        return lambda items: cls(items=items, op_type=op_type)
 
     @property
     def bound(self) -> set[Identifier]:
@@ -182,6 +202,10 @@ class BoolQuantifier(ASTNode):
     predicate: ASTNode
     op_type: BoolQuantifierType
 
+    @classmethod
+    def construct_with_op(cls, op_type: BoolQuantifierType) -> Callable[[IdentList, ASTNode], BoolQuantifier]:
+        return lambda bound_identifiers, predicate: cls(bound_identifiers=bound_identifiers, predicate=predicate, op_type=op_type)
+
     @property
     def bound(self) -> set[Identifier]:
         return self.bound_identifiers.free | self.predicate.bound
@@ -206,6 +230,10 @@ class Quantifier(ASTNode):
     predicate: ASTNode
     expression: ASTNode
     op_type: QuantifierType
+
+    @classmethod
+    def construct_with_op(cls, op_type: QuantifierType) -> Callable[[IdentList, ASTNode, ASTNode], Quantifier]:
+        return lambda bound_identifiers, predicate, expression: cls(bound_identifiers=bound_identifiers, predicate=predicate, expression=expression, op_type=op_type)
 
     @property
     def bound(self) -> set[Identifier]:
@@ -248,6 +276,10 @@ class Enumeration(ASTNode):
     items: list[ASTNode]
     op_type: CollectionType
 
+    @classmethod
+    def construct_with_op(cls, op_type: CollectionType) -> Callable[[list[ASTNode]], Enumeration]:
+        return lambda items: cls(items=items, op_type=op_type)
+
     @property
     def bound(self) -> set[Identifier]:
         return set.union(*(item.bound for item in self.items))
@@ -278,6 +310,10 @@ class Comprehension(ASTNode):
     predicate: ASTNode
     expression: ASTNode
     op_type: CollectionType
+
+    @classmethod
+    def construct_with_op(cls, op_type: CollectionType) -> Callable[[IdentList, ASTNode, ASTNode], Comprehension]:
+        return lambda bound_identifiers, predicate, expression: cls(bound_identifiers=bound_identifiers, predicate=predicate, expression=expression, op_type=op_type)
 
     @property
     def bound(self) -> set[Identifier]:

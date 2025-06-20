@@ -4,6 +4,7 @@ from typing import TypeVar, Callable, Any
 from enum import Enum, auto
 
 T = TypeVar("T")
+V = TypeVar("V")
 
 
 def dataclass_traverse(
@@ -34,6 +35,35 @@ def _dataclass_traverse_helper(
             _dataclass_traverse_helper(field_value, visit, visit_leaves, accumulator)
         elif visit_leaves:
             accumulator.append(visit(field_value))
+
+
+def find_and_replace(
+    traversal_target: Any,
+    rewrite_func: Callable[[Any], Any | None],
+) -> Any:
+    assert is_dataclass(traversal_target), "Traversal techniques only work with the dataclass `fields` function"
+    # Bottom up traversal
+    for f in fields(traversal_target):
+        field_value = getattr(traversal_target, f.name)
+        if isinstance(field_value, list):
+            new_list = []
+            for item in field_value:
+                if is_dataclass(item):
+                    new_item = find_and_replace(item, rewrite_func)
+                    if new_item is not None:
+                        new_list.append(new_item)
+                else:
+                    new_list.append(item)
+            setattr(traversal_target, f.name, new_list)
+        elif is_dataclass(field_value):
+            new_value = find_and_replace(field_value, rewrite_func)
+            setattr(traversal_target, f.name, new_value)
+
+    replacement_target = rewrite_func(traversal_target)
+    if replacement_target is not None:
+        return replacement_target
+    else:
+        return traversal_target
 
 
 # @dataclass(kw_only=True)
