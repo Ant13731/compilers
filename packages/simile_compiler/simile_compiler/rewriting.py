@@ -78,7 +78,7 @@ class UnifyException(Exception):
 
 
 # trying the book stuff, likely need to change into more imperative style...
-# term is built very differently,,,
+# term is built very differently,,, (based off of page 89 of baader)
 def match_aux(match_list: list[tuple[ast_.ASTNode, ast_.ASTNode]], s: Substitution) -> Substitution:
     if not match_list:
         return s
