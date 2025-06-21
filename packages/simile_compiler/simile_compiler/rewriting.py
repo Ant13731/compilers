@@ -68,13 +68,13 @@ practice_ast: ast_.ASTNode = ast_.BinaryOp(
 )
 
 
-def match(lh: ast_.ASTNode, ast: ast_.ASTNode) -> Substitution:
-    match_list = [(lh, ast)]
-    return match_aux(match_list, {})
+# def match(lh: ast_.ASTNode, ast: ast_.ASTNode) -> Substitution:
+#     match_list = [(lh, ast)]
+#     return match_aux(match_list, {})
 
 
-class UnifyException(Exception):
-    pass
+# class UnifyException(Exception):
+#     pass
 
 
 # cases for match_aux:
@@ -87,29 +87,77 @@ class UnifyException(Exception):
 # then when writing out rules, make sure each match gets a separate rulevar identifier
 
 
-# trying the book stuff, likely need to change into more imperative style...
-# term is built very differently,,, (based off of page 89 of baader)
-def match_aux(match_list: list[tuple[ast_.ASTNode, ast_.ASTNode]], s: Substitution) -> Substitution:
-    if not match_list:
-        return s
+# # trying the book stuff, likely need to change into more imperative style...
+# # term is built very differently,,, (based off of page 89 of baader)
+# def match_aux(match_list: list[tuple[ast_.ASTNode, ast_.ASTNode]], s: Substitution) -> Substitution:
+#     if not match_list:
+#         return s
 
-    lh, ast = match_list.pop(0)
-    if isinstance(lh, RuleVar):
-        if lh in s:
-            if s[lh] == ast:
-                return match_aux(match_list, s)
-            else:
-                raise UnifyException
-        else:
-            return match_aux(match_list, {**s, lh: ast})
-    if isinstance(ast, RuleVar):
-        raise UnifyException
-    if type(lh) != type(ast):
-        raise UnifyException
-    return match_aux(zip(lh.children, ast.children), s)
+#     lh, ast = match_list.pop(0)
+#     if isinstance(lh, RuleVar):
+#         if lh in s:
+#             if s[lh] == ast:
+#                 return match_aux(match_list, s)
+#             else:
+#                 raise UnifyException
+#         else:
+#             return match_aux(match_list, {**s, lh: ast})
+#     if isinstance(ast, RuleVar):
+#         raise UnifyException
+#     if type(lh) != type(ast):
+#         raise UnifyException
+#     return match_aux(list(zip(lh.list_children(), ast.list_children())), s)
 
 
-def substitute(rh: ast_.ASTNode, s: Substitution) -> ast_.ASTNode: ...
+def match(lh: ast_.ASTNode, ast: ast_.ASTNode) -> Substitution | None:
+    match_list = [(lh, ast)]
+    substitutions = {}
+    while match_list:
+        lht, t = match_list.pop(0)
+        if isinstance(lht, RuleVar):
+            # Current t is now a substitution candidate
+
+            # Add to substitution map if entry does not exist
+            if lht not in substitutions:
+                substitutions[lht] = t
+                continue
+
+            # Check if it already exists in the substitution map
+            if substitutions.get(lht) == t:
+                continue
+
+            # Otherwise, mismatch => failed to match
+            return None
+
+        if isinstance(t, RuleVar):
+            # cant match to a variable - will ast ever have a variable tho??
+            # maybe we need to replace this with the ast leaf nodes (like int, float, etc.)
+            #
+            # how would we match something like lh=Int(2) and ast=Int(2)
+            # We may need something to match literals?
+            #
+            # Idea, values with no ASTNode children can be matched directly
+            # Candidate leaf nodes:
+            # Int, Float, String, True_, False_, None_, Identifier?
+            # ControlFlowStmt, ImportAll
+            return None
+
+        # At this point, both lht and t are AST nodes (terms) of the same type
+        if type(lht) != type(t):
+            return None
+
+        match_list += list(zip(lht.list_children(), t.list_children()))
+
+    return substitutions
+
+
+def substitute(rh: ast_.ASTNode, s: Substitution) -> ast_.ASTNode:
+    if isinstance(rh, RuleVar):
+        return s.get(rh, rh)  # If not in substitution, return the variable itself
+    # Rebuild RH with substituted children
+    return rh.__class__(
+        *[substitute(f, s) for f in rh.list_children()],
+    )
 
 
 class MatchingPhase:

@@ -11,28 +11,49 @@ def dataclass_traverse(
     traversal_target: Any,
     visit: Callable[[Any], T],
     visit_leaves: bool = False,
+    visit_root: bool = True,
 ) -> list[T]:
     accumulator: list[T] = []
-    _dataclass_traverse_helper(traversal_target, visit, visit_leaves, accumulator)
+    _dataclass_traverse_helper(
+        traversal_target,
+        visit,
+        accumulator,
+        visit_leaves,
+        visit_root,
+    )
     return accumulator
 
 
 def _dataclass_traverse_helper(
     traversal_target: Any,
     visit: Callable[[Any], T],
-    visit_leaves: bool,
     accumulator: list[T],
+    visit_leaves: bool,
+    visit_root: bool,
 ) -> None:
     assert is_dataclass(traversal_target), "Traversal techniques only work with the dataclass `fields` function"
-    accumulator.append(visit(traversal_target))
+    if visit_root:
+        accumulator.append(visit(traversal_target))
     for f in fields(traversal_target):
         field_value = getattr(traversal_target, f.name)
         if isinstance(field_value, list):
             for item in field_value:
                 if is_dataclass(item):
-                    _dataclass_traverse_helper(item, visit, visit_leaves, accumulator)
+                    _dataclass_traverse_helper(
+                        item,
+                        visit,
+                        accumulator,
+                        visit_leaves,
+                        visit_root,
+                    )
         elif is_dataclass(field_value):
-            _dataclass_traverse_helper(field_value, visit, visit_leaves, accumulator)
+            _dataclass_traverse_helper(
+                field_value,
+                visit,
+                accumulator,
+                visit_leaves,
+                visit_root,
+            )
         elif visit_leaves:
             accumulator.append(visit(field_value))
 
@@ -89,9 +110,20 @@ class ASTNode:
         """Returns the set of free variables in the AST node."""
         return set()
 
-    def contains(self, node: type[ASTNode]) -> bool:
+    def contains(self, node: type[ASTNode], with_op_type: Any | None = None) -> bool:
         """Check if the AST node contains a specific type of node."""
-        return any(dataclass_traverse(self, lambda n: isinstance(n, node)))
+
+        def is_matching_node(n: Any) -> bool:
+            if not isinstance(n, node):
+                return False
+            if with_op_type is None:
+                return True
+            if not hasattr(n, "op_type"):
+                return False
+            assert hasattr(n, "op_type")
+            return n.op_type == with_op_type
+
+        return any(dataclass_traverse(self, is_matching_node))
 
         # if isinstance(self, node):
         #     return True
@@ -105,12 +137,22 @@ class ASTNode:
         #         return True
         # return False
 
-    def find_all_instances(self, type_: type[T]) -> list[T]:
+    def find_all_instances(self, type_: type[T], with_op_type: Any | None = None) -> list[T]:
         """Returns a flattened list of all instances of a specific type in the AST.
 
         Most useful for finding identifiers nested within expressions.
         """
-        return list(filter(None, dataclass_traverse(self, lambda n: n if isinstance(n, type_) else None)))
+
+        def isinstance_with_op_type(n: Any) -> T | None:
+            if not isinstance(n, type_):
+                return None
+            if with_op_type is None:
+                return n
+            if hasattr(n, "op_type") and n.op_type == with_op_type:
+                return n
+            return None
+
+        return list(filter(None, dataclass_traverse(self, isinstance_with_op_type)))
         # if isinstance(self, type_):
         #     return [self]
         # ret = []
@@ -127,6 +169,10 @@ class ASTNode:
     def list_children(self) -> list[ASTNode]:
         # Note, may need to not visit leaves (since elems wouldnt be of type dataclass?, or make the visit function only use dataclasses)
         return dataclass_traverse(self, lambda n: n, True)
+
+    def is_leaf(self) -> bool:
+        """Check if the AST node is a leaf node (i.e., has no dataclass/list of dataclass children)."""
+        return not any(dataclass_traverse(self, lambda n: isinstance(n, ASTNode), visit_root=False))
 
     def pretty_print(
         self,
