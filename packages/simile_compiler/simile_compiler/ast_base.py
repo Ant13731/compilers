@@ -1,10 +1,27 @@
 from __future__ import annotations
 from dataclasses import dataclass, field, fields, is_dataclass
-from typing import TypeVar, Callable, Any
+from typing import Generator, TypeVar, Callable, Any
 from enum import Enum, auto
 
 T = TypeVar("T")
 V = TypeVar("V")
+
+
+def dataclass_children(
+    traversal_target: Any,
+) -> list[Any]:
+    """Yield all children of a dataclass instance."""
+    if not is_dataclass(traversal_target):
+        return []
+    children = []
+    for f in fields(traversal_target):
+        field_value = getattr(traversal_target, f.name)
+        if isinstance(field_value, list):
+            for item in field_value:
+                children.append(item)
+        else:
+            children.append(field_value)
+    return children
 
 
 def dataclass_traverse(
@@ -87,6 +104,16 @@ def find_and_replace(
         return traversal_target
 
 
+def is_dataclass_leaf(obj: Any) -> bool:
+    """Check if the object is a dataclass leaf (i.e., has no dataclass/list of dataclass children)."""
+    if not is_dataclass(obj):
+        return True
+    for f in dataclass_children(obj):
+        if is_dataclass(f):
+            return False
+    return True
+
+
 # @dataclass(kw_only=True)
 # class NewBoundVariableMixin:
 #     binds: set[Identifier] = field(default_factory=set)
@@ -110,7 +137,7 @@ class ASTNode:
         """Returns the set of free variables in the AST node."""
         return set()
 
-    def contains(self, node: type[ASTNode], with_op_type: Any | None = None) -> bool:
+    def contains(self, node: type[ASTNode], with_op_type: OpTypes | None = None) -> bool:
         """Check if the AST node contains a specific type of node."""
 
         def is_matching_node(n: Any) -> bool:
@@ -137,7 +164,7 @@ class ASTNode:
         #         return True
         # return False
 
-    def find_all_instances(self, type_: type[T], with_op_type: Any | None = None) -> list[T]:
+    def find_all_instances(self, type_: type[T], with_op_type: OpTypes | None = None) -> list[T]:
         """Returns a flattened list of all instances of a specific type in the AST.
 
         Most useful for finding identifiers nested within expressions.
@@ -166,13 +193,26 @@ class ASTNode:
         #         ret += field_value.find_all_instances(type_)
         # return ret
 
-    def list_children(self) -> list[ASTNode]:
-        # Note, may need to not visit leaves (since elems wouldnt be of type dataclass?, or make the visit function only use dataclasses)
-        return dataclass_traverse(self, lambda n: n, True)
+    def children(self) -> Generator[ASTNode, None, None]:
+        """Returns a list of all children AST nodes (only 1 level deep). Includes op_type fields if they exist."""
+        for f in fields(self):
+            field_value = getattr(self, f.name)
+            if isinstance(field_value, list):
+                for item in field_value:
+                    yield item
+            else:
+                yield field_value
 
     def is_leaf(self) -> bool:
         """Check if the AST node is a leaf node (i.e., has no dataclass/list of dataclass children)."""
-        return not any(dataclass_traverse(self, lambda n: isinstance(n, ASTNode), visit_root=False))
+        for f in fields(self):
+            field_value = getattr(self, f.name)
+            if isinstance(field_value, list):
+                if any(isinstance(item, ASTNode) for item in field_value):
+                    return False
+            elif isinstance(field_value, ASTNode):
+                return False
+        return True
 
     def pretty_print(
         self,
@@ -338,6 +378,8 @@ class CollectionType(Enum):
     RELATION = auto()
     BAG = auto()
 
+
+OpTypes = BinaryOpType | RelationTypes | UnaryOpType | ListBoolType | BoolQuantifierType | QuantifierType | ControlFlowType
 
 # TODO:
 # 1. Finish grammar and parser

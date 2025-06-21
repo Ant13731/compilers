@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from uuid import uuid4
-from typing import ClassVar
+from typing import ClassVar, Callable, Self
 
 try:
     from . import ast_  # type: ignore
@@ -27,7 +27,15 @@ class RuleVar(ast_.ASTNode):
 
 
 Substitution = dict[RuleVar, ast_.ASTNode]
-RewriteRule = tuple[ast_.ASTNode, ast_.ASTNode]  # (pattern, replacement)
+PreMatchedASTNode = ast_.ASTNode
+
+
+@dataclass
+class RewriteRule:
+    lh: ast_.ASTNode
+    rh: ast_.ASTNode
+    match_condition: Callable[[Self, PreMatchedASTNode], bool] | None = None
+    substitution_condition: Callable[[Self, Substitution, PreMatchedASTNode], bool] | None = None
 
 
 # def indom(v: RuleVar, s: Substitution) -> bool:
@@ -52,19 +60,9 @@ RewriteRule = tuple[ast_.ASTNode, ast_.ASTNode]  # (pattern, replacement)
 
 # Trying other stuff
 x = RuleVar("x")
-rule_example: RewriteRule = (
+rule_example: RewriteRule = RewriteRule(
     ast_.BinaryOp(x, x, op_type=ast_.BinaryOpType.MULTIPLY),
     ast_.BinaryOp(x, ast_.Int("2"), op_type=ast_.BinaryOpType.EXPONENT),
-)
-
-practice_ast: ast_.ASTNode = ast_.BinaryOp(
-    ast_.BinaryOp(
-        ast_.Int("2"),
-        ast_.Int("2"),
-        op_type=ast_.BinaryOpType.ADD,
-    ),
-    ast_.Int("4"),
-    op_type=ast_.BinaryOpType.MULTIPLY,
 )
 
 
@@ -129,7 +127,9 @@ def match(lh: ast_.ASTNode, ast: ast_.ASTNode) -> Substitution | None:
             # Otherwise, mismatch => failed to match
             return None
 
-        if isinstance(t, RuleVar):
+        if ast_.is_dataclass_leaf(t):
+            if lht == t:
+                continue
             # cant match to a variable - will ast ever have a variable tho??
             # maybe we need to replace this with the ast leaf nodes (like int, float, etc.)
             #
@@ -140,13 +140,14 @@ def match(lh: ast_.ASTNode, ast: ast_.ASTNode) -> Substitution | None:
             # Candidate leaf nodes:
             # Int, Float, String, True_, False_, None_, Identifier?
             # ControlFlowStmt, ImportAll
-            return None
+            else:
+                return None
 
         # At this point, both lht and t are AST nodes (terms) of the same type
         if type(lht) != type(t):
             return None
 
-        match_list += list(zip(lht.list_children(), t.list_children()))
+        match_list += list(zip(lht.children(), t.children()))
 
     return substitutions
 
@@ -154,9 +155,11 @@ def match(lh: ast_.ASTNode, ast: ast_.ASTNode) -> Substitution | None:
 def substitute(rh: ast_.ASTNode, s: Substitution) -> ast_.ASTNode:
     if isinstance(rh, RuleVar):
         return s.get(rh, rh)  # If not in substitution, return the variable itself
+    if ast_.is_dataclass_leaf(rh):
+        return rh
     # Rebuild RH with substituted children
     return rh.__class__(
-        *[substitute(f, s) for f in rh.list_children()],
+        *[substitute(f, s) for f in rh.children()],
     )
 
 
@@ -176,6 +179,36 @@ class MatchingPhase:
         raise NotImplementedError
 
 
+def helper_substitution_condition(self: RewriteRule, substitution: Substitution, ast: ast_.ASTNode) -> bool:
+    sub = substitution.get(RuleVar("x"), None)
+    if isinstance(sub, ast_.Int):
+        substitution[RuleVar("x_modified")] = ast_.Int(str(int(sub.value) * 2))
+        return True
+    return False
+
+
+class TestMatchingPhase(MatchingPhase):
+    rules: ClassVar[list[RewriteRule]] = [
+        RewriteRule(
+            ast_.BinaryOp(RuleVar("x"), RuleVar("x"), op_type=ast_.BinaryOpType.MULTIPLY),
+            ast_.BinaryOp(RuleVar("x"), ast_.Int("2"), op_type=ast_.BinaryOpType.EXPONENT),
+        ),
+        RewriteRule(
+            ast_.BinaryOp(RuleVar("x"), RuleVar("x"), op_type=ast_.BinaryOpType.ADD),
+            ast_.BinaryOp(RuleVar("x"), ast_.Int("2"), op_type=ast_.BinaryOpType.MULTIPLY),
+        ),
+        # RewriteRule(
+        #     ast_.BinaryOp(RuleVar("x"), ast_.Int("2"), op_type=ast_.BinaryOpType.MULTIPLY),
+        #     RuleVar("x_modified"),
+        #     substitution_condition=helper_substitution_condition,
+        # ),
+    ]
+
+    @classmethod
+    def exit_condition(cls, ast: ast_.ASTNode) -> bool:
+        return False  # No exit condition for testing purposes
+
+
 # class PhaseOne(MatchingPhase):
 #     @classmethod
 #     def rewrite(cls, ast: ast_.ASTNode) -> ast_.ASTNode | None:
@@ -186,19 +219,80 @@ class MatchingPhase:
 #                 return None
 
 
-def collection_optimizer(ast: ast_.ASTNode, matching_phases: list[MatchingPhase]) -> ast_.ASTNode:
-    for matching_phase in matching_phases:
-        while not matching_phase.exit_condition(ast):
+def apply_all_rules_once(ast: ast_.ASTNode, matching_phase: type[MatchingPhase]) -> ast_.ASTNode:
+    for rewrite_rule in matching_phase.rules:
+        if matching_phase.exit_condition(ast):
+            print(f"Exit condition met for phase {matching_phase.__class__.__name__}, stopping rule application.")
+            return ast
+
+        # First check match condition to determine if we want to attempt rule application
+        if rewrite_rule.match_condition is not None and not rewrite_rule.match_condition(ast):
             continue
-            # ast = ast_.find_and_replace(ast, matching_phase.rewrite)
 
-        # for pattern, replacement in matching_phase.rules:
-        #     # Apply the pattern to the AST and replace it with the replacement
-        #     # This is a placeholder for the actual matching logic
-        #     # if ast.contains(pattern):
-        #     #     ast = ast.replace(pattern, replacement)
-        #     # TODO attempt match and then rewrite (should take in an ast and return the modified ast if a match is found)
-        #     if matching_phase.exit_condition(ast):
-        #         break
+        print(f"ATTEMPT: to match rule: {rewrite_rule.lh} -> {rewrite_rule.rh} with AST: {ast}")
 
+        # Attempt to match the left-hand side (lh) with the AST (ast)
+        substitutions = match(rewrite_rule.lh, ast)
+
+        if substitutions is None:
+            print(f"FAILED: to match lh side of rule: {rewrite_rule.lh} with AST: {ast}")
+            continue
+
+        if rewrite_rule.substitution_condition is not None and not rewrite_rule.substitution_condition(rewrite_rule, substitutions, ast):
+            print(f"FAILED: substitution condition for rule {rewrite_rule.rh} with substitutions {substitutions}")
+            continue
+
+        # If a match is found, rewrite the AST with the right-hand side (rh)
+        ast = substitute(rewrite_rule.rh, substitutions)
+        print(f"SUCCESS: applied substitutions {substitutions} to rule {rewrite_rule.rh}, resulting in new ast: {ast}")
     return ast
+
+
+def normalizer(ast: ast_.ASTNode, matching_phase: type[MatchingPhase]) -> ast_.ASTNode:
+
+    new_ast_children = []
+    for child in ast.children():
+        if not isinstance(child, ast_.ASTNode):
+            new_ast_children.append(child)
+            continue
+        # Recursively normalize children first
+        child = normalizer(child, matching_phase)
+        new_ast_children.append(child)
+
+    ast = ast.__class__(*new_ast_children)
+    print(f"\nNormalizing AST: {ast}")
+    return apply_all_rules_once(ast, matching_phase)
+
+    # if ast.is_leaf():
+    #     return ast
+    # u = ast.__class__(
+    #     *[normalizer(f, matching_phase) for f in ast.children()],
+    # )
+    # return normalizer(apply_all_rules_once(u, matching_phase), matching_phase)
+
+
+def collection_optimizer(ast: ast_.ASTNode, matching_phases: list[type[MatchingPhase]]) -> ast_.ASTNode:
+    for matching_phase in matching_phases:
+        print(f"Applying matching phase: {matching_phase.__name__}")
+        ast = normalizer(ast, matching_phase)
+    return ast
+
+
+def test() -> None:
+    # Example usage
+    print("Starting collection optimizer test...")
+    practice_ast: ast_.ASTNode = ast_.BinaryOp(
+        ast_.BinaryOp(
+            ast_.Int("2"),
+            ast_.Int("2"),
+            op_type=ast_.BinaryOpType.ADD,
+        ),
+        ast_.Int("4"),
+        op_type=ast_.BinaryOpType.MULTIPLY,
+    )
+    print("Original AST:", practice_ast.pretty_print())
+    optimized_ast = collection_optimizer(practice_ast, [TestMatchingPhase])
+    print("Optimized AST:", optimized_ast.pretty_print())
+
+
+test()

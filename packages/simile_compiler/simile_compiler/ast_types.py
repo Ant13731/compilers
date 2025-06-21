@@ -16,6 +16,8 @@ try:
         CollectionType,
         dataclass_traverse,
         find_and_replace,
+        is_dataclass_leaf,
+        OpTypes,
     )
 except ImportError:
     from ast_base import (  # type: ignore
@@ -31,6 +33,8 @@ except ImportError:
         CollectionType,
         dataclass_traverse,
         find_and_replace,
+        is_dataclass_leaf,
+        OpTypes,
     )
 
 
