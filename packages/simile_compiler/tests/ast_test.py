@@ -1,7 +1,7 @@
 import pytest
 from dataclasses import dataclass
 
-from simile_compiler import ast_  # type: ignore
+from src import ast_
 
 
 @dataclass

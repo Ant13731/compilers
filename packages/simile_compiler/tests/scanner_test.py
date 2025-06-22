@@ -1,13 +1,12 @@
 import pytest
 
-from simile_compiler.scanner import (  # type: ignore
+from src.mod.scanner import (
     scan,
     OPERATOR_TOKEN_TABLE,
     KEYWORD_TABLE,
     TokenType,
     Token,
     Location,
-    # ScanException,
 )
 
 

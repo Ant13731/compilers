@@ -10,6 +10,10 @@
             "env": {
                 "PYTHONPATH": "${workspaceRoot}"
             },
+            // "cwd": "${fileDirname}",
+            // "env": {
+            //     "PYTHONPATH": "${workspaceFolder}${pathSeparator}${env:PYTHONPATH}"
+            // }
         },
     ]
 }

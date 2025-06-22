@@ -1,24 +1,9 @@
 import pytest
 
-from simile_compiler.parser import (  # type: ignore
-    parse,
-    Parser,
-    ParseError,
-)
-from simile_compiler.scanner import scan, TokenType  # type: ignore
-from simile_compiler.ast_ import *  # type: ignore # noqa: F401, F403
 
-
-# test_strs = [
-#     "a:=1\nb:=2",
-#     "def test() -> int: return 42",
-#     "def test() -> int: return \n def test() -> int: return 42",
-#     "def test() -> int: return\n\n42",
-# ]
-# for str_ in test_strs:
-#     print(f"Testing: {str_}")
-#     print(parse(scan(str_)))
-#     print(parse(scan(str_)).pretty_print())
+from src.mod.parser import parse, Parser
+from src.mod.scanner import scan, TokenType
+from src.mod.ast_ import *
 
 
 def start_prefix(ast: ASTNode) -> ASTNode:

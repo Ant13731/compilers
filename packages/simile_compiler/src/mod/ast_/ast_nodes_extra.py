@@ -1,30 +1,26 @@
 from typing import Any
 
-try:
-    from .ast_types import (
-        BinaryOp,
-        RelationOp,
-        ListOp,
-        UnaryOp,
-        BoolQuantifier,
-        Quantifier,
-        ControlFlowStmt,
-        Enumeration,
-        Comprehension,
-    )
-    from .ast_types import (
-        BinaryOpType,
-        RelationTypes,
-        ListBoolType,
-        UnaryOpType,
-        BoolQuantifierType,
-        QuantifierType,
-        CollectionType,
-        ControlFlowType,
-    )
-    from .ast_types import *  # noqa: F403
-except ImportError:
-    from ast_types import *  # type: ignore  # noqa: F403
+from src.mod.ast_.ast_nodes import (
+    BinaryOp,
+    RelationOp,
+    ListOp,
+    UnaryOp,
+    BoolQuantifier,
+    Quantifier,
+    ControlFlowStmt,
+    Enumeration,
+    Comprehension,
+)
+from src.mod.ast_.ast_node_types import (
+    BinaryOpType,
+    RelationTypes,
+    ListBoolType,
+    UnaryOpType,
+    BoolQuantifierType,
+    QuantifierType,
+    ControlFlowType,
+    CollectionType,
+)
 
 
 def flatten_and_join(obj_lst: list[Any], type_: ListBoolType) -> ListOp:  # noqa: F405

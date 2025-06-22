@@ -1,17 +1,15 @@
 import argparse
 
-try:
-    from . import scanner
-except ImportError:
-    import scanner  # type: ignore
+from src.mod import scan, parse
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Simile Compiler")
 
     # DEBUG
-    parser.add_argument("-t", "--tokenize", action="store_true", help="Only run the lexer (and print tokenized input)")
-    parser.add_argument("-pp", "--pretty_print_parse", action="store_true", help="Only run the parser (and print parse tree)")
+    parser.add_argument("-t", "--tokenize", action="store_true", help="Print tokenized input")
+    parser.add_argument("-pp", "--pretty_print_parse", action="store_true", help="Print parse tree")
+    parser.add_argument("-opt", "--optimize_ast", action="store_true", help="Print optimized AST")
 
     # Actual compilation options
     parser.add_argument("-c", "--cli", type=str, help="Parse the input string on the command line (overrides --input file)")
@@ -38,7 +36,7 @@ def main() -> None:
     if args.tokenize:
         print("Tokenizing input:", simile_input)
         print("Output:")
-        print(scanner.scan(simile_input))
+        print(scan(simile_input))
 
     if args.pretty_print_parse:
         print("Parsing input and pretty printing parse tree:", simile_input)
@@ -46,20 +44,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-    # Tests
-    simile_input = "<->><<<->"
-    simile_input = """
-def test(a):
-    if statement:
-        while loop:
-            item
-    else:
-        test2
-
-def test3(b):
-    test4
-"""
-    print("Tokenizing input:", simile_input)
-    print("Output:")
-    print(scanner.scan(simile_input))

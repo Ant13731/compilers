@@ -2,40 +2,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
-try:
-    from .ast_base import (
-        ASTNode,
-        Identifier,
-        BinaryOpType,
-        RelationTypes,
-        UnaryOpType,
-        ListBoolType,
-        BoolQuantifierType,
-        QuantifierType,
-        ControlFlowType,
-        CollectionType,
-        dataclass_traverse,
-        find_and_replace,
-        is_dataclass_leaf,
-        OpTypes,
-    )
-except ImportError:
-    from ast_base import (  # type: ignore
-        ASTNode,
-        Identifier,
-        BinaryOpType,
-        RelationTypes,
-        UnaryOpType,
-        ListBoolType,
-        BoolQuantifierType,
-        QuantifierType,
-        ControlFlowType,
-        CollectionType,
-        dataclass_traverse,
-        find_and_replace,
-        is_dataclass_leaf,
-        OpTypes,
-    )
+from src.mod.ast_.ast_node_base import ASTNode, Identifier
+from src.mod.ast_.ast_node_types import (
+    BinaryOpType,
+    RelationTypes,
+    UnaryOpType,
+    ListBoolType,
+    BoolQuantifierType,
+    QuantifierType,
+    ControlFlowType,
+    CollectionType,
+    OpTypes,
+)
 
 
 # TODO generate constructors for the typed dataclasses as a sort of shorthand, especially useful for matching/TRS rule creation

@@ -4,15 +4,8 @@ from typing import Callable, ClassVar, Any, NoReturn, TypeVar
 import inspect
 from functools import wraps
 
-try:
-    from .scanner import Token, TokenType, scan
-except ImportError:
-    from scanner import Token, TokenType, scan  # type: ignore
-
-try:
-    from . import ast_
-except ImportError:
-    import ast_  # type: ignore
+from src.mod.scanner import Token, TokenType, scan
+from src.mod import ast_
 
 T = TypeVar("T")
 
