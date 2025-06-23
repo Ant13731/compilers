@@ -11,19 +11,19 @@ from src.mod.ast_.ast_nodes import (
     Enumeration,
     Comprehension,
 )
-from src.mod.ast_.ast_node_types import (
-    BinaryOpType,
-    RelationTypes,
-    ListBoolType,
-    UnaryOpType,
-    BoolQuantifierType,
-    QuantifierType,
-    ControlFlowType,
-    CollectionType,
+from mod.ast_.ast_node_operators import (
+    BinaryOperator,
+    RelationOperator,
+    ListOperator,
+    UnaryOperator,
+    BoolQuantifierOperator,
+    QuantifierOperator,
+    ControlFlowOperator,
+    CollectionOperator,
 )
 
 
-def flatten_and_join(obj_lst: list[Any], type_: ListBoolType) -> ListOp:  # noqa: F405
+def flatten_and_join(obj_lst: list[Any], type_: ListOperator) -> ListOp:  # noqa: F405
     """Flatten a list of objects and join them with the given ListOp."""
     flattened_objs = []
     for obj in obj_lst:
@@ -34,99 +34,99 @@ def flatten_and_join(obj_lst: list[Any], type_: ListBoolType) -> ListOp:  # noqa
     return ListOp(items=flattened_objs, op_type=type_)  # noqa: F405
 
 
-Implies = BinaryOp.construct_with_op(BinaryOpType.IMPLIES)
-RevImplies = BinaryOp.construct_with_op(BinaryOpType.REV_IMPLIES)
-Equivalent = BinaryOp.construct_with_op(BinaryOpType.EQUIVALENT)
-NotEquivalent = BinaryOp.construct_with_op(BinaryOpType.NOT_EQUIVALENT)
+Implies = BinaryOp.construct_with_op(BinaryOperator.IMPLIES)
+RevImplies = BinaryOp.construct_with_op(BinaryOperator.REV_IMPLIES)
+Equivalent = BinaryOp.construct_with_op(BinaryOperator.EQUIVALENT)
+NotEquivalent = BinaryOp.construct_with_op(BinaryOperator.NOT_EQUIVALENT)
 #
-Add = BinaryOp.construct_with_op(BinaryOpType.ADD)
-Subtract = BinaryOp.construct_with_op(BinaryOpType.SUBTRACT)
-Multiply = BinaryOp.construct_with_op(BinaryOpType.MULTIPLY)
-Divide = BinaryOp.construct_with_op(BinaryOpType.DIVIDE)
-Modulo = BinaryOp.construct_with_op(BinaryOpType.MODULO)
-Exponent = BinaryOp.construct_with_op(BinaryOpType.EXPONENT)
+Add = BinaryOp.construct_with_op(BinaryOperator.ADD)
+Subtract = BinaryOp.construct_with_op(BinaryOperator.SUBTRACT)
+Multiply = BinaryOp.construct_with_op(BinaryOperator.MULTIPLY)
+Divide = BinaryOp.construct_with_op(BinaryOperator.DIVIDE)
+Modulo = BinaryOp.construct_with_op(BinaryOperator.MODULO)
+Exponent = BinaryOp.construct_with_op(BinaryOperator.EXPONENT)
 #
-LessThan = BinaryOp.construct_with_op(BinaryOpType.LESS_THAN)
-LessThanOrEqual = BinaryOp.construct_with_op(BinaryOpType.LESS_THAN_OR_EQUAL)
-GreaterThan = BinaryOp.construct_with_op(BinaryOpType.GREATER_THAN)
-GreaterThanOrEqual = BinaryOp.construct_with_op(BinaryOpType.GREATER_THAN_OR_EQUAL)
+LessThan = BinaryOp.construct_with_op(BinaryOperator.LESS_THAN)
+LessThanOrEqual = BinaryOp.construct_with_op(BinaryOperator.LESS_THAN_OR_EQUAL)
+GreaterThan = BinaryOp.construct_with_op(BinaryOperator.GREATER_THAN)
+GreaterThanOrEqual = BinaryOp.construct_with_op(BinaryOperator.GREATER_THAN_OR_EQUAL)
 #
-Equal = BinaryOp.construct_with_op(BinaryOpType.EQUAL)
-NotEqual = BinaryOp.construct_with_op(BinaryOpType.NOT_EQUAL)
-Is = BinaryOp.construct_with_op(BinaryOpType.IS)
-IsNot = BinaryOp.construct_with_op(BinaryOpType.IS_NOT)
+Equal = BinaryOp.construct_with_op(BinaryOperator.EQUAL)
+NotEqual = BinaryOp.construct_with_op(BinaryOperator.NOT_EQUAL)
+Is = BinaryOp.construct_with_op(BinaryOperator.IS)
+IsNot = BinaryOp.construct_with_op(BinaryOperator.IS_NOT)
 #
-In = BinaryOp.construct_with_op(BinaryOpType.IN)
-NotIn = BinaryOp.construct_with_op(BinaryOpType.NOT_IN)
-Union = BinaryOp.construct_with_op(BinaryOpType.UNION)
-Intersection = BinaryOp.construct_with_op(BinaryOpType.INTERSECTION)
-Difference = BinaryOp.construct_with_op(BinaryOpType.DIFFERENCE)
+In = BinaryOp.construct_with_op(BinaryOperator.IN)
+NotIn = BinaryOp.construct_with_op(BinaryOperator.NOT_IN)
+Union = BinaryOp.construct_with_op(BinaryOperator.UNION)
+Intersection = BinaryOp.construct_with_op(BinaryOperator.INTERSECTION)
+Difference = BinaryOp.construct_with_op(BinaryOperator.DIFFERENCE)
 #
-Subset = BinaryOp.construct_with_op(BinaryOpType.SUBSET)
-SubsetEq = BinaryOp.construct_with_op(BinaryOpType.SUBSET_EQ)
-SuperSet = BinaryOp.construct_with_op(BinaryOpType.SUPERSET)
-SuperSetEq = BinaryOp.construct_with_op(BinaryOpType.SUPERSET_EQ)
-NotSubset = BinaryOp.construct_with_op(BinaryOpType.NOT_SUBSET)
-NotSubsetEq = BinaryOp.construct_with_op(BinaryOpType.NOT_SUBSET_EQ)
-NotSuperSet = BinaryOp.construct_with_op(BinaryOpType.NOT_SUPERSET)
-NotSuperSetEq = BinaryOp.construct_with_op(BinaryOpType.NOT_SUPERSET_EQ)
+Subset = BinaryOp.construct_with_op(BinaryOperator.SUBSET)
+SubsetEq = BinaryOp.construct_with_op(BinaryOperator.SUBSET_EQ)
+SuperSet = BinaryOp.construct_with_op(BinaryOperator.SUPERSET)
+SuperSetEq = BinaryOp.construct_with_op(BinaryOperator.SUPERSET_EQ)
+NotSubset = BinaryOp.construct_with_op(BinaryOperator.NOT_SUBSET)
+NotSubsetEq = BinaryOp.construct_with_op(BinaryOperator.NOT_SUBSET_EQ)
+NotSuperSet = BinaryOp.construct_with_op(BinaryOperator.NOT_SUPERSET)
+NotSuperSetEq = BinaryOp.construct_with_op(BinaryOperator.NOT_SUPERSET_EQ)
 #
-Maplet = BinaryOp.construct_with_op(BinaryOpType.MAPLET)
-RelationOverriding = BinaryOp.construct_with_op(BinaryOpType.RELATION_OVERRIDING)
-Composition = BinaryOp.construct_with_op(BinaryOpType.COMPOSITION)
-CartesianProduct = BinaryOp.construct_with_op(BinaryOpType.CARTESIAN_PRODUCT)
-UpTo = BinaryOp.construct_with_op(BinaryOpType.UPTO)
+Maplet = BinaryOp.construct_with_op(BinaryOperator.MAPLET)
+RelationOverriding = BinaryOp.construct_with_op(BinaryOperator.RELATION_OVERRIDING)
+Composition = BinaryOp.construct_with_op(BinaryOperator.COMPOSITION)
+CartesianProduct = BinaryOp.construct_with_op(BinaryOperator.CARTESIAN_PRODUCT)
+UpTo = BinaryOp.construct_with_op(BinaryOperator.UPTO)
 #
-DomainSubtraction = BinaryOp.construct_with_op(BinaryOpType.DOMAIN_SUBTRACTION)
-DomainRestriction = BinaryOp.construct_with_op(BinaryOpType.DOMAIN_RESTRICTION)
-RangeSubtraction = BinaryOp.construct_with_op(BinaryOpType.RANGE_SUBTRACTION)
-RangeRestriction = BinaryOp.construct_with_op(BinaryOpType.RANGE_RESTRICTION)
-#
-#
-Relation = RelationOp.construct_with_op(RelationTypes.RELATION)
-TotalRelation = RelationOp.construct_with_op(RelationTypes.TOTAL_RELATION)
-SurjectiveRelation = RelationOp.construct_with_op(RelationTypes.SURJECTIVE_RELATION)
-TotalSurjectiveRelation = RelationOp.construct_with_op(RelationTypes.TOTAL_SURJECTIVE_RELATION)
-PartialFunction = RelationOp.construct_with_op(RelationTypes.PARTIAL_FUNCTION)
-TotalFunction = RelationOp.construct_with_op(RelationTypes.TOTAL_FUNCTION)
-PartialInjection = RelationOp.construct_with_op(RelationTypes.PARTIAL_INJECTION)
-TotalInjection = RelationOp.construct_with_op(RelationTypes.TOTAL_INJECTION)
-PartialSurjection = RelationOp.construct_with_op(RelationTypes.PARTIAL_SURJECTION)
-TotalSurjection = RelationOp.construct_with_op(RelationTypes.TOTAL_SURJECTION)
-Bijection = RelationOp.construct_with_op(RelationTypes.BIJECTION)
+DomainSubtraction = BinaryOp.construct_with_op(BinaryOperator.DOMAIN_SUBTRACTION)
+DomainRestriction = BinaryOp.construct_with_op(BinaryOperator.DOMAIN_RESTRICTION)
+RangeSubtraction = BinaryOp.construct_with_op(BinaryOperator.RANGE_SUBTRACTION)
+RangeRestriction = BinaryOp.construct_with_op(BinaryOperator.RANGE_RESTRICTION)
 #
 #
-Not = UnaryOp.construct_with_op(UnaryOpType.NOT)
-Negative = UnaryOp.construct_with_op(UnaryOpType.NEGATIVE)
-Powerset = UnaryOp.construct_with_op(UnaryOpType.POWERSET)
-NonemptyPowerset = UnaryOp.construct_with_op(UnaryOpType.NONEMPTY_POWERSET)
-Inverse = UnaryOp.construct_with_op(UnaryOpType.INVERSE)
+Relation = RelationOp.construct_with_op(RelationOperator.RELATION)
+TotalRelation = RelationOp.construct_with_op(RelationOperator.TOTAL_RELATION)
+SurjectiveRelation = RelationOp.construct_with_op(RelationOperator.SURJECTIVE_RELATION)
+TotalSurjectiveRelation = RelationOp.construct_with_op(RelationOperator.TOTAL_SURJECTIVE_RELATION)
+PartialFunction = RelationOp.construct_with_op(RelationOperator.PARTIAL_FUNCTION)
+TotalFunction = RelationOp.construct_with_op(RelationOperator.TOTAL_FUNCTION)
+PartialInjection = RelationOp.construct_with_op(RelationOperator.PARTIAL_INJECTION)
+TotalInjection = RelationOp.construct_with_op(RelationOperator.TOTAL_INJECTION)
+PartialSurjection = RelationOp.construct_with_op(RelationOperator.PARTIAL_SURJECTION)
+TotalSurjection = RelationOp.construct_with_op(RelationOperator.TOTAL_SURJECTION)
+Bijection = RelationOp.construct_with_op(RelationOperator.BIJECTION)
 #
 #
-And = ListOp.construct_with_op(ListBoolType.AND)
-Or = ListOp.construct_with_op(ListBoolType.OR)
+Not = UnaryOp.construct_with_op(UnaryOperator.NOT)
+Negative = UnaryOp.construct_with_op(UnaryOperator.NEGATIVE)
+Powerset = UnaryOp.construct_with_op(UnaryOperator.POWERSET)
+NonemptyPowerset = UnaryOp.construct_with_op(UnaryOperator.NONEMPTY_POWERSET)
+Inverse = UnaryOp.construct_with_op(UnaryOperator.INVERSE)
 #
 #
-Forall = BoolQuantifier.construct_with_op(BoolQuantifierType.FORALL)
-Exists = BoolQuantifier.construct_with_op(BoolQuantifierType.EXISTS)
+And = ListOp.construct_with_op(ListOperator.AND)
+Or = ListOp.construct_with_op(ListOperator.OR)
 #
 #
-UnionAll = Quantifier.construct_with_op(QuantifierType.UNION_ALL)
-IntersectionAll = Quantifier.construct_with_op(QuantifierType.INTERSECTION_ALL)
+Forall = BoolQuantifier.construct_with_op(BoolQuantifierOperator.FORALL)
+Exists = BoolQuantifier.construct_with_op(BoolQuantifierOperator.EXISTS)
 #
 #
-Break = lambda: ControlFlowStmt(ControlFlowType.BREAK)
-Continue = lambda: ControlFlowStmt(ControlFlowType.CONTINUE)
-Pass = lambda: ControlFlowStmt(ControlFlowType.PASS)
+UnionAll = Quantifier.construct_with_op(QuantifierOperator.UNION_ALL)
+IntersectionAll = Quantifier.construct_with_op(QuantifierOperator.INTERSECTION_ALL)
 #
 #
-SequenceEnumeration = Enumeration.construct_with_op(CollectionType.SEQUENCE)
-SetEnumeration = Enumeration.construct_with_op(CollectionType.SET)
-RelationEnumeration = Enumeration.construct_with_op(CollectionType.RELATION)
-BagEnumeration = Enumeration.construct_with_op(CollectionType.BAG)
+Break = lambda: ControlFlowStmt(ControlFlowOperator.BREAK)
+Continue = lambda: ControlFlowStmt(ControlFlowOperator.CONTINUE)
+Pass = lambda: ControlFlowStmt(ControlFlowOperator.PASS)
 #
 #
-SequenceComprehension = Comprehension.construct_with_op(CollectionType.SEQUENCE)
-SetComprehension = Comprehension.construct_with_op(CollectionType.SET)
-RelationComprehension = Comprehension.construct_with_op(CollectionType.RELATION)
-BagComprehension = Comprehension.construct_with_op(CollectionType.BAG)
+SequenceEnumeration = Enumeration.construct_with_op(CollectionOperator.SEQUENCE)
+SetEnumeration = Enumeration.construct_with_op(CollectionOperator.SET)
+RelationEnumeration = Enumeration.construct_with_op(CollectionOperator.RELATION)
+BagEnumeration = Enumeration.construct_with_op(CollectionOperator.BAG)
+#
+#
+SequenceComprehension = Comprehension.construct_with_op(CollectionOperator.SEQUENCE)
+SetComprehension = Comprehension.construct_with_op(CollectionOperator.SET)
+RelationComprehension = Comprehension.construct_with_op(CollectionOperator.RELATION)
+BagComprehension = Comprehension.construct_with_op(CollectionOperator.BAG)

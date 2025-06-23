@@ -7,16 +7,16 @@ from src.mod.ast_.dataclass_helpers import (
     dataclass_children,
     is_dataclass_leaf,
 )
-from src.mod.ast_.ast_node_types import (
-    OpTypes,
-    BinaryOpType,
-    RelationTypes,
-    UnaryOpType,
-    ListBoolType,
-    BoolQuantifierType,
-    QuantifierType,
-    ControlFlowType,
-    CollectionType,
+from mod.ast_.ast_node_operators import (
+    Operators,
+    BinaryOperator,
+    RelationOperator,
+    UnaryOperator,
+    ListOperator,
+    BoolQuantifierOperator,
+    QuantifierOperator,
+    ControlFlowOperator,
+    CollectionOperator,
 )
 from src.mod.ast_.ast_nodes import (
     Int,
@@ -162,4 +162,17 @@ from src.mod.ast_.ast_nodes_extra import (
     SetComprehension,
     RelationComprehension,
     BagComprehension,
+)
+from src.mod.ast_.type_analysis_types import (
+    SimileType,
+    SimileTypeError,
+    BaseSimileType,
+    PairType,
+    CollectionType,
+    CustomType,
+    StructTypeDef,
+    EnumTypeDef,
+    FunctionTypeDef,
+    TypeUnion,
+    DeferToSymbolTable,
 )

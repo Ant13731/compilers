@@ -15,7 +15,7 @@ TEST_CONTAINS_CHILD = [
         ast_.BinaryOp(
             ast_.Identifier("x"),
             ast_.Identifier("y"),
-            op_type=ast_.BinaryOpType.ADD,
+            op_type=ast_.BinaryOperator.ADD,
         ),
         ast_.Identifier("x"),
     ),
@@ -29,12 +29,12 @@ TEST_CONTAINS_CHILD = [
                 ast_.BinaryOp(
                     ast_.Identifier("x"),
                     ast_.Identifier("y"),
-                    op_type=ast_.BinaryOpType.ADD,
+                    op_type=ast_.BinaryOperator.ADD,
                 ),
                 ast_.BinaryOp(
                     ast_.Identifier("a"),
                     ast_.Identifier("b"),
-                    op_type=ast_.BinaryOpType.MULTIPLY,
+                    op_type=ast_.BinaryOperator.MULTIPLY,
                 ),
             ]
         ),
@@ -46,12 +46,12 @@ TEST_CONTAINS_CHILD = [
                 ast_.BinaryOp(
                     ast_.Identifier("x"),
                     ast_.Identifier("y"),
-                    op_type=ast_.BinaryOpType.ADD,
+                    op_type=ast_.BinaryOperator.ADD,
                 ),
                 ast_.BinaryOp(
                     ast_.Identifier("a"),
                     ast_.Identifier("b"),
-                    op_type=ast_.BinaryOpType.MULTIPLY,
+                    op_type=ast_.BinaryOperator.MULTIPLY,
                 ),
             ]
         ),
@@ -63,39 +63,39 @@ TEST_NOT_CONTAINS_CHILD = [
         ast_.BinaryOp(
             ast_.Identifier("a"),
             ast_.Identifier("b"),
-            op_type=ast_.BinaryOpType.MULTIPLY,
+            op_type=ast_.BinaryOperator.MULTIPLY,
         ),
         ast_.BinaryOp(
             ast_.Identifier("a"),
             ast_.Identifier("b"),
-            op_type=ast_.BinaryOpType.ADD,
+            op_type=ast_.BinaryOperator.ADD,
         ),
     ),
 ]
 TEST_CONTAINS_INSTANCES = [
     (ast_.Identifier("a"), ast_.Identifier, None, [ast_.Identifier("a")]),
-    (ast_.BinaryOp(ast_.Identifier("x"), ast_.Identifier("y"), op_type=ast_.BinaryOpType.ADD), ast_.Identifier, None, [ast_.Identifier("x"), ast_.Identifier("y")]),
+    (ast_.BinaryOp(ast_.Identifier("x"), ast_.Identifier("y"), op_type=ast_.BinaryOperator.ADD), ast_.Identifier, None, [ast_.Identifier("x"), ast_.Identifier("y")]),
     (ast_.IdentList([ast_.Identifier("x"), ast_.Identifier("y")]), ast_.Identifier, None, [ast_.Identifier("x"), ast_.Identifier("y")]),
     (
         ast_.SetEnumeration(
             [
-                ast_.BinaryOp(ast_.Identifier("x"), ast_.Identifier("y"), op_type=ast_.BinaryOpType.ADD),
-                ast_.BinaryOp(ast_.Identifier("y"), ast_.Identifier("yx"), op_type=ast_.BinaryOpType.ADD),
-                ast_.BinaryOp(ast_.Identifier("a"), ast_.Identifier("b"), op_type=ast_.BinaryOpType.MULTIPLY),
+                ast_.BinaryOp(ast_.Identifier("x"), ast_.Identifier("y"), op_type=ast_.BinaryOperator.ADD),
+                ast_.BinaryOp(ast_.Identifier("y"), ast_.Identifier("yx"), op_type=ast_.BinaryOperator.ADD),
+                ast_.BinaryOp(ast_.Identifier("a"), ast_.Identifier("b"), op_type=ast_.BinaryOperator.MULTIPLY),
             ]
         ),
         ast_.BinaryOp,
-        ast_.BinaryOpType.ADD,
+        ast_.BinaryOperator.ADD,
         [
-            ast_.BinaryOp(ast_.Identifier("x"), ast_.Identifier("y"), op_type=ast_.BinaryOpType.ADD),
-            ast_.BinaryOp(ast_.Identifier("y"), ast_.Identifier("yx"), op_type=ast_.BinaryOpType.ADD),
+            ast_.BinaryOp(ast_.Identifier("x"), ast_.Identifier("y"), op_type=ast_.BinaryOperator.ADD),
+            ast_.BinaryOp(ast_.Identifier("y"), ast_.Identifier("yx"), op_type=ast_.BinaryOperator.ADD),
         ],
     ),
     (
         ast_.SetEnumeration(
             [
-                ast_.BinaryOp(ast_.Identifier("x"), ast_.Identifier("y"), op_type=ast_.BinaryOpType.ADD),
-                ast_.BinaryOp(ast_.Identifier("a"), ast_.Identifier("b"), op_type=ast_.BinaryOpType.MULTIPLY),
+                ast_.BinaryOp(ast_.Identifier("x"), ast_.Identifier("y"), op_type=ast_.BinaryOperator.ADD),
+                ast_.BinaryOp(ast_.Identifier("a"), ast_.Identifier("b"), op_type=ast_.BinaryOperator.MULTIPLY),
             ]
         ),
         TestDummyNode,
@@ -109,9 +109,9 @@ TEST_CHILDREN = [
         ast_.BinaryOp(
             ast_.Identifier("x"),
             ast_.Identifier("y"),
-            op_type=ast_.BinaryOpType.ADD,
+            op_type=ast_.BinaryOperator.ADD,
         ),
-        [ast_.Identifier("x"), ast_.Identifier("y"), ast_.BinaryOpType.ADD],
+        [ast_.Identifier("x"), ast_.Identifier("y"), ast_.BinaryOperator.ADD],
     ),
     (
         ast_.IdentList([ast_.Identifier("x"), ast_.Identifier("y")]),
@@ -123,12 +123,12 @@ TEST_CHILDREN = [
                 ast_.BinaryOp(
                     ast_.Identifier("x"),
                     ast_.Identifier("y"),
-                    op_type=ast_.BinaryOpType.ADD,
+                    op_type=ast_.BinaryOperator.ADD,
                 ),
                 ast_.BinaryOp(
                     ast_.Identifier("a"),
                     ast_.Identifier("b"),
-                    op_type=ast_.BinaryOpType.MULTIPLY,
+                    op_type=ast_.BinaryOperator.MULTIPLY,
                 ),
             ]
         ),
@@ -136,14 +136,14 @@ TEST_CHILDREN = [
             ast_.BinaryOp(
                 ast_.Identifier("x"),
                 ast_.Identifier("y"),
-                op_type=ast_.BinaryOpType.ADD,
+                op_type=ast_.BinaryOperator.ADD,
             ),
             ast_.BinaryOp(
                 ast_.Identifier("a"),
                 ast_.Identifier("b"),
-                op_type=ast_.BinaryOpType.MULTIPLY,
+                op_type=ast_.BinaryOperator.MULTIPLY,
             ),
-            ast_.CollectionType.SET,
+            ast_.CollectionOperator.SET,
         ],
     ),
 ]
@@ -155,7 +155,7 @@ TEST_NOT_LEAF_NODES = [
     ast_.BinaryOp(
         ast_.Identifier("x"),
         ast_.Identifier("y"),
-        op_type=ast_.BinaryOpType.ADD,
+        op_type=ast_.BinaryOperator.ADD,
     ),
     ast_.IdentList([ast_.Identifier("x"), ast_.Identifier("y")]),
     ast_.SetEnumeration(
@@ -163,12 +163,12 @@ TEST_NOT_LEAF_NODES = [
             ast_.BinaryOp(
                 ast_.Identifier("x"),
                 ast_.Identifier("y"),
-                op_type=ast_.BinaryOpType.ADD,
+                op_type=ast_.BinaryOperator.ADD,
             ),
             ast_.BinaryOp(
                 ast_.Identifier("a"),
                 ast_.Identifier("b"),
-                op_type=ast_.BinaryOpType.MULTIPLY,
+                op_type=ast_.BinaryOperator.MULTIPLY,
             ),
         ]
     ),
@@ -205,7 +205,7 @@ class TestASTNode:
         self,
         ast_node: ast_.ASTNode,
         instance: type[ast_.ASTNode],
-        with_op_type: ast_.OpTypes | None,
+        with_op_type: ast_.Operators | None,
         expected_instances: list[ast_.ASTNode],
     ):
         # Test if the ASTNode finds all instances of a specific type

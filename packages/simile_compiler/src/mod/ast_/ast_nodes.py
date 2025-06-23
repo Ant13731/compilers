@@ -1,18 +1,34 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, ClassVar
+
+from soupsieve import match
 
 from src.mod.ast_.ast_node_base import ASTNode, Identifier
-from src.mod.ast_.ast_node_types import (
-    BinaryOpType,
-    RelationTypes,
-    UnaryOpType,
-    ListBoolType,
-    BoolQuantifierType,
-    QuantifierType,
-    ControlFlowType,
+from src.mod.ast_.ast_node_operators import (
+    BinaryOperator,
+    RelationOperator,
+    UnaryOperator,
+    ListOperator,
+    BoolQuantifierOperator,
+    QuantifierOperator,
+    ControlFlowOperator,
+    CollectionOperator,
+    Operators,
+)
+from src.mod.ast_.type_analysis_types import (
+    SimileType,
+    BaseSimileType,
+    PairType,
     CollectionType,
-    OpTypes,
+    StructTypeDef,
+    EnumTypeDef,
+    CustomType,
+    FunctionTypeDef,
+    type_union,
+    TypeUnion,
+    SimileTypeError,
+    DeferToSymbolTable,
 )
 
 
@@ -21,30 +37,48 @@ from src.mod.ast_.ast_node_types import (
 class Int(ASTNode):
     value: str
 
+    @property
+    def get_type(self) -> SimileType:
+        return BaseSimileType.Int
+
 
 @dataclass
 class Float(ASTNode):
     value: str
+
+    @property
+    def get_type(self) -> SimileType:
+        return BaseSimileType.Float
 
 
 @dataclass
 class String(ASTNode):
     value: str
 
+    @property
+    def get_type(self) -> SimileType:
+        return BaseSimileType.String
+
 
 @dataclass
 class True_(ASTNode):
-    pass
+    @property
+    def get_type(self) -> SimileType:
+        return BaseSimileType.Bool
 
 
 @dataclass
 class False_(ASTNode):
-    pass
+    @property
+    def get_type(self) -> SimileType:
+        return BaseSimileType.Bool
 
 
 @dataclass
 class None_(ASTNode):
-    pass
+    @property
+    def get_type(self) -> SimileType:
+        return BaseSimileType.None_
 
 
 @dataclass
@@ -63,15 +97,22 @@ class IdentList(ASTNode):
                     return False
         return True
 
+    @property
+    def get_type(self) -> SimileType:
+        return CollectionType(
+            element_type=type_union(*map(lambda x: x.get_type, self.items)),
+            collection_type=CollectionOperator.SEQUENCE,
+        )
+
 
 @dataclass
 class BinaryOp(ASTNode):
     left: ASTNode
     right: ASTNode
-    op_type: BinaryOpType
+    op_type: BinaryOperator
 
     @classmethod
-    def construct_with_op(cls, op_type: BinaryOpType) -> Callable[[ASTNode, ASTNode], BinaryOp]:
+    def construct_with_op(cls, op_type: BinaryOperator) -> Callable[[ASTNode, ASTNode], BinaryOp]:
         return lambda left, right: cls(left=left, right=right, op_type=op_type)
 
     @property
@@ -93,15 +134,160 @@ class BinaryOp(ASTNode):
             ]
         )
 
+    @property
+    def get_type(self) -> SimileType:
+        l_type = self.left.get_type
+        r_type = self.right.get_type
+        match self.op_type:
+            case BinaryOperator.IMPLIES | BinaryOperator.REV_IMPLIES | BinaryOperator.EQUIVALENT | BinaryOperator.NOT_EQUIVALENT:
+                if not (l_type == BaseSimileType.Bool and r_type == BaseSimileType.Bool):
+                    raise SimileTypeError(f"Invalid types for logical binary operation: {l_type}, {r_type}")
+                return BaseSimileType.Bool
+            case BinaryOperator.ADD | BinaryOperator.SUBTRACT:
+                union_type = type_union(l_type, r_type)
+                match union_type:
+                    case BaseSimileType.Int:
+                        return BaseSimileType.Int
+                    case BaseSimileType.String:
+                        return BaseSimileType.String
+                    case _ if union_type == CollectionType:
+                        if self.op_type == BinaryOperator.ADD and l_type.collection_type == CollectionOperator.SEQUENCE and r_type.collection_type == CollectionOperator.SEQUENCE:
+                            return CollectionType(
+                                element_type=type_union(types=[l_type.element_type, r_type.element_type]),
+                                collection_type=l_type.collection_type,
+                            )
+                        if l_type.collection_type == CollectionOperator.BAG and r_type.collection_type == CollectionOperator.BAG:
+                            return CollectionType(
+                                element_type=type_union(types=[l_type.element_type, r_type.element_type]),
+                                collection_type=l_type.collection_type,
+                            )
+                    case _ if union_type == TypeUnion({BaseSimileType.Int, BaseSimileType.Float}):
+                        return BaseSimileType.Float
+
+                raise SimileTypeError(f"Invalid types for binary operation {self.op_type.name}: {l_type}, {r_type}")
+            case BinaryOperator.MULTIPLY | BinaryOperator.DIVIDE | BinaryOperator.EXPONENT:
+                union_type = type_union(l_type, r_type)
+                match union_type:
+                    case BaseSimileType.Int:
+                        return BaseSimileType.Int
+                    case _ if union_type == TypeUnion({BaseSimileType.Int, BaseSimileType.Float}):
+                        return BaseSimileType.Float
+                raise SimileTypeError(f"Invalid types for arithmetic binary operation: {l_type}, {r_type}")
+            case BinaryOperator.MODULO:
+                if type_union(l_type, r_type) == BaseSimileType.Int:
+                    return BaseSimileType.Int
+                raise SimileTypeError(f"Invalid types for modulo operation: {l_type}, {r_type}")
+            case BinaryOperator.LESS_THAN | BinaryOperator.LESS_THAN_OR_EQUAL | BinaryOperator.GREATER_THAN | BinaryOperator.GREATER_THAN_OR_EQUAL:
+                union_type = {l_type, r_type}
+                if union_type.issubset({BaseSimileType.Int, BaseSimileType.Float}):
+                    return BaseSimileType.Bool
+            case BinaryOperator.EQUAL | BinaryOperator.NOT_EQUAL | BinaryOperator.IS | BinaryOperator.IS_NOT:
+                return BaseSimileType.Bool
+            case BinaryOperator.IN | BinaryOperator.NOT_IN:
+                if isinstance(r_type, CollectionType):
+                    return BaseSimileType.Bool
+                raise SimileTypeError(f"Invalid types for IN operation: {l_type}, {r_type}")
+            case BinaryOperator.UNION | BinaryOperator.INTERSECTION | BinaryOperator.DIFFERENCE:
+                if not isinstance(l_type, CollectionType):
+                    raise SimileTypeError(f"Invalid types for set operation (left operand is not a collection): {l_type}, {r_type}")
+                if not isinstance(r_type, CollectionType):
+                    raise SimileTypeError(f"Invalid types for set operation (right operand is not a collection): {l_type}, {r_type}")
+                if l_type.collection_type != r_type.collection_type:
+                    raise SimileTypeError(f"Invalid types for set operation (collection types do not match): {l_type.collection_type}, {r_type.collection_type}")
+                if l_type.collection_type not in {CollectionOperator.BAG, CollectionOperator.SET}:
+                    raise SimileTypeError(f"Invalid collection type for set/bag operation: {l_type.collection_type}")
+                if r_type.collection_type not in {CollectionOperator.BAG, CollectionOperator.SET}:
+                    raise SimileTypeError(f"Invalid collection type for set/bag operation: {r_type.collection_type}")
+                return CollectionType(
+                    element_type=type_union(types=[l_type.element_type, r_type.element_type]),
+                    collection_type=l_type.collection_type,
+                )
+            case (
+                BinaryOperator.SUBSET
+                | BinaryOperator.SUBSET_EQ
+                | BinaryOperator.SUPERSET
+                | BinaryOperator.SUPERSET_EQ
+                | BinaryOperator.NOT_SUBSET
+                | BinaryOperator.NOT_SUBSET_EQ
+                | BinaryOperator.NOT_SUPERSET
+                | BinaryOperator.NOT_SUPERSET_EQ
+            ):
+                if type_union(l_type, r_type) != CollectionType:
+                    raise SimileTypeError(f"Invalid types for subset/superset operation: {l_type}, {r_type}")
+                if l_type.collection_type not in {CollectionOperator.BAG, CollectionOperator.SET}:
+                    raise SimileTypeError(f"Invalid collection type for subset/superset operation: {l_type.collection_type}")
+                if r_type.collection_type not in {CollectionOperator.BAG, CollectionOperator.SET}:
+                    raise SimileTypeError(f"Invalid collection type for subset/superset operation: {r_type.collection_type}")
+                return BaseSimileType.Bool
+            case BinaryOperator.MAPLET:
+                return PairType(l_type, r_type)
+            case BinaryOperator.CARTESIAN_PRODUCT:
+                if not isinstance(l_type, CollectionType) or not isinstance(r_type, CollectionType):
+                    raise SimileTypeError(f"Invalid types for cartesian product operation: {l_type}, {r_type}")
+                if l_type.collection_type != CollectionOperator.SET or r_type.collection_type != CollectionOperator.SET:
+                    raise SimileTypeError(f"Invalid collection type for cartesian product operation: {l_type.collection_type}, {r_type.collection_type}")
+                return CollectionType(
+                    element_type=type_union(PairType(l_type.element_type, r_type.element_type)),
+                    collection_type=CollectionOperator.RELATION,
+                )
+            case BinaryOperator.UPTO:
+                if not isinstance(l_type, Int) or not isinstance(r_type, Int):
+                    raise SimileTypeError(f"Invalid types for upto operation (must be ints): {l_type}, {r_type}")
+                return CollectionType(
+                    element_type=BaseSimileType.Int,
+                    collection_type=CollectionOperator.SET,
+                )
+            case BinaryOperator.RELATION_OVERRIDING:
+                if not isinstance(l_type, CollectionType) or not isinstance(r_type, CollectionType):
+                    raise SimileTypeError(f"Invalid types for relation operation: {l_type}, {r_type}")
+                if l_type.collection_type != CollectionOperator.RELATION or r_type.collection_type != CollectionOperator.RELATION:
+                    raise SimileTypeError(f"Invalid collection type for relation operation: {l_type.collection_type}, {r_type.collection_type}")
+                return CollectionType(
+                    element_type=type_union(l_type.element_type, r_type.element_type),
+                    collection_type=CollectionOperator.RELATION,
+                )
+            case BinaryOperator.COMPOSITION:
+                if not isinstance(l_type, CollectionType) or not isinstance(r_type, CollectionType):
+                    raise SimileTypeError(f"Invalid types for composition operation: {l_type}, {r_type}")
+                if l_type.collection_type != CollectionOperator.RELATION or r_type.collection_type != CollectionOperator.RELATION:
+                    raise SimileTypeError(f"Invalid collection type for composition operation: {l_type.collection_type}, {r_type.collection_type}")
+                if not isinstance(l_type.element_type, PairType) or not isinstance(r_type.element_type, PairType):
+                    raise SimileTypeError(f"Invalid types for composition operation (not pairs): {l_type.element_type}, {r_type.element_type}")
+                if l_type.element_type.right != r_type.element_type.left:
+                    raise SimileTypeError(
+                        f"Invalid types for composition operation (right side of left pair does not match with left side of right pair): {l_type.element_type}, {r_type.element_type}"
+                    )
+                return CollectionType(
+                    element_type=PairType(l_type.element_type.left, r_type.element_type.right),
+                    collection_type=CollectionOperator.RELATION,
+                )
+            case BinaryOperator.DOMAIN_SUBTRACTION | BinaryOperator.DOMAIN_RESTRICTION:
+                if not isinstance(l_type, CollectionType) or not isinstance(r_type, CollectionType):
+                    raise SimileTypeError(f"Invalid types for domain operation: {l_type}, {r_type}")
+                if r_type.collection_type != CollectionOperator.RELATION:
+                    raise SimileTypeError(f"Invalid collection type for domain operation (right operand must be a relation): {r_type.collection_type}")
+                if l_type.collection_type != CollectionOperator.SET:
+                    raise SimileTypeError(f"Invalid collection type for domain operation (left operand must be a relation or set): {l_type.collection_type}")
+                return r_type
+            case BinaryOperator.RANGE_SUBTRACTION | BinaryOperator.RANGE_RESTRICTION:
+                if not isinstance(l_type, CollectionType) or not isinstance(r_type, CollectionType):
+                    raise SimileTypeError(f"Invalid types for domain operation: {l_type}, {r_type}")
+                if l_type.collection_type != CollectionOperator.RELATION:
+                    raise SimileTypeError(f"Invalid collection type for domain operation (right operand must be a relation): {r_type.collection_type}")
+                if r_type.collection_type != CollectionOperator.SET:
+                    raise SimileTypeError(f"Invalid collection type for domain operation (left operand must be a relation or set): {l_type.collection_type}")
+                return l_type
+        raise SimileTypeError(f"Unknown type for binary operator: {self.op_type.name}, {l_type}, {r_type}")
+
 
 @dataclass
 class RelationOp(ASTNode):
     left: ASTNode
     right: ASTNode
-    op_type: RelationTypes
+    op_type: RelationOperator
 
     @classmethod
-    def construct_with_op(cls, op_type: RelationTypes) -> Callable[[ASTNode, ASTNode], RelationOp]:
+    def construct_with_op(cls, op_type: RelationOperator) -> Callable[[ASTNode, ASTNode], RelationOp]:
         return lambda left, right: cls(left=left, right=right, op_type=op_type)
 
     @property
@@ -123,14 +309,28 @@ class RelationOp(ASTNode):
             ]
         )
 
+    @property
+    def get_type(self) -> SimileType:
+        l_type = self.left.get_type
+        r_type = self.right.get_type
+        if not isinstance(l_type, CollectionType) or not isinstance(r_type, CollectionType):
+            raise SimileTypeError(f"Invalid types for relation operation: {l_type}, {r_type}")
+        if l_type.collection_type not in {CollectionOperator.SET, CollectionOperator.RELATION} or r_type.collection_type not in {CollectionOperator.RELATION}:
+            raise SimileTypeError(f"Invalid collection types for relation operation: {l_type.collection_type}, {r_type.collection_type}")
+        # Even if the left/right side of the relation is a set or relation, we just make a new pairtype
+        return CollectionType(
+            element_type=PairType(l_type.element_type, r_type.element_type),
+            collection_type=CollectionOperator.RELATION,
+        )
+
 
 @dataclass
 class UnaryOp(ASTNode):
     value: ASTNode
-    op_type: UnaryOpType
+    op_type: UnaryOperator
 
     @classmethod
-    def construct_with_op(cls, op_type: UnaryOpType) -> Callable[[ASTNode], UnaryOp]:
+    def construct_with_op(cls, op_type: UnaryOperator) -> Callable[[ASTNode], UnaryOp]:
         return lambda value: cls(value=value, op_type=op_type)
 
     @property
@@ -144,14 +344,39 @@ class UnaryOp(ASTNode):
     def well_formed(self) -> bool:
         return self.value.well_formed()
 
+    @property
+    def get_type(self) -> SimileType:
+        match self.op_type:
+            case UnaryOperator.NOT:
+                if self.value.get_type != BaseSimileType.Bool:
+                    raise SimileTypeError(f"Invalid type for NOT operation: {self.value.get_type}")
+                return BaseSimileType.Bool
+            case UnaryOperator.NEGATIVE:
+                if self.value.get_type not in {BaseSimileType.Int, BaseSimileType.Float}:
+                    raise SimileTypeError(f"Invalid type for negation: {self.value.get_type}")
+                return self.value.get_type
+            case UnaryOperator.INVERSE:
+                if not isinstance(self.value.get_type, CollectionType):
+                    raise SimileTypeError(f"Invalid type for inverse operation: {self.value.get_type}")
+                if self.value.get_type.collection_type != CollectionOperator.RELATION:
+                    raise SimileTypeError(f"Invalid collection type for inverse operation: {self.value.get_type.collection_type}")
+                return self.value.get_type
+            case UnaryOperator.POWERSET | UnaryOperator.NONEMPTY_POWERSET:
+                if not isinstance(self.value.get_type, CollectionType):
+                    raise SimileTypeError(f"Invalid type for powerset operation: {self.value.get_type}")
+                return CollectionType(
+                    element_type=self.value.get_type,
+                    collection_type=CollectionOperator.SET,
+                )
+
 
 @dataclass
 class ListOp(ASTNode):
     items: list[ASTNode]
-    op_type: ListBoolType
+    op_type: ListOperator
 
     @classmethod
-    def construct_with_op(cls, op_type: ListBoolType) -> Callable[[list[ASTNode]], ListOp]:
+    def construct_with_op(cls, op_type: ListOperator) -> Callable[[list[ASTNode]], ListOp]:
         return lambda items: cls(items=items, op_type=op_type)
 
     @property
@@ -177,15 +402,23 @@ class ListOp(ASTNode):
                     return False
         return True
 
+    @property
+    def get_type(self) -> SimileType:
+        match self.op_type:
+            case ListOperator.AND | ListOperator.OR:
+                if not all(item.get_type == BaseSimileType.Bool for item in self.items):
+                    raise SimileTypeError(f"Invalid types for logical list operation: {[item.get_type for item in self.items]}")
+                return BaseSimileType.Bool
+
 
 @dataclass
 class BoolQuantifier(ASTNode):
     bound_identifiers: IdentList
     predicate: ASTNode
-    op_type: BoolQuantifierType
+    op_type: BoolQuantifierOperator
 
     @classmethod
-    def construct_with_op(cls, op_type: BoolQuantifierType) -> Callable[[IdentList, ASTNode], BoolQuantifier]:
+    def construct_with_op(cls, op_type: BoolQuantifierOperator) -> Callable[[IdentList, ASTNode], BoolQuantifier]:
         return lambda bound_identifiers, predicate: cls(bound_identifiers=bound_identifiers, predicate=predicate, op_type=op_type)
 
     @property
@@ -205,16 +438,22 @@ class BoolQuantifier(ASTNode):
             ]
         )
 
+    @property
+    def get_type(self) -> SimileType:
+        if not self.predicate.get_type == BaseSimileType.Bool:
+            raise SimileTypeError(f"Invalid type for boolean quantifier predicate: {self.predicate.get_type}")
+        return BaseSimileType.Bool
+
 
 @dataclass
 class Quantifier(ASTNode):
     bound_identifiers: IdentList
     predicate: ASTNode
     expression: ASTNode
-    op_type: QuantifierType
+    op_type: QuantifierOperator
 
     @classmethod
-    def construct_with_op(cls, op_type: QuantifierType) -> Callable[[IdentList, ASTNode, ASTNode], Quantifier]:
+    def construct_with_op(cls, op_type: QuantifierOperator) -> Callable[[IdentList, ASTNode, ASTNode], Quantifier]:
         return lambda bound_identifiers, predicate, expression: cls(bound_identifiers=bound_identifiers, predicate=predicate, expression=expression, op_type=op_type)
 
     @property
@@ -247,19 +486,24 @@ class Quantifier(ASTNode):
 
         return all(check_list)
 
-
-@dataclass
-class ControlFlowStmt(ASTNode):
-    op_type: ControlFlowType
+    @property
+    def get_type(self) -> SimileType:
+        if not self.predicate.get_type == BaseSimileType.Bool:
+            raise SimileTypeError(f"Invalid type for boolean quantifier predicate: {self.predicate.get_type}")
+        # Quantifier operators must be either union all or intersection all, so result is a set
+        return CollectionType(
+            element_type=self.expression.get_type,
+            collection_type=CollectionOperator.SET,
+        )
 
 
 @dataclass
 class Enumeration(ASTNode):
     items: list[ASTNode]
-    op_type: CollectionType
+    op_type: CollectionOperator
 
     @classmethod
-    def construct_with_op(cls, op_type: CollectionType) -> Callable[[list[ASTNode]], Enumeration]:
+    def construct_with_op(cls, op_type: CollectionOperator) -> Callable[[list[ASTNode]], Enumeration]:
         return lambda items: cls(items=items, op_type=op_type)
 
     @property
@@ -285,16 +529,24 @@ class Enumeration(ASTNode):
                     return False
         return True
 
+    @property
+    def get_type(self) -> SimileType:
+        element_type = type_union(*(item.get_type for item in self.items))
+        return CollectionType(
+            element_type=element_type,
+            collection_type=self.op_type,
+        )
+
 
 @dataclass
 class Comprehension(ASTNode):
     bound_identifiers: IdentList
     predicate: ASTNode
     expression: ASTNode
-    op_type: CollectionType
+    op_type: CollectionOperator
 
     @classmethod
-    def construct_with_op(cls, op_type: CollectionType) -> Callable[[IdentList, ASTNode, ASTNode], Comprehension]:
+    def construct_with_op(cls, op_type: CollectionOperator) -> Callable[[IdentList, ASTNode, ASTNode], Comprehension]:
         return lambda bound_identifiers, predicate, expression: cls(bound_identifiers=bound_identifiers, predicate=predicate, expression=expression, op_type=op_type)
 
     @property
@@ -327,6 +579,13 @@ class Comprehension(ASTNode):
 
         return all(check_list)
 
+    @property
+    def get_type(self) -> SimileType:
+        return CollectionType(
+            element_type=self.expression.get_type,
+            collection_type=self.op_type,
+        )
+
 
 @dataclass
 class Type_(ASTNode):
@@ -343,31 +602,43 @@ class Type_(ASTNode):
     def well_formed(self) -> bool:
         return self.type_.well_formed()
 
-
-@dataclass
-class Slice(ASTNode):
-    items: list[ASTNode]
-
     @property
-    def free(self) -> set[Identifier]:
-        return set.union(*(item.free for item in self.items))
+    def get_type(self) -> SimileType:
+        return self.type_.get_type
 
-    @property
-    def bound(self) -> set[Identifier]:
-        return set.union(*(item.bound for item in self.items))
 
-    def well_formed(self) -> bool:
-        if not all(item.well_formed() for item in self.items):
-            return False
-        for i in range(len(self.items)):
-            for j in range(len(self.items)):
-                if i == j:
-                    continue
-                if not self.items[i].bound.isdisjoint(self.items[j].bound):
-                    return False
-                if not self.items[i].bound.isdisjoint(self.items[j].free):
-                    return False
-        return True
+# @dataclass
+# class Slice(ASTNode):
+#     items: list[ASTNode]
+
+#     @property
+#     def free(self) -> set[Identifier]:
+#         return set.union(*(item.free for item in self.items))
+
+#     @property
+#     def bound(self) -> set[Identifier]:
+#         return set.union(*(item.bound for item in self.items))
+
+#     def well_formed(self) -> bool:
+#         if not all(item.well_formed() for item in self.items):
+#             return False
+#         for i in range(len(self.items)):
+#             for j in range(len(self.items)):
+#                 if i == j:
+#                     continue
+#                 if not self.items[i].bound.isdisjoint(self.items[j].bound):
+#                     return False
+#                 if not self.items[i].bound.isdisjoint(self.items[j].free):
+#                     return False
+#         return True
+
+#     @property
+#     def get_type(self) -> SimileType:
+#         element_type = type_union(*(item.get_type for item in self.items))
+#         return CollectionType(
+#             element_type=element_type,
+#             collection_type=CollectionOperator.SEQUENCE,
+#         )
 
 
 @dataclass
@@ -398,17 +669,70 @@ class LambdaDef(ASTNode):
             ]
         )
 
+    @property
+    def get_type(self) -> SimileType:
+        if not self.ident_pattern.items:
+            raise SimileTypeError("Lambda definition must have at least one identifier in the pattern")
+        return FunctionTypeDef(
+            arg_types=[item.get_type for item in self.ident_pattern.items],
+            return_type=self.expression.get_type,
+        )
+
 
 @dataclass
 class StructAccess(ASTNode):
     struct: ASTNode
     field_name: Identifier
 
+    @property
+    def get_type(self) -> SimileType:
+        if not isinstance(self.struct.get_type, StructTypeDef):
+            raise SimileTypeError(f"Struct access target must be a struct type, got {self.struct.get_type}")
+        if self.struct.get_type.fields.get(self.field_name.name) is None:
+            raise SimileTypeError(f"Field '{self.field_name.name}' not found in struct type")
+
+        return self.struct.get_type.fields.get(self.field_name.name)
+
 
 @dataclass
 class FunctionCall(ASTNode):
     function_name: ASTNode
     args: list[ASTNode]
+
+    @property
+    def get_type(self) -> SimileType:
+        if not isinstance(self.function_name.get_type, FunctionTypeDef):
+            raise SimileTypeError(f"Function call target must be a function type, got {self.function_name.get_type}")
+        if len(self.args) != len(self.function_name.get_type.arg_types):
+            raise SimileTypeError(f"Function call argument count mismatch: {len(self.args)} != {len(self.function_name.get_type.arg_types)}")
+
+        return self.function_name.get_type.return_type
+
+
+@dataclass
+class Indexing(ASTNode):
+    target: ASTNode
+    index: ASTNode | None_  # | Slice
+
+    @property
+    def get_type(self) -> SimileType:
+        if not isinstance(self.target.get_type, CollectionType):
+            raise SimileTypeError(f"Indexing target must be a collection type, got {self.target.get_type}")
+
+        match self.target.get_type.collection_type:
+            case CollectionOperator.RELATION:
+                # Relational image
+                return CollectionType(
+                    element_type=self.target.get_type.element_type.right,
+                    collection_type=CollectionOperator.SET,
+                )
+            case CollectionOperator.BAG:
+                if self.index.get_type == self.target.get_type.element_type:
+                    # If the index is of the same type as the elements, return the element type
+                    return BaseSimileType.Int
+            case _:
+                # If the target is a non-relation collection, assume we are indexing as if it were an array
+                return self.target.get_type.element_type
 
 
 @dataclass
@@ -427,11 +751,13 @@ class TypedName(ASTNode):
     def well_formed(self) -> bool:
         return self.name.well_formed() and self.type_.well_formed()
 
-
-@dataclass
-class Indexing(ASTNode):
-    target: ASTNode
-    index: ASTNode | Slice | None_
+    @property
+    def get_type(self) -> SimileType:
+        return DeferToSymbolTable(
+            self.name,
+            self.type_.get_type if self.type_ else None,
+            lambda expected_type: expected_type if expected_type else BaseSimileType.None_,
+        )
 
 
 @dataclass
@@ -439,20 +765,48 @@ class Assignment(ASTNode):
     target: ASTNode
     value: ASTNode
 
+    @property
+    def get_type(self) -> SimileType:
+        return BaseSimileType.None_
+
 
 @dataclass
 class Return(ASTNode):
     value: ASTNode | None_
+
+    @property
+    def get_type(self) -> SimileType:
+        return self.value.get_type
+
+
+@dataclass
+class ControlFlowStmt(ASTNode):
+    op_type: ControlFlowOperator
+
+    @property
+    def get_type(self) -> SimileType:
+        return BaseSimileType.None_
 
 
 @dataclass
 class Statements(ASTNode):
     items: list[ASTNode]
 
+    def __post_init__(self) -> None:
+        self.env = None
+
+    @property
+    def get_type(self) -> SimileType:
+        return BaseSimileType.None_
+
 
 @dataclass
 class Else(ASTNode):
     body: ASTNode | Statements
+
+    @property
+    def get_type(self) -> SimileType:
+        return BaseSimileType.None_
 
 
 @dataclass
@@ -461,12 +815,20 @@ class If(ASTNode):
     body: ASTNode | Statements
     else_body: Elif | Else | None_
 
+    @property
+    def get_type(self) -> SimileType:
+        return BaseSimileType.None_
+
 
 @dataclass
 class Elif(ASTNode):
     condition: ASTNode
     body: ASTNode | Statements
     else_body: Elif | Else | None_
+
+    @property
+    def get_type(self) -> SimileType:
+        return BaseSimileType.None_
 
 
 @dataclass
@@ -475,11 +837,19 @@ class For(ASTNode):
     iterable: ASTNode
     body: ASTNode | Statements
 
+    @property
+    def get_type(self) -> SimileType:
+        return BaseSimileType.None_
+
 
 @dataclass
 class While(ASTNode):
     condition: ASTNode
     body: ASTNode | Statements
+
+    @property
+    def get_type(self) -> SimileType:
+        return BaseSimileType.None_
 
 
 @dataclass
@@ -487,11 +857,19 @@ class StructDef(ASTNode):
     name: Identifier
     items: list[TypedName]
 
+    @property
+    def get_type(self) -> SimileType:
+        return BaseSimileType.None_
+
 
 @dataclass
 class EnumDef(ASTNode):
     name: Identifier
     items: list[Identifier]
+
+    @property
+    def get_type(self) -> SimileType:
+        return BaseSimileType.None_
 
 
 @dataclass
@@ -501,21 +879,37 @@ class FunctionDef(ASTNode):
     body: ASTNode | Statements
     return_type: Type_
 
+    @property
+    def get_type(self) -> SimileType:
+        return BaseSimileType.None_
+
 
 @dataclass
 class ImportAll(ASTNode):
     pass
 
+    @property
+    def get_type(self) -> SimileType:
+        return BaseSimileType.None_
+
 
 @dataclass
 class Import(ASTNode):
-    module_identifier: list[Identifier]
+    module_file_path: str
     import_objects: IdentList | None_ | ImportAll
+
+    @property
+    def get_type(self) -> SimileType:
+        return BaseSimileType.None_
 
 
 @dataclass
 class Start(ASTNode):
     body: Statements | None_
+
+    @property
+    def get_type(self) -> SimileType:
+        return BaseSimileType.None_
 
 
 Literal = Int | Float | String | True_ | False_ | None_

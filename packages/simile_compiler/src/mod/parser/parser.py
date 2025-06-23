@@ -540,7 +540,7 @@ class Parser:
                 )
                 if self.peek().type_ in self.get_first_set("rel_sub_expr"):
                     right = self.rel_sub_expr()(right)
-                return ast_.BinaryOp(interval_expr, right, ast_.BinaryOpType.DOMAIN_SUBTRACTION)
+                return ast_.BinaryOp(interval_expr, right, ast_.BinaryOperator.DOMAIN_SUBTRACTION)
             case TokenType.DOMAIN_RESTRICTION:
                 self.advance()
                 right = self.left_associative_optional_parse(
@@ -549,7 +549,7 @@ class Parser:
                 )
                 if self.peek().type_ in self.get_first_set("rel_sub_expr"):
                     right = self.rel_sub_expr()(right)
-                return ast_.BinaryOp(interval_expr, right, ast_.BinaryOpType.DOMAIN_RESTRICTION)
+                return ast_.BinaryOp(interval_expr, right, ast_.BinaryOperator.DOMAIN_RESTRICTION)
             case _:
                 return interval_expr
 
@@ -565,11 +565,11 @@ class Parser:
     def rel_sub_expr(self) -> Callable[[ast_.ASTNode], ast_.ASTNode]:
         match self.advance():
             case TokenType.BACKSLASH:
-                return lambda n: ast_.BinaryOp(n, self.interval_expr(), ast_.BinaryOpType.DIFFERENCE)
+                return lambda n: ast_.BinaryOp(n, self.interval_expr(), ast_.BinaryOperator.DIFFERENCE)
             case TokenType.RANGE_RESTRICTION:
-                return lambda n: ast_.BinaryOp(n, self.interval_expr(), ast_.BinaryOpType.RANGE_RESTRICTION)
+                return lambda n: ast_.BinaryOp(n, self.interval_expr(), ast_.BinaryOperator.RANGE_RESTRICTION)
             case TokenType.RANGE_SUBTRACTION:
-                return lambda n: ast_.BinaryOp(n, self.interval_expr(), ast_.BinaryOpType.RANGE_SUBTRACTION)
+                return lambda n: ast_.BinaryOp(n, self.interval_expr(), ast_.BinaryOperator.RANGE_SUBTRACTION)
             case _:
                 self.error("Unexpected token")
 
@@ -577,7 +577,7 @@ class Parser:
     def interval_expr(self) -> ast_.ASTNode:
         arithmetic_expr = self.arithmetic_expr()
         if self.match(TokenType.UPTO):
-            arithmetic_expr = ast_.BinaryOp(arithmetic_expr, self.arithmetic_expr(), ast_.BinaryOpType.UPTO)
+            arithmetic_expr = ast_.BinaryOp(arithmetic_expr, self.arithmetic_expr(), ast_.BinaryOperator.UPTO)
         return arithmetic_expr
 
     @store_derivation
@@ -696,7 +696,7 @@ class Parser:
                 self.error("Failed to interpret first token of expected atom")
 
     @store_derivation
-    def collection_body(self, collection_type: ast_.CollectionType, closing_symbol: TokenType) -> ast_.ASTNode:
+    def collection_body(self, collection_type: ast_.CollectionOperator, closing_symbol: TokenType) -> ast_.ASTNode:
         # Since sets may start with an ident_list even if they are just set enumeration,
         # we need to use similar hacks to quantification body
         starting_index = self.current_index
@@ -722,7 +722,7 @@ class Parser:
 
     @store_derivation
     def set_(self) -> ast_.ASTNode:
-        collection = self.collection_body(ast_.CollectionType.SET, TokenType.R_BRACE)
+        collection = self.collection_body(ast_.CollectionOperator.SET, TokenType.R_BRACE)
         # Awkwardly, we separate relations from sets post tree creation
         if isinstance(collection, ast_.Enumeration):
             if not collection.items:
@@ -733,11 +733,11 @@ class Parser:
             for elem in collection.items:
                 if not isinstance(elem, ast_.BinaryOp):
                     return collection
-                if elem.op_type != ast_.BinaryOpType.MAPLET:
+                if elem.op_type != ast_.BinaryOperator.MAPLET:
                     # If the element is not a maplet, we cannot promote the whole set to a relation
                     return collection
             # otherwise, promote it to a relation
-            return ast_.Enumeration(collection.items, ast_.CollectionType.RELATION)  # type: ignore
+            return ast_.Enumeration(collection.items, ast_.CollectionOperator.RELATION)  # type: ignore
 
         if isinstance(collection, ast_.Comprehension):
             # Test only the identifiers for maplets. If no identifiers, test the (single) expression
@@ -753,21 +753,21 @@ class Parser:
             # Maplet should always be top level in the expression
             if not isinstance(collection.expression, ast_.BinaryOp):
                 return collection
-            if collection.expression.op_type != ast_.BinaryOpType.MAPLET:
+            if collection.expression.op_type != ast_.BinaryOperator.MAPLET:
                 # If the expression is not a maplet, we cannot promote the whole set to a relation
                 return collection
 
             # Otherwise, promote
-            return ast_.Comprehension(collection.bound_identifiers, collection.predicate, collection.expression, ast_.CollectionType.RELATION)
+            return ast_.Comprehension(collection.bound_identifiers, collection.predicate, collection.expression, ast_.CollectionOperator.RELATION)
         self.error("Unreachable state in set derivation. The type of the parsed value should be either a SetEnumeration or SetComprehension")
 
     @store_derivation
     def bag(self) -> ast_.ASTNode:
-        return self.collection_body(ast_.CollectionType.BAG, TokenType.R_BRACE_BAR)
+        return self.collection_body(ast_.CollectionOperator.BAG, TokenType.R_BRACE_BAR)
 
     @store_derivation
     def sequence(self) -> ast_.ASTNode:
-        return self.collection_body(ast_.CollectionType.SEQUENCE, TokenType.R_BRACKET)
+        return self.collection_body(ast_.CollectionOperator.SEQUENCE, TokenType.R_BRACKET)
 
     @store_derivation
     def control_flow_stmt(self) -> ast_.ASTNode:
@@ -789,13 +789,16 @@ class Parser:
     @store_derivation
     def import_stmt(self) -> ast_.ASTNode:
         t = self.advance()
-        import_name = self.import_name()
+        import_name = self.advance()
+        if import_name.type_ != TokenType.STRING:
+            self.error("Expected import name to be a string literal (file path)")
+        # import_name = self.import_name()
         if t.type_ == TokenType.FROM:
             self.consume(TokenType.IMPORT, "Expected 'import' after 'from'")
             import_objects = self.import_list()
-            return ast_.Import(import_name, import_objects)
+            return ast_.Import(import_name.value, import_objects)
         elif t.type_ == TokenType.IMPORT:
-            return ast_.Import(import_name, ast_.None_())
+            return ast_.Import(import_name.value, ast_.None_())
         else:
             self.error("Unexpected token")
 
@@ -1008,7 +1011,7 @@ class Parser:
         return statements
 
 
-def parse(source_text: str) -> ast_.ASTNode | list[ParseError]:
+def parse(source_text: str) -> ast_.Start | list[ParseError]:
     """Parse a list of tokens into an abstract syntax tree (AST)."""
     tokens = scan(source_text)
     parser = Parser(tokens, source_text)

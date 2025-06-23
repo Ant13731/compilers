@@ -154,9 +154,10 @@ func_stmt: DEF IDENTIFIER L_PAREN (typed_name (COMMA typed_name)*)? R_PAREN RIGH
 block: simple_stmt | NEWLINE INDENT statements DEDENT
 
 // Import statments - no aliasing for now
-import_stmt: IMPORT import_name
-           | FROM import_name IMPORT import_list
-import_name: DOT? IDENTIFIER (DOT IDENTIFIER)*
+import_stmt: IMPORT import_path
+           | FROM import_path IMPORT import_list
+import_path: STRING
+// import_name: DOT? IDENTIFIER (DOT IDENTIFIER)*
 import_list: STAR
            | IDENTIFIER (COMMA IDENTIFIER)*
            | L_PAREN IDENTIFIER (COMMA IDENTIFIER)* R_PAREN

@@ -1,7 +1,7 @@
 from enum import Enum, auto
 
 
-class BinaryOpType(Enum):
+class BinaryOperator(Enum):
     # Bools
     IMPLIES = auto()
     REV_IMPLIES = auto()
@@ -52,7 +52,7 @@ class BinaryOpType(Enum):
     RANGE_RESTRICTION = auto()
 
 
-class RelationTypes(Enum):
+class RelationOperator(Enum):
     RELATION = auto()
     TOTAL_RELATION = auto()
     SURJECTIVE_RELATION = auto()
@@ -66,7 +66,7 @@ class RelationTypes(Enum):
     BIJECTION = auto()
 
 
-class UnaryOpType(Enum):
+class UnaryOperator(Enum):
     NOT = auto()
     NEGATIVE = auto()
     POWERSET = auto()
@@ -74,32 +74,32 @@ class UnaryOpType(Enum):
     INVERSE = auto()
 
 
-class ListBoolType(Enum):
+class ListOperator(Enum):
     AND = auto()
     OR = auto()
 
 
-class BoolQuantifierType(Enum):
+class BoolQuantifierOperator(Enum):
     FORALL = auto()
     EXISTS = auto()
 
 
-class QuantifierType(Enum):
+class QuantifierOperator(Enum):
     UNION_ALL = auto()
     INTERSECTION_ALL = auto()
 
 
-class ControlFlowType(Enum):
+class ControlFlowOperator(Enum):
     BREAK = auto()
     CONTINUE = auto()
     PASS = auto()
 
 
-class CollectionType(Enum):
+class CollectionOperator(Enum):
     SEQUENCE = auto()
     SET = auto()
     RELATION = auto()
     BAG = auto()
 
 
-OpTypes = BinaryOpType | RelationTypes | UnaryOpType | ListBoolType | BoolQuantifierType | QuantifierType | ControlFlowType
+Operators = BinaryOperator | RelationOperator | UnaryOperator | ListOperator | BoolQuantifierOperator | QuantifierOperator | ControlFlowOperator

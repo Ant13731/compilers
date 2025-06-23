@@ -2,8 +2,9 @@ from __future__ import annotations
 from dataclasses import dataclass, fields
 from typing import Generator, Any, TypeVar
 
-from src.mod.ast_.ast_node_types import OpTypes
+from mod.ast_.ast_node_operators import Operators
 from src.mod.ast_.dataclass_helpers import dataclass_traverse
+from src.mod.ast_.type_analysis_types import SimileType, DeferToSymbolTable
 
 T = TypeVar("T")
 
@@ -25,7 +26,11 @@ class ASTNode:
         """Returns the set of free variables in the AST node."""
         return set()
 
-    def contains(self, node: type[ASTNode], with_op_type: OpTypes | None = None) -> bool:
+    @property
+    def get_type(self) -> SimileType:
+        raise NotImplementedError
+
+    def contains(self, node: type[ASTNode], with_op_type: Operators | None = None) -> bool:
         """Check if the AST node contains a specific type of node."""
 
         def is_matching_node(n: Any) -> bool:
@@ -40,7 +45,7 @@ class ASTNode:
 
         return any(dataclass_traverse(self, is_matching_node))
 
-    def find_all_instances(self, type_: type[T], with_op_type: OpTypes | None = None) -> list[T]:
+    def find_all_instances(self, type_: type[T], with_op_type: Operators | None = None) -> list[T]:
         """Returns a flattened list of all instances of a specific type in the AST.
 
         Most useful for finding identifiers nested within expressions.
@@ -137,3 +142,11 @@ class Identifier(ASTNode):
     @property
     def free(self) -> set[Identifier]:
         return {self}
+
+    @property
+    def get_type(self) -> SimileType:
+        return DeferToSymbolTable(
+            lookup_type=self.name,
+            expected_type=None,
+            operation_on_expected_type=None,
+        )

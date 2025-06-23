@@ -27,28 +27,28 @@ manual_tests = dict(
             "True": True_(),
             "False": False_(),
             "None": None_(),
-            "{}": Enumeration([], op_type=CollectionType.SET),
-            "{ }": Enumeration([], op_type=CollectionType.SET),
-            "{| |}": Enumeration([], op_type=CollectionType.BAG),
-            "{||}": Enumeration([], op_type=CollectionType.BAG),
-            "[]": Enumeration([], op_type=CollectionType.SEQUENCE),
-            "[ ]": Enumeration([], op_type=CollectionType.SEQUENCE),
-            "x <-> y": RelationOp(Identifier("x"), Identifier("y"), op_type=RelationTypes.RELATION),
-            "x + y + z": BinaryOp(BinaryOp(Identifier("x"), Identifier("y"), op_type=BinaryOpType.ADD), Identifier("z"), op_type=BinaryOpType.ADD),
-            "x > y": BinaryOp(Identifier("x"), Identifier("y"), op_type=BinaryOpType.GREATER_THAN),
-            "x ==> y": BinaryOp(Identifier("x"), Identifier("y"), op_type=BinaryOpType.IMPLIES),
-            "x ==> y ==> z": BinaryOp(BinaryOp(Identifier("x"), Identifier("y"), op_type=BinaryOpType.IMPLIES), Identifier("z"), op_type=BinaryOpType.IMPLIES),
-            "x <== y <== z": BinaryOp(Identifier("x"), BinaryOp(Identifier("y"), Identifier("z"), op_type=BinaryOpType.REV_IMPLIES), op_type=BinaryOpType.REV_IMPLIES),
-            "x |-> y": BinaryOp(Identifier("x"), Identifier("y"), op_type=BinaryOpType.MAPLET),
+            "{}": Enumeration([], op_type=CollectionOperator.SET),
+            "{ }": Enumeration([], op_type=CollectionOperator.SET),
+            "{| |}": Enumeration([], op_type=CollectionOperator.BAG),
+            "{||}": Enumeration([], op_type=CollectionOperator.BAG),
+            "[]": Enumeration([], op_type=CollectionOperator.SEQUENCE),
+            "[ ]": Enumeration([], op_type=CollectionOperator.SEQUENCE),
+            "x <-> y": RelationOp(Identifier("x"), Identifier("y"), op_type=RelationOperator.RELATION),
+            "x + y + z": BinaryOp(BinaryOp(Identifier("x"), Identifier("y"), op_type=BinaryOperator.ADD), Identifier("z"), op_type=BinaryOperator.ADD),
+            "x > y": BinaryOp(Identifier("x"), Identifier("y"), op_type=BinaryOperator.GREATER_THAN),
+            "x ==> y": BinaryOp(Identifier("x"), Identifier("y"), op_type=BinaryOperator.IMPLIES),
+            "x ==> y ==> z": BinaryOp(BinaryOp(Identifier("x"), Identifier("y"), op_type=BinaryOperator.IMPLIES), Identifier("z"), op_type=BinaryOperator.IMPLIES),
+            "x <== y <== z": BinaryOp(Identifier("x"), BinaryOp(Identifier("y"), Identifier("z"), op_type=BinaryOperator.REV_IMPLIES), op_type=BinaryOperator.REV_IMPLIES),
+            "x |-> y": BinaryOp(Identifier("x"), Identifier("y"), op_type=BinaryOperator.MAPLET),
             "{x | x in [1, 2, 3]}": Comprehension(
                 IdentList([]),
                 BinaryOp(
                     Identifier("x"),
-                    Enumeration([Int("1"), Int("2"), Int("3")], op_type=CollectionType.SEQUENCE),
-                    op_type=BinaryOpType.IN,
+                    Enumeration([Int("1"), Int("2"), Int("3")], op_type=CollectionOperator.SEQUENCE),
+                    op_type=BinaryOperator.IN,
                 ),
                 Identifier("x"),
-                op_type=CollectionType.SET,
+                op_type=CollectionOperator.SET,
             ),
             "{ x |-> y | x in [1, 2, 3] and y in [4, 5, 6] }": Comprehension(
                 IdentList([]),
@@ -56,23 +56,23 @@ manual_tests = dict(
                     [
                         BinaryOp(
                             Identifier("x"),
-                            Enumeration([Int("1"), Int("2"), Int("3")], op_type=CollectionType.SEQUENCE),
-                            op_type=BinaryOpType.IN,
+                            Enumeration([Int("1"), Int("2"), Int("3")], op_type=CollectionOperator.SEQUENCE),
+                            op_type=BinaryOperator.IN,
                         ),
                         BinaryOp(
                             Identifier("y"),
-                            Enumeration([Int("4"), Int("5"), Int("6")], op_type=CollectionType.SEQUENCE),
-                            op_type=BinaryOpType.IN,
+                            Enumeration([Int("4"), Int("5"), Int("6")], op_type=CollectionOperator.SEQUENCE),
+                            op_type=BinaryOperator.IN,
                         ),
                     ],
-                    op_type=ListBoolType.AND,
+                    op_type=ListOperator.AND,
                 ),
                 BinaryOp(
                     Identifier("x"),
                     Identifier("y"),
-                    op_type=BinaryOpType.MAPLET,
+                    op_type=BinaryOperator.MAPLET,
                 ),
-                op_type=CollectionType.RELATION,
+                op_type=CollectionOperator.RELATION,
             ),
             "{ x, y · x in [1, 2, 3] and y in [4, 5, 6] | x |-> y }": Comprehension(
                 IdentList([Identifier("x"), Identifier("y")]),
@@ -80,23 +80,23 @@ manual_tests = dict(
                     [
                         BinaryOp(
                             Identifier("x"),
-                            Enumeration([Int("1"), Int("2"), Int("3")], op_type=CollectionType.SEQUENCE),
-                            op_type=BinaryOpType.IN,
+                            Enumeration([Int("1"), Int("2"), Int("3")], op_type=CollectionOperator.SEQUENCE),
+                            op_type=BinaryOperator.IN,
                         ),
                         BinaryOp(
                             Identifier("y"),
-                            Enumeration([Int("4"), Int("5"), Int("6")], op_type=CollectionType.SEQUENCE),
-                            op_type=BinaryOpType.IN,
+                            Enumeration([Int("4"), Int("5"), Int("6")], op_type=CollectionOperator.SEQUENCE),
+                            op_type=BinaryOperator.IN,
                         ),
                     ],
-                    op_type=ListBoolType.AND,
+                    op_type=ListOperator.AND,
                 ),
                 BinaryOp(
                     Identifier("x"),
                     Identifier("y"),
-                    op_type=BinaryOpType.MAPLET,
+                    op_type=BinaryOperator.MAPLET,
                 ),
-                op_type=CollectionType.RELATION,
+                op_type=CollectionOperator.RELATION,
             ),
             """
 struct A:
@@ -137,10 +137,10 @@ def test_func(a: int, b: str) -> bool:
                         Return(
                             ListOp(
                                 [
-                                    BinaryOp(Identifier("a"), Int("0"), op_type=BinaryOpType.GREATER_THAN),
-                                    BinaryOp(Identifier("b"), String(""), op_type=BinaryOpType.NOT_EQUAL),
+                                    BinaryOp(Identifier("a"), Int("0"), op_type=BinaryOperator.GREATER_THAN),
+                                    BinaryOp(Identifier("b"), String(""), op_type=BinaryOperator.NOT_EQUAL),
                                 ],
-                                op_type=ListBoolType.AND,
+                                op_type=ListOperator.AND,
                             )
                         ),
                     ]
@@ -157,7 +157,7 @@ for i in [1, 2, 3]:
                 IdentList([Identifier("i")]),
                 Enumeration(
                     [Int("1"), Int("2"), Int("3")],
-                    op_type=CollectionType.SEQUENCE,
+                    op_type=CollectionOperator.SEQUENCE,
                 ),
                 Statements([FunctionCall(Identifier("print"), [Identifier("i")])]),
             ),
@@ -176,14 +176,14 @@ elif a < b:
 else:
     print("a and b are equal")
 """: If(
-                condition=BinaryOp(Identifier("a"), Identifier("b"), op_type=BinaryOpType.GREATER_THAN),
+                condition=BinaryOp(Identifier("a"), Identifier("b"), op_type=BinaryOperator.GREATER_THAN),
                 body=Statements(
                     [
                         FunctionCall(Identifier("print"), [String("a is greater")]),
                     ]
                 ),
                 else_body=Elif(
-                    condition=BinaryOp(Identifier("a"), Identifier("b"), op_type=BinaryOpType.LESS_THAN),
+                    condition=BinaryOp(Identifier("a"), Identifier("b"), op_type=BinaryOperator.LESS_THAN),
                     body=Statements(
                         [
                             FunctionCall(Identifier("print"), [String("b is greater")]),
