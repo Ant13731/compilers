@@ -251,8 +251,11 @@ OPERATOR_TOKEN_TABLE = {
     "|>>": TokenType.RANGE_SUBTRACTION,
     "↔": TokenType.RELATION,
     "<->": TokenType.RELATION,
+    "": TokenType.TOTAL_RELATION,
     "<<->": TokenType.TOTAL_RELATION,  # TODO unicode version
+    "": TokenType.SURJECTIVE_RELATION,
     "<->>": TokenType.SURJECTIVE_RELATION,  # TODO unicode version
+    "": TokenType.TOTAL_SURJECTIVE_RELATION,
     "<<->>": TokenType.TOTAL_SURJECTIVE_RELATION,  # TODO unicode version
     "⇸": TokenType.PARTIAL_FUNCTION,
     "+->": TokenType.PARTIAL_FUNCTION,

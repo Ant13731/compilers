@@ -24,7 +24,7 @@ from src.mod.ast_.type_analysis_types import (
     StructTypeDef,
     EnumTypeDef,
     CustomType,
-    FunctionTypeDef,
+    ProcedureTypeDef,
     type_union,
     TypeUnion,
     SimileTypeError,
@@ -673,7 +673,7 @@ class LambdaDef(ASTNode):
     def get_type(self) -> SimileType:
         if not self.ident_pattern.items:
             raise SimileTypeError("Lambda definition must have at least one identifier in the pattern")
-        return FunctionTypeDef(
+        return ProcedureTypeDef(
             arg_types=[item.get_type for item in self.ident_pattern.items],
             return_type=self.expression.get_type,
         )
@@ -695,24 +695,24 @@ class StructAccess(ASTNode):
 
 
 @dataclass
-class FunctionCall(ASTNode):
-    function_name: ASTNode
+class Call(ASTNode):
+    target: ASTNode
     args: list[ASTNode]
 
     @property
     def get_type(self) -> SimileType:
-        if not isinstance(self.function_name.get_type, FunctionTypeDef):
-            raise SimileTypeError(f"Function call target must be a function type, got {self.function_name.get_type}")
-        if len(self.args) != len(self.function_name.get_type.arg_types):
-            raise SimileTypeError(f"Function call argument count mismatch: {len(self.args)} != {len(self.function_name.get_type.arg_types)}")
+        if not isinstance(self.target.get_type, ProcedureTypeDef):
+            raise SimileTypeError(f"Object call target must be a function/procedure type, got {self.target.get_type}")
+        if len(self.args) != len(self.target.get_type.arg_types):
+            raise SimileTypeError(f"Object call argument count mismatch: {len(self.args)} != {len(self.target.get_type.arg_types)}")
 
-        return self.function_name.get_type.return_type
+        return self.target.get_type.return_type
 
 
 @dataclass
-class Indexing(ASTNode):
+class Image(ASTNode):
     target: ASTNode
-    index: ASTNode | None_  # | Slice
+    index: ASTNode  # | None_  # | Slice
 
     @property
     def get_type(self) -> SimileType:
@@ -862,18 +862,18 @@ class StructDef(ASTNode):
         return BaseSimileType.None_
 
 
+# @dataclass
+# class EnumDef(ASTNode):
+#     name: Identifier
+#     items: list[Identifier]
+
+#     @property
+#     def get_type(self) -> SimileType:
+#         return BaseSimileType.None_
+
+
 @dataclass
-class EnumDef(ASTNode):
-    name: Identifier
-    items: list[Identifier]
-
-    @property
-    def get_type(self) -> SimileType:
-        return BaseSimileType.None_
-
-
-@dataclass
-class FunctionDef(ASTNode):
+class ProcedureDef(ASTNode):
     name: Identifier
     args: list[TypedName]
     body: ASTNode | Statements
@@ -914,7 +914,7 @@ class Start(ASTNode):
 
 Literal = Int | Float | String | True_ | False_ | None_
 Predicate = BoolQuantifier | BinaryOp | UnaryOp | True_ | False_
-Primary = StructAccess | FunctionCall | Indexing | Literal | Enumeration | Comprehension | Identifier
+Primary = StructAccess | Call | Image | Literal | Enumeration | Comprehension | Identifier
 Expr = LambdaDef | Quantifier | Predicate | BinaryOp | UnaryOp | ListOp | Primary | Identifier
 SimpleStmt = Expr | Assignment | ControlFlowStmt | Import
-CompoundStmt = If | For | StructDef | EnumDef | FunctionDef
+CompoundStmt = If | For | StructDef | ProcedureDef

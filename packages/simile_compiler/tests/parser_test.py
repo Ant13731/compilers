@@ -126,7 +126,7 @@ enum B:
             """
 def test_func(a: int, b: str) -> bool:
     return a > 0 and b != ""
-""": FunctionDef(
+""": ProcedureDef(
                 Identifier("test_func"),
                 [
                     TypedName(Identifier("a"), Type_(Identifier("int"))),
@@ -159,14 +159,14 @@ for i in [1, 2, 3]:
                     [Int("1"), Int("2"), Int("3")],
                     op_type=CollectionOperator.SEQUENCE,
                 ),
-                Statements([FunctionCall(Identifier("print"), [Identifier("i")])]),
+                Statements([Call(Identifier("print"), [Identifier("i")])]),
             ),
             """
 while True:
     print("Hello")
 """: While(
                 condition=True_(),
-                body=Statements([FunctionCall(Identifier("print"), [String("Hello")])]),
+                body=Statements([Call(Identifier("print"), [String("Hello")])]),
             ),
             """
 if a > b:
@@ -179,20 +179,20 @@ else:
                 condition=BinaryOp(Identifier("a"), Identifier("b"), op_type=BinaryOperator.GREATER_THAN),
                 body=Statements(
                     [
-                        FunctionCall(Identifier("print"), [String("a is greater")]),
+                        Call(Identifier("print"), [String("a is greater")]),
                     ]
                 ),
                 else_body=Elif(
                     condition=BinaryOp(Identifier("a"), Identifier("b"), op_type=BinaryOperator.LESS_THAN),
                     body=Statements(
                         [
-                            FunctionCall(Identifier("print"), [String("b is greater")]),
+                            Call(Identifier("print"), [String("b is greater")]),
                         ]
                     ),
                     else_body=Else(
                         body=Statements(
                             [
-                                FunctionCall(Identifier("print"), [String("a and b are equal")]),
+                                Call(Identifier("print"), [String("a and b are equal")]),
                             ]
                         )
                     ),

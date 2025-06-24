@@ -142,15 +142,16 @@ typed_name: IDENTIFIER [COLON expr]
 //  - with_stmt for context managers? probably not
 //  - while_stmt?
 //  - match_stmt
-compound_stmt: if_stmt | for_stmt | while_stmt | struct_stmt | enum_stmt | func_stmt
+compound_stmt: if_stmt | for_stmt | while_stmt | struct_stmt | func_stmt //| enum_stmt
 if_stmt: IF predicate COLON block (elif_stmt | else_stmt)?
 elif_stmt: ELIF predicate COLON block (elif_stmt | else_stmt)?
 else_stmt: ELSE COLON block
 for_stmt: FOR ident_list IN expr COLON block
 while_stmt: WHILE predicate COLON block
 struct_stmt: STRUCT IDENTIFIER COLON NEWLINE INDENT ((typed_name (((COMMA NEWLINE?) | NEWLINE) typed_name)*) | PASS) DEDENT
-enum_stmt: ENUM IDENTIFIER COLON NEWLINE INDENT ((IDENTIFIER (((COMMA NEWLINE?) | NEWLINE) IDENTIFIER)*) | PASS) DEDENT
-func_stmt: DEF IDENTIFIER L_PAREN (typed_name (COMMA typed_name)*)? R_PAREN RIGHTARROW expr COLON block
+// enum should just be an assignment of a set literal with free identifiers
+// enum_stmt: ENUM IDENTIFIER COLON NEWLINE INDENT ((IDENTIFIER (((COMMA NEWLINE?) | NEWLINE) IDENTIFIER)*) | PASS) DEDENT
+procedure_stmt: DEF IDENTIFIER L_PAREN (typed_name (COMMA typed_name)*)? R_PAREN RIGHTARROW expr COLON block
 block: simple_stmt | NEWLINE INDENT statements DEDENT
 
 // Import statments - no aliasing for now

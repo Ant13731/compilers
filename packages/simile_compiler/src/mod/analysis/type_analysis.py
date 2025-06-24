@@ -5,7 +5,7 @@ import pathlib
 from mod.ast_.type_analysis_types import (
     SimileType,
     ModuleImports,
-    FunctionTypeDef,
+    ProcedureTypeDef,
     StructTypeDef,
     EnumTypeDef,
     SimileTypeError,
@@ -33,6 +33,46 @@ class Environment:
     def put(self, s: str, symbol: SimileType) -> None:
         self.table[s] = symbol
 
+    def put_nested_struct(self, assignment_names: list[str], symbol: SimileType) -> None:
+        """Put a symbol in the environment, allowing for nested struct access."""
+        if not assignment_names:
+            raise SimileTypeError("Cannot insert symbol into symbol table with an empty assignment name list")
+
+        prev_fields: dict[str, SimileType] = {}
+        for i, assignment_name in enumerate(assignment_names[:-1]):
+            if i == 0:
+                current_struct_val = self.get(assignment_name)
+                if current_struct_val is None:
+                    self.put(assignment_name, StructTypeDef(fields={}))
+                    prev_fields = self.table[assignment_name].fields
+                    continue
+                if not isinstance(current_struct_val, StructTypeDef):
+                    raise SimileTypeError(
+                        f"Cannot assign to struct field '{assignment_name}' because it is not a struct (current type: {current_struct_val}) (full expected subfields: {assignment_names})"
+                    )
+                prev_fields = current_struct_val.fields
+                continue
+
+            current_fields = prev_fields.get(assignment_name)
+            if current_fields is None:
+                prev_fields[assignment_name] = StructTypeDef(fields={})
+                prev_fields = prev_fields[assignment_name].fields
+                continue
+            if isinstance(current_fields, StructTypeDef):
+                prev_fields = current_fields.fields
+                continue
+            raise SimileTypeError(
+                f"Cannot assign to struct field '{assignment_name}' because it is not a struct (current type: {current_fields}) (full expected subfields: {assignment_names})"
+            )
+        assignment_name = assignment_names[-1]
+        current_fields = prev_fields.get(assignment_name)
+        if current_fields is None:
+            prev_fields[assignment_name] = symbol
+        if current_fields != symbol:
+            raise SimileTypeError(
+                f"Cannot assign to struct field '{assignment_name} (under {assignment_names})' because of conflicting types between existing {current_fields} and new {symbol} values"
+            )
+
     def get(self, s: str) -> SimileType | None:
         current_env: Environment | None = self
         while current_env is not None:
@@ -40,6 +80,67 @@ class Environment:
                 return current_env.table[s]
             current_env = current_env.previous
         return None
+
+
+def check_and_add_for_enum(name: str, value: ast_.Enumeration, current_env: Environment) -> tuple[bool, str]:
+    """Returns True if the enum was added, False if its name/builtup identifiers already exists. When False, a reason is provided"""
+    if name in current_env.table:
+        return False, f"Enum '{name}' is already defined in the current scope"
+
+    # Check if all items are identifiers
+    for item in value.items:
+        if not isinstance(item, ast_.Identifier):
+            return False, f"Enum '{name}' contains non-identifier items: {item} (expected all items to be identifiers)"
+        if item.name in current_env.table:
+            return False, f"Enum '{name}' contains item '{item.name}' which is already defined in the current scope"
+
+    # Add the enum to the environment
+    current_env.put(name, EnumTypeDef(members=set(item.name for item in value.items)))
+    return True, ""
+
+
+def populate_from_assignment(target: ast_.ASTNode, value: ast_.ASTNode, current_env: Environment) -> None:
+    match target:
+        case ast_.Identifier(name):
+            added_enum, reason = check_and_add_for_enum(name, value, current_env)
+            if not added_enum:
+                current_env.put(target.name, value.get_type)
+        case ast_.TypedName(typed_target, explicit_type):
+            if current_env.get(name) is not None and current_env.get(name) != explicit_type:
+                raise SimileTypeError(f"Type mismatch: cannot assign explicit type {explicit_type} to {current_env.get(name)} (type clashes with a previous definition)")
+            if value.get_type != explicit_type:
+                raise SimileTypeError(f"Type mismatch: cannot assign value of type {value.get_type} to explicit type {explicit_type}")
+
+            if isinstance(explicit_type, ast_.Identifier) and explicit_type.name == "enum":  # should look like ... : enum = ...
+                added_enum, reason = check_and_add_for_enum(name, value, current_env)
+                if not added_enum:
+                    raise SimileTypeError(f"Enum assignment failed: {reason}")
+            else:
+                current_env.put(name, explicit_type)
+
+        case ast_.StructAccess(struct, field):
+            assign_names = [field.name]
+            while isinstance(struct, ast_.StructAccess):
+                assign_names = [struct.field_name.name] + assign_names
+                struct = struct.struct
+            if not isinstance(struct, ast_.Identifier):
+                raise SimileTypeError(f"Invalid struct access for assignment (can only assign to identifiers): {struct}")
+
+            current_env.put_nested_struct(assign_names, value.get_type)
+        case ast_.TypedName(ast_.StructAccess(struct, field), explicit_type):
+            if value.get_type != explicit_type:
+                raise SimileTypeError(f"Type mismatch: cannot assign value of type {value.get_type} to explicit type {explicit_type}")
+
+            assign_names = [field.name]
+            while isinstance(struct, ast_.StructAccess):
+                assign_names = [struct.field_name.name] + assign_names
+                struct = struct.struct
+            if not isinstance(struct, ast_.Identifier):
+                raise SimileTypeError(f"Invalid struct access for assignment (can only assign to identifiers): {struct}")
+
+            current_env.put_nested_struct(assign_names, value.get_type)
+        case _:
+            raise SimileTypeError(f"Unsupported assignment target type: {type(target)} (expected Identifier or StructAccess or TypedName counterparts)")
 
 
 def populate_ast_with_types(ast: ast_.ASTNode) -> ast_.ASTNode:
@@ -66,11 +167,7 @@ def populate_ast_with_types(ast: ast_.ASTNode) -> ast_.ASTNode:
         # Now we only need to handle adding to the current environment
         match node:
             case ast_.Assignment(target, value):
-                if isinstance(target, ast_.Identifier):
-                    # If the target is an identifier, we can add it to the current environment
-                    current_env.put(target.name, value.get_type)
-                else:  # can only assign to variables for now
-                    raise SimileTypeError(f"Unsupported assignment target type: {type(target)} (expected Identifier)")
+                populate_from_assignment(target, value, current_env)
             case ast_.StructDef(name, items):
                 current_env.put(
                     name,
@@ -78,17 +175,10 @@ def populate_ast_with_types(ast: ast_.ASTNode) -> ast_.ASTNode:
                         fields=dict(map(lambda i: (i.name, i.get_type), items)),
                     ),
                 )
-            case ast_.EnumDef(name, items):
+            case ast_.ProcedureDef(name, args, body, return_type):
                 current_env.put(
                     name,
-                    EnumTypeDef(
-                        members=list(map(lambda n: n.name, items)),
-                    ),
-                )
-            case ast_.FunctionDef(name, args, body, return_type):
-                current_env.put(
-                    name,
-                    FunctionTypeDef(
+                    ProcedureTypeDef(
                         args=list(map(lambda n: n.get_type, args)),
                         return_type=return_type.get_type,
                     ),
@@ -128,3 +218,6 @@ def populate_ast_with_types(ast: ast_.ASTNode) -> ast_.ASTNode:
 
             case _:
                 return
+
+    populate_ast_with_types_aux(ast)
+    return ast

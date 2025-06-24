@@ -32,23 +32,46 @@ class CollectionType:
     collection_type: CollectionOperator
 
 
+# TODO:
+# - base types off of sets
+# - enums are sets of (free) identifiers
+#   EnumTypeName: enum := {a, b, c}
+# - use set theory for relations, functions, etc.
+#   - function call is just imaging with hilberts choice
+#       - a nondeterministic choice of the resulting image
+# - None should not be an object?
+
+# Try to stick with pairs and sets - set theory
+# function is a special kind of relation, so all relation operators
+# lookup hilberts choice
+# hiberts choice on a set is random but the same: epsilon(Relation(a)) = epsilon(Relation(a)) always, but different runs may be different (nondeterminism)
+# use functions in the set theory sense
+# call anything with side effects/imperative a procedure, not a function
+# At some point we may need to include nondeterminism - resolve nondeterminism as late as possible so a nondeterministic set can be implemented as an array, for example
+# enums defined as a set of identifiers ()
+
+
+# c = 5
+# x := {a,b,c}
+
+# can write TYPE S = {a,b,c} for new enum
+# or SET S = {a,b,c} for set assignment
+
+
 @dataclass
 class StructTypeDef:
+    # Internally a (many-to-one) (total on defined fields) function
     fields: dict[str, SimileType] = field(default_factory=dict)
 
 
 @dataclass
 class EnumTypeDef:
-    members: list[str] = field(default_factory=list)
+    # Internally a set of identifiers
+    members: set[str] = field(default_factory=set)
 
 
 @dataclass
-class CustomType:
-    name_of_custom_type: str  # Defer lookup in symbol table
-
-
-@dataclass
-class FunctionTypeDef:
+class ProcedureTypeDef:
     arg_types: list[SimileType] = field(default_factory=list)
     return_type: SimileType
 
@@ -73,6 +96,7 @@ class TypeUnion:
 
 @dataclass
 class ModuleImports:
+    # import these objects into the module namespace
     import_objects: dict[str, SimileType] = field(default_factory=dict)
 
 
@@ -86,4 +110,4 @@ class DeferToSymbolTable:
     operation_on_expected_type: Callable[[T], SimileType] | None = None
 
 
-SimileType = BaseSimileType | PairType | CollectionType | CustomType | StructTypeDef | EnumTypeDef | FunctionTypeDef | TypeUnion | DeferToSymbolTable
+SimileType = BaseSimileType | PairType | CollectionType | StructTypeDef | EnumTypeDef | ProcedureTypeDef | TypeUnion | DeferToSymbolTable

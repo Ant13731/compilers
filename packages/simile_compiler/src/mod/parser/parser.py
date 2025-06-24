@@ -128,15 +128,22 @@ class Parser:
         "control_flow_stmt": {TokenType.RETURN, TokenType.BREAK, TokenType.CONTINUE, TokenType.PASS},
         "assignment": {"struct_access"},
         "typed_name": {TokenType.IDENTIFIER},
-        "compound_stmt": {"if_stmt", "for_stmt", "while_stmt", "struct_stmt", "enum_stmt", "func_stmt"},
+        "compound_stmt": {
+            "if_stmt",
+            "for_stmt",
+            "while_stmt",
+            "struct_stmt",
+            # "enum_stmt",
+            "procedure_stmt",
+        },
         "if_stmt": {TokenType.IF},
         "elif_stmt": {TokenType.ELIF},
         "else_stmt": {TokenType.ELSE},
         "for_stmt": {TokenType.FOR},
         "while_stmt": {TokenType.WHILE},
         "struct_stmt": {TokenType.STRUCT},
-        "enum_stmt": {TokenType.ENUM},
-        "func_stmt": {TokenType.DEF},
+        # "enum_stmt": {TokenType.ENUM},
+        "procedure_stmt": {TokenType.DEF},
         "block": {"simple_stmt", TokenType.INDENT},
         "import_stmt": {TokenType.IMPORT, TokenType.FROM},
         "import_name": {TokenType.DOT, TokenType.IDENTIFIER},
@@ -212,11 +219,6 @@ class Parser:
             self.advance()  # TODO check this?
             left = tokens_and_types[t.type_](left, func())
         return left
-
-        # left = func()
-        # while self.match(token_to_match):
-        #     left = node_type(left, func())
-        # return left
 
     # Parsing based (loosely) on the grammar in grammar.lark
     @store_derivation
@@ -638,12 +640,12 @@ class Parser:
                         while self.match(TokenType.COMMA):
                             args.append(self.expr())
                     self.consume(TokenType.R_PAREN, "Expected closing parenthesis")
-                    inversable_atom = ast_.FunctionCall(inversable_atom, args)
+                    inversable_atom = ast_.Call(inversable_atom, args)
                 case TokenType.L_BRACKET:
                     self.advance()
                     expr = self.expr()
                     self.consume(TokenType.R_BRACKET, "Expected closing bracket")
-                    inversable_atom = ast_.Indexing(inversable_atom, expr)
+                    inversable_atom = ast_.Image(inversable_atom, expr)
                 case _:
                     self.error("Unreachable state")
         return inversable_atom
@@ -677,12 +679,12 @@ class Parser:
             case TokenType.L_BRACE_BAR:
                 return self.bag()
             case TokenType.POWERSET:
-                self.consume(TokenType.L_PAREN, "Powerset requires function call notation")
+                self.consume(TokenType.L_PAREN, "Powerset requires object call notation")
                 powerset = self.expr()
                 self.consume(TokenType.R_PAREN, "Need to close parenthesis")
                 return ast_.Powerset(powerset)
             case TokenType.NONEMPTY_POWERSET:
-                self.consume(TokenType.L_PAREN, "Nonempty Powerset requires function call notation")
+                self.consume(TokenType.L_PAREN, "Nonempty Powerset requires object call notation")
                 powerset = self.expr()
                 self.consume(TokenType.R_PAREN, "Need to close parenthesis")
                 return ast_.NonemptyPowerset(powerset)
@@ -854,10 +856,10 @@ class Parser:
                 return self.while_stmt()
             case TokenType.STRUCT:
                 return self.struct_stmt()
-            case TokenType.ENUM:
-                return self.enum_stmt()
+            # case TokenType.ENUM:
+            #     return self.enum_stmt()
             case TokenType.DEF:
-                return self.func_stmt()
+                return self.procedure_stmt()
             case _:
                 self.error("Invalid start to compound statement")
 
@@ -933,59 +935,59 @@ class Parser:
         self.consume(TokenType.DEDENT, "Expected dedent after STRUCT definition")
         return ast_.StructDef(name, items)
 
+    # @store_derivation
+    # def enum_stmt(self) -> ast_.EnumDef:
+    #     t = self.advance()
+    #     if t.type_ != TokenType.IDENTIFIER:
+    #         self.error("Expected identifier after ENUM keyword")
+    #     name = ast_.Identifier(t.value)
+
+    #     self.consume(TokenType.COLON, "Expected colon after ENUM name")
+    #     self.consume(TokenType.NEWLINE, "Expected newline after ENUM definition")
+    #     self.consume(TokenType.INDENT, "Expected indentation after ENUM definition")
+    #     if self.match(TokenType.PASS):
+    #         self.advance()
+    #         items = []
+    #     else:
+    #         t = self.advance()
+    #         if t.type_ != TokenType.IDENTIFIER:
+    #             self.error("Expected identifier after ENUM keyword")
+    #         items = [ast_.Identifier(t.value)]
+    #         while self.peek().type_ == TokenType.COMMA or self.peek().type_ == TokenType.NEWLINE:
+    #             if self.peek(1).type_ == TokenType.DEDENT:
+    #                 self.consume(TokenType.NEWLINE, "Expected newline after last ENUM item")
+    #                 break
+    #             if self.match(TokenType.COMMA):
+    #                 self.match(TokenType.NEWLINE)
+    #             else:
+    #                 self.consume(TokenType.NEWLINE, "Expected newline or comma after ENUM item")
+
+    #             t = self.peek()
+    #             self.consume(TokenType.IDENTIFIER, "Expected identifier after ENUM separator (comma/newline)")
+    #             items.append(ast_.Identifier(t.value))
+
+    #     self.consume(TokenType.DEDENT, "Expected dedent after ENUM definition")
+    #     return ast_.EnumDef(name, items)
+
     @store_derivation
-    def enum_stmt(self) -> ast_.EnumDef:
-        t = self.advance()
-        if t.type_ != TokenType.IDENTIFIER:
-            self.error("Expected identifier after ENUM keyword")
-        name = ast_.Identifier(t.value)
-
-        self.consume(TokenType.COLON, "Expected colon after ENUM name")
-        self.consume(TokenType.NEWLINE, "Expected newline after ENUM definition")
-        self.consume(TokenType.INDENT, "Expected indentation after ENUM definition")
-        if self.match(TokenType.PASS):
-            self.advance()
-            items = []
-        else:
-            t = self.advance()
-            if t.type_ != TokenType.IDENTIFIER:
-                self.error("Expected identifier after ENUM keyword")
-            items = [ast_.Identifier(t.value)]
-            while self.peek().type_ == TokenType.COMMA or self.peek().type_ == TokenType.NEWLINE:
-                if self.peek(1).type_ == TokenType.DEDENT:
-                    self.consume(TokenType.NEWLINE, "Expected newline after last ENUM item")
-                    break
-                if self.match(TokenType.COMMA):
-                    self.match(TokenType.NEWLINE)
-                else:
-                    self.consume(TokenType.NEWLINE, "Expected newline or comma after ENUM item")
-
-                t = self.peek()
-                self.consume(TokenType.IDENTIFIER, "Expected identifier after ENUM separator (comma/newline)")
-                items.append(ast_.Identifier(t.value))
-
-        self.consume(TokenType.DEDENT, "Expected dedent after ENUM definition")
-        return ast_.EnumDef(name, items)
-
-    @store_derivation
-    def func_stmt(self) -> ast_.FunctionDef:
+    def procedure_stmt(self) -> ast_.ProcedureDef:
         t = self.advance()
         if t.type_ != TokenType.IDENTIFIER:
             self.error("Expected identifier after DEF keyword")
         name = ast_.Identifier(t.value)
 
-        self.consume(TokenType.L_PAREN, "Expected opening parenthesis for function parameters")
+        self.consume(TokenType.L_PAREN, "Expected opening parenthesis for procedure parameters")
         params = []
         if self.peek().type_ != TokenType.R_PAREN:
             params.append(self.typed_name())
             while self.match(TokenType.COMMA):
                 params.append(self.typed_name())
-        self.consume(TokenType.R_PAREN, "Expected closing parenthesis for function parameters")
-        self.consume(TokenType.RIGHTARROW, "Expected right arrow after function parameters")
+        self.consume(TokenType.R_PAREN, "Expected closing parenthesis for procedure parameters")
+        self.consume(TokenType.RIGHTARROW, "Expected right arrow after procedure parameters")
         return_type = ast_.Type_(self.expr())
-        self.consume(TokenType.COLON, "Expected colon after function type")
+        self.consume(TokenType.COLON, "Expected colon after procedure type")
         block = self.block()
-        return ast_.FunctionDef(name, params, block, return_type)
+        return ast_.ProcedureDef(name, params, block, return_type)
 
     @store_derivation
     def typed_name(self) -> ast_.TypedName:
