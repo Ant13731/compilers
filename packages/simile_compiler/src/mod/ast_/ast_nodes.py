@@ -679,8 +679,16 @@ class LambdaDef(ASTNode):
 
     @property
     def get_type(self) -> SimileType:
-        # TODO provide more details for identifier lists?
-        return self.expression.get_type
+        arg_types = {}
+        for arg in self.ident_pattern.items:
+            if not isinstance(arg, Identifier):
+                raise SimileTypeError(f"Invalid lambda argument name (must be an identifier): {arg}")
+            arg_types[arg.name] = arg.get_type
+
+        return ProcedureTypeDef(
+            arg_types=arg_types,
+            return_type=self.expression.get_type,
+        )
 
 
 @dataclass
@@ -705,12 +713,32 @@ class Call(ASTNode):
 
     @property
     def get_type(self) -> SimileType:
-        if not isinstance(self.target.get_type, ProcedureTypeDef):
-            raise SimileTypeError(f"Object call target must be a function/procedure type, got {self.target.get_type}")
-        if len(self.args) != len(self.target.get_type.arg_types):
-            raise SimileTypeError(f"Object call argument count mismatch: {len(self.args)} != {len(self.target.get_type.arg_types)}")
 
-        return self.target.get_type.return_type
+        match self.target.get_type:
+            case ProcedureTypeDef(arg_types, return_type):
+                if len(self.args) != len(arg_types):
+                    raise SimileTypeError(f"Argument count mismatch: expected {len(arg_types)}, got {len(self.args)}")
+                for i, arg in enumerate(self.args):
+                    if arg.get_type != list(arg_types.values())[i]:
+                        raise SimileTypeError(f"Argument type mismatch at position {i}: expected {list(arg_types.values())[i]}, got {arg.get_type}")
+                return return_type
+            case StructTypeDef(arg_types):
+                if len(self.args) != len(arg_types):
+                    raise SimileTypeError(f"Argument count mismatch: expected {len(arg_types)}, got {len(self.args)}")
+                for i, arg in enumerate(self.args):
+                    if arg.get_type != list(arg_types.values())[i]:
+                        raise SimileTypeError(f"Argument type mismatch at position {i}: expected {list(arg_types.values())[i]}, got {arg.get_type}")
+                return StructTypeDef(arg_types)
+            case CollectionType(element_type, collection_type):
+                if collection_type == CollectionOperator.SET:
+                    raise SimileTypeError(f"Cannot call a set type: {self.target.get_type} (must be relation, bag, or sequence collection type)")
+                if not isinstance(element_type, PairType):
+                    raise SimileTypeError(
+                        f"Cannot call a collection type that is not a relation: {self.target.get_type} (element type: {element_type}) (must be relation, bag, or sequence collection type)"
+                    )
+                return element_type.right
+
+        raise SimileTypeError(f"Invalid call target type: {self.target.get_type} (must be a procedure, struct, or relation type)")
 
 
 @dataclass
@@ -759,11 +787,21 @@ class TypedName(ASTNode):
 
     @property
     def get_type(self) -> SimileType:
-        return DeferToSymbolTable(
-            self.name.get_type,
-            self.type_.get_type if self.type_ else None,
-            lambda expected_type: expected_type if expected_type else BaseSimileType.None_,
-        )
+        expected_type = self.name.get_type
+
+        if isinstance(expected_type, DeferToSymbolTable):
+            return expected_type
+
+        if expected_type != self.type_.get_type:
+            raise SimileTypeError(f"Type mismatch for typed name: expected {expected_type}, got {self.type_.get_type}")
+
+        return expected_type
+
+        # return DeferToSymbolTable(
+        #     self.name.get_type,
+        #     self.type_.get_type if self.type_ else None,
+        #     lambda expected_type: expected_type if expected_type else BaseSimileType.None_,
+        # )
 
 
 @dataclass

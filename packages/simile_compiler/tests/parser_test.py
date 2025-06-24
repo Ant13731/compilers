@@ -112,16 +112,16 @@ struct A:
                     TypedName(Identifier("c"), Type_(Identifier("float"))),
                 ],
             ),
-            """
-enum B:
-    A, B, C
-""": EnumDef(
+            f"B := {{A,B,C}}": Assignment(
                 Identifier("B"),
-                [
-                    Identifier("A"),
-                    Identifier("B"),
-                    Identifier("C"),
-                ],
+                Enumeration(
+                    [
+                        Identifier("A"),
+                        Identifier("B"),
+                        Identifier("C"),
+                    ],
+                    op_type=CollectionOperator.SET,
+                ),
             ),
             """
 def test_func(a: int, b: str) -> bool:
@@ -147,9 +147,9 @@ def test_func(a: int, b: str) -> bool:
                 ),
                 Type_(Identifier("bool")),
             ),
-            "import test_import": Import([Identifier("test_import")], None_()),
-            "from test_import import *": Import([Identifier("test_import")], ImportAll()),
-            "from test_import import test": Import([Identifier("test_import")], IdentList([Identifier("test")])),
+            'import "test_import"': Import("test_import", None_()),
+            'from "test_import" import *': Import("test_import", ImportAll()),
+            'from "test_import" import test': Import("test_import", IdentList([Identifier("test")])),
             """
 for i in [1, 2, 3]:
     print(i)

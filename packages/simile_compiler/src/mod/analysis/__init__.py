@@ -3,4 +3,5 @@ from src.mod.analysis.type_analysis import (
     SymbolInfo,
     Environment,
     populate_ast_with_types,
+    STARTING_ENVIRONMENT,
 )

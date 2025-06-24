@@ -152,18 +152,24 @@ def populate_from_assignment(target: ast_.ASTNode, value: ast_.ASTNode, current_
 
 T = TypeVar("T", bound=ast_.ASTNode)
 
+STARTING_ENVIRONMENT: Environment = Environment(
+    previous=None,
+    table={
+        "int": ast_.BaseSimileType.Int,
+        "str": ast_.BaseSimileType.String,
+        "float": ast_.BaseSimileType.Float,
+        "bool": ast_.BaseSimileType.Bool,
+        "none": ast_.BaseSimileType.None_,
+        "ℤ": ast_.BaseSimileType.Int,
+        "ℕ": ast_.BaseSimileType.Nat,
+        "ℕ₁": ast_.BaseSimileType.PosInt,
+    },
+)
+
 
 def populate_ast_with_types(ast: T) -> T:
     """Populate the AST with types for static analysis."""
-    current_env: Environment | None = Environment(
-        previous=None,
-        table={
-            # "enum": BaseSimileType.None_,  # Special case for enum type
-            "ℤ": BaseSimileType.Int,
-            "ℕ": BaseSimileType.Nat,
-            "ℕ₁": BaseSimileType.PosInt,
-        },
-    )
+    current_env: Environment | None = STARTING_ENVIRONMENT
 
     def populate_ast_with_types_aux(node: T) -> None:
         nonlocal current_env
@@ -191,7 +197,7 @@ def populate_ast_with_types(ast: T) -> T:
                 for item in items:
                     if not isinstance(item.name, ast_.Identifier):
                         raise SimileTypeError(f"Invalid struct field name (must be an identifier): {item.name}")
-                    fields[item.name.name] = item.get_type
+                    fields[item.name.name] = item.type_.get_type
 
                 current_env.put(
                     name,
@@ -260,22 +266,22 @@ def populate_ast_with_types(ast: T) -> T:
     return ast
 
 
-def test_ast_populate():
-    ast = ast_.Start(
-        body=ast_.Statements(
-            items=[
-                ast_.Assignment(
-                    target=ast_.Identifier("x"),
-                    value=ast_.Int("42"),
-                ),
-                ast_.Identifier("x"),
-            ]
-        )
-    )
-    """Test function to populate the AST with types for static analysis."""
-    ast = populate_ast_with_types(ast)
-    print(ast)
-    print(ast.pretty_print())
+# def test_ast_populate():
+#     ast = ast_.Start(
+#         body=ast_.Statements(
+#             items=[
+#                 ast_.Assignment(
+#                     target=ast_.Identifier("x"),
+#                     value=ast_.Int("42"),
+#                 ),
+#                 ast_.Identifier("x"),
+#             ]
+#         )
+#     )
+#     """Test function to populate the AST with types for static analysis."""
+#     ast = populate_ast_with_types(ast)
+#     print(ast)
+#     print(ast.pretty_print())
 
 
-test_ast_populate()
+# test_ast_populate()

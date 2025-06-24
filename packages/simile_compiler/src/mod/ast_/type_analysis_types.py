@@ -96,23 +96,28 @@ def type_union(*types: SimileType) -> SimileType:
 
 @dataclass
 class TypeUnion:
-    types: set[SimileType] = field(default_factory=set)
+    types: set[SimileType]
 
 
 @dataclass
 class ModuleImports:
     # import these objects into the module namespace
-    import_objects: dict[str, SimileType] = field(default_factory=dict)
+    import_objects: dict[str, SimileType]
+
+
+# @dataclass
+# class TypeOf:
+#     type_: SimileType
 
 
 T = TypeVar("T", bound="SimileType")
 
 
 @dataclass
-class DeferToSymbolTable(Generic[T]):
+class DeferToSymbolTable:
     lookup_type: SimileType | str
-    expected_type: T | None = None
-    operation_on_expected_type: Callable[[T], SimileType] | None = None
+    # expected_type: T | None = None
+    # operation_on_expected_type: Callable[[T], SimileType] | None = None
 
 
-SimileType = BaseSimileType | PairType | CollectionType | StructTypeDef | EnumTypeDef | ProcedureTypeDef | TypeUnion | ModuleImports | DeferToSymbolTable
+SimileType = BaseSimileType | PairType | CollectionType | StructTypeDef | EnumTypeDef | ProcedureTypeDef | TypeUnion | ModuleImports | DeferToSymbolTable  # | TypeOf

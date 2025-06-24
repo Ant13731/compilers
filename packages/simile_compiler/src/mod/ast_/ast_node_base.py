@@ -139,14 +139,15 @@ class Identifier(ASTNode):
             return False
         return self.name == other.name
 
+    def __post_init__(self) -> None:
+        self.processed_type: SimileType | None = None
+
     @property
     def free(self) -> set[Identifier]:
         return {self}
 
     @property
     def get_type(self) -> SimileType:
-        return DeferToSymbolTable(
-            lookup_type=self.name,
-            expected_type=None,
-            operation_on_expected_type=None,
-        )
+        if self.processed_type:
+            return self.processed_type
+        return DeferToSymbolTable(lookup_type=self.name)
