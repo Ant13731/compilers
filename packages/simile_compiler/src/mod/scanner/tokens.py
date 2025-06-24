@@ -156,6 +156,9 @@ class TokenType(Enum):
     POSITIVE_INTEGERS = auto()
     INTEGERS = auto()
 
+    def __repr__(self) -> str:
+        return f"TokenType.{self.name}"
+
 
 OPERATOR_TOKEN_TABLE = {
     ":=": TokenType.ASSIGN,

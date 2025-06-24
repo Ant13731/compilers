@@ -28,7 +28,7 @@ class TestMatchingPhase(MatchingPhase):
 
 class SetsToComprehensionPhase(MatchingPhase):
     rules: ClassVar[list[RewriteRule]] = [
-        RewriteRule(),
+        # RewriteRule(),
     ]
 
     @classmethod

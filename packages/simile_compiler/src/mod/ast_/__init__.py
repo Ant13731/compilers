@@ -7,7 +7,7 @@ from src.mod.ast_.dataclass_helpers import (
     dataclass_children,
     is_dataclass_leaf,
 )
-from mod.ast_.ast_node_operators import (
+from src.mod.ast_.ast_node_operators import (
     Operators,
     BinaryOperator,
     RelationOperator,
@@ -167,7 +167,6 @@ from src.mod.ast_.type_analysis_types import (
     BaseSimileType,
     PairType,
     CollectionType,
-    CustomType,
     StructTypeDef,
     EnumTypeDef,
     ProcedureTypeDef,

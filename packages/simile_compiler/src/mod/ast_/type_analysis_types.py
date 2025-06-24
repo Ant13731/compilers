@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Callable, TypeVar
+from typing import Callable, TypeVar, Generic
 
 from src.mod.ast_.ast_node_operators import CollectionOperator
 
@@ -13,11 +13,16 @@ class SimileTypeError(Exception):
 
 
 class BaseSimileType(Enum):
+    PosInt = auto()
+    Nat = auto()
     Int = auto()
     Float = auto()
     String = auto()
     Bool = auto()
     None_ = auto()
+
+    def __repr__(self) -> str:
+        return f"SimileType.{self.name}"
 
 
 @dataclass
@@ -61,23 +66,23 @@ class CollectionType:
 @dataclass
 class StructTypeDef:
     # Internally a (many-to-one) (total on defined fields) function
-    fields: dict[str, SimileType] = field(default_factory=dict)
+    fields: dict[str, SimileType]
 
 
 @dataclass
 class EnumTypeDef:
     # Internally a set of identifiers
-    members: set[str] = field(default_factory=set)
+    members: set[str]
 
 
 @dataclass
 class ProcedureTypeDef:
-    arg_types: list[SimileType] = field(default_factory=list)
+    arg_types: dict[str, SimileType]
     return_type: SimileType
 
 
 def type_union(*types: SimileType) -> SimileType:
-    """Create a TypeUnion from multiple SimileTypes."""
+    """Create a single type or TypeUnion from multiple SimileTypes."""
     types_set = set()
     for t in types:
         if isinstance(t, TypeUnion):
@@ -100,14 +105,14 @@ class ModuleImports:
     import_objects: dict[str, SimileType] = field(default_factory=dict)
 
 
-T = TypeVar("T", bound=SimileType)
+T = TypeVar("T", bound="SimileType")
 
 
 @dataclass
-class DeferToSymbolTable:
+class DeferToSymbolTable(Generic[T]):
     lookup_type: SimileType | str
     expected_type: T | None = None
     operation_on_expected_type: Callable[[T], SimileType] | None = None
 
 
-SimileType = BaseSimileType | PairType | CollectionType | StructTypeDef | EnumTypeDef | ProcedureTypeDef | TypeUnion | DeferToSymbolTable
+SimileType = BaseSimileType | PairType | CollectionType | StructTypeDef | EnumTypeDef | ProcedureTypeDef | TypeUnion | ModuleImports | DeferToSymbolTable

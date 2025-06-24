@@ -11,7 +11,7 @@ from src.mod.ast_.ast_nodes import (
     Enumeration,
     Comprehension,
 )
-from mod.ast_.ast_node_operators import (
+from src.mod.ast_.ast_node_operators import (
     BinaryOperator,
     RelationOperator,
     ListOperator,

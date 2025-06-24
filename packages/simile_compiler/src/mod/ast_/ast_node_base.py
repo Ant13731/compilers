@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass, fields
 from typing import Generator, Any, TypeVar
 
-from mod.ast_.ast_node_operators import Operators
+from src.mod.ast_.ast_node_operators import Operators
 from src.mod.ast_.dataclass_helpers import dataclass_traverse
 from src.mod.ast_.type_analysis_types import SimileType, DeferToSymbolTable
 
