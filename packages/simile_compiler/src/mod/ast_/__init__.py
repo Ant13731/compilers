@@ -166,7 +166,7 @@ from src.mod.ast_.type_analysis_types import (
     SimileTypeError,
     BaseSimileType,
     PairType,
-    CollectionType,
+    SetType,
     StructTypeDef,
     EnumTypeDef,
     ProcedureTypeDef,

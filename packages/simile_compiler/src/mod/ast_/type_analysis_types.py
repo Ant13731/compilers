@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Callable, TypeVar, Generic
+from typing import Callable, TypeVar, Generic, TypeGuard, Literal
 
 from src.mod.ast_.ast_node_operators import CollectionOperator
 
@@ -25,16 +25,36 @@ class BaseSimileType(Enum):
         return f"SimileType.{self.name}"
 
 
-@dataclass
-class PairType:
-    left: SimileType
-    right: SimileType
+L = TypeVar("L", bound="SimileType")
+R = TypeVar("R", bound="SimileType")
+T = TypeVar("T", bound="SimileType")
 
 
 @dataclass
-class CollectionType:
-    element_type: SimileType
-    collection_type: CollectionOperator
+class PairType(Generic[L, R]):
+    left: L
+    right: R
+
+
+@dataclass
+class SetType(Generic[T]):
+    element_type: T
+
+    @staticmethod
+    def is_set(self: SetType) -> bool:
+        return not isinstance(self.element_type, PairType)
+
+    @staticmethod
+    def is_relation(self: SetType) -> TypeGuard[SetType[PairType]]:
+        return isinstance(self.element_type, PairType)
+
+    @staticmethod
+    def is_sequence(self: SetType) -> TypeGuard[SetType[PairType[Literal[BaseSimileType.Int], SimileType]]]:
+        return SetType.is_relation(self) and self.element_type.left == BaseSimileType.Int
+
+    @staticmethod
+    def is_bag(self: SetType) -> TypeGuard[SetType[PairType[SimileType, Literal[BaseSimileType.Int]]]]:
+        return SetType.is_relation(self) and self.element_type.right == BaseSimileType.Int
 
 
 # TODO:
@@ -110,14 +130,9 @@ class ModuleImports:
 #     type_: SimileType
 
 
-T = TypeVar("T", bound="SimileType")
-
-
 @dataclass
 class DeferToSymbolTable:
-    lookup_type: SimileType | str
-    # expected_type: T | None = None
-    # operation_on_expected_type: Callable[[T], SimileType] | None = None
+    lookup_type: str
 
 
-SimileType = BaseSimileType | PairType | CollectionType | StructTypeDef | EnumTypeDef | ProcedureTypeDef | TypeUnion | ModuleImports | DeferToSymbolTable  # | TypeOf
+SimileType = BaseSimileType | PairType | StructTypeDef | EnumTypeDef | ProcedureTypeDef | TypeUnion | ModuleImports | DeferToSymbolTable | SetType  # | TypeOf

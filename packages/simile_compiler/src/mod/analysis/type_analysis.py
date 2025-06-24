@@ -83,6 +83,15 @@ class Environment:
             current_env = current_env.previous
         return None
 
+    def normalize_deferred_types(self) -> None:
+        """Normalize deferred types in the current environment."""
+        for name, symbol in self.table.items():
+            if isinstance(symbol, ast_.DeferToSymbolTable):
+                deferred_type = self.get(symbol.lookup_type)
+                if deferred_type is None:
+                    raise SimileTypeError(f"Failed to find symbol for {symbol.lookup_type} when normalizing deferred type {symbol}")
+                self.table[name] = deferred_type
+
 
 def check_and_add_for_enum(name: str, value: ast_.ASTNode, current_env: Environment) -> tuple[bool, str]:
     """Returns True if the enum was added, False if its name/builtup identifiers already exists. When False, a reason is provided"""
@@ -173,6 +182,9 @@ def populate_ast_with_types(ast: T) -> T:
 
     def populate_ast_with_types_aux(node: T) -> None:
         nonlocal current_env
+        if current_env is not None:
+            current_env.normalize_deferred_types()
+
         # Base case to handle environment nesting
         if isinstance(node, ast_.Statements):
             current_env = Environment(previous=current_env)
@@ -201,9 +213,7 @@ def populate_ast_with_types(ast: T) -> T:
 
                 current_env.put(
                     name,
-                    StructTypeDef(
-                        fields=fields,
-                    ),
+                    StructTypeDef(fields=fields),
                 )
             case ast_.ProcedureDef(ast_.Identifier(name), args, body, return_type):
                 arg_types = {}

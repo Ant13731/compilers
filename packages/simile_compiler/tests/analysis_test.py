@@ -54,6 +54,40 @@ TEST_ASTS = [
             ),
         ],
     ),
+    ast_.Statements(
+        [
+            ast_.StructDef(
+                ast_.Identifier("TestStruct"),
+                [
+                    ast_.TypedName(ast_.Identifier("a"), ast_.Type_(ast_.Identifier("int"))),
+                    ast_.TypedName(ast_.Identifier("b"), ast_.Type_(ast_.Identifier("str"))),
+                ],
+            ),
+            ast_.StructDef(
+                ast_.Identifier("TestStructTwo"),
+                [
+                    ast_.TypedName(ast_.Identifier("c"), ast_.Type_(ast_.Identifier("TestStruct"))),
+                    ast_.TypedName(ast_.Identifier("d"), ast_.Type_(ast_.Identifier("str"))),
+                ],
+            ),
+            ast_.Assignment(
+                ast_.Identifier("test_struct"),
+                ast_.Call(
+                    ast_.Identifier("TestStructTwo"),
+                    [
+                        ast_.Call(
+                            ast_.Identifier("TestStruct"),
+                            [
+                                ast_.Int("42"),
+                                ast_.String("hello"),
+                            ],
+                        ),
+                        ast_.String("hello"),
+                    ],
+                ),
+            ),
+        ],
+    ),
 ]
 
 TEST_AST_TYPES = list(
@@ -66,6 +100,11 @@ TEST_AST_TYPES = list(
                 "TestStruct": ast_.StructTypeDef({"a": ast_.BaseSimileType.Int, "b": ast_.BaseSimileType.String}),
                 "test_struct": ast_.DeferToSymbolTable(lookup_type="TestStruct"),
             },
+            {
+                "TestStruct": ast_.StructTypeDef({"a": ast_.BaseSimileType.Int, "b": ast_.BaseSimileType.String}),
+                "TestStructTwo": ast_.StructTypeDef({"c": ast_.DeferToSymbolTable("TestStruct"), "d": ast_.BaseSimileType.String}),
+                "test_struct": ast_.DeferToSymbolTable(lookup_type="TestStructTwo"),
+            },
         ],
     )
 )
@@ -75,6 +114,23 @@ for ast_node, ast_type in zip(TEST_ASTS, TEST_AST_TYPES):
     typed_ast_node = deepcopy(ast_node)
     typed_ast_node.env = ast_type
     TEST_ASTS_WITH_TYPES.append((ast_node, typed_ast_node))
+
+
+def test_type_analysis(ast_node: ast_.Statements, typed_ast_node: ast_.Statements):
+
+    analyzed_ast = analysis.populate_ast_with_types(ast_node)
+    if analyzed_ast == typed_ast_node:
+        print("ASTs match!")
+        return
+
+    print("Expected:")
+    print(typed_ast_node.env)
+    print("Actual:")
+    print(analyzed_ast.env)
+
+
+for ast_node, typed_ast_node in TEST_ASTS_WITH_TYPES[-1:]:
+    test_type_analysis(ast_node, typed_ast_node)
 
 
 class TestAnalysis:

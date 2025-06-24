@@ -20,7 +20,7 @@ from src.mod.ast_.type_analysis_types import (
     SimileType,
     BaseSimileType,
     PairType,
-    CollectionType,
+    SetType,
     StructTypeDef,
     EnumTypeDef,
     ProcedureTypeDef,
@@ -98,9 +98,11 @@ class IdentList(ASTNode):
 
     @property
     def get_type(self) -> SimileType:
-        return CollectionType(
-            element_type=type_union(*map(lambda x: x.get_type, self.items)),
-            collection_type=CollectionOperator.SEQUENCE,
+        return SetType(
+            element_type=PairType(
+                left=BaseSimileType.Int,
+                right=type_union(*map(lambda x: x.get_type, self.items)),
+            ),
         )
 
 
@@ -149,21 +151,25 @@ class BinaryOp(ASTNode):
                         return BaseSimileType.Int
                     case BaseSimileType.String:
                         return BaseSimileType.String
-                    case _ if union_type == CollectionType:
-                        assert isinstance(l_type, CollectionType) and isinstance(
-                            r_type, CollectionType
+                    case _ if union_type == SetType:
+                        assert isinstance(l_type, SetType) and isinstance(
+                            r_type, SetType
                         ), "Both sides must be collections for this operation (checked earlier in BinaryOp.get_type)"
 
                         if self.op_type == BinaryOperator.ADD:
-                            if l_type.collection_type == CollectionOperator.SEQUENCE and r_type.collection_type == CollectionOperator.SEQUENCE:
-                                return CollectionType(
-                                    element_type=type_union(l_type.element_type, r_type.element_type),
-                                    collection_type=l_type.collection_type,
+                            if SetType.is_sequence(l_type) and SetType.is_sequence(r_type):
+                                return SetType(
+                                    element_type=PairType(
+                                        BaseSimileType.Int,
+                                        type_union(l_type.element_type.right, r_type.element_type.right),
+                                    ),
                                 )
-                        if l_type.collection_type == CollectionOperator.BAG and r_type.collection_type == CollectionOperator.BAG:
-                            return CollectionType(
-                                element_type=type_union(l_type.element_type, r_type.element_type),
-                                collection_type=l_type.collection_type,
+                        if SetType.is_bag(l_type) and SetType.is_bag(r_type):
+                            return SetType(
+                                element_type=PairType(
+                                    type_union(l_type.element_type.left, r_type.element_type.left),
+                                    BaseSimileType.Int,
+                                ),
                             )
                     case _ if union_type == TypeUnion({BaseSimileType.Int, BaseSimileType.Float}):
                         return BaseSimileType.Float
@@ -188,24 +194,48 @@ class BinaryOp(ASTNode):
             case BinaryOperator.EQUAL | BinaryOperator.NOT_EQUAL | BinaryOperator.IS | BinaryOperator.IS_NOT:
                 return BaseSimileType.Bool
             case BinaryOperator.IN | BinaryOperator.NOT_IN:
-                if isinstance(r_type, CollectionType):
+                if isinstance(r_type, SetType):
                     return BaseSimileType.Bool
                 raise SimileTypeError(f"Invalid types for IN operation: {l_type}, {r_type}")
             case BinaryOperator.UNION | BinaryOperator.INTERSECTION | BinaryOperator.DIFFERENCE:
-                if not isinstance(l_type, CollectionType):
-                    raise SimileTypeError(f"Invalid types for set operation (left operand is not a collection): {l_type}, {r_type}")
-                if not isinstance(r_type, CollectionType):
-                    raise SimileTypeError(f"Invalid types for set operation (right operand is not a collection): {l_type}, {r_type}")
-                if l_type.collection_type != r_type.collection_type:
-                    raise SimileTypeError(f"Invalid types for set operation (collection types do not match): {l_type.collection_type}, {r_type.collection_type}")
-                if l_type.collection_type not in {CollectionOperator.BAG, CollectionOperator.SET}:
-                    raise SimileTypeError(f"Invalid collection type for set/bag operation: {l_type.collection_type}")
-                if r_type.collection_type not in {CollectionOperator.BAG, CollectionOperator.SET}:
-                    raise SimileTypeError(f"Invalid collection type for set/bag operation: {r_type.collection_type}")
-                return CollectionType(
+                if not isinstance(l_type, SetType):
+                    raise SimileTypeError(f"Invalid types for set operation (left operand is not a set): {l_type}, {r_type}")
+                if not isinstance(r_type, SetType):
+                    raise SimileTypeError(f"Invalid types for set operation (right operand is not a set): {l_type}, {r_type}")
+                if SetType.is_relation(l_type):
+                    raise SimileTypeError(f"Invalid types for set operation (left operand is a relation): {l_type}, {r_type}")
+                if SetType.is_sequence(l_type):
+                    raise SimileTypeError(f"Invalid types for set operation (left operand is a sequence): {l_type}, {r_type}")
+                if SetType.is_relation(r_type):
+                    raise SimileTypeError(f"Invalid types for set operation (right operand is a relation): {l_type}, {r_type}")
+                if SetType.is_sequence(r_type):
+                    raise SimileTypeError(f"Invalid types for set operation (right operand is a sequence): {l_type}, {r_type}")
+
+                if SetType.is_bag(l_type):
+                    if SetType.is_bag(r_type):
+                        return SetType(
+                            element_type=PairType(
+                                type_union(l_type.element_type.left, r_type.element_type.left),
+                                BaseSimileType.Int,
+                            ),
+                        )
+                    return SetType(
+                        element_type=PairType(
+                            type_union(l_type.element_type.left, r_type.element_type),
+                            BaseSimileType.Int,
+                        ),
+                    )
+                if SetType.is_bag(r_type):
+                    return SetType(
+                        element_type=PairType(
+                            type_union(l_type.element_type, r_type.element_type.left),
+                            BaseSimileType.Int,
+                        ),
+                    )
+                return SetType(
                     element_type=type_union(l_type.element_type, r_type.element_type),
-                    collection_type=l_type.collection_type,
                 )
+
             case (
                 BinaryOperator.SUBSET
                 | BinaryOperator.SUBSET_EQ
@@ -216,74 +246,65 @@ class BinaryOp(ASTNode):
                 | BinaryOperator.NOT_SUPERSET
                 | BinaryOperator.NOT_SUPERSET_EQ
             ):
-                if type_union(l_type, r_type) != CollectionType:
-                    raise SimileTypeError(f"Invalid types for subset/superset operation: {l_type}, {r_type}")
-                assert isinstance(l_type, CollectionType) and isinstance(
-                    r_type, CollectionType
-                ), "Both sides must be collections for this operation (checked earlier in BinaryOp.get_type)"
+                if not isinstance(l_type, SetType):
+                    raise SimileTypeError(f"Invalid types for set operation (left operand is not a set): {l_type}, {r_type}")
+                if not isinstance(r_type, SetType):
+                    raise SimileTypeError(f"Invalid types for set operation (right operand is not a set): {l_type}, {r_type}")
 
-                if l_type.collection_type not in {CollectionOperator.BAG, CollectionOperator.SET}:
-                    raise SimileTypeError(f"Invalid collection type for subset/superset operation: {l_type.collection_type}")
-                if r_type.collection_type not in {CollectionOperator.BAG, CollectionOperator.SET}:
-                    raise SimileTypeError(f"Invalid collection type for subset/superset operation: {r_type.collection_type}")
+                if SetType.is_relation(l_type) or SetType.is_sequence(l_type):
+                    raise SimileTypeError(f"Invalid types for subset/superset operation (left operand is a relation or sequence): {l_type}, {r_type}")
+                if SetType.is_relation(r_type) or SetType.is_sequence(r_type):
+                    raise SimileTypeError(f"Invalid types for subset/superset operation (right operand is a relation or sequence): {l_type}, {r_type}")
                 return BaseSimileType.Bool
             case BinaryOperator.MAPLET:
                 return PairType(l_type, r_type)
             case BinaryOperator.CARTESIAN_PRODUCT:
-                if not isinstance(l_type, CollectionType) or not isinstance(r_type, CollectionType):
+                if not isinstance(l_type, SetType) or not isinstance(r_type, SetType):
                     raise SimileTypeError(f"Invalid types for cartesian product operation: {l_type}, {r_type}")
-                if l_type.collection_type != CollectionOperator.SET or r_type.collection_type != CollectionOperator.SET:
-                    raise SimileTypeError(f"Invalid collection type for cartesian product operation: {l_type.collection_type}, {r_type.collection_type}")
-                return CollectionType(
-                    element_type=type_union(PairType(l_type.element_type, r_type.element_type)),
-                    collection_type=CollectionOperator.RELATION,
-                )
+
+                if not SetType.is_set(l_type) or not SetType.is_set(r_type):
+                    raise SimileTypeError(f"Invalid types for cartesian product operation (both operands must be sets): {l_type}, {r_type}")
+
+                return SetType(element_type=PairType(l_type.element_type, r_type.element_type))
             case BinaryOperator.UPTO:
                 if not isinstance(l_type, Int) or not isinstance(r_type, Int):
                     raise SimileTypeError(f"Invalid types for upto operation (must be ints): {l_type}, {r_type}")
-                return CollectionType(
-                    element_type=BaseSimileType.Int,
-                    collection_type=CollectionOperator.SET,
-                )
+                return SetType(element_type=BaseSimileType.Int)
             case BinaryOperator.RELATION_OVERRIDING:
-                if not isinstance(l_type, CollectionType) or not isinstance(r_type, CollectionType):
+                if not isinstance(l_type, SetType) or not isinstance(r_type, SetType):
                     raise SimileTypeError(f"Invalid types for relation operation: {l_type}, {r_type}")
-                if l_type.collection_type != CollectionOperator.RELATION or r_type.collection_type != CollectionOperator.RELATION:
-                    raise SimileTypeError(f"Invalid collection type for relation operation: {l_type.collection_type}, {r_type.collection_type}")
-                return CollectionType(
+
+                return SetType(
                     element_type=type_union(l_type.element_type, r_type.element_type),
-                    collection_type=CollectionOperator.RELATION,
                 )
             case BinaryOperator.COMPOSITION:
-                if not isinstance(l_type, CollectionType) or not isinstance(r_type, CollectionType):
+                if not isinstance(l_type, SetType) or not isinstance(r_type, SetType):
                     raise SimileTypeError(f"Invalid types for composition operation: {l_type}, {r_type}")
-                if l_type.collection_type != CollectionOperator.RELATION or r_type.collection_type != CollectionOperator.RELATION:
-                    raise SimileTypeError(f"Invalid collection type for composition operation: {l_type.collection_type}, {r_type.collection_type}")
-                if not isinstance(l_type.element_type, PairType) or not isinstance(r_type.element_type, PairType):
-                    raise SimileTypeError(f"Invalid types for composition operation (not pairs): {l_type.element_type}, {r_type.element_type}")
+                if not SetType.is_relation(l_type) or not SetType.is_relation(r_type):
+                    raise SimileTypeError(f"Invalid collection type for composition operation: {l_type.element_type}, {r_type.element_type}")
+
                 if l_type.element_type.right != r_type.element_type.left:
                     raise SimileTypeError(
                         f"Invalid types for composition operation (right side of left pair does not match with left side of right pair): {l_type.element_type}, {r_type.element_type}"
                     )
-                return CollectionType(
+                return SetType(
                     element_type=PairType(l_type.element_type.left, r_type.element_type.right),
-                    collection_type=CollectionOperator.RELATION,
                 )
             case BinaryOperator.DOMAIN_SUBTRACTION | BinaryOperator.DOMAIN_RESTRICTION:
-                if not isinstance(l_type, CollectionType) or not isinstance(r_type, CollectionType):
+                if not isinstance(l_type, SetType) or not isinstance(r_type, SetType):
                     raise SimileTypeError(f"Invalid types for domain operation: {l_type}, {r_type}")
-                if r_type.collection_type != CollectionOperator.RELATION:
-                    raise SimileTypeError(f"Invalid collection type for domain operation (right operand must be a relation): {r_type.collection_type}")
-                if l_type.collection_type != CollectionOperator.SET:
-                    raise SimileTypeError(f"Invalid collection type for domain operation (left operand must be a relation or set): {l_type.collection_type}")
+                if not SetType.is_relation(r_type):
+                    raise SimileTypeError(f"Invalid collection type for domain operation (right operand must be a relation): {r_type.element_type}")
+                if not SetType.is_set(l_type):
+                    raise SimileTypeError(f"Invalid collection type for domain operation (left operand must be a relation or set): {l_type.element_type}")
                 return r_type
             case BinaryOperator.RANGE_SUBTRACTION | BinaryOperator.RANGE_RESTRICTION:
-                if not isinstance(l_type, CollectionType) or not isinstance(r_type, CollectionType):
+                if not isinstance(l_type, SetType) or not isinstance(r_type, SetType):
                     raise SimileTypeError(f"Invalid types for domain operation: {l_type}, {r_type}")
-                if l_type.collection_type != CollectionOperator.RELATION:
-                    raise SimileTypeError(f"Invalid collection type for domain operation (right operand must be a relation): {r_type.collection_type}")
-                if r_type.collection_type != CollectionOperator.SET:
-                    raise SimileTypeError(f"Invalid collection type for domain operation (left operand must be a relation or set): {l_type.collection_type}")
+                if not SetType.is_relation(l_type):
+                    raise SimileTypeError(f"Invalid collection type for domain operation (left operand must be a relation): {l_type.element_type}")
+                if not SetType.is_set(r_type):
+                    raise SimileTypeError(f"Invalid collection type for domain operation (right operand must be a relation or set): {r_type.element_type}")
                 return l_type
         raise SimileTypeError(f"Unknown type for binary operator: {self.op_type.name}, {l_type}, {r_type}")
 
@@ -321,15 +342,10 @@ class RelationOp(ASTNode):
     def get_type(self) -> SimileType:
         l_type = self.left.get_type
         r_type = self.right.get_type
-        if not isinstance(l_type, CollectionType) or not isinstance(r_type, CollectionType):
+        if not isinstance(l_type, SetType) or not isinstance(r_type, SetType):
             raise SimileTypeError(f"Invalid types for relation operation: {l_type}, {r_type}")
-        if l_type.collection_type not in {CollectionOperator.SET, CollectionOperator.RELATION} or r_type.collection_type not in {CollectionOperator.RELATION}:
-            raise SimileTypeError(f"Invalid collection types for relation operation: {l_type.collection_type}, {r_type.collection_type}")
         # Even if the left/right side of the relation is a set or relation, we just make a new pairtype
-        return CollectionType(
-            element_type=PairType(l_type.element_type, r_type.element_type),
-            collection_type=CollectionOperator.RELATION,
-        )
+        return SetType(element_type=PairType(l_type.element_type, r_type.element_type))
 
 
 @dataclass
@@ -364,18 +380,15 @@ class UnaryOp(ASTNode):
                     raise SimileTypeError(f"Invalid type for negation: {self.value.get_type}")
                 return self.value.get_type
             case UnaryOperator.INVERSE:
-                if not isinstance(self.value.get_type, CollectionType):
+                if not isinstance(self.value.get_type, SetType):
                     raise SimileTypeError(f"Invalid type for inverse operation: {self.value.get_type}")
-                if self.value.get_type.collection_type != CollectionOperator.RELATION:
-                    raise SimileTypeError(f"Invalid collection type for inverse operation: {self.value.get_type.collection_type}")
+                if not SetType.is_relation(self.value.get_type):
+                    raise SimileTypeError(f"Invalid collection type for inverse operation: {self.value.get_type.element_type}")
                 return self.value.get_type
             case UnaryOperator.POWERSET | UnaryOperator.NONEMPTY_POWERSET:
-                if not isinstance(self.value.get_type, CollectionType):
+                if not isinstance(self.value.get_type, SetType):
                     raise SimileTypeError(f"Invalid type for powerset operation: {self.value.get_type}")
-                return CollectionType(
-                    element_type=self.value.get_type,
-                    collection_type=CollectionOperator.SET,
-                )
+                return SetType(element_type=self.value.get_type)
 
 
 @dataclass
@@ -499,10 +512,7 @@ class Quantifier(ASTNode):
         if not self.predicate.get_type == BaseSimileType.Bool:
             raise SimileTypeError(f"Invalid type for boolean quantifier predicate: {self.predicate.get_type}")
         # Quantifier operators must be either union all or intersection all, so result is a set
-        return CollectionType(
-            element_type=self.expression.get_type,
-            collection_type=CollectionOperator.SET,
-        )
+        return SetType(element_type=self.expression.get_type)
 
 
 @dataclass
@@ -540,10 +550,7 @@ class Enumeration(ASTNode):
     @property
     def get_type(self) -> SimileType:
         element_type = type_union(*(item.get_type for item in self.items))
-        return CollectionType(
-            element_type=element_type,
-            collection_type=self.op_type,
-        )
+        return SetType(element_type=element_type)
 
 
 @dataclass
@@ -589,10 +596,7 @@ class Comprehension(ASTNode):
 
     @property
     def get_type(self) -> SimileType:
-        return CollectionType(
-            element_type=self.expression.get_type,
-            collection_type=self.op_type,
-        )
+        return SetType(element_type=self.expression.get_type)
 
 
 @dataclass
@@ -613,40 +617,6 @@ class Type_(ASTNode):
     @property
     def get_type(self) -> SimileType:
         return self.type_.get_type
-
-
-# @dataclass
-# class Slice(ASTNode):
-#     items: list[ASTNode]
-
-#     @property
-#     def free(self) -> set[Identifier]:
-#         return set.union(*(item.free for item in self.items))
-
-#     @property
-#     def bound(self) -> set[Identifier]:
-#         return set.union(*(item.bound for item in self.items))
-
-#     def well_formed(self) -> bool:
-#         if not all(item.well_formed() for item in self.items):
-#             return False
-#         for i in range(len(self.items)):
-#             for j in range(len(self.items)):
-#                 if i == j:
-#                     continue
-#                 if not self.items[i].bound.isdisjoint(self.items[j].bound):
-#                     return False
-#                 if not self.items[i].bound.isdisjoint(self.items[j].free):
-#                     return False
-#         return True
-
-#     @property
-#     def get_type(self) -> SimileType:
-#         element_type = type_union(*(item.get_type for item in self.items))
-#         return CollectionType(
-#             element_type=element_type,
-#             collection_type=CollectionOperator.SEQUENCE,
-#         )
 
 
 @dataclass
@@ -729,14 +699,13 @@ class Call(ASTNode):
                     if arg.get_type != list(arg_types.values())[i]:
                         raise SimileTypeError(f"Argument type mismatch at position {i}: expected {list(arg_types.values())[i]}, got {arg.get_type}")
                 return StructTypeDef(arg_types)
-            case CollectionType(element_type, collection_type):
-                if collection_type == CollectionOperator.SET:
-                    raise SimileTypeError(f"Cannot call a set type: {self.target.get_type} (must be relation, bag, or sequence collection type)")
-                if not isinstance(element_type, PairType):
-                    raise SimileTypeError(
-                        f"Cannot call a collection type that is not a relation: {self.target.get_type} (element type: {element_type}) (must be relation, bag, or sequence collection type)"
-                    )
-                return element_type.right
+            case SetType(_) as set_type:
+                if not SetType.is_relation(set_type):
+                    raise SimileTypeError(f"Cannot call a non-relation collection type: {self.target.get_type}")
+
+                return set_type.element_type.right
+            case any_:
+                return any_
 
         raise SimileTypeError(f"Invalid call target type: {self.target.get_type} (must be a procedure, struct, or relation type)")
 
@@ -744,29 +713,17 @@ class Call(ASTNode):
 @dataclass
 class Image(ASTNode):
     target: ASTNode
-    index: ASTNode  # | None_  # | Slice
+    index: ASTNode
 
     @property
     def get_type(self) -> SimileType:
-        if not isinstance(self.target.get_type, CollectionType):
+        if not isinstance(self.target.get_type, SetType):
             raise SimileTypeError(f"Indexing target must be a collection type, got {self.target.get_type}")
 
-        match self.target.get_type.collection_type:
-            case CollectionOperator.RELATION:
-                if not isinstance(self.target.get_type.element_type, PairType):
-                    raise SimileTypeError(f"Relation collection must have a PairType value an integer index, got {self.target.get_type.element_type}")
+        if not SetType.is_relation(self.target.get_type):
+            raise SimileTypeError(f"Indexing target must be a relation type (not set), got {self.target.get_type}")
 
-                # Relational image
-                return CollectionType(
-                    element_type=self.target.get_type.element_type.right,
-                    collection_type=CollectionOperator.SET,
-                )
-            case CollectionOperator.BAG:
-                if self.index.get_type == self.target.get_type.element_type:
-                    # If the index is of the same type as the elements, return the element type
-                    return BaseSimileType.Int
-        # If the target is a non-relation collection, assume we are indexing as if it were an array
-        return self.target.get_type.element_type
+        return SetType(element_type=self.target.get_type.element_type.right)
 
 
 @dataclass
