@@ -2,6 +2,8 @@ from enum import Enum, auto
 
 
 class BinaryOperator(Enum):
+    """All binary operators in Simile (except for relation type operators)."""
+
     # Bools
     IMPLIES = auto()
     REV_IMPLIES = auto()
@@ -53,6 +55,8 @@ class BinaryOperator(Enum):
 
 
 class RelationOperator(Enum):
+    """All relation type binary operators in Simile."""
+
     RELATION = auto()
     TOTAL_RELATION = auto()
     SURJECTIVE_RELATION = auto()
@@ -67,6 +71,8 @@ class RelationOperator(Enum):
 
 
 class UnaryOperator(Enum):
+    """All unary operators in Simile."""
+
     NOT = auto()
     NEGATIVE = auto()
     POWERSET = auto()
@@ -75,27 +81,37 @@ class UnaryOperator(Enum):
 
 
 class ListOperator(Enum):
+    """And/Or operators"""
+
     AND = auto()
     OR = auto()
 
 
 class BoolQuantifierOperator(Enum):
+    """Forall/Exists operators"""
+
     FORALL = auto()
     EXISTS = auto()
 
 
 class QuantifierOperator(Enum):
+    """UnionAll/IntersectionAll operators"""
+
     UNION_ALL = auto()
     INTERSECTION_ALL = auto()
 
 
 class ControlFlowOperator(Enum):
+    """Control flow operators in Simile."""
+
     BREAK = auto()
     CONTINUE = auto()
     PASS = auto()
 
 
 class CollectionOperator(Enum):
+    """Collection operators in Simile."""
+
     SEQUENCE = auto()
     SET = auto()
     RELATION = auto()
@@ -103,3 +119,4 @@ class CollectionOperator(Enum):
 
 
 Operators = BinaryOperator | RelationOperator | UnaryOperator | ListOperator | BoolQuantifierOperator | QuantifierOperator | ControlFlowOperator
+"""Type alias for all operator enums in Simile."""

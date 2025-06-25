@@ -8,7 +8,7 @@ V = TypeVar("V")
 def dataclass_children(
     traversal_target: Any,
 ) -> list[Any]:
-    """Yield all children of a dataclass instance."""
+    """Return all children of a dataclass instance."""
     if not is_dataclass(traversal_target):
         return []
     children = []
@@ -28,6 +28,18 @@ def dataclass_traverse(
     visit_leaves: bool = False,
     visit_root: bool = True,
 ) -> list[T]:
+    """Apply a visit function to all dataclass instances in the traversal target (pre-order traversal, root node first), accumulating non-None results.
+
+    Args:
+        traversal_target: The target to traverse.
+        visit: A function to apply to each dataclass instance.
+        visit_leaves: Whether to visit and accumulate on leaf (non-dataclass) nodes. Defaults to False.
+        visit_root: Whether to visit the root node. Defaults to True.
+
+    Returns:
+        list[T]: A list of non-None results from the visit function.
+    """
+
     accumulator: list[T] = []
     _dataclass_traverse_helper(
         traversal_target,
@@ -110,7 +122,7 @@ def dataclass_find_and_replace(
     traversal_target: Any,
     rewrite_func: Callable[[Any], Any | None],
 ) -> Any:
-    """Find and replace dataclass instances using a rewrite function."""
+    """Find and replace dataclass instances using a rewrite function (post-order, root last)."""
     assert is_dataclass(traversal_target), "Traversal techniques only work with the dataclass `fields` function"
 
     # Bottom up traversal

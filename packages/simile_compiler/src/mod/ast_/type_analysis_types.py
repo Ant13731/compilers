@@ -125,11 +125,6 @@ class ModuleImports:
     import_objects: dict[str, SimileType]
 
 
-# @dataclass
-# class TypeOf:
-#     type_: SimileType
-
-
 @dataclass
 class DeferToSymbolTable:
     lookup_type: str

@@ -14,6 +14,7 @@ class ASTNode:
     """Base class for all AST nodes."""
 
     def well_formed(self) -> bool:
+        """Check if the variables in expressions are well-formed (i.e., no clashes between :attr:`bound` and :attr:`free` variables)."""
         return True
 
     @property
@@ -28,6 +29,11 @@ class ASTNode:
 
     @property
     def get_type(self) -> SimileType:
+        """Returns the resulting type of the operation/expression/statement represented by this AST node.
+
+        Initially, :cls:`Identifier` nodes will return a :cls:`DeferToSymbolTable` type.
+        After running :func:`src.mod.analysis.type_analysis.populate_ast_with_types`, all nodes will contain resolved types.
+        """
         raise NotImplementedError
 
     def contains(self, node: type[ASTNode], with_op_type: Operators | None = None) -> bool:
@@ -88,6 +94,7 @@ class ASTNode:
         ignore_fields: list[str] | None = None,
         indent=2,
     ) -> str:
+        """Pretty print the AST node with JSON-like indentation."""
         if ignore_fields is not None and self.__class__.__name__ in ignore_fields:
             indent_ = ""
             indent -= 2
@@ -129,6 +136,8 @@ class ASTNode:
 
 @dataclass
 class Identifier(ASTNode):
+    """Identifier for variables, functions, etc. in the AST."""
+
     name: str
 
     def __hash__(self) -> int:
