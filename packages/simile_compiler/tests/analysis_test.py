@@ -6,9 +6,9 @@ from src import ast_
 from src import analysis
 
 
-def mk_starting_env(new_env: dict) -> analysis.Environment:
-    return analysis.Environment(
-        previous=analysis.STARTING_ENVIRONMENT,
+def mk_starting_env(new_env: dict) -> ast_.Environment:
+    return ast_.Environment(
+        previous=ast_.STARTING_ENVIRONMENT,
         table=new_env,
     )
 
@@ -110,6 +110,7 @@ TEST_ASTS = [
     ),
 ]
 
+
 TEST_AST_TYPES = list(
     map(
         mk_starting_env,  # type: ignore
@@ -137,7 +138,8 @@ TEST_AST_TYPES = list(
 TEST_ASTS_WITH_TYPES = []
 for ast_node, ast_type in zip(TEST_ASTS, TEST_AST_TYPES):
     typed_ast_node = deepcopy(ast_node)
-    typed_ast_node.env = ast_type
+    typed_ast_node = analysis.add_empty_environments_to_ast(typed_ast_node)
+    typed_ast_node._env = ast_type
     TEST_ASTS_WITH_TYPES.append((ast_node, typed_ast_node))
 
 
@@ -161,5 +163,5 @@ for ast_node, ast_type in zip(TEST_ASTS, TEST_AST_TYPES):
 class TestAnalysis:
     @pytest.mark.parametrize("ast_node, typed_ast_node", TEST_ASTS_WITH_TYPES)
     def test_type_analysis(self, ast_node: ast_.ASTNode, typed_ast_node: ast_.ASTNode):
-        analyzed_ast = analysis.populate_ast_with_types(ast_node)
+        analyzed_ast = analysis.populate_ast_environments(ast_node)
         assert analyzed_ast == typed_ast_node

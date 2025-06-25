@@ -162,7 +162,7 @@ from src.mod.ast_.ast_nodes_extra import (
     RelationComprehension,
     BagComprehension,
 )
-from src.mod.ast_.type_analysis_types import (
+from src.mod.ast_.symbol_table_types import (
     SimileType,
     SimileTypeError,
     BaseSimileType,
@@ -173,4 +173,8 @@ from src.mod.ast_.type_analysis_types import (
     ProcedureTypeDef,
     TypeUnion,
     DeferToSymbolTable,
+)
+from src.mod.ast_.symbol_table_env import (
+    Environment,
+    STARTING_ENVIRONMENT,
 )

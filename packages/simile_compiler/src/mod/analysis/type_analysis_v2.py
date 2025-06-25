@@ -1,0 +1,249 @@
+from __future__ import annotations
+from dataclasses import dataclass, field, is_dataclass
+import pathlib
+from typing import TypeVar
+
+from src.mod.ast_.symbol_table_types import (
+    SimileType,
+    ModuleImports,
+    ProcedureTypeDef,
+    StructTypeDef,
+    EnumTypeDef,
+    SimileTypeError,
+    BaseSimileType,
+)
+from src.mod.scanner import Location
+from src.mod import ast_
+from src.mod.parser import parse
+
+
+T = TypeVar("T", bound=ast_.ASTNode)
+
+
+class ParseImportError(Exception):
+    pass
+
+
+def populate_ast_environments(ast: T) -> T:
+    ast = add_empty_environments_to_ast(ast)
+    _populate_ast_environments_aux(ast)
+    return ast
+
+
+def add_empty_environments_to_ast(ast: T) -> T:
+    current_env = ast_.STARTING_ENVIRONMENT
+
+    def add_empty_environments_to_ast_aux(node: ast_.ASTNode) -> None:
+        nonlocal current_env
+        if isinstance(node, ast_.Statements):
+            current_env = ast_.Environment(previous=current_env)
+            node._env = current_env
+            for child in node.children(True):
+                add_empty_environments_to_ast_aux(child)
+
+            assert current_env.previous is not None, "Environment stack should not be empty after processing Statements node"
+            current_env = current_env.previous
+            return
+        node._env = current_env
+        for child in node.children(True):
+            add_empty_environments_to_ast_aux(child)
+
+    add_empty_environments_to_ast_aux(ast)
+    return ast
+
+
+def _populate_ast_environments_aux(node: ast_.ASTNode) -> None:
+    if not isinstance(node, ast_.ASTNode):
+        raise TypeError(f"Expected ASTNode in ast environment population, got {type(node)}")
+    if not node._env:
+        raise SimileTypeError("AST node environment is not set. Ensure environments are added before type analysis.")
+
+    match node:
+        case ast_.Assignment(target, value):
+            _populate_from_assignment(node, target, value)
+        case ast_.StructDef(ast_.Identifier(name), items):
+            fields: dict[str, SimileType] = {}
+            for item in items:
+                if not isinstance(item.name, ast_.Identifier):
+                    raise SimileTypeError(f"Invalid struct field name (must be an identifier): {item.name}")
+                fields[item.name.name] = item.type_.get_type
+
+            node._env.put(
+                name,
+                StructTypeDef(fields=fields),
+            )
+        case ast_.ProcedureDef(ast_.Identifier(name), args, body, return_type):
+            assert body._env is not None, "Procedure body should have an environment - ensure add_empty_environments_to_ast was called before populating environments"
+
+            arg_types = {}
+            for arg in args:
+                if not isinstance(arg.name, ast_.Identifier):
+                    raise SimileTypeError(f"Invalid procedure argument name (must be an identifier): {arg.name}")
+                arg_types[arg.name.name] = arg.get_type
+
+            node._env.put(
+                name,
+                ProcedureTypeDef(
+                    arg_types=arg_types,
+                    return_type=return_type.get_type,
+                ),
+            )
+
+            # Populate the environment for the procedure body, using argument definition
+            for arg_name, arg_type in arg_types.items():
+                body._env.put(arg_name, arg_type)
+            _populate_ast_environments_aux(body)
+
+        case ast_.Import(module_file_path, import_objects):
+            _populate_from_import(node, import_objects, module_file_path)
+
+        case _:
+            for child in node.children(True):
+                _populate_ast_environments_aux(child)
+
+
+def _check_and_add_for_enum(node: ast_.ASTNode, name: str, value: ast_.ASTNode) -> tuple[bool, str]:
+    """Returns True if the enum was added, False if its name/builtup identifiers already exists. When False, a reason is provided"""
+    if node._env is None:
+        return False, "Enum check node should have an environment - ensure add_empty_environments_to_ast was called before populating environments"
+
+    if not isinstance(value, ast_.Enumeration):
+        return False, f"Value for enum '{name}' is not a valid enumeration"
+
+    if node._env.get(name) is not None:
+        return False, f"Enum '{name}' is already defined in the current scope as {node._env.get(name)}"
+
+    # Check if all items are identifiers
+    items_to_add: set[str] = set()
+    for item in value.items:
+        if not isinstance(item, ast_.Identifier):
+            return False, f"Enum '{name}' contains non-identifier items: {item} (expected all items to be identifiers)"
+        if node._env.get(item.name) is not None:
+            return False, f"Enum '{name}' contains item '{item.name}' which is already defined in the current scope as {node._env.get(item.name)}"
+        items_to_add.add(item.name)
+
+    # Add the enum to the environment
+    node._env.put(name, EnumTypeDef(members=items_to_add))
+    return True, ""
+
+
+def _populate_from_assignment(node: ast_.ASTNode, target: ast_.ASTNode, value: ast_.ASTNode) -> None:
+    assert node._env is not None, "Assignment node should have an environment - ensure add_empty_environments_to_ast was called before populating environments"
+
+    match target:
+        case ast_.Identifier(name):
+            added_enum, reason = _check_and_add_for_enum(node, name, value)
+            if not added_enum:
+                node._env.put(target.name, value.get_type)
+        case ast_.TypedName(ast_.Identifier(name), explicit_type):
+            if node._env.get(name) is not None and node._env.get(name) != explicit_type:
+                raise SimileTypeError(f"Type mismatch: cannot assign explicit type {explicit_type} to {node._env.get(name)} (type clashes with a previous definition)")
+            if value.get_type != explicit_type.get_type:
+                raise SimileTypeError(f"Type mismatch: cannot assign value of type {value.get_type} to explicit type {explicit_type}")
+
+            if isinstance(explicit_type, ast_.Identifier) and explicit_type.name == "enum":  # should look like ... : enum = ...
+                added_enum, reason = _check_and_add_for_enum(node, name, value)
+                if not added_enum:
+                    raise SimileTypeError(f"Enum assignment failed: {reason}")
+            else:
+                node._env.put(name, value.get_type)
+
+        case ast_.StructAccess(struct, field):
+            assign_names = [field.name]
+            while isinstance(struct, ast_.StructAccess):
+                assign_names = [struct.field_name.name] + assign_names
+                struct = struct.struct
+            if not isinstance(struct, ast_.Identifier):
+                raise SimileTypeError(f"Invalid struct access for assignment (can only assign to identifiers): {struct}")
+
+            node._env.put_nested_struct(assign_names, value.get_type)
+        case ast_.TypedName(ast_.StructAccess(struct, field), explicit_type):
+            if value.get_type != explicit_type.get_type:
+                raise SimileTypeError(f"Type mismatch: cannot assign value of type {value.get_type} to explicit type {explicit_type}")
+
+            assign_names = [field.name]
+            while isinstance(struct, ast_.StructAccess):
+                assign_names = [struct.field_name.name] + assign_names
+                struct = struct.struct
+            if not isinstance(struct, ast_.Identifier):
+                raise SimileTypeError(f"Invalid struct access for assignment (can only assign to identifiers): {struct}")
+
+            node._env.put_nested_struct(assign_names, value.get_type)
+        case _:
+            raise SimileTypeError(f"Unsupported assignment target type: {type(target)} (expected Identifier or StructAccess or TypedName counterparts)")
+
+
+def _populate_from_import(
+    node: ast_.ASTNode,
+    import_objects: ast_.IdentList | ast_.None_ | ast_.ImportAll,
+    module_file_path: str,
+) -> None:
+    assert node._env is not None, "Import node should have an environment - ensure add_empty_environments_to_ast was called before populating environments"
+
+    # Read in imported file
+    full_module_path = pathlib.Path(module_file_path).resolve(strict=True)
+    with open(full_module_path, "r") as f:
+        module_content = f.read()
+
+    # Parse module content
+    module_ast: ast_.Start | list = parse(module_content)
+    if isinstance(module_ast, list):
+        raise ParseImportError(
+            f"Module {module_file_path} does not contain a valid Simile module. " f"Expected a single Start node at the top level.\nReceived errors: {module_ast}"
+        )
+    if isinstance(module_ast.body, ast_.None_):
+        return
+
+    # Populate the module AST with types
+    module_ast_with_types = populate_ast_environments(module_ast)
+    if isinstance(module_ast_with_types.body, ast_.None_):
+        return
+    if module_ast_with_types.body.env is None:
+        # Empty parse tree in module file
+        return
+
+    assert isinstance(module_ast_with_types.body.env, ast_.Environment), "Module AST body should have an environment"
+
+    # Add module symbols to namespace
+    match import_objects:
+        case ast_.ImportAll():
+            for name, symbol in module_ast_with_types.body.env.table.items():
+                node._env.put(name, symbol)
+        case ast_.None_():
+            node._env.put(
+                full_module_path.stem,
+                ModuleImports(module_ast_with_types.body.env.table),
+            )
+        case ast_.IdentList(identifiers):
+            identifier_names = []
+            for identifier in identifiers:
+                if not isinstance(identifier, ast_.Identifier):
+                    raise SimileTypeError(f"Invalid import identifier (must be an identifier): {identifier}")
+                identifier_names.append(identifier.name)
+
+            for name, symbol in module_ast_with_types.body.env.table.items():
+                if name in identifier_names:
+                    node._env.put(name, symbol)
+
+
+TEST = ast_.Statements(
+    items=[
+        ast_.Assignment(
+            target=ast_.Identifier(name="x"),
+            value=ast_.Int(value="42"),
+        ),
+        ast_.Assignment(
+            target=ast_.Identifier(name="y"),
+            value=ast_.Float(value="3.14"),
+        ),
+        ast_.Assignment(
+            target=ast_.Identifier(name="z"),
+            value=ast_.Add(ast_.Identifier(name="x"), ast_.Identifier(name="y")),
+        ),
+    ]
+)
+print("Before type analysis:")
+print(TEST.pretty_print(print_env=True))
+TEST = populate_ast_environments(TEST)
+print("After adding environments:")
+print(TEST.pretty_print(print_env=True))

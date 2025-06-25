@@ -1,17 +1,36 @@
 from __future__ import annotations
-from dataclasses import dataclass, fields
-from typing import Generator, Any, TypeVar
+from dataclasses import dataclass, fields, field
+from typing import Generator, Any, TypeVar, Callable
+from functools import wraps
 
 from src.mod.ast_.ast_node_operators import Operators
 from src.mod.ast_.dataclass_helpers import dataclass_traverse
-from src.mod.ast_.type_analysis_types import SimileType, DeferToSymbolTable
+from src.mod.ast_.symbol_table_types import SimileType, DeferToSymbolTable, SimileTypeError
+from src.mod.ast_.symbol_table_env import Environment
 
 T = TypeVar("T")
+
+
+def type_analysis_run_check(func: Callable[[ASTNode], SimileType]) -> Callable[[ASTNode], SimileType]:
+    """Decorator to check if type analysis has been run before calling a function."""
+
+    @wraps(func)
+    def wrapper(self: ASTNode, *args, **kwargs):
+        if not args or not isinstance(self, ASTNode):
+            raise SimileTypeError("First argument must be an ASTNode instance (self, for methods).")
+        if self._env is None:
+            raise SimileTypeError(f"Type analysis must be run before calling this function: {func.__name__}().")
+        return func(self, *args, **kwargs)
+
+    return wrapper
 
 
 @dataclass
 class ASTNode:
     """Base class for all AST nodes."""
+
+    def __post_init__(self) -> None:
+        self._env: Environment | None = None
 
     def well_formed(self) -> bool:
         """Check if the variables in expressions are well-formed (i.e., no clashes between :attr:`bound` and :attr:`free` variables)."""
@@ -29,11 +48,15 @@ class ASTNode:
 
     @property
     def get_type(self) -> SimileType:
-        """Returns the resulting type of the operation/expression/statement represented by this AST node.
+        """Returns the type of the AST node.
 
         Initially, :cls:`Identifier` nodes will return a :cls:`DeferToSymbolTable` type.
         After running :func:`src.mod.analysis.type_analysis.populate_ast_with_types`, all nodes will contain resolved types.
         """
+        return self._get_type()
+
+    def _get_type(self) -> SimileType:
+        """"""
         raise NotImplementedError
 
     def contains(self, node: type[ASTNode], with_op_type: Operators | None = None) -> bool:
@@ -68,7 +91,7 @@ class ASTNode:
 
         return list(filter(None, dataclass_traverse(self, isinstance_with_op_type)))
 
-    def children(self) -> Generator[ASTNode, None, None]:
+    def children(self, ast_nodes_only: bool = False) -> Generator[ASTNode, None, None]:
         """Returns a list of all children AST nodes (only 1 level deep). Includes op_type fields if they exist."""
         for f in fields(self):
             field_value = getattr(self, f.name)
@@ -76,7 +99,11 @@ class ASTNode:
                 for item in field_value:
                     yield item
             else:
-                yield field_value
+                if isinstance(field_value, ASTNode):
+                    yield field_value
+                elif not ast_nodes_only:
+                    # If we are not filtering for ASTNodes only, yield the field value directly
+                    yield field_value
 
     def is_leaf(self) -> bool:
         """Check if the AST node is a leaf node (i.e., has no dataclass/list of dataclass children)."""
@@ -93,6 +120,7 @@ class ASTNode:
         self,
         ignore_fields: list[str] | None = None,
         indent=2,
+        print_env: bool = False,
     ) -> str:
         """Pretty print the AST node with JSON-like indentation."""
         if ignore_fields is not None and self.__class__.__name__ in ignore_fields:
@@ -110,21 +138,26 @@ class ASTNode:
             ret = f"{self.__class__.__name__}:\n"
             indent_ = indent * " "
 
+        if print_env:
+
+            ret += f"{indent_}_env={self._env.table if self._env else self._env}\n"
+
         for f in fields(self):
             field_value = getattr(self, f.name)
 
             if isinstance(field_value, ASTNode):
                 if len(fields(self)) == 1:
-                    ret += f"{indent_}{field_value.pretty_print(ignore_fields, indent+2)}"
+                    ret += f"{indent_}{field_value.pretty_print(ignore_fields, indent+2,print_env)}"
                 else:
-                    ret += f"{indent_}{f.name}={field_value.pretty_print(ignore_fields,indent + 2)}"
+                    ret += f"{indent_}{f.name}={field_value.pretty_print(ignore_fields,indent + 2,print_env)}"
+
                 continue
 
             if isinstance(field_value, list):
                 ret += f"{indent_}[\n"
                 for item in field_value:
                     if isinstance(item, ASTNode):
-                        ret += f"{indent_}{item.pretty_print(ignore_fields,indent + 2)}"
+                        ret += f"{indent_}{item.pretty_print(ignore_fields,indent + 2,print_env)}"
                     else:
                         ret += f"{indent_}    {item}\n"
                 ret += f"{indent_}]\n"
@@ -148,15 +181,13 @@ class Identifier(ASTNode):
             return False
         return self.name == other.name
 
-    def __post_init__(self) -> None:
-        self.processed_type: SimileType | None = None
-
     @property
     def free(self) -> set[Identifier]:
         return {self}
 
-    @property
-    def get_type(self) -> SimileType:
-        if self.processed_type:
-            return self.processed_type
+    def _get_type(self) -> SimileType:
+        if self._env is not None:
+            ret = self._env.get(self.name)
+            if ret is not None:
+                return ret
         return DeferToSymbolTable(lookup_type=self.name)

@@ -16,7 +16,7 @@ from src.mod.ast_.ast_node_operators import (
     CollectionOperator,
     Operators,
 )
-from src.mod.ast_.type_analysis_types import (
+from src.mod.ast_.symbol_table_types import (
     SimileType,
     BaseSimileType,
     PairType,
@@ -36,8 +36,7 @@ from src.mod.ast_.type_analysis_types import (
 class Int(ASTNode):
     value: str
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         return BaseSimileType.Int
 
 
@@ -45,8 +44,7 @@ class Int(ASTNode):
 class Float(ASTNode):
     value: str
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         return BaseSimileType.Float
 
 
@@ -54,29 +52,25 @@ class Float(ASTNode):
 class String(ASTNode):
     value: str
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         return BaseSimileType.String
 
 
 @dataclass
 class True_(ASTNode):
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         return BaseSimileType.Bool
 
 
 @dataclass
 class False_(ASTNode):
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         return BaseSimileType.Bool
 
 
 @dataclass
 class None_(ASTNode):
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         return BaseSimileType.None_
 
 
@@ -96,8 +90,7 @@ class IdentList(ASTNode):
                     return False
         return True
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         return SetType(
             element_type=PairType(
                 left=BaseSimileType.Int,
@@ -135,8 +128,7 @@ class BinaryOp(ASTNode):
             ]
         )
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         l_type = self.left.get_type
         r_type = self.right.get_type
         match self.op_type:
@@ -338,8 +330,7 @@ class RelationOp(ASTNode):
             ]
         )
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         l_type = self.left.get_type
         r_type = self.right.get_type
         if not isinstance(l_type, SetType) or not isinstance(r_type, SetType):
@@ -368,8 +359,7 @@ class UnaryOp(ASTNode):
     def well_formed(self) -> bool:
         return self.value.well_formed()
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         match self.op_type:
             case UnaryOperator.NOT:
                 if self.value.get_type != BaseSimileType.Bool:
@@ -423,8 +413,7 @@ class ListOp(ASTNode):
                     return False
         return True
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         match self.op_type:
             case ListOperator.AND | ListOperator.OR:
                 if not all(item.get_type == BaseSimileType.Bool for item in self.items):
@@ -459,8 +448,7 @@ class BoolQuantifier(ASTNode):
             ]
         )
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         if not self.predicate.get_type == BaseSimileType.Bool:
             raise SimileTypeError(f"Invalid type for boolean quantifier predicate: {self.predicate.get_type}")
         return BaseSimileType.Bool
@@ -507,8 +495,7 @@ class Quantifier(ASTNode):
 
         return all(check_list)
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         if not self.predicate.get_type == BaseSimileType.Bool:
             raise SimileTypeError(f"Invalid type for boolean quantifier predicate: {self.predicate.get_type}")
         # Quantifier operators must be either union all or intersection all, so result is a set
@@ -547,8 +534,7 @@ class Enumeration(ASTNode):
                     return False
         return True
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         element_type = type_union(*(item.get_type for item in self.items))
         return SetType(element_type=element_type)
 
@@ -594,8 +580,7 @@ class Comprehension(ASTNode):
 
         return all(check_list)
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         return SetType(element_type=self.expression.get_type)
 
 
@@ -614,8 +599,7 @@ class Type_(ASTNode):
     def well_formed(self) -> bool:
         return self.type_.well_formed()
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         return self.type_.get_type
 
 
@@ -647,8 +631,7 @@ class LambdaDef(ASTNode):
             ]
         )
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         arg_types = {}
         for arg in self.ident_pattern.items:
             if not isinstance(arg, Identifier):
@@ -666,8 +649,7 @@ class StructAccess(ASTNode):
     struct: ASTNode
     field_name: Identifier
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         if not isinstance(self.struct.get_type, StructTypeDef):
             raise SimileTypeError(f"Struct access target must be a struct type, got {self.struct.get_type}")
         if self.struct.get_type.fields.get(self.field_name.name) is None:
@@ -681,8 +663,7 @@ class Call(ASTNode):
     target: ASTNode
     args: list[ASTNode]
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
 
         match self.target.get_type:
             case ProcedureTypeDef(arg_types, return_type):
@@ -715,8 +696,7 @@ class Image(ASTNode):
     target: ASTNode
     index: ASTNode
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         if not isinstance(self.target.get_type, SetType):
             raise SimileTypeError(f"Indexing target must be a collection type, got {self.target.get_type}")
 
@@ -742,8 +722,7 @@ class TypedName(ASTNode):
     def well_formed(self) -> bool:
         return self.name.well_formed() and self.type_.well_formed()
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         expected_type = self.name.get_type
 
         if isinstance(expected_type, DeferToSymbolTable):
@@ -766,8 +745,7 @@ class Assignment(ASTNode):
     target: ASTNode
     value: ASTNode
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         return BaseSimileType.None_
 
 
@@ -775,8 +753,7 @@ class Assignment(ASTNode):
 class Return(ASTNode):
     value: ASTNode | None_
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         return self.value.get_type
 
 
@@ -784,18 +761,15 @@ class Return(ASTNode):
 class ControlFlowStmt(ASTNode):
     op_type: ControlFlowOperator
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         return BaseSimileType.None_
 
 
 @dataclass
 class Statements(ASTNode):
     items: list[ASTNode]
-    env: Any = None
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         return BaseSimileType.None_
 
 
@@ -803,8 +777,7 @@ class Statements(ASTNode):
 class Else(ASTNode):
     body: ASTNode | Statements
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         return BaseSimileType.None_
 
 
@@ -814,8 +787,7 @@ class If(ASTNode):
     body: ASTNode | Statements
     else_body: Elif | Else | None_
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         return BaseSimileType.None_
 
 
@@ -825,8 +797,7 @@ class Elif(ASTNode):
     body: ASTNode | Statements
     else_body: Elif | Else | None_
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         return BaseSimileType.None_
 
 
@@ -836,8 +807,7 @@ class For(ASTNode):
     iterable: ASTNode
     body: ASTNode | Statements
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         return BaseSimileType.None_
 
 
@@ -846,8 +816,7 @@ class While(ASTNode):
     condition: ASTNode
     body: ASTNode | Statements
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         return BaseSimileType.None_
 
 
@@ -856,8 +825,7 @@ class StructDef(ASTNode):
     name: Identifier
     items: list[TypedName]
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         return BaseSimileType.None_
 
 
@@ -878,8 +846,7 @@ class ProcedureDef(ASTNode):
     body: ASTNode | Statements
     return_type: Type_
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         return BaseSimileType.None_
 
 
@@ -887,8 +854,7 @@ class ProcedureDef(ASTNode):
 class ImportAll(ASTNode):
     pass
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         return BaseSimileType.None_
 
 
@@ -897,8 +863,7 @@ class Import(ASTNode):
     module_file_path: str
     import_objects: IdentList | None_ | ImportAll
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         return BaseSimileType.None_
 
 
@@ -906,8 +871,7 @@ class Import(ASTNode):
 class Start(ASTNode):
     body: Statements | None_
 
-    @property
-    def get_type(self) -> SimileType:
+    def _get_type(self) -> SimileType:
         return BaseSimileType.None_
 
 

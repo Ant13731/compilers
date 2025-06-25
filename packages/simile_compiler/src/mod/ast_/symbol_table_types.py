@@ -83,19 +83,19 @@ class SetType(Generic[T]):
 # or SET S = {a,b,c} for set assignment
 
 
-@dataclass(frozen=True)
+@dataclass
 class StructTypeDef:
     # Internally a (many-to-one) (total on defined fields) function
     fields: dict[str, SimileType]
 
 
-@dataclass(frozen=True)
+@dataclass
 class EnumTypeDef:
     # Internally a set of identifiers
     members: set[str]
 
 
-@dataclass(frozen=True)
+@dataclass
 class ProcedureTypeDef:
     arg_types: dict[str, SimileType]
     return_type: SimileType
@@ -114,18 +114,18 @@ def type_union(*types: SimileType) -> SimileType:
     return TypeUnion(types=types_set)
 
 
-@dataclass(frozen=True)
+@dataclass
 class TypeUnion:
     types: set[SimileType]
 
 
-@dataclass(frozen=True)
+@dataclass
 class ModuleImports:
     # import these objects into the module namespace
     import_objects: dict[str, SimileType]
 
 
-@dataclass(frozen=True)
+@dataclass
 class DeferToSymbolTable:
     lookup_type: str
 

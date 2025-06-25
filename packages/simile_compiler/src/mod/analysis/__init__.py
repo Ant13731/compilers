@@ -1,7 +1,5 @@
-from src.mod.analysis.type_analysis import (
+from src.mod.analysis.type_analysis_v2 import (
     ParseImportError,
-    SymbolInfo,
-    Environment,
-    populate_ast_with_types,
-    STARTING_ENVIRONMENT,
+    populate_ast_environments,
+    add_empty_environments_to_ast,
 )
