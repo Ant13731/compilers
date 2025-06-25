@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import ClassVar, Callable, Self
+from typing import Callable, Self
 
 from src.mod import ast_
 
@@ -29,15 +29,3 @@ class RewriteRule:
     rh: ast_.ASTNode
     match_condition: Callable[[Self, PreMatchedASTNode], bool] | None = None
     substitution_condition: Callable[[Self, Substitution, PreMatchedASTNode], bool] | None = None
-
-
-class MatchingPhase:
-    """Each matching phase contains a list of rules that are applied to the AST in order exhaustively, starting from the root.
-
-    Exit conditions separate these phases, allowing for early termination of the matching process."""
-
-    rules: ClassVar[list[RewriteRule]]
-
-    @classmethod
-    def exit_condition(cls, ast: ast_.ASTNode) -> bool:
-        raise NotImplementedError

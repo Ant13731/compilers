@@ -134,8 +134,8 @@ class Scanner:
         """Adds a token to the scanner's output.
 
         Args:
-            type_ (TokenType): The type of the token.
-            value (str, optional): The value of the token. Defaults to an empty string.
+            type_: The type of the token.
+            value: The value of the token. Defaults to an empty string.
         """
 
         self.scanned_tokens.append(Token(type_, value, copy.deepcopy(self.current_location_lexeme_start), copy.deepcopy(self.current_location)))

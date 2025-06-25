@@ -23,15 +23,15 @@ from src.mod.ast_.ast_node_operators import (
 )
 
 
-def flatten_and_join(obj_lst: list[Any], type_: ListOperator) -> ListOp:  # noqa: F405
+def flatten_and_join(obj_lst: list[Any], type_: ListOperator) -> ListOp:
     """Flatten a list of objects and join them with the given ListOp."""
     flattened_objs = []
     for obj in obj_lst:
-        if isinstance(obj, ListOp) and obj.op_type == type_:  # noqa: F405
+        if isinstance(obj, ListOp) and obj.op_type == type_:
             flattened_objs += obj.items
         else:
             flattened_objs.append(obj)
-    return ListOp(items=flattened_objs, op_type=type_)  # noqa: F405
+    return ListOp(items=flattened_objs, op_type=type_)
 
 
 Implies = BinaryOp.construct_with_op(BinaryOperator.IMPLIES)
