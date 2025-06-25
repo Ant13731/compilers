@@ -98,7 +98,7 @@ TEST_CONTAINS_INSTANCES = [
                 ast_.BinaryOp(ast_.Identifier("a"), ast_.Identifier("b"), op_type=ast_.BinaryOperator.MULTIPLY),
             ]
         ),
-        TestDummyNode(),
+        TestDummyNode,
         None,
         [],
     ),

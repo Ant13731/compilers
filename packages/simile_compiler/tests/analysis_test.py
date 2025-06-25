@@ -88,6 +88,26 @@ TEST_ASTS = [
             ),
         ],
     ),
+    ast_.Statements(
+        [
+            ast_.Assignment(
+                ast_.Identifier("x"),
+                ast_.Int("5"),
+            ),
+            ast_.Assignment(
+                ast_.Identifier("y"),
+                ast_.Int("10"),
+            ),
+            ast_.Assignment(
+                ast_.Identifier("z"),
+                ast_.BinaryOp(
+                    left=ast_.Identifier("x"),
+                    right=ast_.Identifier("y"),
+                    op_type=ast_.BinaryOperator.ADD,
+                ),
+            ),
+        ]
+    ),
 ]
 
 TEST_AST_TYPES = list(
@@ -104,6 +124,11 @@ TEST_AST_TYPES = list(
                 "TestStruct": ast_.StructTypeDef({"a": ast_.BaseSimileType.Int, "b": ast_.BaseSimileType.String}),
                 "TestStructTwo": ast_.StructTypeDef({"c": ast_.StructTypeDef({"a": ast_.BaseSimileType.Int, "b": ast_.BaseSimileType.String}), "d": ast_.BaseSimileType.String}),
                 "test_struct": ast_.StructTypeDef({"c": ast_.StructTypeDef({"a": ast_.BaseSimileType.Int, "b": ast_.BaseSimileType.String}), "d": ast_.BaseSimileType.String}),
+            },
+            {
+                "x": ast_.BaseSimileType.Int,
+                "y": ast_.BaseSimileType.Int,
+                "z": ast_.BaseSimileType.Int,
             },
         ],
     )

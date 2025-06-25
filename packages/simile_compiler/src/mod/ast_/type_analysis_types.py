@@ -30,13 +30,13 @@ R = TypeVar("R", bound="SimileType")
 T = TypeVar("T", bound="SimileType")
 
 
-@dataclass
+@dataclass(frozen=True)
 class PairType(Generic[L, R]):
     left: L
     right: R
 
 
-@dataclass
+@dataclass(frozen=True)
 class SetType(Generic[T]):
     element_type: T
 
@@ -83,19 +83,19 @@ class SetType(Generic[T]):
 # or SET S = {a,b,c} for set assignment
 
 
-@dataclass
+@dataclass(frozen=True)
 class StructTypeDef:
     # Internally a (many-to-one) (total on defined fields) function
     fields: dict[str, SimileType]
 
 
-@dataclass
+@dataclass(frozen=True)
 class EnumTypeDef:
     # Internally a set of identifiers
     members: set[str]
 
 
-@dataclass
+@dataclass(frozen=True)
 class ProcedureTypeDef:
     arg_types: dict[str, SimileType]
     return_type: SimileType
@@ -114,18 +114,18 @@ def type_union(*types: SimileType) -> SimileType:
     return TypeUnion(types=types_set)
 
 
-@dataclass
+@dataclass(frozen=True)
 class TypeUnion:
     types: set[SimileType]
 
 
-@dataclass
+@dataclass(frozen=True)
 class ModuleImports:
     # import these objects into the module namespace
     import_objects: dict[str, SimileType]
 
 
-@dataclass
+@dataclass(frozen=True)
 class DeferToSymbolTable:
     lookup_type: str
 
