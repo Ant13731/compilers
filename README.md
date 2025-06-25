@@ -56,3 +56,9 @@ Check that the kernel is installed properly by running the following command wit
 ```powershell
 jupyter console --kernel simile_kernel
 ```
+
+# Generating docs
+
+```powershell
+pydoctor --make-html --docformat=google --html-output=generated/api_docs/ packages/simile_compiler/
+```

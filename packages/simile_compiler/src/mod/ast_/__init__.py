@@ -6,6 +6,7 @@ from src.mod.ast_.dataclass_helpers import (
     dataclass_traverse,
     dataclass_children,
     is_dataclass_leaf,
+    dataclass_find_and_replace,
 )
 from src.mod.ast_.ast_node_operators import (
     Operators,

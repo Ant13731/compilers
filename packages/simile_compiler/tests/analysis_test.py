@@ -6,7 +6,7 @@ from src import ast_
 from src import analysis
 
 
-def mkenv(new_env: dict) -> analysis.Environment:
+def mk_starting_env(new_env: dict) -> analysis.Environment:
     return analysis.Environment(
         previous=analysis.STARTING_ENVIRONMENT,
         table=new_env,
@@ -92,18 +92,18 @@ TEST_ASTS = [
 
 TEST_AST_TYPES = list(
     map(
-        mkenv,
+        mk_starting_env,  # type: ignore
         [
             {"x": ast_.BaseSimileType.Int},
             {"test_enum": ast_.EnumTypeDef({"a", "b", "c"})},
             {
                 "TestStruct": ast_.StructTypeDef({"a": ast_.BaseSimileType.Int, "b": ast_.BaseSimileType.String}),
-                "test_struct": ast_.DeferToSymbolTable(lookup_type="TestStruct"),
+                "test_struct": ast_.StructTypeDef({"a": ast_.BaseSimileType.Int, "b": ast_.BaseSimileType.String}),
             },
             {
                 "TestStruct": ast_.StructTypeDef({"a": ast_.BaseSimileType.Int, "b": ast_.BaseSimileType.String}),
-                "TestStructTwo": ast_.StructTypeDef({"c": ast_.DeferToSymbolTable("TestStruct"), "d": ast_.BaseSimileType.String}),
-                "test_struct": ast_.DeferToSymbolTable(lookup_type="TestStructTwo"),
+                "TestStructTwo": ast_.StructTypeDef({"c": ast_.StructTypeDef({"a": ast_.BaseSimileType.Int, "b": ast_.BaseSimileType.String}), "d": ast_.BaseSimileType.String}),
+                "test_struct": ast_.StructTypeDef({"c": ast_.StructTypeDef({"a": ast_.BaseSimileType.Int, "b": ast_.BaseSimileType.String}), "d": ast_.BaseSimileType.String}),
             },
         ],
     )
@@ -116,21 +116,21 @@ for ast_node, ast_type in zip(TEST_ASTS, TEST_AST_TYPES):
     TEST_ASTS_WITH_TYPES.append((ast_node, typed_ast_node))
 
 
-def test_type_analysis(ast_node: ast_.Statements, typed_ast_node: ast_.Statements):
+# def test_type_analysis(ast_node: ast_.Statements, typed_ast_node: ast_.Statements):
 
-    analyzed_ast = analysis.populate_ast_with_types(ast_node)
-    if analyzed_ast == typed_ast_node:
-        print("ASTs match!")
-        return
+#     analyzed_ast = analysis.populate_ast_with_types(ast_node)
+#     if analyzed_ast == typed_ast_node:
+#         print("ASTs match!")
+#         return
 
-    print("Expected:")
-    print(typed_ast_node.env)
-    print("Actual:")
-    print(analyzed_ast.env)
+#     print("Expected:")
+#     print(typed_ast_node.env)
+#     print("Actual:")
+#     print(analyzed_ast.env)
 
 
-for ast_node, typed_ast_node in TEST_ASTS_WITH_TYPES[-1:]:
-    test_type_analysis(ast_node, typed_ast_node)
+# for ast_node, typed_ast_node in TEST_ASTS_WITH_TYPES[-2:]:
+#     test_type_analysis(ast_node, typed_ast_node)
 
 
 class TestAnalysis:

@@ -106,6 +106,45 @@ def is_dataclass_leaf(obj: Any) -> bool:
     return True
 
 
+def dataclass_find_and_replace(
+    traversal_target: Any,
+    rewrite_func: Callable[[Any], Any | None],
+) -> Any:
+    """Find and replace dataclass instances using a rewrite function."""
+    assert is_dataclass(traversal_target), "Traversal techniques only work with the dataclass `fields` function"
+
+    # Bottom up traversal
+    for f in fields(traversal_target):
+        field_value = getattr(traversal_target, f.name)
+        if isinstance(field_value, list):
+            new_list = []
+            for item in field_value:
+                if is_dataclass(item):
+                    new_item = dataclass_find_and_replace(item, rewrite_func)
+                    if new_item is not None:
+                        new_list.append(new_item)
+                else:
+                    new_list.append(item)
+            setattr(traversal_target, f.name, new_list)
+        elif isinstance(field_value, dict):
+            new_dict = {}
+            for k, v in field_value.items():
+                if is_dataclass(v):
+                    new_dict[k] = dataclass_find_and_replace(v, rewrite_func)
+                else:
+                    new_dict[k] = v
+            setattr(traversal_target, f.name, new_dict)
+        elif is_dataclass(field_value):
+            new_value = dataclass_find_and_replace(field_value, rewrite_func)
+            setattr(traversal_target, f.name, new_value)
+
+    replacement_target = rewrite_func(traversal_target)
+    if replacement_target is not None:
+        return replacement_target
+    else:
+        return traversal_target
+
+
 # def find_and_replace(
 #     traversal_target: Any,
 #     rewrite_func: Callable[[Any], Any | None],

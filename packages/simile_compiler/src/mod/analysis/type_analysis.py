@@ -1,5 +1,5 @@
 from __future__ import annotations
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, is_dataclass
 import pathlib
 from typing import TypeVar
 
@@ -85,12 +85,26 @@ class Environment:
 
     def normalize_deferred_types(self) -> None:
         """Normalize deferred types in the current environment."""
-        for name, symbol in self.table.items():
+
+        def normalize_deferred_type(symbol: SimileType) -> SimileType | None:
             if isinstance(symbol, ast_.DeferToSymbolTable):
                 deferred_type = self.get(symbol.lookup_type)
                 if deferred_type is None:
                     raise SimileTypeError(f"Failed to find symbol for {symbol.lookup_type} when normalizing deferred type {symbol}")
-                self.table[name] = deferred_type
+                return deferred_type
+            return None
+
+        for name, symbol in self.table.items():
+            # No dataclass, definitely not a deferred type or parent of deferred type
+            if not is_dataclass(symbol):
+                continue
+            self.put(
+                name,
+                ast_.dataclass_find_and_replace(
+                    symbol,
+                    normalize_deferred_type,
+                ),
+            )
 
 
 def check_and_add_for_enum(name: str, value: ast_.ASTNode, current_env: Environment) -> tuple[bool, str]:
