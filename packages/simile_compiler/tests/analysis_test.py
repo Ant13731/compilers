@@ -138,7 +138,7 @@ TEST_AST_TYPES = list(
 TEST_ASTS_WITH_TYPES = []
 for ast_node, ast_type in zip(TEST_ASTS, TEST_AST_TYPES):
     typed_ast_node = deepcopy(ast_node)
-    typed_ast_node = analysis.add_empty_environments_to_ast(typed_ast_node)
+    typed_ast_node = analysis.add_environments_to_ast(typed_ast_node)
     typed_ast_node._env = ast_type
     TEST_ASTS_WITH_TYPES.append((ast_node, typed_ast_node))
 

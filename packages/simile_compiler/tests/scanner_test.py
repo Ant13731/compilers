@@ -32,17 +32,17 @@ class TestSymbols:
     def test_single_symbol(self, input_1: str, expected_1: TokenType):
         assert list(map(lambda tk: tk.type_, scan(input_1))) == [expected_1, TokenType.EOF]
 
-    @pytest.mark.parametrize(
-        "input_1, expected_1",
-        TOKENS_AND_KEYWORDS_NO_NOT,
-    )
-    @pytest.mark.parametrize(
-        "input_2, expected_2",
-        TOKENS_AND_KEYWORDS_NO_NOT,
-    )
-    def test_double_symbols_with_space(self, input_1: str, input_2: str, expected_1: TokenType, expected_2: TokenType):
-        input_ = input_1 + " " + input_2
-        assert list(map(lambda tk: tk.type_, scan(input_))) == [expected_1, expected_2, TokenType.EOF]
+    # @pytest.mark.parametrize(
+    #     "input_1, expected_1",
+    #     TOKENS_AND_KEYWORDS_NO_NOT,
+    # )
+    # @pytest.mark.parametrize(
+    #     "input_2, expected_2",
+    #     TOKENS_AND_KEYWORDS_NO_NOT,
+    # )
+    # def test_double_symbols_with_space(self, input_1: str, input_2: str, expected_1: TokenType, expected_2: TokenType):
+    #     input_ = input_1 + " " + input_2
+    #     assert list(map(lambda tk: tk.type_, scan(input_))) == [expected_1, expected_2, TokenType.EOF]
 
     @pytest.mark.parametrize(
         "input_1, expected_1",

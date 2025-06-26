@@ -25,30 +25,31 @@ class ParseImportError(Exception):
 
 
 def populate_ast_environments(ast: T) -> T:
-    ast = add_empty_environments_to_ast(ast)
+    ast = add_environments_to_ast(ast)
     _populate_ast_environments_aux(ast)
     return ast
 
 
-def add_empty_environments_to_ast(ast: T) -> T:
-    current_env = ast_.STARTING_ENVIRONMENT
+def add_environments_to_ast(ast: T, current_env: ast_.Environment | None = None) -> T:
+    if current_env is None:
+        current_env = ast_.STARTING_ENVIRONMENT
 
-    def add_empty_environments_to_ast_aux(node: ast_.ASTNode) -> None:
+    def add_environments_to_ast_aux(node: ast_.ASTNode) -> None:
         nonlocal current_env
         if isinstance(node, ast_.Statements):
             current_env = ast_.Environment(previous=current_env)
             node._env = current_env
             for child in node.children(True):
-                add_empty_environments_to_ast_aux(child)
+                add_environments_to_ast_aux(child)
 
             assert current_env.previous is not None, "Environment stack should not be empty after processing Statements node"
             current_env = current_env.previous
             return
         node._env = current_env
         for child in node.children(True):
-            add_empty_environments_to_ast_aux(child)
+            add_environments_to_ast_aux(child)
 
-    add_empty_environments_to_ast_aux(ast)
+    add_environments_to_ast_aux(ast)
     return ast
 
 
