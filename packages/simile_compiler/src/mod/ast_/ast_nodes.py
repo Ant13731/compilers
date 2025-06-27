@@ -110,6 +110,9 @@ class InheritedEqMixin:
 
         assert is_dataclass(self), "InheritedEqMixin can only be used with dataclasses"
 
+        if len(fields(self)) != len(fields(other)):
+            return False
+
         for f in fields(self):
             if f.name.startswith("_"):
                 continue
@@ -340,8 +343,8 @@ class BinaryOp(InheritedEqMixin, ASTNode):
         raise SimileTypeError(f"Unknown type for binary operator: {self.op_type.name}, {l_type}, {r_type}")
 
 
-@dataclass
-class RelationOp(ASTNode):
+@dataclass(eq=False)
+class RelationOp(InheritedEqMixin, ASTNode):
     left: ASTNode
     right: ASTNode
     op_type: RelationOperator
@@ -378,8 +381,8 @@ class RelationOp(ASTNode):
         return SetType(element_type=PairType(l_type.element_type, r_type.element_type))
 
 
-@dataclass
-class UnaryOp(ASTNode):
+@dataclass(eq=False)
+class UnaryOp(InheritedEqMixin, ASTNode):
     value: ASTNode
     op_type: UnaryOperator
 
@@ -420,8 +423,8 @@ class UnaryOp(ASTNode):
                 return SetType(element_type=self.value.get_type)
 
 
-@dataclass
-class ListOp(ASTNode):
+@dataclass(eq=False)
+class ListOp(InheritedEqMixin, ASTNode):
     items: list[ASTNode]
     op_type: ListOperator
 
@@ -492,7 +495,7 @@ class ListOp(ASTNode):
         return cls(items=flattened_objs, op_type=type_)
 
 
-@dataclass
+@dataclass(eq=False)
 class Quantifier(ASTNode):
     predicate: ASTNode  # includes generators
     expression: ASTNode
@@ -502,6 +505,36 @@ class Quantifier(ASTNode):
     def __post_init__(self) -> None:
         super().__post_init__()
         self._bound_identifiers: IdentList | None = None
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, self.__class__):
+            return False
+
+        if len(fields(self)) != len(fields(other)):
+            return False
+
+        for f in fields(self):
+            if f.name not in map(lambda x: x.name, fields(other)):
+                return False
+
+        if self.op_type != other.op_type:
+            return False
+        if self.all_predicates != other.all_predicates:
+            return False
+        if self.expression != other.expression:
+            return False
+
+        for f in fields(self):
+            if f.name.startswith("_"):
+                continue
+            self_value = getattr(self, f.name)
+            try:
+                other_value = getattr(other, f.name)
+            except AttributeError:
+                return False
+            if self_value != other_value:
+                return False
+        return True
 
     @classmethod
     def construct_with_op(cls, op_type: QuantifierOperator) -> Callable[[ASTNode, ASTNode], Quantifier]:
@@ -566,8 +599,8 @@ class Quantifier(ASTNode):
         raise SimileTypeError(f"Invalid quantifier operator type. Expected one of {list(QuantifierOperator)} but got {self.op_type}")
 
 
-@dataclass
-class Enumeration(ASTNode):
+@dataclass(eq=False)
+class Enumeration(InheritedEqMixin, ASTNode):
     items: list[ASTNode]
     op_type: CollectionOperator
 
@@ -774,8 +807,8 @@ class Return(ASTNode):
         return self.value.get_type
 
 
-@dataclass
-class ControlFlowStmt(ASTNode):
+@dataclass(eq=False)
+class ControlFlowStmt(InheritedEqMixin, ASTNode):
     op_type: ControlFlowOperator
 
     def _get_type(self) -> SimileType:

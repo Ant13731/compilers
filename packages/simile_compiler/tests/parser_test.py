@@ -33,20 +33,19 @@ manual_tests = dict(
             "{||}": Enumeration([], op_type=CollectionOperator.BAG),
             "[]": Enumeration([], op_type=CollectionOperator.SEQUENCE),
             "[ ]": Enumeration([], op_type=CollectionOperator.SEQUENCE),
-            "x <-> y": Relation(Identifier("x"), Identifier("y"), op_type=RelationOperator.RELATION),
+            "x <-> y": RelationOp(Identifier("x"), Identifier("y"), op_type=RelationOperator.RELATION),
             "x + y + z": Add(Add(Identifier("x"), Identifier("y")), Identifier("z")),
             "x > y": BinaryOp(Identifier("x"), Identifier("y"), op_type=BinaryOperator.GREATER_THAN),
             "x ==> y": Implies(Identifier("x"), Identifier("y")),
             "x ==> y ==> z": Implies(Implies(Identifier("x"), Identifier("y")), Identifier("z")),
             "x <== y <== z": RevImplies(Identifier("x"), RevImplies(Identifier("y"), Identifier("z"))),
             "x |-> y": Maplet(Identifier("x"), Identifier("y")),
-            "{x | x in [1, 2, 3]}": Quantifier(
+            "{x | x in [1, 2, 3]}": SetComprehension(
                 In(
                     Identifier("x"),
                     Enumeration([Int("1"), Int("2"), Int("3")], op_type=CollectionOperator.SEQUENCE),
                 ),
                 Identifier("x"),
-                op_type=QuantifierOperator.SET,
             ),
             "{ x |-> y | x in [1, 2, 3] and y in [4, 5, 6] }": RelationComprehension(
                 And(
