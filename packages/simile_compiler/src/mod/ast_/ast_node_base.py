@@ -4,7 +4,7 @@ from typing import Generator, Any, TypeVar, Callable
 from functools import wraps
 
 from src.mod.ast_.ast_node_operators import Operators
-from src.mod.ast_.dataclass_helpers import dataclass_traverse
+from src.mod.ast_.dataclass_helpers import dataclass_traverse, dataclass_find_and_replace
 from src.mod.ast_.symbol_table_types import SimileType, DeferToSymbolTable, SimileTypeError
 from src.mod.ast_.symbol_table_env import Environment
 
@@ -104,6 +104,19 @@ class ASTNode:
                 elif not ast_nodes_only:
                     # If we are not filtering for ASTNodes only, yield the field value directly
                     yield field_value
+
+    def find_and_replace(self, find: ASTNode | Any, replace: ASTNode | Any) -> ASTNode:
+        """Find and replace AST nodes using a rewrite function.
+
+        The rewrite function should return the new AST node or None if no replacement is needed.
+        """
+
+        def rewrite_func(node: ASTNode | Any) -> ASTNode | None:
+            if node == find:
+                return replace
+            return None
+
+        return dataclass_find_and_replace(self, rewrite_func)
 
     def is_leaf(self) -> bool:
         """Check if the AST node is a leaf node (i.e., has no dataclass/list of dataclass children)."""

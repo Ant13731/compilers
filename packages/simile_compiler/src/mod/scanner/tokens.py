@@ -107,6 +107,7 @@ class TokenType(Enum):
     CARTESIAN_PRODUCT = auto()
     POWERSET = auto()
     NONEMPTY_POWERSET = auto()
+    CARDINALITY = auto()
     TILDE = auto()  # set complement
 
     SUBSET = auto()
@@ -309,4 +310,6 @@ KEYWORD_TABLE = {
     "from": TokenType.FROM,
     "import": TokenType.IMPORT,
     "pass": TokenType.PASS,
+    "lambda": TokenType.LAMBDA,
+    "card": TokenType.CARDINALITY,
 }

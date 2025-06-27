@@ -420,6 +420,27 @@ class ListOp(ASTNode):
                     raise SimileTypeError(f"Invalid types for logical list operation: {[item.get_type for item in self.items]}")
                 return BaseSimileType.Bool
 
+    def separate_candidate_generators_from_predicates(self, free_quantifier_variables: set[Identifier] | None = None) -> tuple[list[BinaryOp], list[ASTNode]]:
+        """Get candidate generators from a list of AND-separated predicates (intended for use in comprehension/quantifier based rewrite rules)"""
+        if not self.op_type == ListOperator.AND:
+            raise SimileTypeError(f"ListOp.get_candidate_generators() can only be called on AND operations, got {self.op_type.name}")
+
+        candidate_generators: list[BinaryOp] = []
+        predicates: list[ASTNode] = []
+        for item in self.items:
+            match item:
+                case BinaryOp(
+                    Identifier(_) as x,
+                    set_type,
+                    BinaryOperator.IN,
+                ) if isinstance(
+                    set_type, SetType
+                ) and (free_quantifier_variables is None or x in free_quantifier_variables):
+                    candidate_generators.append(item)
+                case _:
+                    predicates.append(item)
+        return candidate_generators, predicates
+
 
 @dataclass
 class BoolQuantifier(ASTNode):
@@ -499,44 +520,10 @@ class Quantifier(ASTNode):
         if not self.predicate.get_type == BaseSimileType.Bool:
             raise SimileTypeError(f"Invalid type for boolean quantifier predicate: {self.predicate.get_type}")
         # Quantifier operators must be either union all or intersection all, so result is a set
-        return SetType(element_type=self.expression.get_type)
-
-
-@dataclass
-class Enumeration(ASTNode):
-    items: list[ASTNode]
-    op_type: CollectionOperator
-
-    @classmethod
-    def construct_with_op(cls, op_type: CollectionOperator) -> Callable[[list[ASTNode]], Enumeration]:
-        return lambda items: cls(items=items, op_type=op_type)
-
-    @property
-    def bound(self) -> set[Identifier]:
-        return set.union(*(item.bound for item in self.items))
-
-    @property
-    def free(self) -> set[Identifier]:
-        return set.union(*(item.free for item in self.items))
-
-    def well_formed(self) -> bool:
-        if not all(item.well_formed() for item in self.items):
-            return False
-        for i in range(len(self.items)):
-            for j in range(len(self.items)):
-                if i == j:
-                    continue
-                # Is this too restrictive? this would block statements like {{x | x > 0}, {x | x > 0}}
-                # which may be perfectly valid if x is only locally bound...
-                if not self.items[i].bound.isdisjoint(self.items[j].bound):
-                    return False
-                if not self.items[i].bound.isdisjoint(self.items[j].free):
-                    return False
-        return True
-
-    def _get_type(self) -> SimileType:
-        element_type = type_union(*(item.get_type for item in self.items))
-        return SetType(element_type=element_type)
+        if self.op_type in {QuantifierOperator.UNION_ALL, QuantifierOperator.INTERSECTION_ALL}:
+            return SetType(element_type=self.expression.get_type)
+        else:
+            return self.expression.get_type
 
 
 @dataclass
@@ -582,6 +569,43 @@ class Comprehension(ASTNode):
 
     def _get_type(self) -> SimileType:
         return SetType(element_type=self.expression.get_type)
+
+
+@dataclass
+class Enumeration(ASTNode):
+    items: list[ASTNode]
+    op_type: CollectionOperator
+
+    @classmethod
+    def construct_with_op(cls, op_type: CollectionOperator) -> Callable[[list[ASTNode]], Enumeration]:
+        return lambda items: cls(items=items, op_type=op_type)
+
+    @property
+    def bound(self) -> set[Identifier]:
+        return set.union(*(item.bound for item in self.items))
+
+    @property
+    def free(self) -> set[Identifier]:
+        return set.union(*(item.free for item in self.items))
+
+    def well_formed(self) -> bool:
+        if not all(item.well_formed() for item in self.items):
+            return False
+        for i in range(len(self.items)):
+            for j in range(len(self.items)):
+                if i == j:
+                    continue
+                # Is this too restrictive? this would block statements like {{x | x > 0}, {x | x > 0}}
+                # which may be perfectly valid if x is only locally bound...
+                if not self.items[i].bound.isdisjoint(self.items[j].bound):
+                    return False
+                if not self.items[i].bound.isdisjoint(self.items[j].free):
+                    return False
+        return True
+
+    def _get_type(self) -> SimileType:
+        element_type = type_union(*(item.get_type for item in self.items))
+        return SetType(element_type=element_type)
 
 
 @dataclass

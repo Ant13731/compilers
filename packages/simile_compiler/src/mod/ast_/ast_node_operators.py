@@ -99,6 +99,8 @@ class QuantifierOperator(Enum):
 
     UNION_ALL = auto()
     INTERSECTION_ALL = auto()
+    SUM = auto()
+    PRODUCT = auto()
 
 
 class ControlFlowOperator(Enum):

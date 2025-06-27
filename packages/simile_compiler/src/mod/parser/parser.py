@@ -124,7 +124,7 @@ class Parser:
         "set": {TokenType.L_BRACE},
         "sequence": {TokenType.L_BRACKET},
         "bag": {TokenType.L_BRACE_BAR},
-        "builtin_functions": {TokenType.POWERSET, TokenType.NONEMPTY_POWERSET},
+        "builtin_functions": {TokenType.POWERSET, TokenType.NONEMPTY_POWERSET, TokenType.CARDINALITY},
         "control_flow_stmt": {TokenType.RETURN, TokenType.BREAK, TokenType.CONTINUE, TokenType.PASS},
         "assignment": {"struct_access"},
         "typed_name": {TokenType.IDENTIFIER},
@@ -688,6 +688,17 @@ class Parser:
                 powerset = self.expr()
                 self.consume(TokenType.R_PAREN, "Need to close parenthesis")
                 return ast_.NonemptyPowerset(powerset)
+            case TokenType.CARDINALITY:
+                self.consume(TokenType.L_PAREN, "Cardinality requires object call notation")
+                cardinality = self.expr()
+                self.consume(TokenType.R_PAREN, "Need to close parenthesis")
+                fresh_variable = ast_.Identifier(f"*fresh_var_card{self.current_index}")
+                return ast_.Quantifier(
+                    ast_.IdentList([fresh_variable]),
+                    ast_.In(fresh_variable, cardinality),
+                    ast_.Int("1"),
+                    ast_.QuantifierOperator.SUM,
+                )
             case TokenType.L_PAREN:
                 expr = self.expr()
                 self.consume(TokenType.R_PAREN, "Need to close parenthesis")
