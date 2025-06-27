@@ -6,6 +6,8 @@ from src.mod import ast_
 from src.mod import analysis
 from src.mod.optimizer.rewrite_collection import RewriteCollection
 
+# NOTE: REWRITE RULES MUST ALWAYS USE THE PARENT FORM FOR STRUCTURAL MATCHING (ex. BinaryOp instead of Add)
+
 
 @dataclass
 class SetRewriteCollection(RewriteCollection):
@@ -32,7 +34,6 @@ class SetRewriteCollection(RewriteCollection):
                     return None
                 fresh_name = self._get_fresh_identifier_name()
                 new_ast = ast_.SetComprehension(
-                    ast_.IdentList([ast_.Identifier(fresh_name)]),
                     ast_.Or(
                         [
                             ast_.In(ast_.Identifier(fresh_name), left),
@@ -41,6 +42,7 @@ class SetRewriteCollection(RewriteCollection):
                     ),
                     ast_.Identifier(fresh_name),
                 )
+                new_ast._bound_identifiers = ast_.IdentList([ast_.Identifier(fresh_name)])
                 return analysis.add_environments_to_ast(new_ast, ast._env)
 
         return None
@@ -57,7 +59,6 @@ class SetRewriteCollection(RewriteCollection):
                     return None
                 fresh_name = self._get_fresh_identifier_name()
                 new_ast = ast_.SetComprehension(
-                    ast_.IdentList([ast_.Identifier(fresh_name)]),
                     ast_.And(
                         [
                             ast_.In(ast_.Identifier(fresh_name), left),
@@ -66,6 +67,7 @@ class SetRewriteCollection(RewriteCollection):
                     ),
                     ast_.Identifier(fresh_name),
                 )
+                new_ast._bound_identifiers = ast_.IdentList([ast_.Identifier(fresh_name)])
                 return analysis.add_environments_to_ast(new_ast, ast._env)
 
         return None
@@ -82,7 +84,6 @@ class SetRewriteCollection(RewriteCollection):
                     return None
                 fresh_name = self._get_fresh_identifier_name()
                 new_ast = ast_.SetComprehension(
-                    ast_.IdentList([ast_.Identifier(fresh_name)]),
                     ast_.And(
                         [
                             ast_.In(ast_.Identifier(fresh_name), left),
@@ -91,6 +92,7 @@ class SetRewriteCollection(RewriteCollection):
                     ),
                     ast_.Identifier(fresh_name),
                 )
+                new_ast._bound_identifiers = ast_.IdentList([ast_.Identifier(fresh_name)])
                 return analysis.add_environments_to_ast(new_ast, ast._env)
 
         return None
@@ -111,30 +113,10 @@ class SetRewriteCollection(RewriteCollection):
             # - generators mixed with predicates (combined with ANDS. ex: f(x) | x in {g(y) | y in S} AND p(x) -> f(g(y)) | y in S AND p(g(y)) )
             #
             # No occurrences of x should be in the resulting ASTNode (TODO check this)
-            case ast_.Comprehension(
-                _,
+            case ast_.Quantifier(
                 ast_.BinaryOp(
                     ast_.Identifier(_) as x,
-                    ast_.Comprehension(
-                        _,
-                        ast_.BinaryOp(
-                            ast_.Identifier(_) as y,
-                            inner_set_type,
-                            ast_.BinaryOperator.IN,
-                        ),
-                        inner_expression,
-                        inner_op_type,
-                    ) as outer_set_type,
-                    ast_.BinaryOperator.IN,
-                ),
-                outer_expression,
-                outer_op_type,
-            ) | ast_.QuantifierOld(
-                _,
-                ast_.BinaryOp(
-                    ast_.Identifier(_) as x,
-                    ast_.Comprehension(
-                        _,
+                    ast_.Quantifier(
                         ast_.BinaryOp(
                             ast_.Identifier(_) as y,
                             inner_set_type,
@@ -162,20 +144,13 @@ class SetRewriteCollection(RewriteCollection):
                 # change expression from f(x) to f(g(y))
                 outer_expression = outer_expression.find_and_replace(x, inner_expression)
 
-                return ast.__class__(
-                    ast_.IdentList([]),
+                return ast_.Quantifier(
                     ast_.In(y, inner_set_type),
                     outer_expression,
                     outer_op_type,  # type: ignore
                 )
 
-            case ast_.Comprehension(
-                _,
-                ast_.ListOp(elems, ast_.ListOperator.AND) as outer_predicate,
-                outer_expression,
-                outer_op_type,
-            ) | ast_.QuantifierOld(
-                _,
+            case ast_.Quantifier(
                 ast_.ListOp(elems, ast_.ListOperator.AND) as outer_predicate,
                 outer_expression,
                 outer_op_type,
@@ -191,8 +166,7 @@ class SetRewriteCollection(RewriteCollection):
                     match candidate_generator:
                         case ast_.BinaryOp(
                             ast_.Identifier(_) as x,
-                            ast_.Comprehension(
-                                _,
+                            ast_.Quantifier(
                                 ast_.BinaryOp(
                                     ast_.Identifier(_) as y,
                                     inner_set_type,
@@ -234,8 +208,7 @@ class SetRewriteCollection(RewriteCollection):
 
                 outer_expression = outer_expression.find_and_replace(x, inner_expression)
 
-                return ast.__class__(
-                    ast_.IdentList([]),
+                return ast_.Quantifier(
                     ast_.And([ast_.In(y, inner_set_type)] + new_predicates),
                     outer_expression,
                     outer_op_type,  # type: ignore # TODO check for type error here
