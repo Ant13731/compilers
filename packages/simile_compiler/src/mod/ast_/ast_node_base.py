@@ -11,20 +11,6 @@ from src.mod.ast_.symbol_table_env import Environment
 T = TypeVar("T")
 
 
-def type_analysis_run_check(func: Callable[[ASTNode], SimileType]) -> Callable[[ASTNode], SimileType]:
-    """Decorator to check if type analysis has been run before calling a function."""
-
-    @wraps(func)
-    def wrapper(self: ASTNode, *args, **kwargs):
-        if not args or not isinstance(self, ASTNode):
-            raise SimileTypeError("First argument must be an ASTNode instance (self, for methods).")
-        if self._env is None:
-            raise SimileTypeError(f"Type analysis must be run before calling this function: {func.__name__}().")
-        return func(self, *args, **kwargs)
-
-    return wrapper
-
-
 @dataclass
 class ASTNode:
     """Base class for all AST nodes."""
@@ -53,6 +39,8 @@ class ASTNode:
         Initially, :cls:`Identifier` nodes will return a :cls:`DeferToSymbolTable` type.
         After running :func:`src.mod.analysis.type_analysis.populate_ast_with_types`, all nodes will contain resolved types.
         """
+        if self._env is None:
+            raise SimileTypeError("Type analysis must be run before calling the `get_type` function (self._env is None)")
         return self._get_type()
 
     def _get_type(self) -> SimileType:

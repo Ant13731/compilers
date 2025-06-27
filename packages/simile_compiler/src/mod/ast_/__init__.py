@@ -14,10 +14,9 @@ from src.mod.ast_.ast_node_operators import (
     RelationOperator,
     UnaryOperator,
     ListOperator,
-    BoolQuantifierOperator,
-    QuantifierOperator,
     ControlFlowOperator,
     CollectionOperator,
+    QuantifierOperator,
 )
 from src.mod.ast_.ast_nodes import (
     Int,
@@ -32,11 +31,9 @@ from src.mod.ast_.ast_nodes import (
     RelationOp,
     UnaryOp,
     ListOp,
-    BoolQuantifier,
     Quantifier,
     ControlFlowStmt,
     Enumeration,
-    Comprehension,
     Type_,
     LambdaDef,
     StructAccess,
@@ -63,8 +60,7 @@ from src.mod.ast_.ast_nodes import (
     SimpleStmt,
     CompoundStmt,
 )
-from src.mod.ast_.ast_nodes_extra import (
-    flatten_and_join,
+from src.mod.ast_.ast_nodes_generated import (
     Implies,
     RevImplies,
     Equivalent,
@@ -95,18 +91,18 @@ from src.mod.ast_.ast_nodes_extra import (
     #
     Subset,
     SubsetEq,
-    SuperSet,
-    SuperSetEq,
+    Superset,
+    SupersetEq,
     NotSubset,
     NotSubsetEq,
-    NotSuperSet,
-    NotSuperSetEq,
+    NotSuperset,
+    NotSupersetEq,
     #
     Maplet,
     RelationOverriding,
     Composition,
     CartesianProduct,
-    UpTo,
+    Upto,
     #
     DomainSubtraction,
     DomainRestriction,
@@ -144,6 +140,8 @@ from src.mod.ast_.ast_nodes_extra import (
     #
     UnionAll,
     IntersectionAll,
+    Sum,
+    Product,
     #
     #
     Break,

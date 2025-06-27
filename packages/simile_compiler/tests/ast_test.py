@@ -26,12 +26,12 @@ TEST_CONTAINS_CHILD = [
     (
         ast_.SetEnumeration(
             [
-                ast_.BinaryOp(
+                ast_.Add(
                     ast_.Identifier("x"),
                     ast_.Identifier("y"),
                     op_type=ast_.BinaryOperator.ADD,
                 ),
-                ast_.BinaryOp(
+                ast_.Multiply(
                     ast_.Identifier("a"),
                     ast_.Identifier("b"),
                     op_type=ast_.BinaryOperator.MULTIPLY,
@@ -43,12 +43,12 @@ TEST_CONTAINS_CHILD = [
     (
         ast_.SetEnumeration(
             [
-                ast_.BinaryOp(
+                ast_.Add(
                     ast_.Identifier("x"),
                     ast_.Identifier("y"),
                     op_type=ast_.BinaryOperator.ADD,
                 ),
-                ast_.BinaryOp(
+                ast_.Multiply(
                     ast_.Identifier("a"),
                     ast_.Identifier("b"),
                     op_type=ast_.BinaryOperator.MULTIPLY,

@@ -129,7 +129,7 @@ class SetRewriteCollection(RewriteCollection):
                 ),
                 outer_expression,
                 outer_op_type,
-            ) | ast_.Quantifier(
+            ) | ast_.QuantifierOld(
                 _,
                 ast_.BinaryOp(
                     ast_.Identifier(_) as x,
@@ -174,7 +174,7 @@ class SetRewriteCollection(RewriteCollection):
                 ast_.ListOp(elems, ast_.ListOperator.AND) as outer_predicate,
                 outer_expression,
                 outer_op_type,
-            ) | ast_.Quantifier(
+            ) | ast_.QuantifierOld(
                 _,
                 ast_.ListOp(elems, ast_.ListOperator.AND) as outer_predicate,
                 outer_expression,

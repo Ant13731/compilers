@@ -287,13 +287,17 @@ class Parser:
                 ident_list = self.ident_list()
                 self.consume(TokenType.CDOT, "Expected FORALL quantification separator")
                 predicate = self.predicate()
-                return ast_.Forall(ident_list, predicate)
+                forall = ast_.Forall(predicate)
+                forall._bound_identifiers = ident_list
+                return forall
             case TokenType.EXISTS:
                 self.advance()
                 ident_list = self.ident_list()
                 self.consume(TokenType.CDOT, "Expected EXISTS quantification separator")
                 predicate = self.predicate()
-                return ast_.Exists(ident_list, predicate)
+                exists = ast_.Exists(predicate)
+                exists._bound_identifiers = ident_list
+                return exists
             case _ if t.type_ in self.get_first_set("unquantified_predicate"):
                 return self.unquantified_predicate()
             case _:
@@ -384,7 +388,7 @@ class Parser:
         pair_expr = self.pair_expr()
         match self.peek().type_:
             case TokenType.EQUALS:
-                bin_op = ast_.Equal
+                bin_op: type[ast_.BinaryOp] = ast_.Equal
             case TokenType.NOT_EQUALS:
                 bin_op = ast_.NotEqual
             case TokenType.IS:
@@ -408,22 +412,22 @@ class Parser:
             case TokenType.SUBSET_EQ:
                 bin_op = ast_.SubsetEq
             case TokenType.SUPERSET:
-                bin_op = ast_.SuperSet
+                bin_op = ast_.Superset
             case TokenType.SUPERSET_EQ:
-                bin_op = ast_.SuperSetEq
+                bin_op = ast_.SupersetEq
             case TokenType.NOT_SUBSET:
                 bin_op = ast_.NotSubset
             case TokenType.NOT_SUBSET_EQ:
                 bin_op = ast_.NotSubsetEq
             case TokenType.NOT_SUPERSET:
-                bin_op = ast_.NotSuperSet
+                bin_op = ast_.NotSuperset
             case TokenType.NOT_SUPERSET_EQ:
-                bin_op = ast_.NotSuperSetEq
+                bin_op = ast_.NotSupersetEq
             case _:
                 return pair_expr  # Since comparison is optional, we can return immediately if no comp op matches
         self.advance()
         right = self.pair_expr()
-        return bin_op(pair_expr, right)
+        return bin_op(pair_expr, right)  # type: ignore # TODO fix type?
 
     @store_derivation
     def expr(self) -> ast_.ASTNode:
@@ -448,10 +452,14 @@ class Parser:
                 return ast_.LambdaDef(ident_pattern, predicate, self.expr())
             case TokenType.UNION_ALL:
                 ident_list, predicate, expression = self.quantification_body()
-                return ast_.UnionAll(ident_list, predicate, expression)
+                union_all = ast_.UnionAll(predicate, expression)
+                union_all._bound_identifiers = ident_list
+                return union_all
             case TokenType.INTERSECTION_ALL:
                 ident_list, predicate, expression = self.quantification_body()
-                return ast_.IntersectionAll(ident_list, predicate, expression)
+                intersection_all = ast_.IntersectionAll(predicate, expression)
+                intersection_all._bound_identifiers = ident_list
+                return intersection_all
             case _:
                 self.error("Invalid start to quantification")
 
@@ -520,7 +528,7 @@ class Parser:
         interval_expr = self.interval_expr()
         match self.peek().type_:
             case TokenType.UNION:
-                bin_op = ast_.Union
+                bin_op: type[ast_.BinaryOp] = ast_.Union
                 bin_token: TokenType = TokenType.UNION
             case TokenType.CARTESIAN_PRODUCT:
                 bin_op = ast_.CartesianProduct
@@ -693,12 +701,12 @@ class Parser:
                 cardinality = self.expr()
                 self.consume(TokenType.R_PAREN, "Need to close parenthesis")
                 fresh_variable = ast_.Identifier(f"*fresh_var_card{self.current_index}")
-                return ast_.Quantifier(
-                    ast_.IdentList([fresh_variable]),
-                    ast_.In(fresh_variable, cardinality),
+                ast_sum = ast_.Sum(
                     ast_.Int("1"),
-                    ast_.QuantifierOperator.SUM,
+                    ast_.In(fresh_variable, cardinality),
                 )
+                ast_sum._bound_identifiers = ast_.IdentList([fresh_variable])
+                return ast_sum
             case TokenType.L_PAREN:
                 expr = self.expr()
                 self.consume(TokenType.R_PAREN, "Need to close parenthesis")
@@ -709,14 +717,14 @@ class Parser:
                 self.error("Failed to interpret first token of expected atom")
 
     @store_derivation
-    def collection_body(self, collection_type: ast_.CollectionOperator, closing_symbol: TokenType) -> ast_.ASTNode:
+    def collection_body(self, collection_operator: ast_.CollectionOperator, closing_symbol: TokenType) -> ast_.ASTNode:
         # Since sets may start with an ident_list even if they are just set enumeration,
         # we need to use similar hacks to quantification body
         starting_index = self.current_index
 
         # Handle empty set
         if self.match(closing_symbol):
-            return ast_.Enumeration([], collection_type)
+            return ast_.Enumeration([], collection_operator)
 
         # Then try set enumeration with one elem
         enumeration = [self.expr()]
@@ -724,12 +732,17 @@ class Parser:
             enumeration.append(self.expr())
 
         if self.match(closing_symbol):
-            return ast_.Enumeration(enumeration, collection_type)
+            return ast_.Enumeration(enumeration, collection_operator)
 
         # backtrack - this is not an enumeration, rather a quantification
         self.current_index = starting_index
         ident_list, predicate, expression = self.quantification_body()
-        ret = ast_.Comprehension(ident_list, predicate, expression, collection_type)
+        quantification_operator = ast_.QuantifierOperator.from_collection_operator(collection_operator)
+        if quantification_operator is None:
+            self.error(f"Failed to convert collection operator {collection_operator} to quantification operator")
+
+        ret = ast_.Quantifier(predicate, expression, quantification_operator)
+        ret._bound_identifiers = ident_list
         self.consume(closing_symbol, f"Expected closing symbol {closing_symbol} for collection")
         return ret
 
@@ -750,9 +763,9 @@ class Parser:
                     # If the element is not a maplet, we cannot promote the whole set to a relation
                     return collection
             # otherwise, promote it to a relation
-            return ast_.Enumeration(collection.items, ast_.CollectionOperator.RELATION)  # type: ignore
+            return ast_.RelationEnumeration(collection.items)  # type: ignore
 
-        if isinstance(collection, ast_.Comprehension):
+        if isinstance(collection, ast_.Quantifier):
             # Test only the identifiers for maplets. If no identifiers, test the (single) expression
             # for identifier in collection.bound_identifiers.items:
             #     if not isinstance(identifier, ast_.Maplet):
@@ -771,7 +784,12 @@ class Parser:
                 return collection
 
             # Otherwise, promote
-            return ast_.Comprehension(collection.bound_identifiers, collection.predicate, collection.expression, ast_.CollectionOperator.RELATION)
+            ret = ast_.RelationComprehension(
+                collection.predicate,
+                collection.expression,
+            )
+            ret._bound_identifiers = collection._bound_identifiers
+            return ret
         self.error("Unreachable state in set derivation. The type of the parsed value should be either a SetEnumeration or SetComprehension")
 
     @store_derivation

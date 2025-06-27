@@ -1,4 +1,6 @@
+from __future__ import annotations
 from enum import Enum, auto
+from typing import TypeGuard, Literal
 
 
 class BinaryOperator(Enum):
@@ -87,20 +89,58 @@ class ListOperator(Enum):
     OR = auto()
 
 
-class BoolQuantifierOperator(Enum):
-    """Forall/Exists operators"""
-
+class QuantifierOperator(Enum):
     FORALL = auto()
     EXISTS = auto()
 
-
-class QuantifierOperator(Enum):
-    """UnionAll/IntersectionAll operators"""
-
     UNION_ALL = auto()
     INTERSECTION_ALL = auto()
+
     SUM = auto()
     PRODUCT = auto()
+
+    SEQUENCE = auto()
+    SET = auto()
+    RELATION = auto()
+    BAG = auto()
+
+    def is_bool_quantifier(self) -> bool:
+        """Check if the quantifier operator is a boolean quantifier (FORALL or EXISTS)."""
+        return self in {QuantifierOperator.FORALL, QuantifierOperator.EXISTS}
+
+    def is_collection_operator(self) -> bool:
+        """Check if the quantifier operator is a collection operator (SEQUENCE, SET, RELATION, BAG)."""
+        return self in {
+            QuantifierOperator.SEQUENCE,
+            QuantifierOperator.SET,
+            QuantifierOperator.RELATION,
+            QuantifierOperator.BAG,
+        }
+
+    def is_numerical_quantifier(self) -> bool:
+        """Check if the quantifier operator is a numerical quantifier (SUM or PRODUCT)."""
+        return self in {QuantifierOperator.SUM, QuantifierOperator.PRODUCT}
+
+    def is_general_collection_operator(self) -> bool:
+        """Check if the quantifier operator is a general collection operator (UNION_ALL or INTERSECTION_ALL)."""
+        return self in {
+            QuantifierOperator.UNION_ALL,
+            QuantifierOperator.INTERSECTION_ALL,
+        }
+
+    @classmethod
+    def from_collection_operator(cls, other: CollectionOperator) -> QuantifierOperator | None:
+        match other:
+            case CollectionOperator.SEQUENCE:
+                return QuantifierOperator.SEQUENCE
+            case CollectionOperator.SET:
+                return QuantifierOperator.SET
+            case CollectionOperator.RELATION:
+                return QuantifierOperator.RELATION
+            case CollectionOperator.BAG:
+                return QuantifierOperator.BAG
+            case _:
+                return None
 
 
 class ControlFlowOperator(Enum):
@@ -120,5 +160,5 @@ class CollectionOperator(Enum):
     BAG = auto()
 
 
-Operators = BinaryOperator | RelationOperator | UnaryOperator | ListOperator | BoolQuantifierOperator | QuantifierOperator | ControlFlowOperator
+Operators = BinaryOperator | RelationOperator | UnaryOperator | ListOperator | QuantifierOperator | ControlFlowOperator
 """Type alias for all operator enums in Simile."""

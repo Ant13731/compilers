@@ -1,6 +1,6 @@
 from __future__ import annotations
-from dataclasses import dataclass, field, Field
-from typing import Callable, ClassVar, Any
+from dataclasses import dataclass, field, Field, fields
+from typing import Callable, ClassVar, Any, Self
 
 from soupsieve import match
 
@@ -10,7 +10,6 @@ from src.mod.ast_.ast_node_operators import (
     RelationOperator,
     UnaryOperator,
     ListOperator,
-    BoolQuantifierOperator,
     QuantifierOperator,
     ControlFlowOperator,
     CollectionOperator,
@@ -32,6 +31,7 @@ from src.mod.ast_.symbol_table_types import (
 
 
 # TODO generate constructors for the typed dataclasses as a sort of shorthand, especially useful for matching/TRS rule creation
+# Generate them from enums directly - ex. print(type_writer(op.name.capitalize() for op in BinaryOperator))
 @dataclass
 class Int(ASTNode):
     value: str
@@ -99,11 +99,44 @@ class IdentList(ASTNode):
         )
 
 
+# class InheritedEqMixin:
+#     a: int
+#     def __eq__(self, other: object) -> bool:
+#         if not isinstance(other, self.__class__):
+#             return False
+#         for f in fields(self):
+#             if f.name.startswith("_"):
+#                 continue
+#             self_value = getattr(self, f.name)
+#             try:
+#                 other_value = getattr(other, f.name)
+#             except AttributeError:
+#                 return False
+#             if self_value != other_value:
+#                 return False
+#         return True
+
+
 @dataclass
 class BinaryOp(ASTNode):
     left: ASTNode
     right: ASTNode
     op_type: BinaryOperator
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, self.__class__):
+            return False
+        for f in fields(self):
+            if f.name.startswith("_"):
+                continue
+            self_value = getattr(self, f.name)
+            try:
+                other_value = getattr(other, f.name)
+            except AttributeError:
+                return False
+            if self_value != other_value:
+                return False
+        return True
 
     @classmethod
     def construct_with_op(cls, op_type: BinaryOperator) -> Callable[[ASTNode, ASTNode], BinaryOp]:
@@ -441,134 +474,90 @@ class ListOp(ASTNode):
                     predicates.append(item)
         return candidate_generators, predicates
 
-
-@dataclass
-class BoolQuantifier(ASTNode):
-    bound_identifiers: IdentList
-    predicate: ASTNode
-    op_type: BoolQuantifierOperator
-
     @classmethod
-    def construct_with_op(cls, op_type: BoolQuantifierOperator) -> Callable[[IdentList, ASTNode], BoolQuantifier]:
-        return lambda bound_identifiers, predicate: cls(bound_identifiers=bound_identifiers, predicate=predicate, op_type=op_type)
-
-    @property
-    def bound(self) -> set[Identifier]:
-        return self.bound_identifiers.free | self.predicate.bound
-
-    @property
-    def free(self) -> set[Identifier]:
-        return self.predicate.free - self.bound_identifiers.free
-
-    def well_formed(self) -> bool:
-        return all(
-            [
-                self.bound_identifiers.well_formed(),
-                self.predicate.well_formed(),
-                self.predicate.bound.isdisjoint(self.bound_identifiers.free),
-            ]
-        )
-
-    def _get_type(self) -> SimileType:
-        if not self.predicate.get_type == BaseSimileType.Bool:
-            raise SimileTypeError(f"Invalid type for boolean quantifier predicate: {self.predicate.get_type}")
-        return BaseSimileType.Bool
+    def flatten_and_join(cls, obj_lst: list[Any], type_: ListOperator) -> Self:
+        """Flatten a list of objects and join them with the given ListOp."""
+        flattened_objs = []
+        for obj in obj_lst:
+            if isinstance(obj, ListOp) and obj.op_type == type_:
+                flattened_objs += obj.items
+            else:
+                flattened_objs.append(obj)
+        return cls(items=flattened_objs, op_type=type_)
 
 
 @dataclass
 class Quantifier(ASTNode):
-    bound_identifiers: IdentList
-    predicate: ASTNode
+    predicate: ASTNode  # includes generators
     expression: ASTNode
     op_type: QuantifierOperator
+    demoted_predicate: ListOp | None = None  # guaranteed to NOT include generators - should only be filled in with an AND
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        self._bound_identifiers: IdentList | None = None
 
     @classmethod
-    def construct_with_op(cls, op_type: QuantifierOperator) -> Callable[[IdentList, ASTNode, ASTNode], Quantifier]:
-        return lambda bound_identifiers, predicate, expression: cls(bound_identifiers=bound_identifiers, predicate=predicate, expression=expression, op_type=op_type)
+    def construct_with_op(cls, op_type: QuantifierOperator) -> Callable[[ASTNode, ASTNode], Quantifier]:
+        return lambda expression, predicate: cls(expression=expression, predicate=predicate, op_type=op_type)
+
+    @property
+    def all_predicates(self) -> ASTNode:
+        """Get all predicates in the quantifier, including demoted predicates."""
+        predicates = self.predicate
+        if self.demoted_predicate:
+            predicates = ListOp.construct_with_op(ListOperator.AND)([self.predicate, self.demoted_predicate])
+        return predicates
 
     @property
     def bound(self) -> set[Identifier]:
-        if self.bound_identifiers.items:
-            return self.predicate.bound | self.expression.bound | self.bound_identifiers.free
-        return self.predicate.bound | self.expression.bound | self.expression.free
+        if self._bound_identifiers and self._bound_identifiers.items:
+            return self.all_predicates.bound | self.expression.bound | self._bound_identifiers.free
+        return self.all_predicates.bound | self.expression.bound | self.expression.free
 
     @property
     def free(self) -> set[Identifier]:
-        if self.bound_identifiers.items:
-            return (self.predicate.free | self.expression.free) - self.bound_identifiers.free
-        return self.predicate.free - self.expression.free
+
+        if self._bound_identifiers and self._bound_identifiers.items:
+            return (self.all_predicates.free | self.expression.free) - self._bound_identifiers.free
+        return self.all_predicates.free - self.expression.free
 
     def well_formed(self) -> bool:
         check_list = [
-            self.bound_identifiers.well_formed(),
-            self.predicate.well_formed(),
+            self.all_predicates.well_formed(),
             self.expression.well_formed(),
-            self.predicate.bound.isdisjoint(self.expression.bound),
-            self.predicate.bound.isdisjoint(self.expression.free),
+            self.all_predicates.bound.isdisjoint(self.expression.bound),
+            self.all_predicates.bound.isdisjoint(self.expression.free),
         ]
 
-        if self.bound_identifiers.items:
+        if self._bound_identifiers:
+            check_list += [self._bound_identifiers.well_formed()]
+
+        if self._bound_identifiers and self._bound_identifiers.items:
             check_list += [
-                self.predicate.free.isdisjoint(self.expression.bound),
-                self.predicate.bound.isdisjoint(self.bound_identifiers.free),
-                self.expression.bound.isdisjoint(self.bound_identifiers.free),
+                self.all_predicates.free.isdisjoint(self.expression.bound),
+                self.all_predicates.bound.isdisjoint(self._bound_identifiers.free),
+                self.expression.bound.isdisjoint(self._bound_identifiers.free),
             ]
 
         return all(check_list)
 
     def _get_type(self) -> SimileType:
-        if not self.predicate.get_type == BaseSimileType.Bool:
-            raise SimileTypeError(f"Invalid type for boolean quantifier predicate: {self.predicate.get_type}")
-        # Quantifier operators must be either union all or intersection all, so result is a set
-        if self.op_type in {QuantifierOperator.UNION_ALL, QuantifierOperator.INTERSECTION_ALL}:
+        if not self.all_predicates.get_type == BaseSimileType.Bool:
+            raise SimileTypeError(f"Invalid type for boolean quantifier predicate: {self.all_predicates.get_type}")
+
+        if self.op_type.is_bool_quantifier():
+            return BaseSimileType.Bool
+        if self.op_type.is_collection_operator():
             return SetType(element_type=self.expression.get_type)
-        else:
+        if self.op_type.is_general_collection_operator():
+            if not isinstance(self.expression.get_type, SetType):
+                raise SimileTypeError(f"Invalid type for general collection operator: (requires SetType in expression) {self.expression.get_type}")
+            return self.expression.get_type
+        if self.op_type.is_numerical_quantifier():
             return self.expression.get_type
 
-
-@dataclass
-class Comprehension(ASTNode):
-    bound_identifiers: IdentList
-    predicate: ASTNode
-    expression: ASTNode
-    op_type: CollectionOperator
-
-    @classmethod
-    def construct_with_op(cls, op_type: CollectionOperator) -> Callable[[IdentList, ASTNode, ASTNode], Comprehension]:
-        return lambda bound_identifiers, predicate, expression: cls(bound_identifiers=bound_identifiers, predicate=predicate, expression=expression, op_type=op_type)
-
-    @property
-    def bound(self) -> set[Identifier]:
-        if self.bound_identifiers.items:
-            return self.predicate.bound | self.expression.bound | self.bound_identifiers.free
-        return self.predicate.bound | self.expression.bound | self.expression.free
-
-    @property
-    def free(self) -> set[Identifier]:
-        if self.bound_identifiers.items:
-            return (self.predicate.free | self.expression.free) - self.bound_identifiers.free
-        return self.predicate.free - self.expression.free
-
-    def well_formed(self) -> bool:
-        check_list = [
-            self.bound_identifiers.well_formed(),
-            self.predicate.well_formed(),
-            self.expression.well_formed(),
-            self.predicate.bound.isdisjoint(self.expression.bound),
-            self.predicate.bound.isdisjoint(self.expression.free),
-        ]
-
-        if self.bound_identifiers.items:
-            check_list += [
-                self.predicate.free.isdisjoint(self.expression.bound),
-                self.predicate.bound.isdisjoint(self.bound_identifiers.free),
-                self.expression.bound.isdisjoint(self.bound_identifiers.free),
-            ]
-
-        return all(check_list)
-
-    def _get_type(self) -> SimileType:
-        return SetType(element_type=self.expression.get_type)
+        raise SimileTypeError(f"Invalid quantifier operator type. Expected one of {list(QuantifierOperator)} but got {self.op_type}")
 
 
 @dataclass
@@ -709,8 +698,6 @@ class Call(ASTNode):
                     raise SimileTypeError(f"Cannot call a non-relation collection type: {self.target.get_type}")
 
                 return set_type.element_type.right
-            case any_:
-                return any_
 
         raise SimileTypeError(f"Invalid call target type: {self.target.get_type} (must be a procedure, struct, or relation type)")
 
@@ -900,8 +887,8 @@ class Start(ASTNode):
 
 
 Literal = Int | Float | String | True_ | False_ | None_
-Predicate = BoolQuantifier | BinaryOp | UnaryOp | True_ | False_
-Primary = StructAccess | Call | Image | Literal | Enumeration | Comprehension | Identifier
+Predicate = Quantifier | BinaryOp | UnaryOp | True_ | False_
+Primary = StructAccess | Call | Image | Literal | Enumeration | Quantifier | Identifier
 Expr = LambdaDef | Quantifier | Predicate | BinaryOp | UnaryOp | ListOp | Primary | Identifier
 SimpleStmt = Expr | Assignment | ControlFlowStmt | Import
 CompoundStmt = If | For | StructDef | ProcedureDef

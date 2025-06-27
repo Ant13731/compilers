@@ -63,3 +63,49 @@ ASTNode list
 - [>] Else
 - [>] For
 - [>] While
+
+# How should we organize the AST
+
+- Literals
+  - Int
+  - Float
+  - String
+  - True
+  - False
+  - None
+  - Enumeration
+- Identifiers
+  - Identifier
+  - StructAccess
+  - IdentList
+  - TypedName
+- Expressions
+  - UnaryOp
+  - BinaryOp
+  - RelationOp
+  - ListOp
+- Quantifiers
+  - BoolQuantifier
+  - Quantifier
+  - Comprehension
+  - LambdaDef
+- Type
+- Calls
+  - Call
+  - Image
+- Assignment
+- ControlFlow
+  - Return
+  - ControlFlowStmt
+  - If
+  - Else
+  - Elif
+  - For
+  - While
+- Statements
+- Definitions
+  - StructDef
+  - ProcedureDef
+- Import
+  - ImportAll
+- Start
