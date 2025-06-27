@@ -35,7 +35,7 @@ manual_tests = dict(
             "[ ]": Enumeration([], op_type=CollectionOperator.SEQUENCE),
             "x <-> y": Relation(Identifier("x"), Identifier("y"), op_type=RelationOperator.RELATION),
             "x + y + z": Add(Add(Identifier("x"), Identifier("y")), Identifier("z")),
-            "x > y": GreaterThan(Identifier("x"), Identifier("y")),
+            "x > y": BinaryOp(Identifier("x"), Identifier("y"), op_type=BinaryOperator.GREATER_THAN),
             "x ==> y": Implies(Identifier("x"), Identifier("y")),
             "x ==> y ==> z": Implies(Implies(Identifier("x"), Identifier("y")), Identifier("z")),
             "x <== y <== z": RevImplies(Identifier("x"), RevImplies(Identifier("y"), Identifier("z"))),

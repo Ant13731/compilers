@@ -1,5 +1,5 @@
 from __future__ import annotations
-from dataclasses import dataclass, field, Field, fields
+from dataclasses import dataclass, field, Field, fields, is_dataclass
 from typing import Callable, ClassVar, Any, Self
 
 from soupsieve import match
@@ -99,26 +99,32 @@ class IdentList(ASTNode):
         )
 
 
-# class InheritedEqMixin:
-#     a: int
-#     def __eq__(self, other: object) -> bool:
-#         if not isinstance(other, self.__class__):
-#             return False
-#         for f in fields(self):
-#             if f.name.startswith("_"):
-#                 continue
-#             self_value = getattr(self, f.name)
-#             try:
-#                 other_value = getattr(other, f.name)
-#             except AttributeError:
-#                 return False
-#             if self_value != other_value:
-#                 return False
-#         return True
+class InheritedEqMixin:
+    """Introduces structural equality between super/subclasses that ignore type names.
+
+    Only needs to be mixed in the parent class. Must be used with dataclasses."""
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, self.__class__):
+            return False
+
+        assert is_dataclass(self), "InheritedEqMixin can only be used with dataclasses"
+
+        for f in fields(self):
+            if f.name.startswith("_"):
+                continue
+            self_value = getattr(self, f.name)
+            try:
+                other_value = getattr(other, f.name)
+            except AttributeError:
+                return False
+            if self_value != other_value:
+                return False
+        return True
 
 
-@dataclass
-class BinaryOp(ASTNode):
+@dataclass(eq=False)
+class BinaryOp(InheritedEqMixin, ASTNode):
     left: ASTNode
     right: ASTNode
     op_type: BinaryOperator
