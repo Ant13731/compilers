@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Callable, TypeVar, Generic, TypeGuard, Literal
 
-from src.mod.ast_.ast_node_operators import CollectionOperator
+from src.mod.ast_.ast_node_operators import CollectionOperator, RelationOperator
 
 
 class SimileTypeError(Exception):
@@ -39,6 +39,7 @@ class PairType(Generic[L, R]):
 @dataclass(frozen=True)
 class SetType(Generic[T]):
     element_type: T
+    relation_subtype: RelationOperator | None = None
 
     @staticmethod
     def is_set(self: SetType) -> bool:

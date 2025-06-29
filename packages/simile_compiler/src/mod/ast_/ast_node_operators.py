@@ -71,6 +71,242 @@ class RelationOperator(Enum):
     TOTAL_SURJECTION = auto()
     BIJECTION = auto()
 
+    def is_total(self) -> bool:
+        """Check if the relation operator is total on the domain."""
+        return self in {
+            RelationOperator.TOTAL_RELATION,
+            RelationOperator.TOTAL_SURJECTIVE_RELATION,
+            RelationOperator.TOTAL_FUNCTION,
+            RelationOperator.TOTAL_INJECTION,
+            RelationOperator.TOTAL_SURJECTION,
+            RelationOperator.BIJECTION,
+        }
+
+    def is_surjective(self) -> bool:
+        """Check if the relation operator is total on the range (onto)."""
+        return self in {
+            RelationOperator.SURJECTIVE_RELATION,
+            RelationOperator.TOTAL_SURJECTIVE_RELATION,
+            RelationOperator.PARTIAL_SURJECTION,
+            RelationOperator.TOTAL_SURJECTION,
+            RelationOperator.BIJECTION,
+        }
+
+    def is_injective(self) -> bool:
+        """Check if the relation operator is injective (one-to-one)."""
+        return self in {
+            RelationOperator.PARTIAL_INJECTION,
+            RelationOperator.TOTAL_INJECTION,
+            RelationOperator.BIJECTION,
+        }
+
+    def is_function(self) -> bool:
+        """Check if the relation operator is a function (partial or total)."""
+        return self in {
+            RelationOperator.PARTIAL_FUNCTION,
+            RelationOperator.TOTAL_FUNCTION,
+            RelationOperator.PARTIAL_INJECTION,
+            RelationOperator.TOTAL_INJECTION,
+            RelationOperator.PARTIAL_SURJECTION,
+            RelationOperator.TOTAL_SURJECTION,
+            RelationOperator.BIJECTION,
+        }
+
+    def remove_total(self) -> RelationOperator:
+        match self:
+            case RelationOperator.TOTAL_RELATION:
+                return RelationOperator.RELATION
+            case RelationOperator.TOTAL_SURJECTIVE_RELATION:
+                return RelationOperator.SURJECTIVE_RELATION
+            case RelationOperator.TOTAL_FUNCTION:
+                return RelationOperator.PARTIAL_FUNCTION
+            case RelationOperator.TOTAL_INJECTION:
+                return RelationOperator.PARTIAL_INJECTION
+            case RelationOperator.TOTAL_SURJECTION:
+                return RelationOperator.PARTIAL_SURJECTION
+            case RelationOperator.BIJECTION:
+                # No longer surjective since previous one-to-one correspondence loses the elements making the function onto
+                # Still injective since still one-to-one
+                return RelationOperator.PARTIAL_INJECTION
+            case _:
+                return self
+
+    def remove_surjective(self) -> RelationOperator:
+        match self:
+            case RelationOperator.SURJECTIVE_RELATION:
+                return RelationOperator.RELATION
+            case RelationOperator.TOTAL_SURJECTIVE_RELATION:
+                return RelationOperator.TOTAL_RELATION
+            case RelationOperator.PARTIAL_SURJECTION:
+                return RelationOperator.PARTIAL_FUNCTION
+            case RelationOperator.TOTAL_SURJECTION:
+                return RelationOperator.TOTAL_FUNCTION
+            case RelationOperator.BIJECTION:
+                # No longer surjective since previous one-to-one correspondence loses the elements making the function onto
+                return RelationOperator.PARTIAL_INJECTION
+            case _:
+                return self
+
+    def remove_injective(self) -> RelationOperator:
+        match self:
+            case RelationOperator.PARTIAL_INJECTION:
+                return RelationOperator.PARTIAL_FUNCTION
+            case RelationOperator.TOTAL_INJECTION:
+                return RelationOperator.TOTAL_FUNCTION
+            case RelationOperator.BIJECTION:
+                return RelationOperator.TOTAL_SURJECTION
+            case _:
+                return self
+
+    def remove_function(self) -> RelationOperator:
+        """Remove the function property from the relation operator."""
+        match self:
+            case RelationOperator.PARTIAL_FUNCTION | RelationOperator.PARTIAL_INJECTION:
+                return RelationOperator.RELATION
+            case RelationOperator.TOTAL_FUNCTION | RelationOperator.TOTAL_INJECTION:
+                return RelationOperator.TOTAL_RELATION
+            case RelationOperator.PARTIAL_SURJECTION:
+                return RelationOperator.SURJECTIVE_RELATION
+            case RelationOperator.TOTAL_SURJECTION | RelationOperator.BIJECTION:
+                return RelationOperator.TOTAL_SURJECTIVE_RELATION
+            case _:
+                return self
+
+    def make_function(self) -> RelationOperator:
+        match self:
+            case RelationOperator.RELATION:
+                return RelationOperator.PARTIAL_FUNCTION
+            case RelationOperator.TOTAL_RELATION:
+                return RelationOperator.TOTAL_FUNCTION
+            case RelationOperator.SURJECTIVE_RELATION:
+                return RelationOperator.PARTIAL_SURJECTION
+            case RelationOperator.TOTAL_SURJECTIVE_RELATION:
+                return RelationOperator.TOTAL_SURJECTION
+            case _:
+                return self
+
+    def make_total(self) -> RelationOperator:
+        """Make the relation operator total on the domain."""
+        match self:
+            case RelationOperator.RELATION:
+                return RelationOperator.TOTAL_RELATION
+            case RelationOperator.SURJECTIVE_RELATION:
+                return RelationOperator.TOTAL_SURJECTIVE_RELATION
+            case RelationOperator.PARTIAL_FUNCTION:
+                return RelationOperator.TOTAL_FUNCTION
+            case RelationOperator.PARTIAL_INJECTION:
+                return RelationOperator.TOTAL_INJECTION
+            case RelationOperator.PARTIAL_SURJECTION:
+                return RelationOperator.TOTAL_SURJECTION
+            case _:
+                return self
+
+    def make_surjective(self) -> RelationOperator:
+        """Make the relation operator surjective (onto)."""
+        match self:
+            case RelationOperator.RELATION:
+                return RelationOperator.SURJECTIVE_RELATION
+            case RelationOperator.TOTAL_RELATION:
+                return RelationOperator.TOTAL_SURJECTIVE_RELATION
+            case RelationOperator.PARTIAL_FUNCTION:
+                return RelationOperator.PARTIAL_SURJECTION
+            case RelationOperator.TOTAL_FUNCTION:
+                return RelationOperator.TOTAL_SURJECTION
+            case RelationOperator.TOTAL_INJECTION:
+                return RelationOperator.BIJECTION
+            case _:
+                return self
+
+    def make_injective(self) -> RelationOperator:
+        """Make the relation operator injective (one-to-one). Input must be a function"""
+        if not self.is_function():
+            raise ValueError(f"Cannot make {self.name} injective, it is not a function (call make_function first).")
+
+        match self:
+            case RelationOperator.PARTIAL_FUNCTION:
+                return RelationOperator.PARTIAL_INJECTION
+            case RelationOperator.TOTAL_FUNCTION:
+                return RelationOperator.TOTAL_INJECTION
+            # missing info for partial bijection?
+            case RelationOperator.TOTAL_SURJECTION:
+                return RelationOperator.BIJECTION
+            case _:
+                return self
+
+    def inverse(self) -> RelationOperator:
+        # Criteria:
+        # If anything is total, the reverse will be surjective
+        # Functions are demoted to relations
+        # If anything is surjective, the reverse will be total
+        # If anything is injective, the reverse will be injective
+
+        match self:
+            case RelationOperator.RELATION:
+                return RelationOperator.RELATION
+            case RelationOperator.TOTAL_RELATION:
+                return RelationOperator.SURJECTIVE_RELATION
+            case RelationOperator.SURJECTIVE_RELATION:
+                return RelationOperator.TOTAL_RELATION
+            case RelationOperator.TOTAL_SURJECTIVE_RELATION:
+                return RelationOperator.TOTAL_SURJECTIVE_RELATION
+
+            case RelationOperator.PARTIAL_FUNCTION:
+                return RelationOperator.RELATION
+            case RelationOperator.TOTAL_FUNCTION:
+                return RelationOperator.SURJECTIVE_RELATION
+            case RelationOperator.PARTIAL_INJECTION:
+                return RelationOperator.PARTIAL_INJECTION
+            case RelationOperator.TOTAL_INJECTION:
+                # FIXME: isnt this a partial bijection? it would be surjective but not total
+                return RelationOperator.PARTIAL_INJECTION
+
+            case RelationOperator.PARTIAL_SURJECTION:
+                return RelationOperator.TOTAL_RELATION
+            case RelationOperator.TOTAL_SURJECTION:
+                return RelationOperator.TOTAL_SURJECTIVE_RELATION
+            case RelationOperator.BIJECTION:
+                return RelationOperator.BIJECTION
+
+    def get_resulting_operator(self, other: RelationOperator, combining_operator: BinaryOperator) -> RelationOperator:
+        match combining_operator:
+            case BinaryOperator.RELATION_OVERRIDING:
+
+                ret = RelationOperator.RELATION
+                if self.is_function() and other.is_function():
+                    ret = ret.make_function()
+                if other.is_total():
+                    ret = ret.make_total()
+                if other.is_surjective():
+                    ret = ret.make_surjective()
+                return ret
+
+            case BinaryOperator.COMPOSITION:
+                if self == RelationOperator.BIJECTION and other == RelationOperator.BIJECTION:
+                    return RelationOperator.BIJECTION
+
+                ret = RelationOperator.RELATION
+                if self.is_function() and other.is_function():
+                    ret = ret.make_function()
+                if self.is_total():
+                    ret = ret.make_total()
+                if self.is_injective() and other.is_injective():
+                    ret = ret.make_injective()
+                return ret
+
+            case _:
+                raise ValueError(f"Cannot combine relation operators with {combining_operator.name} operator (types to be combined were: {self.name}, {other.name})")
+
+    def get_resulting_operator_set_or_unary(self, combining_operator: BinaryOperator | UnaryOperator) -> RelationOperator:
+        match combining_operator:
+            case BinaryOperator.DOMAIN_RESTRICTION | BinaryOperator.DOMAIN_SUBTRACTION:
+                return self.remove_total()
+            case BinaryOperator.RANGE_RESTRICTION | BinaryOperator.RANGE_SUBTRACTION:
+                return self.remove_surjective()
+            case UnaryOperator.INVERSE:
+                return self.inverse()
+            case _:
+                return self
+
 
 class UnaryOperator(Enum):
     """All unary operators in Simile."""

@@ -236,14 +236,6 @@ class BinaryOp(InheritedEqMixin, ASTNode):
                     raise SimileTypeError(f"Invalid types for set operation (left operand is not a set): {l_type}, {r_type}")
                 if not isinstance(r_type, SetType):
                     raise SimileTypeError(f"Invalid types for set operation (right operand is not a set): {l_type}, {r_type}")
-                if SetType.is_relation(l_type):
-                    raise SimileTypeError(f"Invalid types for set operation (left operand is a relation): {l_type}, {r_type}")
-                if SetType.is_sequence(l_type):
-                    raise SimileTypeError(f"Invalid types for set operation (left operand is a sequence): {l_type}, {r_type}")
-                if SetType.is_relation(r_type):
-                    raise SimileTypeError(f"Invalid types for set operation (right operand is a relation): {l_type}, {r_type}")
-                if SetType.is_sequence(r_type):
-                    raise SimileTypeError(f"Invalid types for set operation (right operand is a sequence): {l_type}, {r_type}")
 
                 if SetType.is_bag(l_type):
                     if SetType.is_bag(r_type):
@@ -266,6 +258,16 @@ class BinaryOp(InheritedEqMixin, ASTNode):
                             BaseSimileType.Int,
                         ),
                     )
+
+                if SetType.is_relation(l_type):
+                    raise SimileTypeError(f"Invalid types for set operation (left operand is a relation): {l_type}, {r_type}")
+                if SetType.is_sequence(l_type):
+                    raise SimileTypeError(f"Invalid types for set operation (left operand is a sequence): {l_type}, {r_type}")
+                if SetType.is_relation(r_type):
+                    raise SimileTypeError(f"Invalid types for set operation (right operand is a relation): {l_type}, {r_type}")
+                if SetType.is_sequence(r_type):
+                    raise SimileTypeError(f"Invalid types for set operation (right operand is a sequence): {l_type}, {r_type}")
+
                 return SetType(
                     element_type=type_union(l_type.element_type, r_type.element_type),
                 )
@@ -299,7 +301,10 @@ class BinaryOp(InheritedEqMixin, ASTNode):
                 if not SetType.is_set(l_type) or not SetType.is_set(r_type):
                     raise SimileTypeError(f"Invalid types for cartesian product operation (both operands must be sets): {l_type}, {r_type}")
 
-                return SetType(element_type=PairType(l_type.element_type, r_type.element_type))
+                return SetType(
+                    element_type=PairType(l_type.element_type, r_type.element_type),
+                    relation_subtype=RelationOperator.RELATION,
+                )
             case BinaryOperator.UPTO:
                 if not isinstance(l_type, Int) or not isinstance(r_type, Int):
                     raise SimileTypeError(f"Invalid types for upto operation (must be ints): {l_type}, {r_type}")
@@ -307,9 +312,17 @@ class BinaryOp(InheritedEqMixin, ASTNode):
             case BinaryOperator.RELATION_OVERRIDING:
                 if not isinstance(l_type, SetType) or not isinstance(r_type, SetType):
                     raise SimileTypeError(f"Invalid types for relation operation: {l_type}, {r_type}")
+                relation_subtype_l = l_type.relation_subtype
+                relation_subtype_r = r_type.relation_subtype
+                if relation_subtype_l is None:
+                    relation_subtype_l = RelationOperator.RELATION
+                if relation_subtype_r is None:
+                    relation_subtype_r = RelationOperator.RELATION
+                relation_subtype = relation_subtype_l.get_resulting_operator(relation_subtype_r, BinaryOperator.RELATION_OVERRIDING)
 
                 return SetType(
                     element_type=type_union(l_type.element_type, r_type.element_type),
+                    relation_subtype=relation_subtype,
                 )
             case BinaryOperator.COMPOSITION:
                 if not isinstance(l_type, SetType) or not isinstance(r_type, SetType):
@@ -321,8 +334,17 @@ class BinaryOp(InheritedEqMixin, ASTNode):
                     raise SimileTypeError(
                         f"Invalid types for composition operation (right side of left pair does not match with left side of right pair): {l_type.element_type}, {r_type.element_type}"
                     )
+                relation_subtype_l = l_type.relation_subtype
+                relation_subtype_r = r_type.relation_subtype
+                if relation_subtype_l is None:
+                    relation_subtype_l = RelationOperator.RELATION
+                if relation_subtype_r is None:
+                    relation_subtype_r = RelationOperator.RELATION
+                relation_subtype = relation_subtype_l.get_resulting_operator(relation_subtype_r, BinaryOperator.COMPOSITION)
+
                 return SetType(
                     element_type=PairType(l_type.element_type.left, r_type.element_type.right),
+                    relation_subtype=relation_subtype,
                 )
             case BinaryOperator.DOMAIN_SUBTRACTION | BinaryOperator.DOMAIN_RESTRICTION:
                 if not isinstance(l_type, SetType) or not isinstance(r_type, SetType):
@@ -331,7 +353,12 @@ class BinaryOp(InheritedEqMixin, ASTNode):
                     raise SimileTypeError(f"Invalid collection type for domain operation (right operand must be a relation): {r_type.element_type}")
                 if not SetType.is_set(l_type):
                     raise SimileTypeError(f"Invalid collection type for domain operation (left operand must be a relation or set): {l_type.element_type}")
-                return r_type
+                if r_type.relation_subtype is not None:
+                    relation_subtype = r_type.relation_subtype.get_resulting_operator_set_or_unary(BinaryOperator.DOMAIN_SUBTRACTION)
+                return SetType(
+                    element_type=r_type.element_type,
+                    relation_subtype=relation_subtype,
+                )
             case BinaryOperator.RANGE_SUBTRACTION | BinaryOperator.RANGE_RESTRICTION:
                 if not isinstance(l_type, SetType) or not isinstance(r_type, SetType):
                     raise SimileTypeError(f"Invalid types for domain operation: {l_type}, {r_type}")
@@ -339,7 +366,12 @@ class BinaryOp(InheritedEqMixin, ASTNode):
                     raise SimileTypeError(f"Invalid collection type for domain operation (left operand must be a relation): {l_type.element_type}")
                 if not SetType.is_set(r_type):
                     raise SimileTypeError(f"Invalid collection type for domain operation (right operand must be a relation or set): {r_type.element_type}")
-                return l_type
+                if l_type.relation_subtype is not None:
+                    relation_subtype = l_type.relation_subtype.get_resulting_operator_set_or_unary(BinaryOperator.RANGE_SUBTRACTION)
+                return SetType(
+                    element_type=l_type.element_type,
+                    relation_subtype=relation_subtype,
+                )
         raise SimileTypeError(f"Unknown type for binary operator: {self.op_type.name}, {l_type}, {r_type}")
 
 
@@ -416,7 +448,17 @@ class UnaryOp(InheritedEqMixin, ASTNode):
                     raise SimileTypeError(f"Invalid type for inverse operation: {self.value.get_type}")
                 if not SetType.is_relation(self.value.get_type):
                     raise SimileTypeError(f"Invalid collection type for inverse operation: {self.value.get_type.element_type}")
-                return self.value.get_type
+
+                relation_subtype = self.value.get_type.relation_subtype
+                if relation_subtype is not None:
+                    relation_subtype = relation_subtype.get_resulting_operator_set_or_unary(UnaryOperator.INVERSE)
+                return SetType(
+                    element_type=PairType(
+                        self.value.get_type.element_type.right,
+                        self.value.get_type.element_type.left,
+                    ),
+                    relation_subtype=relation_subtype,
+                )
             case UnaryOperator.POWERSET | UnaryOperator.NONEMPTY_POWERSET:
                 if not isinstance(self.value.get_type, SetType):
                     raise SimileTypeError(f"Invalid type for powerset operation: {self.value.get_type}")
