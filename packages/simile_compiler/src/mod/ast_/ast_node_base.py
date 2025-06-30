@@ -106,6 +106,14 @@ class ASTNode:
 
         return dataclass_find_and_replace(self, rewrite_func)
 
+    def find_and_replace_with_func(self, rewrite_func: Callable[[ASTNode | Any], ASTNode | None]) -> ASTNode:
+        """Find and replace AST nodes using a rewrite function.
+
+        The rewrite function should return the new AST node or None if no replacement is needed.
+        """
+
+        return dataclass_find_and_replace(self, rewrite_func)
+
     def is_leaf(self) -> bool:
         """Check if the AST node is a leaf node (i.e., has no dataclass/list of dataclass children)."""
         for f in fields(self):

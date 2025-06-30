@@ -464,7 +464,7 @@ class Parser:
                 self.error("Invalid start to quantification")
 
     @store_derivation
-    def quantification_body(self) -> tuple[ast_.IdentList, ast_.ASTNode, ast_.ASTNode]:
+    def quantification_body(self) -> tuple[ast_.IdentList, ast_.ListOp, ast_.ASTNode]:
         # expr should cover the first entry in a list of identifiers,
         starting_index = self.current_index
         first_part = self.expr()
@@ -476,13 +476,19 @@ class Parser:
 
         if self.match(TokenType.CDOT):
             predicate = self.predicate()
+            if not isinstance(predicate, ast_.ListOp):
+                predicate = ast_.And([predicate])
+
             self.consume(TokenType.VBAR, "Expected quantification predicate separator")
             expression = self.expr()
             if not isinstance(first_part, ast_.IdentList):
                 self.error("Failed to parse quantification body - the identifier list in long form is not of type IdentList")
             return first_part, predicate, expression
+
         self.consume(TokenType.VBAR, "Expected quantification predicate separator (shorthand)")
         predicate = self.predicate()
+        if not isinstance(predicate, ast_.ListOp):
+            predicate = ast_.And([predicate])
         return ast_.IdentList([]), predicate, first_part
 
     @store_derivation
@@ -702,8 +708,8 @@ class Parser:
                 self.consume(TokenType.R_PAREN, "Need to close parenthesis")
                 fresh_variable = ast_.Identifier(f"*fresh_var_card{self.current_index}")
                 ast_sum = ast_.Sum(
+                    ast_.And([ast_.In(fresh_variable, cardinality)]),
                     ast_.Int("1"),
-                    ast_.In(fresh_variable, cardinality),
                 )
                 ast_sum._bound_identifiers = ast_.IdentList([fresh_variable])
                 return ast_sum

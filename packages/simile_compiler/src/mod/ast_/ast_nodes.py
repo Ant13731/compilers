@@ -147,10 +147,6 @@ class BinaryOp(InheritedEqMixin, ASTNode):
                 return False
         return True
 
-    @classmethod
-    def construct_with_op(cls, op_type: BinaryOperator) -> Callable[[ASTNode, ASTNode], BinaryOp]:
-        return lambda left, right: cls(left=left, right=right, op_type=op_type)
-
     @property
     def bound(self) -> set[Identifier]:
         return self.left.bound | self.right.bound
@@ -381,10 +377,6 @@ class RelationOp(InheritedEqMixin, ASTNode):
     right: ASTNode
     op_type: RelationOperator
 
-    @classmethod
-    def construct_with_op(cls, op_type: RelationOperator) -> Callable[[ASTNode, ASTNode], RelationOp]:
-        return lambda left, right: cls(left=left, right=right, op_type=op_type)
-
     @property
     def bound(self) -> set[Identifier]:
         return self.left.bound | self.right.bound
@@ -417,10 +409,6 @@ class RelationOp(InheritedEqMixin, ASTNode):
 class UnaryOp(InheritedEqMixin, ASTNode):
     value: ASTNode
     op_type: UnaryOperator
-
-    @classmethod
-    def construct_with_op(cls, op_type: UnaryOperator) -> Callable[[ASTNode], UnaryOp]:
-        return lambda value: cls(value=value, op_type=op_type)
 
     @property
     def bound(self) -> set[Identifier]:
@@ -469,10 +457,6 @@ class UnaryOp(InheritedEqMixin, ASTNode):
 class ListOp(InheritedEqMixin, ASTNode):
     items: list[ASTNode]
     op_type: ListOperator
-
-    @classmethod
-    def construct_with_op(cls, op_type: ListOperator) -> Callable[[list[ASTNode]], ListOp]:
-        return lambda items: cls(items=items, op_type=op_type)
 
     @property
     def bound(self) -> set[Identifier]:
@@ -539,7 +523,7 @@ class ListOp(InheritedEqMixin, ASTNode):
 
 @dataclass(eq=False)
 class Quantifier(ASTNode):
-    predicate: ASTNode  # includes generators
+    predicate: ListOp  # includes generators
     expression: ASTNode
     op_type: QuantifierOperator
     demoted_predicate: ListOp | None = None  # guaranteed to NOT include generators - should only be filled in with an AND
@@ -578,16 +562,12 @@ class Quantifier(ASTNode):
                 return False
         return True
 
-    @classmethod
-    def construct_with_op(cls, op_type: QuantifierOperator) -> Callable[[ASTNode, ASTNode], Quantifier]:
-        return lambda expression, predicate: cls(expression=expression, predicate=predicate, op_type=op_type)
-
     @property
     def all_predicates(self) -> ASTNode:
         """Get all predicates in the quantifier, including demoted predicates."""
         predicates = self.predicate
         if self.demoted_predicate:
-            predicates = ListOp.construct_with_op(ListOperator.AND)([self.predicate, self.demoted_predicate])
+            predicates = ListOp.flatten_and_join([self.predicate, self.demoted_predicate], ListOperator.AND)
         return predicates
 
     @property
@@ -645,10 +625,6 @@ class Quantifier(ASTNode):
 class Enumeration(InheritedEqMixin, ASTNode):
     items: list[ASTNode]
     op_type: CollectionOperator
-
-    @classmethod
-    def construct_with_op(cls, op_type: CollectionOperator) -> Callable[[list[ASTNode]], Enumeration]:
-        return lambda items: cls(items=items, op_type=op_type)
 
     @property
     def bound(self) -> set[Identifier]:
