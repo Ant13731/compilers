@@ -80,13 +80,14 @@ class RewriteCollection:
             new_ast_children.append(child)
 
         new_ast = ast.__class__(*new_ast_children)
-        new_ast._env = ast._env
 
         # FIXME: Kind of a hack to copy hidden fields like this?
         copy_hidden_fields = [
+            "_env",
             "_bound_identifiers",
             "_selected_generators",
             "_rewrite_generators",
+            "_bound_by_quantifier_rewrite",
         ]
         for field_name in copy_hidden_fields:
             if hasattr(ast, field_name) and hasattr(new_ast, field_name):

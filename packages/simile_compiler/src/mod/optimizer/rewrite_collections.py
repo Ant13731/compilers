@@ -587,6 +587,7 @@ class SetCodeGenerationCollection(RewriteCollection):
                     ),
                 )
                 if_statement._rewrite_generators = ast._selected_generators
+                if_statement._bound_by_quantifier_rewrite = ast.bound
 
                 return analysis.add_environments_to_ast(
                     ast_.Statements(
@@ -615,6 +616,9 @@ class SetCodeGenerationCollection(RewriteCollection):
             ):
                 if ast._rewrite_generators is None:
                     logger.debug(f"FAILED: no candidate generators found in disjunctive predicate")
+                    return None
+                if ast._bound_by_quantifier_rewrite is None:
+                    logger.debug(f"FAILED: no bound variables found in disjunctive predicate")
                     return None
 
                 statements: list[ast_.ASTNode] = []
@@ -645,6 +649,7 @@ class SetCodeGenerationCollection(RewriteCollection):
                         body,
                     )
                     if_statement._rewrite_generators = [ast._rewrite_generators[i]]
+                    if_statement._bound_by_quantifier_rewrite = ast._bound_by_quantifier_rewrite
                     statements.append(if_statement)
                     past_predicates.append(predicate)
                 return analysis.add_environments_to_ast(
@@ -663,6 +668,9 @@ class SetCodeGenerationCollection(RewriteCollection):
             ):
                 if ast._rewrite_generators is None:
                     logger.debug(f"FAILED: no candidate generators found in conjunctive predicate")
+                    return None
+                if ast._bound_by_quantifier_rewrite is None:
+                    logger.debug(f"FAILED: no bound variables found in conjunctive predicate")
                     return None
 
                 if not ast._rewrite_generators:
@@ -683,17 +691,44 @@ class SetCodeGenerationCollection(RewriteCollection):
 
                 statement: ast_.ASTNode = body
                 if bound_predicates:
-                    statement = ast_.Statements(
-                        [
-                            ast_.If(
-                                ast_.ListOp.flatten_and_join(
-                                    bound_predicates,
-                                    ast_.ListOperator.AND,
+                    # Handle bound-to-bound variable equality checks as assignments
+                    if_statement_bound_predicates = []
+
+                    assignment_statements: list[ast_.ASTNode] = []
+                    for bound_predicate in bound_predicates:
+                        if not isinstance(bound_predicate, ast_.BinaryOp) or not bound_predicate.op_type == ast_.BinaryOperator.EQUAL:
+                            if_statement_bound_predicates.append(bound_predicate)
+                            continue
+
+                        for bound_var in ast._bound_by_quantifier_rewrite:
+                            if bound_var not in bound_predicate.left.free and generator.left not in bound_predicate.right.free:
+                                continue
+
+                            assignment_statements.append(
+                                ast_.Assignment(
+                                    bound_predicate.left,
+                                    bound_predicate.right,  # The right side should have the generator variable
                                 ),
-                                statement,
                             )
-                        ],
-                    )
+                            break
+
+                    if if_statement_bound_predicates:
+                        statement = ast_.Statements(
+                            assignment_statements
+                            + [
+                                ast_.If(
+                                    ast_.ListOp.flatten_and_join(
+                                        if_statement_bound_predicates,
+                                        ast_.ListOperator.AND,
+                                    ),
+                                    statement,
+                                )
+                            ]
+                        )
+                    else:
+                        statement = ast_.Statements(
+                            assignment_statements + [statement],
+                        )
 
                 statement = ast_.For(
                     ast_.IdentList([generator.left]),
@@ -748,125 +783,125 @@ class SetCodeGenerationCollection(RewriteCollection):
 
     #     return None
 
-    def summation(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
-        match ast:
-            case ast_.Quantifier(
-                ast_.ListOp(elems, ast_.ListOperator.AND) as predicate,
-                expression,
-                ast_.QuantifierOperator.SUM,
-            ):
-                candidate_generators, predicates = predicate.separate_candidate_generators_from_predicates(ast.bound)
-                if not candidate_generators:
-                    logger.debug(f"FAILED: no candidate generators found in summation predicate (bound variables are {ast.bound}, free are {ast.free})")
-                    return None
+    # def summation(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+    #     match ast:
+    #         case ast_.Quantifier(
+    #             ast_.ListOp(elems, ast_.ListOperator.AND) as predicate,
+    #             expression,
+    #             ast_.QuantifierOperator.SUM,
+    #         ):
+    #             candidate_generators, predicates = predicate.separate_candidate_generators_from_predicates(ast.bound)
+    #             if not candidate_generators:
+    #                 logger.debug(f"FAILED: no candidate generators found in summation predicate (bound variables are {ast.bound}, free are {ast.free})")
+    #                 return None
 
-                # TODO For now, just manually choose the first available generator
-                # Maybe optimize based on set size if sets are enumerated at compile time?
-                candidate_generator = None
-                for candidate in candidate_generators:
-                    if candidate.op_type != ast_.BinaryOperator.IN:
-                        continue
-                    if not isinstance(candidate.left, ast_.Identifier):
-                        continue
-                    candidate_generator = candidate
-                    candidate_generators.pop(candidate_generators.index(candidate))
-                    break
-                else:
-                    logger.debug(f"FAILED: no candidate generator with proper LH identifier found in summation predicate. Got {candidate_generators}")
-                    return None
-                predicates = predicates + candidate_generators
+    #             # TODO For now, just manually choose the first available generator
+    #             # Maybe optimize based on set size if sets are enumerated at compile time?
+    #             candidate_generator = None
+    #             for candidate in candidate_generators:
+    #                 if candidate.op_type != ast_.BinaryOperator.IN:
+    #                     continue
+    #                 if not isinstance(candidate.left, ast_.Identifier):
+    #                     continue
+    #                 candidate_generator = candidate
+    #                 candidate_generators.pop(candidate_generators.index(candidate))
+    #                 break
+    #             else:
+    #                 logger.debug(f"FAILED: no candidate generator with proper LH identifier found in summation predicate. Got {candidate_generators}")
+    #                 return None
+    #             predicates = predicates + candidate_generators
 
-                counter = ast_.Identifier(self._get_fresh_identifier_name())
-                new_statement = ast_.Statements(
-                    [
-                        ast_.Assignment(
-                            counter,
-                            ast_.Int("0"),
-                        ),
-                        ast_.For(
-                            candidate_generator.left,
-                            candidate_generator.right,
-                            ast_.Statements(
-                                [
-                                    ast_.If(
-                                        ast_.And(predicates),
-                                        ast_.Assignment(
-                                            counter,
-                                            ast_.Add(
-                                                counter,
-                                                expression,
-                                            ),
-                                        ),
-                                    )
-                                ],
-                            ),
-                        ),
-                    ]
-                )
-                new_statement._env = ast._env
-                assert new_statement._env is not None, f"Environment should not be None (in summation, ast {new_statement})"
-                return new_statement
-            case ast_.Quantifier(
-                ast_.ListOp(elems, ast_.ListOperator.OR) as predicate,
-                expression,
-                ast_.QuantifierOperator.SUM,
-            ):
-                counter = ast_.Identifier(self._get_fresh_identifier_name())
-                statements: list[ast_.ASTNode] = [
-                    ast_.Assignment(
-                        counter,
-                        ast_.Int("0"),
-                    )
-                ]
+    #             counter = ast_.Identifier(self._get_fresh_identifier_name())
+    #             new_statement = ast_.Statements(
+    #                 [
+    #                     ast_.Assignment(
+    #                         counter,
+    #                         ast_.Int("0"),
+    #                     ),
+    #                     ast_.For(
+    #                         candidate_generator.left,
+    #                         candidate_generator.right,
+    #                         ast_.Statements(
+    #                             [
+    #                                 ast_.If(
+    #                                     ast_.And(predicates),
+    #                                     ast_.Assignment(
+    #                                         counter,
+    #                                         ast_.Add(
+    #                                             counter,
+    #                                             expression,
+    #                                         ),
+    #                                     ),
+    #                                 )
+    #                             ],
+    #                         ),
+    #                     ),
+    #                 ]
+    #             )
+    #             new_statement._env = ast._env
+    #             assert new_statement._env is not None, f"Environment should not be None (in summation, ast {new_statement})"
+    #             return new_statement
+    #         case ast_.Quantifier(
+    #             ast_.ListOp(elems, ast_.ListOperator.OR) as predicate,
+    #             expression,
+    #             ast_.QuantifierOperator.SUM,
+    #         ):
+    #             counter = ast_.Identifier(self._get_fresh_identifier_name())
+    #             statements: list[ast_.ASTNode] = [
+    #                 ast_.Assignment(
+    #                     counter,
+    #                     ast_.Int("0"),
+    #                 )
+    #             ]
 
-                prev_predicates: list[ast_.ASTNode] = []
-                for elem in elems:
-                    if not isinstance(elem, ast_.ListOp) or elem.op_type != ast_.ListOperator.AND:
-                        logger.debug(f"FAILED: {elem} is not a valid AND list operation (predicate should be in disjunctive normal form)")
-                        return None
-                    candidate_generators, predicates = elem.separate_candidate_generators_from_predicates(ast.bound)
+    #             prev_predicates: list[ast_.ASTNode] = []
+    #             for elem in elems:
+    #                 if not isinstance(elem, ast_.ListOp) or elem.op_type != ast_.ListOperator.AND:
+    #                     logger.debug(f"FAILED: {elem} is not a valid AND list operation (predicate should be in disjunctive normal form)")
+    #                     return None
+    #                 candidate_generators, predicates = elem.separate_candidate_generators_from_predicates(ast.bound)
 
-                    candidate_generator = None
-                    for candidate in candidate_generators:
-                        if candidate.op_type != ast_.BinaryOperator.IN:
-                            continue
-                        if not isinstance(candidate.left, ast_.Identifier):
-                            continue
-                        candidate_generator = candidate
-                        candidate_generators.pop(candidate_generators.index(candidate))
-                        break
-                    else:
-                        logger.debug(f"FAILED: no candidate generator with proper LH identifier found in summation predicate. Got {candidate_generators}")
-                        return None
+    #                 candidate_generator = None
+    #                 for candidate in candidate_generators:
+    #                     if candidate.op_type != ast_.BinaryOperator.IN:
+    #                         continue
+    #                     if not isinstance(candidate.left, ast_.Identifier):
+    #                         continue
+    #                     candidate_generator = candidate
+    #                     candidate_generators.pop(candidate_generators.index(candidate))
+    #                     break
+    #                 else:
+    #                     logger.debug(f"FAILED: no candidate generator with proper LH identifier found in summation predicate. Got {candidate_generators}")
+    #                     return None
 
-                    predicates = predicates + candidate_generators
-                    statements.append(
-                        ast_.For(
-                            candidate_generator.left,
-                            candidate_generator.right,
-                            ast_.Statements(
-                                [
-                                    ast_.If(
-                                        ast_.And(predicates + prev_predicates),
-                                        ast_.Assignment(
-                                            counter,
-                                            ast_.Add(
-                                                counter,
-                                                expression,
-                                            ),
-                                        ),
-                                    )
-                                ],
-                            ),
-                        )
-                    )
-                    prev_predicates.append(ast_.Not(ast_.And(predicates)))
+    #                 predicates = predicates + candidate_generators
+    #                 statements.append(
+    #                     ast_.For(
+    #                         candidate_generator.left,
+    #                         candidate_generator.right,
+    #                         ast_.Statements(
+    #                             [
+    #                                 ast_.If(
+    #                                     ast_.And(predicates + prev_predicates),
+    #                                     ast_.Assignment(
+    #                                         counter,
+    #                                         ast_.Add(
+    #                                             counter,
+    #                                             expression,
+    #                                         ),
+    #                                     ),
+    #                                 )
+    #                             ],
+    #                         ),
+    #                     )
+    #                 )
+    #                 prev_predicates.append(ast_.Not(ast_.And(predicates)))
 
-                new_statement = ast_.Statements(statements)
-                new_statement._env = ast._env
-                return new_statement
+    #             new_statement = ast_.Statements(statements)
+    #             new_statement._env = ast._env
+    #             return new_statement
 
-        return None
+    #     return None
 
     # def set_generation(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
     #     match ast:

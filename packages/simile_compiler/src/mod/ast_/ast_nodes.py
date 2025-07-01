@@ -861,6 +861,7 @@ class If(ASTNode):
     def __post_init__(self) -> None:
         super().__post_init__()
         self._rewrite_generators: list[BinaryOp] | None = None
+        self._bound_by_quantifier_rewrite: set[Identifier] | None = None
 
     def _get_type(self) -> SimileType:
         return BaseSimileType.None_
