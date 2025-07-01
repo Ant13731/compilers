@@ -81,6 +81,8 @@ class RewriteCollection:
 
         new_ast = ast.__class__(*new_ast_children)
         new_ast._env = ast._env
+        if hasattr(ast, "_bound_identifiers") and hasattr(new_ast, "_bound_identifiers"):
+            new_ast._bound_identifiers = ast._bound_identifiers
         logger.info(f"Normalizing AST: {ast}")
         return self.apply_all_rules_once(new_ast)
 

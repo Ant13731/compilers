@@ -32,16 +32,21 @@ from src.mod.optimizer.rewrite_collection import RewriteCollection
 class SetComprehensionConstructionCollection(RewriteCollection):
 
     bound_quantifier_variables: set[ast_.Identifier] = field(default_factory=set)
+    current_bound_identifiers: list[ast_.IdentList] = field(default_factory=list)
 
     def apply_all_rules_one_traversal(self, ast):
         bound_quantifier_variables_before = deepcopy(self.bound_quantifier_variables)
         if isinstance(ast, ast_.Quantifier):
             logger.debug(f"Quantifier found with bound variables: {ast.bound}")
-            self.bound_quantifier_variables |= set(ast.bound)
+            self.bound_quantifier_variables |= ast.bound
+            self.current_bound_identifiers.append(ast._bound_identifiers)
 
         ast = super().apply_all_rules_one_traversal(ast)
 
         self.bound_quantifier_variables = bound_quantifier_variables_before
+        if self.current_bound_identifiers and hasattr(ast, "_bound_identifiers") and ast._bound_identifiers != self.current_bound_identifiers:
+            # If the current bound identifiers are set, we need to update the AST's bound identifiers
+            ast._bound_identifiers = self.current_bound_identifiers.pop()
         return ast
 
     # Collection setTypes should have no "demoted" predicates yet
@@ -336,7 +341,7 @@ class SetComprehensionConstructionCollection(RewriteCollection):
                     predicate,
                     expression,
                     op_type,
-                ),
+                ) as inner_quantifier,
             ) if op_type.is_collection_operator():
 
                 # If x is not bound by a quantifier, this expression may just be an equality check (ie, is 1 in {1,2,3}?)
@@ -344,12 +349,19 @@ class SetComprehensionConstructionCollection(RewriteCollection):
                 if x not in self.bound_quantifier_variables:
                     logger.debug(f"FAILED: {x} appears as a generator variable but is not bound by a quantifier")
                     return None
-                return ast_.ListOp.flatten_and_join(
-                    [
-                        ast_.Equal(x, expression),
-                        predicate,
-                    ],
-                    ast_.ListOperator.AND,
+
+                if inner_quantifier._bound_identifiers is not None:
+                    self.current_bound_identifiers[-1].items.extend(inner_quantifier._bound_identifiers.items)
+
+                return analysis.add_environments_to_ast(
+                    ast_.ListOp.flatten_and_join(
+                        [
+                            ast_.Equal(x, expression),
+                            predicate,
+                        ],
+                        ast_.ListOperator.AND,
+                    ),
+                    ast._env,
                 )
         return None
 
@@ -369,7 +381,10 @@ class DisjunctiveNormalFormQuantifierPredicateCollection(RewriteCollection):
             case ast_.ListOp(elems, ast_.ListOperator.AND):
                 if not any(map(lambda x: isinstance(x, ast_.ListOp) and x.op_type == ast_.ListOperator.AND, elems)):
                     return None
-                return ast_.ListOp.flatten_and_join(elems, ast_.ListOperator.AND)
+                return analysis.add_environments_to_ast(
+                    ast_.ListOp.flatten_and_join(elems, ast_.ListOperator.AND),
+                    ast._env,
+                )
         return None
 
     def flatten_nested_ors(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
@@ -377,7 +392,10 @@ class DisjunctiveNormalFormQuantifierPredicateCollection(RewriteCollection):
             case ast_.ListOp(elems, ast_.ListOperator.OR):
                 if not any(map(lambda x: isinstance(x, ast_.ListOp) and x.op_type == ast_.ListOperator.OR, elems)):
                     return None
-                return ast_.ListOp.flatten_and_join(elems, ast_.ListOperator.OR)
+                return analysis.add_environments_to_ast(
+                    ast_.ListOp.flatten_and_join(elems, ast_.ListOperator.OR),
+                    ast._env,
+                )
         return None
 
     def double_negation(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
@@ -389,7 +407,7 @@ class DisjunctiveNormalFormQuantifierPredicateCollection(RewriteCollection):
                 ),
                 ast_.UnaryOperator.NOT,
             ):
-                return x
+                return analysis.add_environments_to_ast(x, ast._env)
         return None
 
     def distribute_de_morgan(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
@@ -398,17 +416,23 @@ class DisjunctiveNormalFormQuantifierPredicateCollection(RewriteCollection):
                 ast_.ListOp(elems, ast_.ListOperator.OR),
                 ast_.UnaryOperator.NOT,
             ):
-                return ast_.ListOp(
-                    [ast_.UnaryOp(elem, ast_.UnaryOperator.NOT) for elem in elems],
-                    ast_.ListOperator.AND,
+                return analysis.add_environments_to_ast(
+                    ast_.ListOp(
+                        [ast_.UnaryOp(elem, ast_.UnaryOperator.NOT) for elem in elems],
+                        ast_.ListOperator.AND,
+                    ),
+                    ast._env,
                 )
             case ast_.UnaryOp(
                 ast_.ListOp(elems, ast_.ListOperator.AND),
                 ast_.UnaryOperator.NOT,
             ):
-                return ast_.ListOp(
-                    [ast_.UnaryOp(elem, ast_.UnaryOperator.NOT) for elem in elems],
-                    ast_.ListOperator.OR,
+                return analysis.add_environments_to_ast(
+                    ast_.ListOp(
+                        [ast_.UnaryOp(elem, ast_.UnaryOperator.NOT) for elem in elems],
+                        ast_.ListOperator.OR,
+                    ),
+                    ast._env,
                 )
         return None
 
@@ -444,7 +468,7 @@ class DisjunctiveNormalFormQuantifierPredicateCollection(RewriteCollection):
                         )
                     )
 
-                return ast_.Or(new_elems)
+                return analysis.add_environments_to_ast(ast_.Or(new_elems), ast._env)
 
         return None
 
@@ -462,9 +486,104 @@ class SetCodeGenerationCollection(RewriteCollection):
 
     def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
         return [
-            self.summation,
+            self.summation_2,
+            self.flatten_nested_statements,
             # self.set_generation,
         ]
+
+    def flatten_nested_statements(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Statements(items):
+
+                if not any(map(lambda x: isinstance(x, ast_.Statements), items)):
+                    return None
+
+                # new_env =
+                # assert isinstance(new_env, ast_.Environment), f"Environment should not be None (in ast {ast})"
+
+                new_statements: list[ast_.ASTNode] = []
+                for item in items:
+                    if not isinstance(item, ast_.Statements):
+                        new_statements.append(item)
+                        continue
+
+                    new_statements.extend(item.items)
+                    # assert isinstance(item._env, ast_.Environment), f"Environment should not be None (in item {item})"
+                    # for key, value in item._env.table.items():
+                    #     if key not in new_env.table:
+                    #         new_env.put(key, value)
+
+                return analysis.add_environments_to_ast(ast_.Statements(new_statements), ast._env)
+        return None
+
+    def summation_2(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Quantifier(
+                predicate,
+                expression,
+                ast_.QuantifierOperator.SUM,
+            ):
+                # Idea - put everything in an if statement to start
+                counter = ast_.Identifier(self._get_fresh_identifier_name())
+                return analysis.add_environments_to_ast(
+                    ast_.Statements(
+                        [
+                            ast_.Assignment(
+                                counter,
+                                ast_.Int("0"),
+                            ),
+                            ast_.If(
+                                predicate,
+                                ast_.Assignment(
+                                    counter,
+                                    ast_.Add(
+                                        counter,
+                                        expression,
+                                    ),
+                                ),
+                            ),
+                        ]
+                    ),
+                    ast._env,
+                )
+                # new_statement._env = ast._env
+                # assert new_statement._env is not None, f"Environment should not be None (in summation, ast {new_statement})"
+                # new_statement._env.put(counter.name, ast_.BaseSimileType.Int)
+                # return new_statement
+
+        return None
+
+    # c = 0
+    # if P:
+    #     c += E
+
+    # if P is not a top-level OR (ie. is a top-level AND)
+    # c = 0
+    # if P.free_predicate (where P is free):
+    #   # Also replace equalities with top-level bound variable - ie predicate x | x = f(y) and y in S should become f(y) | y in S. Can likely use assignment before the if statement
+    #   for a in P.generator:
+    #       if P.bound_predicate:
+    #           c += E
+
+    # if P is a top-level OR
+    # c = 0
+    # if P.clause[0]:
+    #   c += E
+    # if P.clause[1] and not P.clause[0]:
+    #   c += E
+    # if P.clause[2] and not (P.clause[0] or P.clause[1]):
+    #   c += E
+    # ...
+
+    # def composed_contitional(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+    #     match ast:
+    #         case ast_.If(
+    #             ast_.ListOp(predicates, ast_.ListOperator.AND),
+    #             body,
+    #         ):
+    #             pass
+
+    #     return None
 
     def summation(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
@@ -495,7 +614,7 @@ class SetCodeGenerationCollection(RewriteCollection):
                 predicates = predicates + candidate_generators
 
                 counter = ast_.Identifier(self._get_fresh_identifier_name())
-                return ast_.Statements(
+                new_statement = ast_.Statements(
                     [
                         ast_.Assignment(
                             counter,
@@ -521,6 +640,9 @@ class SetCodeGenerationCollection(RewriteCollection):
                         ),
                     ]
                 )
+                new_statement._env = ast._env
+                assert new_statement._env is not None, f"Environment should not be None (in summation, ast {new_statement})"
+                return new_statement
             case ast_.Quantifier(
                 ast_.ListOp(elems, ast_.ListOperator.OR) as predicate,
                 expression,
@@ -539,7 +661,7 @@ class SetCodeGenerationCollection(RewriteCollection):
                     if not isinstance(elem, ast_.ListOp) or elem.op_type != ast_.ListOperator.AND:
                         logger.debug(f"FAILED: {elem} is not a valid AND list operation (predicate should be in disjunctive normal form)")
                         return None
-                    candidate_generators, predicates = predicate.separate_candidate_generators_from_predicates(ast.bound)
+                    candidate_generators, predicates = elem.separate_candidate_generators_from_predicates(ast.bound)
 
                     candidate_generator = None
                     for candidate in candidate_generators:
@@ -577,7 +699,9 @@ class SetCodeGenerationCollection(RewriteCollection):
                     )
                     prev_predicates.append(ast_.Not(ast_.And(predicates)))
 
-                return ast_.Statements(statements)
+                new_statement = ast_.Statements(statements)
+                new_statement._env = ast._env
+                return new_statement
 
         return None
 
