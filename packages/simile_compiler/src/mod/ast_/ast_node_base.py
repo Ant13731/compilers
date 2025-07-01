@@ -62,6 +62,10 @@ class ASTNode:
 
         return any(dataclass_traverse(self, is_matching_node))
 
+    def contains_item(self, item: ASTNode | Any) -> bool:
+        """Check if the AST node contains a specific item."""
+        return any(dataclass_traverse(self, lambda n: n == item))
+
     def find_all_instances(self, type_: type[T], with_op_type: Operators | None = None) -> list[T]:
         """Returns a flattened list of all instances of a specific type in the AST.
 

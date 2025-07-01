@@ -480,6 +480,51 @@ class DisjunctiveNormalFormQuantifierPredicateCollection(RewriteCollection):
 #         match ast:
 #             case
 #         return None
+class GeneratorSelectionCollection(RewriteCollection):
+    def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
+        return [
+            self.select_generator_predicates_or,
+            self.select_generator_predicates_and,
+            # self.set_generation,
+        ]
+
+    def select_generator_predicates_or(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Quantifier(ast_.ListOp(elems, ast_.ListOperator.OR), _, _):
+                if ast._selected_generators is not None:
+                    return None
+
+                generators = []
+                for elem in elems:
+                    if not isinstance(elem, ast_.ListOp) or elem.op_type != ast_.ListOperator.AND:
+                        continue
+
+                    candidate_generators, predicates = elem.separate_candidate_generators_from_predicates(ast.bound)
+                    if not candidate_generators:
+                        logger.debug(f"FAILED: no candidate generators found in OR predicate (bound variables are {ast.bound}, free are {ast.free})")
+                        return None
+
+                    # TODO For now, just manually choose the first available generator
+                    generators.append(candidate_generators[0])
+
+                ast._selected_generators = generators
+                return ast
+        return None
+
+    def select_generator_predicates_and(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Quantifier(ast_.ListOp(_, ast_.ListOperator.AND) as elem, _, _):
+                if ast._selected_generators is not None:
+                    return None
+
+                candidate_generators, predicates = elem.separate_candidate_generators_from_predicates(ast.bound)
+                if not candidate_generators:
+                    logger.debug(f"FAILED: no candidate generators found in AND predicate (bound variables are {ast.bound}, free are {ast.free})")
+                    return None
+
+                ast._selected_generators = [candidate_generators[0]]
+                return ast
+        return None
 
 
 class SetCodeGenerationCollection(RewriteCollection):
@@ -488,6 +533,8 @@ class SetCodeGenerationCollection(RewriteCollection):
         return [
             self.summation_2,
             self.flatten_nested_statements,
+            self.disjunct_conditional,
+            self.conjunct_conditional,
             # self.set_generation,
         ]
 
@@ -525,6 +572,22 @@ class SetCodeGenerationCollection(RewriteCollection):
             ):
                 # Idea - put everything in an if statement to start
                 counter = ast_.Identifier(self._get_fresh_identifier_name())
+
+                assert ast._env is not None, f"Environment should not be None (in summation, ast {ast})"
+                ast._env.put(counter.name, ast_.BaseSimileType.Int)
+
+                if_statement = ast_.If(
+                    predicate,
+                    ast_.Assignment(
+                        counter,
+                        ast_.Add(
+                            counter,
+                            expression,
+                        ),
+                    ),
+                )
+                if_statement._rewrite_generators = ast._selected_generators
+
                 return analysis.add_environments_to_ast(
                     ast_.Statements(
                         [
@@ -532,16 +595,7 @@ class SetCodeGenerationCollection(RewriteCollection):
                                 counter,
                                 ast_.Int("0"),
                             ),
-                            ast_.If(
-                                predicate,
-                                ast_.Assignment(
-                                    counter,
-                                    ast_.Add(
-                                        counter,
-                                        expression,
-                                    ),
-                                ),
-                            ),
+                            if_statement,
                         ]
                     ),
                     ast._env,
@@ -551,6 +605,115 @@ class SetCodeGenerationCollection(RewriteCollection):
                 # new_statement._env.put(counter.name, ast_.BaseSimileType.Int)
                 # return new_statement
 
+        return None
+
+    def disjunct_conditional(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.If(
+                ast_.ListOp(predicates, ast_.ListOperator.OR),
+                body,
+            ):
+                if ast._rewrite_generators is None:
+                    logger.debug(f"FAILED: no candidate generators found in disjunctive predicate")
+                    return None
+
+                statements: list[ast_.ASTNode] = []
+                past_predicates: list[ast_.ASTNode] = []
+
+                assert len(ast._rewrite_generators) == len(
+                    predicates
+                ), f"Every OR predicate should have a generator, but got {len(ast._rewrite_generators)} generators and {len(predicates)} predicates"
+
+                # Every predicate should have a generator matching 1-1 from the GeneratorSelectionCollection
+                for i, predicate in enumerate(predicates):
+                    past_predicate_inverse = []
+                    if past_predicates:
+                        past_predicate_inverse = [
+                            ast_.Not(
+                                ast_.ListOp.flatten_and_join(
+                                    past_predicates,
+                                    ast_.ListOperator.AND,
+                                ),
+                            )
+                        ]
+
+                    if_statement = ast_.If(
+                        ast_.ListOp.flatten_and_join(
+                            [predicate] + past_predicate_inverse,
+                            ast_.ListOperator.AND,
+                        ),
+                        body,
+                    )
+                    if_statement._rewrite_generators = [ast._rewrite_generators[i]]
+                    statements.append(if_statement)
+                    past_predicates.append(predicate)
+                return analysis.add_environments_to_ast(
+                    ast_.Statements(
+                        statements,
+                    ),
+                    ast._env,
+                )
+        return None
+
+    def conjunct_conditional(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.If(
+                ast_.ListOp(predicates_, ast_.ListOperator.AND) as predicate,
+                body,
+            ):
+                if ast._rewrite_generators is None:
+                    logger.debug(f"FAILED: no candidate generators found in conjunctive predicate")
+                    return None
+
+                if not ast._rewrite_generators:
+                    logger.debug(f"FAILED: no candidate generators found in conjunctive predicate")
+                    return None
+                if len(ast._rewrite_generators) != 1:
+                    logger.debug(f"FAILED: more than one candidate generator found in conjunctive predicate: {ast._rewrite_generators}")
+                    return None
+
+                generator = ast._rewrite_generators[0]
+                if not isinstance(generator, ast_.BinaryOp) or generator.op_type != ast_.BinaryOperator.IN or not isinstance(generator.left, ast_.Identifier):
+                    logger.debug(f"FAILED: generator is not a valid IN operation (got {generator})")
+                    return None
+
+                predicates = list(filter(lambda x: x != generator, predicates_))
+                free_predicates = list(filter(lambda x: not x.contains_item(generator.left), predicates))
+                bound_predicates = list(filter(lambda x: x.contains_item(generator.left), predicates))
+
+                statement: ast_.ASTNode = body
+                if bound_predicates:
+                    statement = ast_.Statements(
+                        [
+                            ast_.If(
+                                ast_.ListOp.flatten_and_join(
+                                    bound_predicates,
+                                    ast_.ListOperator.AND,
+                                ),
+                                statement,
+                            )
+                        ],
+                    )
+
+                statement = ast_.For(
+                    ast_.IdentList([generator.left]),
+                    generator.right,
+                    statement,
+                )
+
+                if free_predicates:
+                    statement = ast_.If(
+                        ast_.ListOp.flatten_and_join(
+                            free_predicates,
+                            ast_.ListOperator.AND,
+                        ),
+                        body=ast_.Statements([statement]),
+                    )
+
+                return analysis.add_environments_to_ast(
+                    ast_.Statements([statement]),
+                    ast._env,
+                )
         return None
 
     # c = 0

@@ -532,6 +532,10 @@ class Quantifier(ASTNode):
         super().__post_init__()
         self._bound_identifiers: IdentList | None = None
 
+        # Every quantifier must have one generator per OR clause
+        # All OR clauses will be on the top level
+        self._selected_generators: list[BinaryOp] | None = None
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
             return False
@@ -854,6 +858,10 @@ class If(ASTNode):
     body: ASTNode | Statements
     else_body: Elif | Else | None_ = field(default_factory=None_)
 
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        self._rewrite_generators: list[BinaryOp] | None = None
+
     def _get_type(self) -> SimileType:
         return BaseSimileType.None_
 
@@ -876,6 +884,10 @@ class For(ASTNode):
 
     def _get_type(self) -> SimileType:
         return BaseSimileType.None_
+
+    @property
+    def bound(self) -> set[Identifier]:
+        return self.iterable_names.free
 
 
 @dataclass

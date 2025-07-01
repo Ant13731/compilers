@@ -81,8 +81,17 @@ class RewriteCollection:
 
         new_ast = ast.__class__(*new_ast_children)
         new_ast._env = ast._env
-        if hasattr(ast, "_bound_identifiers") and hasattr(new_ast, "_bound_identifiers"):
-            new_ast._bound_identifiers = ast._bound_identifiers
+
+        # FIXME: Kind of a hack to copy hidden fields like this?
+        copy_hidden_fields = [
+            "_bound_identifiers",
+            "_selected_generators",
+            "_rewrite_generators",
+        ]
+        for field_name in copy_hidden_fields:
+            if hasattr(ast, field_name) and hasattr(new_ast, field_name):
+                setattr(new_ast, field_name, getattr(ast, field_name))
+
         logger.info(f"Normalizing AST: {ast}")
         return self.apply_all_rules_once(new_ast)
 
