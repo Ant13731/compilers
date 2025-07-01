@@ -6,8 +6,6 @@ from src.mod import (
     optimizer,
     parser,
     scanner,
-    DEBUG_MODE,
-    debug_print,
     scan,
     parse,
     collection_optimizer,

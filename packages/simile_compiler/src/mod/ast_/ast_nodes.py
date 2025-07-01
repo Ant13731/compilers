@@ -488,7 +488,7 @@ class ListOp(InheritedEqMixin, ASTNode):
                     raise SimileTypeError(f"Invalid types for logical list operation: {[item.get_type for item in self.items]}")
                 return BaseSimileType.Bool
 
-    def separate_candidate_generators_from_predicates(self, free_quantifier_variables: set[Identifier] | None = None) -> tuple[list[BinaryOp], list[ASTNode]]:
+    def separate_candidate_generators_from_predicates(self, bound_quantifier_variables: set[Identifier] | None = None) -> tuple[list[BinaryOp], list[ASTNode]]:
         """Get candidate generators from a list of AND-separated predicates (intended for use in comprehension/quantifier based rewrite rules)"""
         if not self.op_type == ListOperator.AND:
             raise SimileTypeError(f"ListOp.get_candidate_generators() can only be called on AND operations, got {self.op_type.name}")
@@ -502,8 +502,8 @@ class ListOp(InheritedEqMixin, ASTNode):
                     set_type,
                     BinaryOperator.IN,
                 ) if isinstance(
-                    set_type, SetType
-                ) and (free_quantifier_variables is None or x in free_quantifier_variables):
+                    set_type.get_type, SetType
+                ) and (bound_quantifier_variables is None or x in bound_quantifier_variables):
                     candidate_generators.append(item)
                 case _:
                     predicates.append(item)
@@ -526,7 +526,7 @@ class Quantifier(ASTNode):
     predicate: ListOp  # includes generators
     expression: ASTNode
     op_type: QuantifierOperator
-    demoted_predicate: ListOp | None = None  # guaranteed to NOT include generators - should only be filled in with an AND
+    # demoted_predicate: ListOp | None = None  # guaranteed to NOT include generators - should only be filled in with an AND
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -566,8 +566,8 @@ class Quantifier(ASTNode):
     def all_predicates(self) -> ASTNode:
         """Get all predicates in the quantifier, including demoted predicates."""
         predicates = self.predicate
-        if self.demoted_predicate:
-            predicates = ListOp.flatten_and_join([self.predicate, self.demoted_predicate], ListOperator.AND)
+        # if self.demoted_predicate:
+        # predicates = ListOp.flatten_and_join([self.predicate, self.demoted_predicate], ListOperator.AND)
         return predicates
 
     @property
@@ -578,7 +578,6 @@ class Quantifier(ASTNode):
 
     @property
     def free(self) -> set[Identifier]:
-
         if self._bound_identifiers and self._bound_identifiers.items:
             return (self.all_predicates.free | self.expression.free) - self._bound_identifiers.free
         return self.all_predicates.free - self.expression.free
@@ -853,7 +852,7 @@ class Else(ASTNode):
 class If(ASTNode):
     condition: ASTNode
     body: ASTNode | Statements
-    else_body: Elif | Else | None_
+    else_body: Elif | Else | None_ = field(default_factory=None_)
 
     def _get_type(self) -> SimileType:
         return BaseSimileType.None_
@@ -863,7 +862,7 @@ class If(ASTNode):
 class Elif(ASTNode):
     condition: ASTNode
     body: ASTNode | Statements
-    else_body: Elif | Else | None_
+    else_body: Elif | Else | None_ = field(default_factory=None_)
 
     def _get_type(self) -> SimileType:
         return BaseSimileType.None_

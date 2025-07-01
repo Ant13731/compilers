@@ -312,4 +312,8 @@ KEYWORD_TABLE = {
     "pass": TokenType.PASS,
     "lambda": TokenType.LAMBDA,
     "card": TokenType.CARDINALITY,
+    # "fst": TokenType.FIRST,
+    # "proj1": TokenType.FIRST,
+    # "snd": TokenType.SECOND,
+    # "proj2": TokenType.SECOND,
 }

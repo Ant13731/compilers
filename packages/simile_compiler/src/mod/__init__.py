@@ -8,4 +8,3 @@ from src.mod.parser import parse
 from src.mod.scanner import scan
 from src.mod.analysis import populate_ast_environments
 from src.mod.optimizer import collection_optimizer
-from src.mod.config import DEBUG_MODE, debug_print

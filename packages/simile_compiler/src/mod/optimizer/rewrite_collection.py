@@ -3,7 +3,8 @@ from typing import Callable
 from functools import wraps
 from dataclasses import dataclass, fields
 
-from src.mod.config import debug_print
+from loguru import logger
+
 from src.mod import ast_
 
 
@@ -41,15 +42,15 @@ class RewriteCollection:
         """Apply all rewrite rules in the collection to the AST once."""
 
         for rewrite_rule in self.rewrite_collection():
-            debug_print(f"ATTEMPT: to match rule: {rewrite_rule.__name__} with AST: {ast}")
+            logger.debug(f"ATTEMPT: match {rewrite_rule.__name__}")
 
             new_ast = rewrite_rule(ast)
             if new_ast is not None:
                 ast = new_ast
-                debug_print(f"SUCCESS: matched {rewrite_rule.__name__}, resulting in new ast: {ast}")
+                logger.success(f"SUCCESS: matched {rewrite_rule.__name__}. New ast: {ast}")
                 continue
 
-            debug_print(f"FAILED: to match lh side of rule: {rewrite_rule.__name__} with AST: {ast}")
+            logger.trace(f"FAILED: to match {rewrite_rule.__name__} with AST: {ast}")
 
         return ast
 
@@ -80,7 +81,7 @@ class RewriteCollection:
 
         new_ast = ast.__class__(*new_ast_children)
         new_ast._env = ast._env
-        debug_print(f"\nNormalizing AST: {ast}")
+        logger.info(f"Normalizing AST: {ast}")
         return self.apply_all_rules_once(new_ast)
 
     def normalize(self, ast: ast_.ASTNode) -> ast_.ASTNode:

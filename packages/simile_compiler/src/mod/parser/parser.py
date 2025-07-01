@@ -124,7 +124,7 @@ class Parser:
         "set": {TokenType.L_BRACE},
         "sequence": {TokenType.L_BRACKET},
         "bag": {TokenType.L_BRACE_BAR},
-        "builtin_functions": {TokenType.POWERSET, TokenType.NONEMPTY_POWERSET, TokenType.CARDINALITY},
+        "builtin_functions": {TokenType.POWERSET, TokenType.NONEMPTY_POWERSET, TokenType.CARDINALITY},  # , TokenType.FIRST, TokenType.SECOND},
         "control_flow_stmt": {TokenType.RETURN, TokenType.BREAK, TokenType.CONTINUE, TokenType.PASS},
         "assignment": {"struct_access"},
         "typed_name": {TokenType.IDENTIFIER},
@@ -713,6 +713,16 @@ class Parser:
                 )
                 ast_sum._bound_identifiers = ast_.IdentList([fresh_variable])
                 return ast_sum
+            # case TokenType.FIRST:
+            #     self.consume(TokenType.L_PAREN, "First requires object call notation")
+            #     first = self.expr()
+            #     self.consume(TokenType.R_PAREN, "Need to close parenthesis")
+            #     return ast_.Call(ast_.Identifier("*first"), [first])
+            # case TokenType.SECOND:
+            #     self.consume(TokenType.L_PAREN, "Second requires object call notation")
+            #     second = self.expr()
+            #     self.consume(TokenType.R_PAREN, "Need to close parenthesis")
+            #     return ast_.Call(ast_.Identifier("*second"), [second])
             case TokenType.L_PAREN:
                 expr = self.expr()
                 self.consume(TokenType.R_PAREN, "Need to close parenthesis")
