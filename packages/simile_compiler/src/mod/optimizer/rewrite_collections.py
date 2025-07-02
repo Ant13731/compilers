@@ -531,7 +531,7 @@ class SetCodeGenerationCollection(RewriteCollection):
 
     def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
         return [
-            self.summation_2,
+            self.summation,
             self.flatten_nested_statements,
             self.disjunct_conditional,
             self.conjunct_conditional,
@@ -563,7 +563,7 @@ class SetCodeGenerationCollection(RewriteCollection):
                 return analysis.add_environments_to_ast(ast_.Statements(new_statements), ast._env)
         return None
 
-    def summation_2(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+    def summation(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
             case ast_.Quantifier(
                 predicate,
@@ -1052,3 +1052,10 @@ class SetCodeGenerationCollection(RewriteCollection):
 # print(TEST_TYPE.pretty_print(print_env=True))
 # TEST_PHASE = SetRewriteCollection()
 # print(TEST_PHASE.normalize(TEST_TYPE).pretty_print(print_env=False))
+
+SET_REWRITE_COLLECTION: list[RewriteCollection] = [
+    SetComprehensionConstructionCollection,
+    DisjunctiveNormalFormQuantifierPredicateCollection,
+    GeneratorSelectionCollection,
+    SetCodeGenerationCollection,
+]
