@@ -257,7 +257,27 @@ The TRS for this language primarily involves lowering collection data type expre
 \end{table}
 
 \section{Rules}
-Below is a list of rewrite rules for key abstract data types.
+Below is a list of rewrite rules for key abstract data types and some builtin functions.
+\subsection{Builtin Functions}
+
+\noindent\begin{minipage}{\linewidth}
+\begin{align}
+  \tag{Cardinality}
+  card(S)
+  &\leadsto
+  \sum x \cdot x \in S \mid 1
+  \\
+  \tag{Domain}
+  dom(R)
+  &\leadsto
+  \bSet{x \mapsto y}{x \mapsto y \in R}{x}
+  \\
+  \tag{Range}
+  ran(R)
+  &\leadsto
+  \bSet{x \mapsto y}{x \mapsto y \in R}{y}
+\end{align}
+\end{minipage}
 \subsection{Sets}
 
 Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
@@ -351,7 +371,7 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   \tag{Simplified DNF Form \footnote{The LH term must occur inside a quantifier's predicate. Combines clauses with the same generator. Requires Generator Selection to be run first}}
   (P_{g}, [P_a], \bigwedge_{P_i \neq P_g} P_i) \lor (P_{g}, [Q_a], \bigwedge_{Q_i \neq P_g} Q_i)
   &\leadsto
-  (P_g, [P_a] + [Q_a],\bigwedge_{P_i \neq P_g} P_i \lor \bigwedge_{Q_i \neq P_g} Q_i)
+  (P_g, [P_a] \concat [Q_a],\bigwedge_{P_i \neq P_g} P_i \lor \bigwedge_{Q_i \neq P_g} Q_i)
 \end{align}
 \end{minipage}
 
@@ -440,161 +460,161 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
 \end{align}
 \end{minipage}
 
-\subsubsection{Old Rewrite System}
+% \subsubsection{Old Rewrite System}
 
-% Template code rule:
-% \begin{minipage}[]{.45\textwidth}
-% \end{minipage}
-\begin{align}
-  \tag{Set Construction}
-  S &\rightarrow \bSetT{x}{x \in S}
-  \\
-  \tag{Singleton Membership}
-  x \in {e} &\rightarrow x = e
-  \\
-  \tag{Membership Collapse}
-  f(x) \cdot x \in \bSet{g(y)}{y \in S}{P} &\rightarrow f(g(y)) \cdot y \in S \mid P
-  \\
-  \tag{Predicate Promotion}
-  x \cdot x \in S \land p(x) &\rightarrow x \cdot x \in S \mid p(x)
-  \\
-  \cline{1-2}
-  \tag{Union}
-  x \in S \cup T &\rightarrow x \in S \lor x \in T
-  \\
-  \tag{Intersection}
-  x \in S \cap T &\rightarrow x \in S \land x \in T
-  \\
-  \tag{Difference}
-  x \in S \setminus T &\rightarrow x \in S \land x \notin T
-  \\
-  \tag{Cardinality}
-  card(S) &\rightarrow \sum x \in S \cdot 1
-  \\
-  \cline{1-2}
-  \tag{Predicate Operations}
-  filter(p, S) \oplus filter(q, T) &\rightarrow \bSetT{x}{(x \in S \land p(x)) \oplus_{bool} (x \in T \land q(y))}
-  % \\
-  % \tag{Single Operator Mapping}
-  % map(f, S) \oplus T &\rightarrow \bSetT{f(x)}{x \in S \oplus_{bool} f(x) \in T}
-  \\
-  \tag{Filter Over Operators}
-  filter(p, S) \oplus filter(p, T) &\rightarrow filter(p, S \oplus T)
-  \\
-  \tag{Mapping Operations}
-  map(f, S) \oplus map(g, T) &\rightarrow \bSetT{z}{(x \in S \land f(x) = z) \oplus_{bool} (x \in T \land g(y) = z)}
-  \\
-  \tag{Mapping Over Operators}
-  map(f, S) \oplus map(f, T) &\rightarrow map(f, S \oplus T)
-  \\
-  \tag{Map}
-  map(f, S)  &\rightarrow \bSetT{f(x)}{x \in S}
-  \\
-  \tag{Filter}
-  filter(p, S)  &\rightarrow \bSet{x}{x \in S}{p(x)}
-  \\
-  \cline{1-2}
-  \tag{Union Subset Simplification}
-  S \cup T \text{ where } S \subseteq T &\rightarrow T
-  \\
-  \tag{Intersection Subset Simplification}
-  S \cap T \text{ where } S \subseteq T &\rightarrow S
-  \\
-  \tag{Difference Subset Simplification}
-  S \setminus T \text{ where } S \subseteq T &\rightarrow \emptyset
-  \\
-  \tag{Predicate Union with Subset}
-  filter(p, S) \cup filter(q, T) \text{ where } S \subseteq T &\rightarrow filter(p \lor q, T)
-  \\
-  \tag{Predicate Intersection with Subset}
-  filter(p, S) \cap filter(q, T) \text{ where } S \subseteq T &\rightarrow filter(p \land q, S)
-  \\
-  \cline{1-2}
-  \tag{Set generation}
-  \bSet{E}{x \in S}{P}
-  &\rightarrow
-  \begin{minipage}[]{0.4\textwidth}
-  \begin{algorithmic}
-  \State $ret := \emptyset$
-  \For{$x \in S$}
-      \If{$P$} % should we use the \in operator here, or just plaintext in?
-          ret.append(E)
-      \EndIf
-  \EndFor
-  \end{algorithmic}
-  \end{minipage}
-  \\
-  \tag{Summation}
-  \sum x \in S \mid P \cdot E
-  &\rightarrow
-  \begin{minipage}[]{0.4\textwidth}
-  \begin{algorithmic}
-  \State $c := 0$
-  \For{$x \in S$}
-      \If{$P$} % should we use the \in operator here, or just plaintext in?
-          $c := c + E$
-      \EndIf
-  \EndFor
-  \end{algorithmic}
-  \end{minipage}
-  \\
-  \tag{Composed conditional}
-  \begin{minipage}[]{0.33\textwidth}
-  \begin{algorithmic}
-      \If{$P \land x \in S \land Q$}
-          $p$
-      \EndIf
-  \end{algorithmic}
-  where $x$ not free in $P$
-  \end{minipage}
-  & \rightarrow
-  \begin{minipage}[]{0.27\textwidth}
-  \begin{algorithmic}
-  \If{$P$}
-      \For{$x \in S$}
-          \If{$Q$}
-              $p$
-          \EndIf
-      \EndFor
-  \EndIf
-  \end{algorithmic}
-  \end{minipage}
-  \\
-  \tag{Conjunct conditional}
-  \begin{minipage}[]{0.4\textwidth}
-  \begin{algorithmic}
-      \If{$P \land ((x \in S \land V) \lor W) \land Q$}
-          $p$
-      \EndIf
-  \end{algorithmic}
-  where $x$ not free in $P$
-  \end{minipage}
-  & \rightarrow
-  \begin{minipage}[]{0.4\textwidth}
-  \begin{algorithmic}
-  \If{$P$}
-      \For{$x \in S$}
-          \If{$V \land Q$}
-              $p$
-          \EndIf
-      \EndFor
-      \If{$W \land Q$}
-        $p$
-      \EndIf
-  \EndIf
-  \end{algorithmic}
-  \end{minipage}
-\end{align}
+% % Template code rule:
+% % \begin{minipage}[]{.45\textwidth}
+% % \end{minipage}
+% \begin{align}
+%   \tag{Set Construction}
+%   S &\rightarrow \bSetT{x}{x \in S}
+%   \\
+%   \tag{Singleton Membership}
+%   x \in {e} &\rightarrow x = e
+%   \\
+%   \tag{Membership Collapse}
+%   f(x) \cdot x \in \bSet{g(y)}{y \in S}{P} &\rightarrow f(g(y)) \cdot y \in S \mid P
+%   \\
+%   \tag{Predicate Promotion}
+%   x \cdot x \in S \land p(x) &\rightarrow x \cdot x \in S \mid p(x)
+%   \\
+%   \cline{1-2}
+%   \tag{Union}
+%   x \in S \cup T &\rightarrow x \in S \lor x \in T
+%   \\
+%   \tag{Intersection}
+%   x \in S \cap T &\rightarrow x \in S \land x \in T
+%   \\
+%   \tag{Difference}
+%   x \in S \setminus T &\rightarrow x \in S \land x \notin T
+%   \\
+%   \tag{Cardinality}
+%   card(S) &\rightarrow \sum x \in S \cdot 1
+%   \\
+%   \cline{1-2}
+%   \tag{Predicate Operations}
+%   filter(p, S) \oplus filter(q, T) &\rightarrow \bSetT{x}{(x \in S \land p(x)) \oplus_{bool} (x \in T \land q(y))}
+%   % \\
+%   % \tag{Single Operator Mapping}
+%   % map(f, S) \oplus T &\rightarrow \bSetT{f(x)}{x \in S \oplus_{bool} f(x) \in T}
+%   \\
+%   \tag{Filter Over Operators}
+%   filter(p, S) \oplus filter(p, T) &\rightarrow filter(p, S \oplus T)
+%   \\
+%   \tag{Mapping Operations}
+%   map(f, S) \oplus map(g, T) &\rightarrow \bSetT{z}{(x \in S \land f(x) = z) \oplus_{bool} (x \in T \land g(y) = z)}
+%   \\
+%   \tag{Mapping Over Operators}
+%   map(f, S) \oplus map(f, T) &\rightarrow map(f, S \oplus T)
+%   \\
+%   \tag{Map}
+%   map(f, S)  &\rightarrow \bSetT{f(x)}{x \in S}
+%   \\
+%   \tag{Filter}
+%   filter(p, S)  &\rightarrow \bSet{x}{x \in S}{p(x)}
+%   \\
+%   \cline{1-2}
+%   \tag{Union Subset Simplification}
+%   S \cup T \text{ where } S \subseteq T &\rightarrow T
+%   \\
+%   \tag{Intersection Subset Simplification}
+%   S \cap T \text{ where } S \subseteq T &\rightarrow S
+%   \\
+%   \tag{Difference Subset Simplification}
+%   S \setminus T \text{ where } S \subseteq T &\rightarrow \emptyset
+%   \\
+%   \tag{Predicate Union with Subset}
+%   filter(p, S) \cup filter(q, T) \text{ where } S \subseteq T &\rightarrow filter(p \lor q, T)
+%   \\
+%   \tag{Predicate Intersection with Subset}
+%   filter(p, S) \cap filter(q, T) \text{ where } S \subseteq T &\rightarrow filter(p \land q, S)
+%   \\
+%   \cline{1-2}
+%   \tag{Set generation}
+%   \bSet{E}{x \in S}{P}
+%   &\rightarrow
+%   \begin{minipage}[]{0.4\textwidth}
+%   \begin{algorithmic}
+%   \State $ret := \emptyset$
+%   \For{$x \in S$}
+%       \If{$P$} % should we use the \in operator here, or just plaintext in?
+%           ret.append(E)
+%       \EndIf
+%   \EndFor
+%   \end{algorithmic}
+%   \end{minipage}
+%   \\
+%   \tag{Summation}
+%   \sum x \in S \mid P \cdot E
+%   &\rightarrow
+%   \begin{minipage}[]{0.4\textwidth}
+%   \begin{algorithmic}
+%   \State $c := 0$
+%   \For{$x \in S$}
+%       \If{$P$} % should we use the \in operator here, or just plaintext in?
+%           $c := c + E$
+%       \EndIf
+%   \EndFor
+%   \end{algorithmic}
+%   \end{minipage}
+%   \\
+%   \tag{Composed conditional}
+%   \begin{minipage}[]{0.33\textwidth}
+%   \begin{algorithmic}
+%       \If{$P \land x \in S \land Q$}
+%           $p$
+%       \EndIf
+%   \end{algorithmic}
+%   where $x$ not free in $P$
+%   \end{minipage}
+%   & \rightarrow
+%   \begin{minipage}[]{0.27\textwidth}
+%   \begin{algorithmic}
+%   \If{$P$}
+%       \For{$x \in S$}
+%           \If{$Q$}
+%               $p$
+%           \EndIf
+%       \EndFor
+%   \EndIf
+%   \end{algorithmic}
+%   \end{minipage}
+%   \\
+%   \tag{Conjunct conditional}
+%   \begin{minipage}[]{0.4\textwidth}
+%   \begin{algorithmic}
+%       \If{$P \land ((x \in S \land V) \lor W) \land Q$}
+%           $p$
+%       \EndIf
+%   \end{algorithmic}
+%   where $x$ not free in $P$
+%   \end{minipage}
+%   & \rightarrow
+%   \begin{minipage}[]{0.4\textwidth}
+%   \begin{algorithmic}
+%   \If{$P$}
+%       \For{$x \in S$}
+%           \If{$V \land Q$}
+%               $p$
+%           \EndIf
+%       \EndFor
+%       \If{$W \land Q$}
+%         $p$
+%       \EndIf
+%   \EndIf
+%   \end{algorithmic}
+%   \end{minipage}
+% \end{align}
 
-Additional notes and extended context:
-\begin{description}
-  \item[General] When the intention is clear, operands are written in a concise variable form instead of constructor notation, although the implementation should assume that variables are fully expanded by the (Set Construction) phase. The functions $map$ and $filter$ correspond to applying a function to all elements of a set and adding a predicate to the set respectively, so $map(f,S) = \bSetT{f(x)}{x \in S}$ and $filter(p, S) = \bSet{x}{x \in S}{p(x)}$.
-  \item[Membership Collapse] Assumes context of the initial term results in a valid expression. For example, this rewrite would be reasonable within a quantification statement or set construction. The intention of this rule is to simplify nested set constructions and should only be used after the (Set Construction) phase.
-  \item[Predicate Promotion] If a predicate within set construction cannot be considered as a loop iterator, it is promoted to a purely conditional role. The meaning of the before and after term does not necessarily change, but it clarifies the difference between candidate generators and regular predicates.
-  \item[Operations involving $\oplus$] The operator $\oplus$ represents any union, intersection, or difference operation, with $\oplus_{bool}$ representing the corresponding construction operation.
-  \item[Summation] The summation operation may be replaced with any reduction/folding operation, provided the correct low-level operation. More specific forms may be needed to consider non-associative operations.
-  \item[Composed Conditional] $x$ not free in $P$ means $x$ must already be bound. More clearly, no candidate generator variables that have not been defined should occur in $P$. We differentiate $P$ from $Q$ so that if-statements may leave behind predicates that are not needed in the nested loop. In the case of top-level AND-separated generators that bind to the same variable, the larger generator should be promoted to a conditional.
-\end{description}
+% Additional notes and extended context:
+% \begin{description}
+%   \item[General] When the intention is clear, operands are written in a concise variable form instead of constructor notation, although the implementation should assume that variables are fully expanded by the (Set Construction) phase. The functions $map$ and $filter$ correspond to applying a function to all elements of a set and adding a predicate to the set respectively, so $map(f,S) = \bSetT{f(x)}{x \in S}$ and $filter(p, S) = \bSet{x}{x \in S}{p(x)}$.
+%   \item[Membership Collapse] Assumes context of the initial term results in a valid expression. For example, this rewrite would be reasonable within a quantification statement or set construction. The intention of this rule is to simplify nested set constructions and should only be used after the (Set Construction) phase.
+%   \item[Predicate Promotion] If a predicate within set construction cannot be considered as a loop iterator, it is promoted to a purely conditional role. The meaning of the before and after term does not necessarily change, but it clarifies the difference between candidate generators and regular predicates.
+%   \item[Operations involving $\oplus$] The operator $\oplus$ represents any union, intersection, or difference operation, with $\oplus_{bool}$ representing the corresponding construction operation.
+%   \item[Summation] The summation operation may be replaced with any reduction/folding operation, provided the correct low-level operation. More specific forms may be needed to consider non-associative operations.
+%   \item[Composed Conditional] $x$ not free in $P$ means $x$ must already be bound. More clearly, no candidate generator variables that have not been defined should occur in $P$. We differentiate $P$ from $Q$ so that if-statements may leave behind predicates that are not needed in the nested loop. In the case of top-level AND-separated generators that bind to the same variable, the larger generator should be promoted to a conditional.
+% \end{description}
 
 \subsection{Relations}
   \begin{align}
