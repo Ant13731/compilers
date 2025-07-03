@@ -54,6 +54,22 @@
   \mathbin{{+}\mspace{-8mu}{+}}%
 }
 
+% From https://tex.stackexchange.com/questions/82782/footnote-in-align-environment
+\makeatletter
+\let\original@footnote\footnote
+\newcommand{\align@footnote}[1]{%
+  \ifmeasuring@
+    \chardef\@tempfn=\value{footnote}%
+    \footnotemark
+    \setcounter{footnote}{\@tempfn}%
+  \else
+    \iffirstchoice@
+      \original@footnote{#1}%
+    \fi
+  \fi}
+\pretocmd{\start@align}{\let\footnote\align@footnote}{}{}
+\makeatother
+
 % Other preamble
 \allowdisplaybreaks
 \graphicspath{{./images/}}
@@ -91,6 +107,12 @@ The TRS for this language primarily involves lowering collection data type expre
 
 \paragraph{Granular Strategy (Sets)}
 % TODO take from report.tex, give supporting equations too (all the rules must be stable first)
+\begin{description}
+  \item[Phase 1: Set Comprehension Construction] Break down all qualifying sets into comprehension forms, collapsing and simplifying where needed.
+  \item[Phase 2: DNF Predicates] Revise comprehension predicates to top-level disjunctive normal form. Each or-clause should have at least one feasible generator. Each clause should record a list of candidate generators
+  \item[Phase 3: Predicate Simplification] Remove superfluous dummy variables, group or-clauses that use the exact same generator (ex. $\bSetT{x}{x \in S \land x \neq 0 \lor x \in S \land x = 0} \rightarrow \bSetT{x}{x \in S \land (x \neq 0 \lor x = 0)}$). Clauses should be group-able based on DNF, and generators should be selected and recorded.
+  \item[Phase 4: Set Code Generation] Converts quantifiers into for-loops and if-statements.
+\end{description}
 
 \section{Supported Operations}
 \begin{table}[H]
@@ -237,6 +259,188 @@ The TRS for this language primarily involves lowering collection data type expre
 \section{Rules}
 Below is a list of rewrite rules for key abstract data types.
 \subsection{Sets}
+
+Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
+\subsubsection{Phase 1: Set Comprehension Construction}
+
+\noindent\begin{minipage}{\linewidth}
+\begin{align}
+  \tag{Predicate Operations - Union}
+  S \cup T
+  &\leadsto
+  \bSetT{x}{x \in S \lor x \in T}
+  \\
+  \tag{Predicate Operations - Intersection}
+  S \cup T
+  &\leadsto
+  \bSetT{x}{x \in S \land x \in T}
+  \\
+  \tag{Predicate Operations - Difference}
+  S \cup T
+  &\leadsto
+  \bSetT{x}{x \in S \land x \notin T}
+  \\
+  \tag{Singleton Membership \footnote{Currently unused. We need to be careful to handle the case where $x$ is a free variable.}}
+  x \in \{e\}
+  &\leadsto
+  x = e
+  \\
+  \tag{Membership Collapse \footnote{Rule only matches inside the predicate of a quantifier. Explicitly enumerating all matches for all quantuantification types and predicate cases (ANDs, ORs, etc.) would require too much boilerplate. $x$ must be bound by the encasing quantifier.}}
+  x \in \oplus(E \mid P)
+  &\leadsto
+  P \land x = E
+\end{align}
+\end{minipage}
+
+\subsubsection{Phase 2: Disjunctive Normal Form}
+% https://en.wikipedia.org/wiki/Disjunctive_normal_form
+\noindent\begin{minipage}{\linewidth} % Need minipage for footnote
+\begin{align}
+  \tag{Flatten Nested Ands}
+  a \land ... \land (b \land c) \land ...
+  &\leadsto
+  a \land ... \land b \land c \land ...
+  \\
+  \tag{Flatten Nested Ors}
+  a \lor ... \lor (b \lor c) \lor ...
+  &\leadsto
+  a \lor ... \lor b \lor c \lor ...
+  \\
+  \tag{Double Negation}
+  \lnot \lnot x
+  &\leadsto
+  x
+  \\
+  \tag{Distribute De Morgan - Or}
+  \lnot (x \lor y)
+  &\leadsto
+  \lnot x \land \lnot y
+  \\
+  \tag{Distribute De Morgan - And}
+  \lnot (x \land y)
+  &\leadsto
+  \lnot x \lor \lnot y
+  \\
+  \tag{Distribute Ands}
+  x \land (y \lor z)
+  &\leadsto
+  (x \land y) \lor (x \land z)
+\end{align}
+\end{minipage}
+
+\subsubsection{Phase 3: Predicate Simplification}
+
+\noindent\begin{minipage}{\linewidth}
+\begin{align}
+  % \tag{Singleton Membership One-Point Rule \footnote{From LADM 8.14. $x \in \{e\}$ must be a generator. $\oplus$ represents any quantifier, $\otimes_b$ represents any boolean operation}}
+  % \oplus (E \mid x \in \{e\} \otimes_b P)
+  % &\leadsto
+  % E[x := e] \oplus \oplus(E \mid P)
+  % \\
+  \tag{Nesting \footnote{$y$ cannot occur in $P$}}
+  \bSet{x,y}{P \land Q}{E}
+  &\leadsto
+  \bSet{x}{P}{\bSet{y}{Q}{E}}
+  \\
+  \tag{Generator Selection and Dummy Reassignment \footnote{The LH term must occur inside a quantifier's predicate - one match per or-clause. $P_g$ is the generator, a single clause distinguished from the rest of $\bigwedge P_i$.\\
+  Dummy Reassignment uses assignment to calculate expressions outside of the if-statement. For example, $\bSet{x}{x \in S \land z = f(x)}{z}$ indirectly binds $z$ (if $z$ is free), although $z$ does not appear in the quantifier list. This may be less efficient for simple cases than directly rewriting all occurrences of z to f(x), but additional conditions that make use of z would benefit from the intermediate calculation. $P_a$ is an ordered list of such assignments (drawn from $\bigwedge P_i$), so that additional layers of indirection may be accommodated. The expectation is that LLVM will filter out superfluous assignments, though we will test this assumption later.\\Right now, we just make a naive selection of generator (ie., the first viable option). Later, this will be more intelligent.}}
+  \bigwedge P_i
+  &\leadsto
+  (P_g, [P_a], \bigwedge_{P_i \neq P_g} P_i)
+  \\
+  \tag{Simplified DNF Form \footnote{The LH term must occur inside a quantifier's predicate. Combines clauses with the same generator. Requires Generator Selection to be run first}}
+  (P_{g}, [P_a], \bigwedge_{P_i \neq P_g} P_i) \lor (P_{g}, [Q_a], \bigwedge_{Q_i \neq P_g} Q_i)
+  &\leadsto
+  (P_g, [P_a] + [Q_a],\bigwedge_{P_i \neq P_g} P_i \lor \bigwedge_{Q_i \neq P_g} Q_i)
+\end{align}
+\end{minipage}
+
+\subsubsection{Phase 4: Set Code Generation}
+
+\noindent\begin{minipage}{\linewidth}
+\begin{align}
+  \tag{Quantifier Generation \footnote{$\oplus$ works for any quantifier. The identity and accumulate functions are determined by the realized $\oplus$. For example, if $\oplus = \sum$, the identity is 0 and accumulate is addition.}}
+  \oplus E \mid P
+  &\leadsto
+  \begin{minipage}[]{0.4\textwidth}
+  \begin{algorithmic}
+  \State $a := identity(\oplus)$
+    \If{$P$} % should we use the \in operator here, or just plaintext in?
+        \State $a := accumulate(a, E)$
+    \EndIf
+  \end{algorithmic}
+  \end{minipage}
+\end{align}
+\end{minipage}
+\noindent\begin{minipage}{\linewidth}
+\begin{align}
+  \tag{Disjunct conditional}
+  \begin{minipage}[]{0.4\textwidth}
+  \begin{algorithmic}
+    \If{$\bigvee P_i$}
+      \State body
+    \EndIf
+  \end{algorithmic}
+  \end{minipage}
+  &\leadsto
+  \begin{minipage}[]{0.4\textwidth}
+  \begin{algorithmic}
+    \If{$P_0$}
+      \State body
+    \EndIf
+    \If{$P_1$}
+      \State body
+    \EndIf
+    \State ...
+  \end{algorithmic}
+  \end{minipage}
+\end{align}
+\end{minipage}
+\noindent\begin{minipage}{\linewidth}
+\begin{align}
+  \tag{Conjunct conditional \footnote{Function $free$ returns clauses in $P$ that contain only free variables. $generator$ is a single clause representing the selected generator of $P$ (of form $x \in S$ where $x$ will be bound by this loop condition). $bound$ returns the clauses that contain the bound variable $x$.}}
+  \begin{minipage}[]{0.4\textwidth}
+  \begin{algorithmic}
+    \If{($P_g, P_as, \bigwedge P_i$)}
+      \State body
+    \EndIf
+  \end{algorithmic}
+  \end{minipage}
+  &\leadsto
+  \begin{minipage}[]{0.4\textwidth}
+  \begin{algorithmic}
+    \If{$\bigwedge_{free(P_i)} P_i$}
+      \For{$P_g$}
+        \State $P_as$
+        \If{$\bigwedge_{bound(P_i)} P_i$}
+          \State body
+        \EndIf
+      \EndFor
+    \EndIf
+  \end{algorithmic}
+  \end{minipage}
+\end{align}
+\end{minipage}
+\noindent\begin{minipage}{\linewidth}
+\begin{align}
+  \tag{Accumulating Quantifier}
+  \begin{minipage}[]{0.5\textwidth}
+  \begin{algorithmic}
+    \State $a := accumulator(a, \oplus(E \mid P))$
+  \end{algorithmic}
+  \end{minipage}
+  &\leadsto
+  \begin{minipage}[]{0.4\textwidth}
+  \begin{algorithmic}
+    \If{$P$}
+      \State $a := accumulator(a, E)$
+    \EndIf
+  \end{algorithmic}
+  \end{minipage}
+\end{align}
+\end{minipage}
+
+\subsubsection{Old Rewrite System}
 
 % Template code rule:
 % \begin{minipage}[]{.45\textwidth}
