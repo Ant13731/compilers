@@ -6,8 +6,8 @@ from src.mod import ast_
 from src.mod.optimizer.rewrite_collection import RewriteCollection
 
 
-def collection_optimizer(ast: ast_.ASTNode, matching_phases: list[RewriteCollection]) -> ast_.ASTNode:
+def collection_optimizer(ast: ast_.ASTNode, matching_phases: list[type[RewriteCollection]]) -> ast_.ASTNode:
     for matching_phase in matching_phases:
-        logger.debug(f"Applying matching phase: {matching_phase.__class__.__name__}")
-        ast = matching_phase.normalize(ast)
+        logger.debug(f"Applying matching phase: {matching_phase.__name__}")
+        ast = matching_phase().normalize(ast)
     return ast

@@ -530,7 +530,7 @@ class Quantifier(ASTNode):
 
     def __post_init__(self) -> None:
         super().__post_init__()
-        self._bound_identifiers: IdentList | None = None
+        self._bound_identifiers: set[Identifier] | None = None
 
         # Every quantifier must have one generator per OR clause
         # All OR clauses will be on the top level
@@ -576,14 +576,14 @@ class Quantifier(ASTNode):
 
     @property
     def bound(self) -> set[Identifier]:
-        if self._bound_identifiers and self._bound_identifiers.items:
-            return self.all_predicates.bound | self.expression.bound | self._bound_identifiers.free
+        if self._bound_identifiers:
+            return self.all_predicates.bound | self.expression.bound | self._bound_identifiers
         return self.all_predicates.bound | self.expression.bound | self.expression.free
 
     @property
     def free(self) -> set[Identifier]:
-        if self._bound_identifiers and self._bound_identifiers.items:
-            return (self.all_predicates.free | self.expression.free) - self._bound_identifiers.free
+        if self._bound_identifiers:
+            return (self.all_predicates.free | self.expression.free) - self._bound_identifiers
         return self.all_predicates.free - self.expression.free
 
     def well_formed(self) -> bool:
@@ -595,13 +595,13 @@ class Quantifier(ASTNode):
         ]
 
         if self._bound_identifiers:
-            check_list += [self._bound_identifiers.well_formed()]
+            check_list += [IdentList(list(self._bound_identifiers)).well_formed()]
 
-        if self._bound_identifiers and self._bound_identifiers.items:
+        if self._bound_identifiers:
             check_list += [
                 self.all_predicates.free.isdisjoint(self.expression.bound),
-                self.all_predicates.bound.isdisjoint(self._bound_identifiers.free),
-                self.expression.bound.isdisjoint(self._bound_identifiers.free),
+                self.all_predicates.bound.isdisjoint(self._bound_identifiers),
+                self.expression.bound.isdisjoint(self._bound_identifiers),
             ]
 
         return all(check_list)

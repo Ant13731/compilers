@@ -8,6 +8,7 @@ from src.mod.optimizer.rewrite_collections import (
     SET_REWRITE_COLLECTION,
     SetComprehensionConstructionCollection,
     DisjunctiveNormalFormQuantifierPredicateCollection,
+    PredicateSimplificationCollection,
     GeneratorSelectionCollection,
     SetCodeGenerationCollection,
 )

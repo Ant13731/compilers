@@ -453,12 +453,12 @@ class Parser:
             case TokenType.UNION_ALL:
                 ident_list, predicate, expression = self.quantification_body()
                 union_all = ast_.UnionAll(predicate, expression)
-                union_all._bound_identifiers = ident_list
+                union_all._bound_identifiers = ident_list.free
                 return union_all
             case TokenType.INTERSECTION_ALL:
                 ident_list, predicate, expression = self.quantification_body()
                 intersection_all = ast_.IntersectionAll(predicate, expression)
-                intersection_all._bound_identifiers = ident_list
+                intersection_all._bound_identifiers = ident_list.free
                 return intersection_all
             case _:
                 self.error("Invalid start to quantification")
@@ -711,7 +711,7 @@ class Parser:
                     ast_.And([ast_.In(fresh_variable, cardinality)]),
                     ast_.Int("1"),
                 )
-                ast_sum._bound_identifiers = ast_.IdentList([fresh_variable])
+                ast_sum._bound_identifiers = {fresh_variable}
                 return ast_sum
             # case TokenType.FIRST:
             #     self.consume(TokenType.L_PAREN, "First requires object call notation")
@@ -758,7 +758,7 @@ class Parser:
             self.error(f"Failed to convert collection operator {collection_operator} to quantification operator")
 
         ret = ast_.Quantifier(predicate, expression, quantification_operator)
-        ret._bound_identifiers = ident_list
+        ret._bound_identifiers = ident_list.free
         self.consume(closing_symbol, f"Expected closing symbol {closing_symbol} for collection")
         return ret
 

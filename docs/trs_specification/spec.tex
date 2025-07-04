@@ -348,7 +348,23 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
 \end{align}
 \end{minipage}
 
-\subsubsection{Phase 3: Predicate Simplification}
+\subsubsection{Phase 3.1: Predicate Simplification 1}
+
+\noindent\begin{minipage}{\linewidth}
+\begin{align}
+  \tag{Nesting \footnote{$y$ cannot occur in $P$}}
+  \bSet{x,y}{P \land Q}{E}
+  &\leadsto
+  \bSet{x}{P}{\bSet{y}{Q}{E}}
+  \\
+  \tag{Or-wrapping \footnote{To simplify the matching process later on, we wrap every top-level AND statement (which is guaranteed to be a ListOp by the dataclass field type definition) with an OR.}}
+  \bSet{x}{\bigwedge P_i}{E}
+  &\leadsto
+  \bSet{x}{\bigvee \bigwedge P_i}{E}
+  \\
+\end{align}
+\end{minipage}
+\subsubsection{Phase 3.2: Generator Selection 2}
 
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
@@ -357,11 +373,6 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   % &\leadsto
   % E[x := e] \oplus \oplus(E \mid P)
   % \\
-  \tag{Nesting \footnote{$y$ cannot occur in $P$}}
-  \bSet{x,y}{P \land Q}{E}
-  &\leadsto
-  \bSet{x}{P}{\bSet{y}{Q}{E}}
-  \\
   \tag{Generator Selection and Dummy Reassignment \footnote{The LH term must occur inside a quantifier's predicate - one match per or-clause. $P_g$ is the generator, a single clause distinguished from the rest of $\bigwedge P_i$.\\
   Dummy Reassignment uses assignment to calculate expressions outside of the if-statement. For example, $\bSet{x}{x \in S \land z = f(x)}{z}$ indirectly binds $z$ (if $z$ is free), although $z$ does not appear in the quantifier list. This may be less efficient for simple cases than directly rewriting all occurrences of z to f(x), but additional conditions that make use of z would benefit from the intermediate calculation. $P_a$ is an ordered list of such assignments (drawn from $\bigwedge P_i$), so that additional layers of indirection may be accommodated. The expectation is that LLVM will filter out superfluous assignments, though we will test this assumption later.\\Right now, we just make a naive selection of generator (ie., the first viable option). Later, this will be more intelligent.}}
   \bigwedge P_i
@@ -408,7 +419,7 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
     \If{$P_0$}
       \State body
     \EndIf
-    \If{$P_1$}
+    \If{$P_1 \land \lnot P_0$}
       \State body
     \EndIf
     \State ...
