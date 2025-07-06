@@ -377,12 +377,12 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   Dummy Reassignment uses assignment to calculate expressions outside of the if-statement. For example, $\bSet{x}{x \in S \land z = f(x)}{z}$ indirectly binds $z$ (if $z$ is free), although $z$ does not appear in the quantifier list. This may be less efficient for simple cases than directly rewriting all occurrences of z to f(x), but additional conditions that make use of z would benefit from the intermediate calculation. $P_a$ is an ordered list of such assignments (drawn from $\bigwedge P_i$), so that additional layers of indirection may be accommodated. The expectation is that LLVM will filter out superfluous assignments, though we will test this assumption later.\\Right now, we just make a naive selection of generator (ie., the first viable option). Later, this will be more intelligent.}}
   \bigwedge P_i
   &\leadsto
-  (P_g, [P_a], \bigwedge_{P_i \neq P_g} P_i)
+  P_g \land \bigwedge P_a \land \bigwedge_{P_i \neq P_g, P_i \notin \bigcup P_a} P_i
   \\
   \tag{Simplified DNF Form \footnote{The LH term must occur inside a quantifier's predicate. Combines clauses with the same generator. Requires Generator Selection to be run first}}
-  (P_{g}, [P_a], \bigwedge_{P_i \neq P_g} P_i) \lor (P_{g}, [Q_a], \bigwedge_{Q_i \neq P_g} Q_i)
+  (P_{g} \land \bigwedge P_a \land \bigwedge P_i) \lor (P_{g} \land \bigwedge Q_a \land \bigwedge_{Q_i \neq P_g} Q_i)
   &\leadsto
-  (P_g, [P_a] \concat [Q_a],\bigwedge_{P_i \neq P_g} P_i \lor \bigwedge_{Q_i \neq P_g} Q_i)
+  P_g, \bigwedge P_a \land \bigwedge Q_a,\bigwedge P_i \lor \bigwedge Q_i
 \end{align}
 \end{minipage}
 
@@ -432,7 +432,7 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   \tag{Conjunct conditional \footnote{Function $free$ returns clauses in $P$ that contain only free variables. $generator$ is a single clause representing the selected generator of $P$ (of form $x \in S$ where $x$ will be bound by this loop condition). $bound$ returns the clauses that contain the bound variable $x$.}}
   \begin{minipage}[]{0.4\textwidth}
   \begin{algorithmic}
-    \If{($P_g, P_as, \bigwedge P_i$)}
+    \If{$P_g \land \bigwedge P_a \land \bigwedge P_i$}
       \State body
     \EndIf
   \end{algorithmic}
