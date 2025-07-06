@@ -31,3 +31,14 @@ class GeneratorSelectionAST(ast_.ASTNode):
             assignments=self.assignments,
             condition=ast_.And.flatten_and_join([self.condition, new_conditions], ast_.ListOperator.AND),
         )
+
+    def _pretty_print_algorithmic(self, indent: int) -> str:
+        assignments_str = " ∧ ".join(
+            [f"{assignment.target._pretty_print_algorithmic(indent)} = {assignment.value._pretty_print_algorithmic(indent)}" for assignment in self.assignments]
+        )
+
+        ret = self.generator._pretty_print_algorithmic(indent)
+        if assignments_str:
+            ret += f" ∧ {assignments_str}"
+        ret += f" ∧ {self.condition._pretty_print_algorithmic(indent)}"
+        return ret

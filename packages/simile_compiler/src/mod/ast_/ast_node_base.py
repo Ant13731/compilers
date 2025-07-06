@@ -179,6 +179,12 @@ class ASTNode:
             ret += f"{indent_}{f.name}**: {field_value}\n"
         return ret
 
+    def pretty_print_algorithmic(self, indent: int = 0) -> str:
+        return self._pretty_print_algorithmic(indent)
+
+    def _pretty_print_algorithmic(self, indent: int) -> str:
+        raise NotImplementedError
+
 
 @dataclass
 class Identifier(ASTNode):
@@ -204,3 +210,8 @@ class Identifier(ASTNode):
             if ret is not None:
                 return ret
         return DeferToSymbolTable(lookup_type=self.name)
+
+    def _pretty_print_algorithmic(self, indent: int) -> str:
+        if self.name.startswith("*"):
+            return f"x{''.join(filter(str.isnumeric, self.name))}"
+        return self.name

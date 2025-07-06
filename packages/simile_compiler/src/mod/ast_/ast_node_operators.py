@@ -55,6 +55,58 @@ class BinaryOperator(Enum):
     RANGE_SUBTRACTION = auto()
     RANGE_RESTRICTION = auto()
 
+    def pretty_print(self) -> str:
+        pretty_print_lookup = {
+            BinaryOperator.IMPLIES: "⇒",
+            BinaryOperator.REV_IMPLIES: "⇐",
+            BinaryOperator.EQUIVALENT: "≡",
+            BinaryOperator.NOT_EQUIVALENT: "≢",
+            #: ,
+            BinaryOperator.ADD: "+",
+            BinaryOperator.SUBTRACT: "-",
+            BinaryOperator.MULTIPLY: "*",
+            BinaryOperator.DIVIDE: "/",
+            BinaryOperator.MODULO: "%",
+            BinaryOperator.EXPONENT: "^",
+            #: ,
+            BinaryOperator.LESS_THAN: "<",
+            BinaryOperator.LESS_THAN_OR_EQUAL: "<=",
+            BinaryOperator.GREATER_THAN: ">",
+            BinaryOperator.GREATER_THAN_OR_EQUAL: ">=",
+            #: ,
+            BinaryOperator.EQUAL: "=",
+            BinaryOperator.NOT_EQUAL: "≠",
+            BinaryOperator.IS: "is",
+            BinaryOperator.IS_NOT: "is not",
+            #: ,
+            BinaryOperator.IN: "∈",
+            BinaryOperator.NOT_IN: "∉",
+            BinaryOperator.UNION: "∪",
+            BinaryOperator.INTERSECTION: "∩",
+            BinaryOperator.DIFFERENCE: "∖",
+            #: ,
+            BinaryOperator.SUBSET: "⊆",
+            BinaryOperator.SUBSET_EQ: "⊆",
+            BinaryOperator.SUPERSET: "⊇",
+            BinaryOperator.SUPERSET_EQ: "⊇",
+            BinaryOperator.NOT_SUBSET: "⊈",
+            BinaryOperator.NOT_SUBSET_EQ: "⊈",
+            BinaryOperator.NOT_SUPERSET: "⊉",
+            BinaryOperator.NOT_SUPERSET_EQ: "⊉",
+            #: ,
+            BinaryOperator.MAPLET: "↦",
+            BinaryOperator.RELATION_OVERRIDING: "<+",
+            BinaryOperator.COMPOSITION: "∘",
+            BinaryOperator.CARTESIAN_PRODUCT: "×",
+            BinaryOperator.UPTO: "..",
+            #: ,
+            BinaryOperator.DOMAIN_SUBTRACTION: "◁",
+            BinaryOperator.DOMAIN_RESTRICTION: "⩤",
+            BinaryOperator.RANGE_SUBTRACTION: "▷",
+            BinaryOperator.RANGE_RESTRICTION: "⩥",
+        }
+        return pretty_print_lookup.get(self, self.name)
+
 
 class RelationOperator(Enum):
     """All relation type binary operators in Simile."""
@@ -307,6 +359,22 @@ class RelationOperator(Enum):
             case _:
                 return self
 
+    def pretty_print(self) -> str:
+        pretty_print_lookup = {
+            RelationOperator.RELATION: "↔",
+            RelationOperator.TOTAL_RELATION: "<<->",
+            RelationOperator.SURJECTIVE_RELATION: "<->>",
+            RelationOperator.TOTAL_SURJECTIVE_RELATION: "<<->>",
+            RelationOperator.PARTIAL_FUNCTION: "⇸",
+            RelationOperator.TOTAL_FUNCTION: "→",
+            RelationOperator.PARTIAL_INJECTION: "⤔",
+            RelationOperator.TOTAL_INJECTION: "↣",
+            RelationOperator.PARTIAL_SURJECTION: "⤀",
+            RelationOperator.TOTAL_SURJECTION: "↠",
+            RelationOperator.BIJECTION: "⤖",
+        }
+        return pretty_print_lookup.get(self, self.name)
+
 
 class UnaryOperator(Enum):
     """All unary operators in Simile."""
@@ -317,12 +385,29 @@ class UnaryOperator(Enum):
     NONEMPTY_POWERSET = auto()
     INVERSE = auto()
 
+    def pretty_print(self) -> str:
+        pretty_print_lookup = {
+            UnaryOperator.NOT: "¬",
+            UnaryOperator.NEGATIVE: "-",
+            UnaryOperator.POWERSET: "ℙ",
+            UnaryOperator.NONEMPTY_POWERSET: "ℙ₁",
+            UnaryOperator.INVERSE: "⁻¹",
+        }
+        return pretty_print_lookup.get(self, self.name)
+
 
 class ListOperator(Enum):
     """And/Or operators"""
 
     AND = auto()
     OR = auto()
+
+    def pretty_print(self) -> str:
+        pretty_print_lookup = {
+            ListOperator.AND: "∧",
+            ListOperator.OR: "∨",
+        }
+        return pretty_print_lookup.get(self, self.name)
 
 
 class QuantifierOperator(Enum):
@@ -378,6 +463,21 @@ class QuantifierOperator(Enum):
             case _:
                 return None
 
+    def pretty_print(self) -> str:
+        pretty_print_lookup = {
+            QuantifierOperator.FORALL: "∀",
+            QuantifierOperator.EXISTS: "∃",
+            QuantifierOperator.UNION_ALL: "⋃",
+            QuantifierOperator.INTERSECTION_ALL: "⋂",
+            QuantifierOperator.SUM: "Σ",
+            QuantifierOperator.PRODUCT: "Π",
+            QuantifierOperator.SEQUENCE: "[]",
+            QuantifierOperator.SET: "{}",
+            QuantifierOperator.RELATION: "{}",
+            QuantifierOperator.BAG: "⦃⦄",
+        }
+        return pretty_print_lookup.get(self, self.name)
+
 
 class ControlFlowOperator(Enum):
     """Control flow operators in Simile."""
@@ -385,6 +485,14 @@ class ControlFlowOperator(Enum):
     BREAK = auto()
     CONTINUE = auto()
     PASS = auto()
+
+    def pretty_print(self) -> str:
+        pretty_print_lookup = {
+            ControlFlowOperator.BREAK: "break",
+            ControlFlowOperator.CONTINUE: "continue",
+            ControlFlowOperator.PASS: "pass",
+        }
+        return pretty_print_lookup.get(self, self.name)
 
 
 class CollectionOperator(Enum):
@@ -394,6 +502,10 @@ class CollectionOperator(Enum):
     SET = auto()
     RELATION = auto()
     BAG = auto()
+
+    def pretty_print(self) -> str:
+        quantifier_op_version = QuantifierOperator.from_collection_operator(self)
+        return quantifier_op_version.pretty_print() if quantifier_op_version else self.name
 
 
 Operators = BinaryOperator | RelationOperator | UnaryOperator | ListOperator | QuantifierOperator | ControlFlowOperator
