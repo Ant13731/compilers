@@ -171,6 +171,7 @@ from src.mod.ast_.symbol_table_types import (
     ProcedureTypeDef,
     TypeUnion,
     DeferToSymbolTable,
+    ModuleImports,
 )
 from src.mod.ast_.symbol_table_env import (
     Environment,
