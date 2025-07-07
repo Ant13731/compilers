@@ -42,20 +42,20 @@ class SetType(Generic[T]):
     relation_subtype: RelationOperator | None = None
 
     @staticmethod
-    def is_set(self: SetType) -> bool:
-        return not isinstance(self.element_type, PairType)
+    def is_set(self_: SetType) -> bool:
+        return not isinstance(self_.element_type, PairType)
 
     @staticmethod
-    def is_relation(self: SetType) -> TypeGuard[SetType[PairType]]:
-        return isinstance(self.element_type, PairType)
+    def is_relation(self_: SetType) -> TypeGuard[SetType[PairType]]:
+        return isinstance(self_.element_type, PairType)
 
     @staticmethod
-    def is_sequence(self: SetType) -> TypeGuard[SetType[PairType[Literal[BaseSimileType.Int], SimileType]]]:
-        return SetType.is_relation(self) and self.element_type.left == BaseSimileType.Int
+    def is_sequence(self_: SetType) -> TypeGuard[SetType[PairType[Literal[BaseSimileType.Int], SimileType]]]:
+        return SetType.is_relation(self_) and self_.element_type.left == BaseSimileType.Int
 
     @staticmethod
-    def is_bag(self: SetType) -> TypeGuard[SetType[PairType[SimileType, Literal[BaseSimileType.Int]]]]:
-        return SetType.is_relation(self) and self.element_type.right == BaseSimileType.Int
+    def is_bag(self_: SetType) -> TypeGuard[SetType[PairType[SimileType, Literal[BaseSimileType.Int]]]]:
+        return SetType.is_relation(self_) and self_.element_type.right == BaseSimileType.Int
 
 
 # TODO:
@@ -102,6 +102,18 @@ class ProcedureTypeDef:
     return_type: SimileType
 
 
+# @dataclass
+# class InstanceOfDef:
+#     type_name: str
+#     instance_type: StructTypeDef | EnumTypeDef | ProcedureTypeDef
+
+#     @classmethod
+#     def wrap_def_types(cls, type_name: str, instance_type: SimileType) -> SimileType:
+#         if isinstance(instance_type, (StructTypeDef, EnumTypeDef, ProcedureTypeDef)):
+#             return cls(type_name=type_name, instance_type=instance_type)
+#         return instance_type
+
+
 def type_union(*types: SimileType) -> SimileType:
     """Create a single type or TypeUnion from multiple SimileTypes."""
     types_set = set()
@@ -131,4 +143,4 @@ class DeferToSymbolTable:
     lookup_type: str
 
 
-SimileType = BaseSimileType | PairType | StructTypeDef | EnumTypeDef | ProcedureTypeDef | TypeUnion | ModuleImports | DeferToSymbolTable | SetType  # | TypeOf
+SimileType = BaseSimileType | PairType | StructTypeDef | EnumTypeDef | ProcedureTypeDef | TypeUnion | ModuleImports | DeferToSymbolTable | SetType  # | InstanceOfDef

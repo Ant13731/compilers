@@ -38,4 +38,5 @@ cmake --build . -j 28
 ninja check-mlir-python
 
 export PYTHONPATH=$(cd build && pwd)/tools/mlir/python_packages/mlir_core
+export PYTHONPATH=$PYTHONPATH:~/GitHub/llvm-project/build/tools/mlir/python_packages/mlir_core
 ```

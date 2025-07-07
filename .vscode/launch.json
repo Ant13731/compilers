@@ -8,7 +8,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "env": {
-                "PYTHONPATH": "${workspaceRoot}"
+                "PYTHONPATH": "${workspaceRoot}:~/GitHub/llvm-project/build/tools/mlir/python_packages/mlir_core"
             },
             // "cwd": "${fileDirname}",
             // "env": {

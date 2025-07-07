@@ -172,6 +172,7 @@ from src.mod.ast_.symbol_table_types import (
     TypeUnion,
     DeferToSymbolTable,
     ModuleImports,
+    # InstanceOfDef,
 )
 from src.mod.ast_.symbol_table_env import (
     Environment,
