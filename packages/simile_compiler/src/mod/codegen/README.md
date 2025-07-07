@@ -23,9 +23,14 @@ python -m pip install -r mlir/python/requirements.txt
 
 # Now run your build command with `cmake`, `ninja`, et al.
 # MAKE SURE THE CWD IS repo/build!
+mkdir build
+cd build
 cmake ..\llvm -G "Visual Studio 17 2022" -DLLVM_ENABLE_PROJECTS=mlir -DLLVM_TARGETS_TO_BUILD="Native" -DCMAKE_BUILD_TYPE=Release -Thost=x64 -DLLVM_ENABLE_ASSERTIONS=ON -DMLIR_ENABLE_BINDINGS_PYTHON=ON -DPython3_EXECUTABLE="C:\Users\hunta\AppData\Local\Programs\Python\Python312\python.EXE"
 
+cmake -G Ninja ../llvm -DLLVM_ENABLE_PROJECTS=mlir -DLLVM_BUILD_EXAMPLES=ON -DLLVM_TARGETS_TO_BUILD="Native;NVPTX;AMDGPU" -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_ASSERTIONS=ON -DMLIR_ENABLE_BINDINGS_PYTHON=ON -DPython3_EXECUTABLE="C:\Users\hunta\AppData\Local\Programs\Python\Python312\python.EXE"
+
 cmake --build . --target check-mlir -j 28
+cmake --build . -j 28
 
 # Run mlir tests. For example, to run python bindings tests only using ninja:
 ninja check-mlir-python
