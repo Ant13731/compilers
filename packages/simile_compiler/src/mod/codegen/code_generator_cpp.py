@@ -3,16 +3,16 @@ from dataclasses import dataclass, field
 from typing import ClassVar, Any
 
 from src.mod import ast_
-from src.mod.codegen.code_generator_base import CodeGenerator, CodeGeneratorError, CodeGenEnvironment
+from src.mod.codegen.code_generator_base import CodeGenerator, CodeGeneratorError, CodeGeneratorEnvironment
 
 
 @dataclass
 class CPPCodeGenerator(CodeGenerator):
     ast: ast_.ASTNode
-    new_symbol_table: CodeGenEnvironment = field(init=False)
+    new_symbol_table: CodeGeneratorEnvironment = field(init=False)
 
     def __post_init__(self) -> None:
-        self.new_symbol_table = CodeGenEnvironment(
+        self.new_symbol_table = CodeGeneratorEnvironment(
             table={name: CPPCodeGenerator.type_translator(typ, name) for name, typ in ast_.STARTING_ENVIRONMENT.table.items()},
         )
 

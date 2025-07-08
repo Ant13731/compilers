@@ -1,14 +1,8 @@
 from src.mod import parse
 from src.mod import ast_
 from src.mod import analysis
-from src.mod.optimizer.rewrite_collection import RewriteCollection
-from src.mod.optimizer.rewrite_collections import (
-    SetCodeGenerationCollection,
-    SetComprehensionConstructionCollection,
-    PredicateSimplificationCollection,
-    DisjunctiveNormalFormQuantifierPredicateCollection,
-    GeneratorSelectionCollection,
-)
+from src.mod import collection_optimizer, SET_REWRITE_COLLECTION
+from src.mod import RustCodeGenerator, CPPCodeGenerator
 
 
 # TEST = ast_.Start(
@@ -57,18 +51,33 @@ from src.mod.optimizer.rewrite_collections import (
 
 TEST_STR = "card({s · s in {1, 2} or s in {2, 3} | s})"
 print("TEST_STR 2:", TEST_STR)
-parsed_test_str = parse(TEST_STR)
-analyzed_test_str = analysis.populate_ast_environments(parsed_test_str)
-comp_constr_test_str = SetComprehensionConstructionCollection().normalize(analyzed_test_str)
-print("COMP CONSTR TEST STR 2 1:", comp_constr_test_str.pretty_print())
-comp_constr_test_str = DisjunctiveNormalFormQuantifierPredicateCollection().normalize(comp_constr_test_str)
-print("COMP CONSTR TEST STR 2 2:", comp_constr_test_str.pretty_print())
-comp_constr_test_str = PredicateSimplificationCollection().normalize(comp_constr_test_str)
-print("COMP CONSTR TEST STR 2 3:", comp_constr_test_str.pretty_print())
-comp_constr_test_str = GeneratorSelectionCollection().normalize(comp_constr_test_str)
-print("COMP CONSTR TEST STR 2 4:", comp_constr_test_str.pretty_print())
-# print("COMP CONSTR TEST STR 2:", comp_constr_test_str3.body.items[0]._selected_generators)
-comp_constr_test_str = SetCodeGenerationCollection().normalize(comp_constr_test_str)
-print("COMP CONSTR TEST STR 2 5:", comp_constr_test_str.pretty_print())
-print(parsed_test_str.pretty_print_algorithmic())
-print(comp_constr_test_str.pretty_print_algorithmic())
+
+ast: ast_.ASTNode | list = parse(TEST_STR)
+if isinstance(ast, list):
+    raise ValueError(f"Expected a single AST, got a list (parsing failed): {ast}")
+
+ast = analysis.populate_ast_environments(ast)
+print("PARSED TEST_STR:", ast.pretty_print())
+print("PARSED TEST_STR:", ast.pretty_print_algorithmic())
+
+ast = collection_optimizer(ast, SET_REWRITE_COLLECTION)
+print("OPTIMIZED TEST_STR:", ast.pretty_print())
+print("OPTIMIZED TEST_STR:", ast.pretty_print(print_env=True))
+print("OPTIMIZED TEST_STR:", ast.pretty_print_algorithmic())
+
+RustCodeGenerator(ast).build()
+
+
+# comp_constr_test_str = SetComprehensionConstructionCollection().normalize(analyzed_test_str)
+# print("COMP CONSTR TEST STR 2 1:", comp_constr_test_str.pretty_print())
+# comp_constr_test_str = DisjunctiveNormalFormQuantifierPredicateCollection().normalize(comp_constr_test_str)
+# print("COMP CONSTR TEST STR 2 2:", comp_constr_test_str.pretty_print())
+# comp_constr_test_str = PredicateSimplificationCollection().normalize(comp_constr_test_str)
+# print("COMP CONSTR TEST STR 2 3:", comp_constr_test_str.pretty_print())
+# comp_constr_test_str = GeneratorSelectionCollection().normalize(comp_constr_test_str)
+# print("COMP CONSTR TEST STR 2 4:", comp_constr_test_str.pretty_print())
+# # print("COMP CONSTR TEST STR 2:", comp_constr_test_str3.body.items[0]._selected_generators)
+# comp_constr_test_str = SetCodeGenerationCollection().normalize(comp_constr_test_str)
+# print("COMP CONSTR TEST STR 2 5:", comp_constr_test_str.pretty_print())
+# print(parsed_test_str.pretty_print_algorithmic())
+# print(comp_constr_test_str.pretty_print_algorithmic())

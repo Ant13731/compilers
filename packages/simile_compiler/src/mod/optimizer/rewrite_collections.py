@@ -1175,38 +1175,6 @@ class SetCodeGenerationCollection(RewriteCollection):
     #     match ast:
 
 
-# TEST = ast_.Statements(
-#     [
-#         ast_.Assignment(
-#             ast_.Identifier("s"),
-#             ast_.SetEnumeration(
-#                 [
-#                     ast_.Int("1"),
-#                     ast_.Int("2"),
-#                     ast_.Int("3"),
-#                 ],
-#             ),
-#         ),
-#         ast_.Assignment(
-#             ast_.Identifier("s"),
-#             ast_.Union(
-#                 ast_.Identifier("s"),
-#                 ast_.SetEnumeration(
-#                     [
-#                         ast_.Int("4"),
-#                         ast_.Int("5"),
-#                     ],
-#                 ),
-#             ),
-#         ),
-#     ]
-# )
-# print(TEST.pretty_print())
-# TEST_TYPE = analysis.populate_ast_environments(TEST)
-# print(TEST_TYPE.pretty_print(print_env=True))
-# TEST_PHASE = SetRewriteCollection()
-# print(TEST_PHASE.normalize(TEST_TYPE).pretty_print(print_env=False))
-
 SET_REWRITE_COLLECTION: list[type[RewriteCollection]] = [
     SetComprehensionConstructionCollection,
     DisjunctiveNormalFormQuantifierPredicateCollection,

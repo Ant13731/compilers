@@ -15,15 +15,15 @@ class CodeGeneratorError(Exception):
 
 
 @dataclass
-class CodeGenEnvironment(Generic[T]):
-    previous: CodeGenEnvironment | None = None
+class CodeGeneratorEnvironment(Generic[T]):
+    previous: CodeGeneratorEnvironment | None = None
     table: dict[str, T] = field(default_factory=dict)
 
     def put(self, key: str, value: T) -> None:
         self.table[key] = value
 
     def get(self, s: str) -> T | None:
-        current_env: CodeGenEnvironment[T] | None = self
+        current_env: CodeGeneratorEnvironment[T] | None = self
         while current_env is not None:
             if s in current_env.table:
                 return current_env.table[s]

@@ -21,6 +21,7 @@ from src.mod.ast_.ast_nodes import (
     ControlFlowStmt,
     Enumeration,
 )
+from src.mod.ast_.ast_node_base import ASTNode
 
 
 @dataclass
@@ -390,11 +391,11 @@ class BagEnumeration(Enumeration):
 
 @dataclass
 class Forall(Quantifier):
-    expression: True_ = field(default_factory=True_)
+    expression: ASTNode = field(default_factory=True_)
     op_type: QuantifierOperator = QuantifierOperator.FORALL
 
 
 @dataclass
 class Exists(Quantifier):
-    expression: True_ = field(default_factory=True_)
+    expression: ASTNode = field(default_factory=True_)
     op_type: QuantifierOperator = QuantifierOperator.EXISTS
