@@ -50,5 +50,9 @@
         "packages/simile_jupyter_extension",
         "packages/simile_jupyter_kernel",
         "~/GitHub/llvm-project/build/tools/mlir/python_packages/mlir_core",
-    ]
+    ],
+    "rust-analyzer.linkedProjects": [
+        "${workspaceFolder}/packages/simile_compiler/src/mod/codegen/templates/rust/Cargo.toml",
+    ],
+    "biome.suggestInstallingGlobally": false
 }

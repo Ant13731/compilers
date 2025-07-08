@@ -41,10 +41,10 @@ class CodeGenerator:
 
         return self._generate_code(self.ast)
 
+    def build(self, target_folder_path: str = "packages/simile_compiler/build") -> None:
+        raise NotImplementedError("Build method is not implemented. This should be overridden in subclasses.")
+
     @singledispatchmethod
     def _generate_code(self, ast: ast_.ASTNode) -> Any:
         """Auxiliary function for generating LLVM code based on the type of AST node. See :func:`generate_llvm_code`."""
         raise NotImplementedError(f"Code generation not implemented for node type: {type(ast)} with value {ast}")
-
-    @_generate_code.register
-    def _(self, ast: ast_.Identifier) -> Any: ...

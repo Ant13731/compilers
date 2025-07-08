@@ -332,3 +332,4 @@ notes/.obsidian/workspace.json
 .DS_Store
 node_modules/
 generated/
+packages/simile_compiler/build/
