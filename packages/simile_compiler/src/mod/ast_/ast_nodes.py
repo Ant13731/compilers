@@ -2,7 +2,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field, Field, fields, is_dataclass
 from typing import Callable, ClassVar, Any, Self
 
-from soupsieve import match
 
 from src.mod.ast_.ast_node_base import ASTNode, Identifier
 from src.mod.ast_.ast_node_operators import (
@@ -130,6 +129,9 @@ class InheritedEqMixin:
             return False
 
         assert is_dataclass(self), "InheritedEqMixin can only be used with dataclasses"
+
+        if not is_dataclass(other):
+            return False
 
         if len(fields(self)) != len(fields(other)):
             return False
@@ -335,7 +337,7 @@ class BinaryOp(InheritedEqMixin, ASTNode):
                     relation_subtype_l = RelationOperator.RELATION
                 if relation_subtype_r is None:
                     relation_subtype_r = RelationOperator.RELATION
-                relation_subtype = relation_subtype_l.get_resulting_operator(relation_subtype_r, BinaryOperator.RELATION_OVERRIDING)
+                relation_subtype: RelationOperator | None = relation_subtype_l.get_resulting_operator(relation_subtype_r, BinaryOperator.RELATION_OVERRIDING)
 
                 return SetType(
                     element_type=type_union(l_type.element_type, r_type.element_type),
@@ -370,6 +372,7 @@ class BinaryOp(InheritedEqMixin, ASTNode):
                     raise SimileTypeError(f"Invalid collection type for domain operation (right operand must be a relation): {r_type.element_type}")
                 if not SetType.is_set(l_type):
                     raise SimileTypeError(f"Invalid collection type for domain operation (left operand must be a relation or set): {l_type.element_type}")
+                relation_subtype = None
                 if r_type.relation_subtype is not None:
                     relation_subtype = r_type.relation_subtype.get_resulting_operator_set_or_unary(BinaryOperator.DOMAIN_SUBTRACTION)
                 return SetType(
@@ -383,6 +386,7 @@ class BinaryOp(InheritedEqMixin, ASTNode):
                     raise SimileTypeError(f"Invalid collection type for domain operation (left operand must be a relation): {l_type.element_type}")
                 if not SetType.is_set(r_type):
                     raise SimileTypeError(f"Invalid collection type for domain operation (right operand must be a relation or set): {r_type.element_type}")
+                relation_subtype = None
                 if l_type.relation_subtype is not None:
                     relation_subtype = l_type.relation_subtype.get_resulting_operator_set_or_unary(BinaryOperator.RANGE_SUBTRACTION)
                 return SetType(
@@ -975,6 +979,7 @@ class If(ASTNode):
         if isinstance(self.else_body, None_):
             return ret
         ret += self.else_body._pretty_print_algorithmic(indent)
+        return ret
 
 
 @dataclass

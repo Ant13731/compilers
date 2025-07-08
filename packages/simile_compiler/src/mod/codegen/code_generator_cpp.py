@@ -39,7 +39,9 @@ class CPPCodeGenerator(CodeGenerator):
                 return "null"
             case ast_.PairType(left, right):
                 return f"std::pair<{cls.type_translator(left)}, {cls.type_translator(right)}>"
-            case ast_.SetType(element_type, relation_subtype):
+            case ast_.SetType(ast_.PairType(left, right), _):
+                return f"std::unordered_map<{cls.type_translator(left)}, {cls.type_translator(right)}>"
+            case ast_.SetType(element_type, _):
                 return f"std::unordered_set<{cls.type_translator(element_type)}>"
             case ast_.StructTypeDef(fields):
                 return f"struct {def_name} {{ {''.join(f'{cls.type_translator(field[1])} {field[0]};' for field in fields.items())} }};"
@@ -65,6 +67,26 @@ class CPPCodeGenerator(CodeGenerator):
 #include <utility>
 #include <string>
 #include <cmath>
+#include <algorithm>
+
+// code from https://stackoverflow.com/questions/48299390/check-if-unordered-set-contains-all-elements-in-other-unordered-set-c
+template <typename T>
+bool is_subset_of(const std::unordered_set<T>& a, const std::unordered_set<T>& b)
+{
+    // return true if all members of a are also in b
+    if (a.size() > b.size())
+        return false;
+
+    if (a == b) return true;
+
+    auto const not_found = b.end();
+    for (auto const& element: a)
+        if (b.find(element) == not_found)
+            return false;
+
+    return true;
+}
+
 """
 
     def generate(self) -> str:
@@ -118,55 +140,111 @@ class CPPCodeGenerator(CodeGenerator):
                 return f"({self._generate_code(ast.left)} == {self._generate_code(ast.right)})"
             case ast_.BinaryOperator.NOT_EQUIVALENT | ast_.BinaryOperator.NOT_EQUAL:
                 return f"({self._generate_code(ast.left)} != {self._generate_code(ast.right)})"
-            case ast_.BinaryOperator.ADD | ast_.BinaryOperator.SUBTRACT | ast_.BinaryOperator.MULTIPLY | ast_.BinaryOperator.DIVIDE | ast_.BinaryOperator.MODULO | ast_.BinaryOperator.LESS_THAN | ast_.BinaryOperator.LESS_THAN_OR_EQUAL | ast_.BinaryOperator.GREATER_THAN | ast_.BinaryOperator.GREATER_THAN_OR_EQUAL:
+            case (
+                ast_.BinaryOperator.ADD
+                | ast_.BinaryOperator.SUBTRACT
+                | ast_.BinaryOperator.MULTIPLY
+                | ast_.BinaryOperator.DIVIDE
+                | ast_.BinaryOperator.MODULO
+                | ast_.BinaryOperator.LESS_THAN
+                | ast_.BinaryOperator.LESS_THAN_OR_EQUAL
+                | ast_.BinaryOperator.GREATER_THAN
+                | ast_.BinaryOperator.GREATER_THAN_OR_EQUAL
+            ):
                 return f"({self._generate_code(ast.left)} {ast.op_type.value} {self._generate_code(ast.right)})"
             case ast_.BinaryOperator.EXPONENT:
                 return f"std::pow({self._generate_code(ast.left)}, {self._generate_code(ast.right)})"
-            case ast_.BinaryOperator.IS:
-            case ast_.BinaryOperator.IS_NOT:
+            # case ast_.BinaryOperator.IS:
+            # case ast_.BinaryOperator.IS_NOT:
             case ast_.BinaryOperator.IN:
+                return f"({self._generate_code(ast.right)}.contains({self._generate_code(ast.left)}))"
             case ast_.BinaryOperator.NOT_IN:
-            case ast_.BinaryOperator.UNION:
-            case ast_.BinaryOperator.INTERSECTION:
-            case ast_.BinaryOperator.DIFFERENCE:
+                return f"!({self._generate_code(ast.right)}.contains({self._generate_code(ast.left)}))"
+            # case ast_.BinaryOperator.UNION:
+            # case ast_.BinaryOperator.INTERSECTION:
+            # case ast_.BinaryOperator.DIFFERENCE:
             case ast_.BinaryOperator.SUBSET:
+                return f"(a != b && is_subset_of({self._generate_code(ast.left)}, {self._generate_code(ast.right)}))"
             case ast_.BinaryOperator.SUBSET_EQ:
+                return f"is_subset_of({self._generate_code(ast.left)}, {self._generate_code(ast.right)})"
             case ast_.BinaryOperator.SUPERSET:
+                return f"(a != b && is_subset_of({self._generate_code(ast.right)}, {self._generate_code(ast.left)}))"
             case ast_.BinaryOperator.SUPERSET_EQ:
+                return f"is_subset_of({self._generate_code(ast.right)}, {self._generate_code(ast.left)})"
             case ast_.BinaryOperator.NOT_SUBSET:
+                return f"!(a != b && is_subset_of({self._generate_code(ast.left)}, {self._generate_code(ast.right)}))"
             case ast_.BinaryOperator.NOT_SUBSET_EQ:
+                return f"!is_subset_of({self._generate_code(ast.left)}, {self._generate_code(ast.right)})"
             case ast_.BinaryOperator.NOT_SUPERSET:
+                return f"!(a != b && is_subset_of({self._generate_code(ast.right)}, {self._generate_code(ast.left)}))"
             case ast_.BinaryOperator.NOT_SUPERSET_EQ:
+                return f"!is_subset_of({self._generate_code(ast.right)}, {self._generate_code(ast.left)})"
             case ast_.BinaryOperator.MAPLET:
                 return f"std::make_pair({self._generate_code(ast.left)}, {self._generate_code(ast.right)})"
-            case ast_.BinaryOperator.RELATION_OVERRIDING:
-            case ast_.BinaryOperator.COMPOSITION:
-            case ast_.BinaryOperator.CARTESIAN_PRODUCT:
-            case ast_.BinaryOperator.UPTO:
-            case ast_.BinaryOperator.DOMAIN_SUBTRACTION:
-            case ast_.BinaryOperator.DOMAIN_RESTRICTION:
-            case ast_.BinaryOperator.RANGE_SUBTRACTION:
-            case ast_.BinaryOperator.RANGE_RESTRICTION:
+            # case ast_.BinaryOperator.RELATION_OVERRIDING:
+            # case ast_.BinaryOperator.COMPOSITION:
+            # case ast_.BinaryOperator.CARTESIAN_PRODUCT:
+            # case ast_.BinaryOperator.UPTO:
+            #     return f"std::unordered_set{{ {self._generate_code(ast.left)}, {self._generate_code(ast.right)} }}"
+            # case ast_.BinaryOperator.DOMAIN_SUBTRACTION:
+            # case ast_.BinaryOperator.DOMAIN_RESTRICTION:
+            # case ast_.BinaryOperator.RANGE_SUBTRACTION:
+            # case ast_.BinaryOperator.RANGE_RESTRICTION:
         raise CodeGeneratorError(f"Binary operator {ast.op_type} is not supported in C++ code generation.")
 
     @_generate_code.register
-    def _(self, ast: ast_.RelationOp) -> str: ...
+    def _(self, ast: ast_.RelationOp) -> str:
+        raise CodeGeneratorError(f"Relation operator {ast.op_type} is not supported in C++ code generation.")
+
     @_generate_code.register
-    def _(self, ast: ast_.UnaryOp) -> str: ...
+    def _(self, ast: ast_.UnaryOp) -> str:
+        match ast.op_type:
+            case ast_.UnaryOperator.NOT:
+                return f"!{self._generate_code(ast.value)}"
+            case ast_.UnaryOperator.NEGATIVE:
+                return f"-{self._generate_code(ast.value)}"
+            # case ast_.UnaryOperator.POWERSET:
+            # case ast_.UnaryOperator.NONEMPTY_POWERSET:
+            # case ast_.UnaryOperator.INVERSE:
+        raise CodeGeneratorError(f"Unary operator {ast.op_type} is not supported in C++ code generation.")
+
     @_generate_code.register
-    def _(self, ast: ast_.ListOp) -> str: ...
+    def _(self, ast: ast_.ListOp) -> str:
+        match ast.op_type:
+            case ast_.ListOperator.AND:
+                return "(" + " && ".join(self._generate_code(item) for item in ast.items) + ")"
+            case ast_.ListOperator.OR:
+                return "(" + " || ".join(self._generate_code(item) for item in ast.items) + ")"
+        raise CodeGeneratorError(f"List operator {ast.op_type} is not supported in C++ code generation.")
+
     @_generate_code.register
-    def _(self, ast: ast_.Enumeration) -> str: ...
+    def _(self, ast: ast_.Enumeration) -> str:
+        match ast.op_type:
+            case ast_.CollectionOperator.SET:
+                return f"std::unordered_set{{ {', '.join(self._generate_code(item) for item in ast.items)} }}"
+            case ast_.CollectionOperator.RELATION | ast_.CollectionOperator.BAG | ast_.CollectionOperator.SEQUENCE:
+                pair_lambda = lambda item: f"{{ {self._generate_code(item.left)}, {self._generate_code(item.right)} }}"
+                return f"std::unordered_map{{ {', '.join(pair_lambda(item) for item in ast.items)} }}"
+        raise CodeGeneratorError(f"Enumeration operator {ast.op_type} is not supported in C++ code generation.")
+
     @_generate_code.register
-    def _(self, ast: ast_.Type_) -> str: ...
+    def _(self, ast: ast_.Type_) -> str:
+        return self._generate_code(ast.type_)
+
+    # @_generate_code.register
+    # def _(self, ast: ast_.LambdaDef) -> str: ...
     @_generate_code.register
-    def _(self, ast: ast_.LambdaDef) -> str: ...
+    def _(self, ast: ast_.StructAccess) -> str:
+        return f"{self._generate_code(ast.struct)}.{ast.field_name}"
+
     @_generate_code.register
-    def _(self, ast: ast_.StructAccess) -> str: ...
+    def _(self, ast: ast_.Call) -> str:
+        return f"{self._generate_code(ast.target)}({', '.join(self._generate_code(arg) for arg in ast.args)})"
+
     @_generate_code.register
-    def _(self, ast: ast_.Call) -> str: ...
-    @_generate_code.register
-    def _(self, ast: ast_.Image) -> str: ...
+    def _(self, ast: ast_.Image) -> str:
+        return f"{self._generate_code(ast.target)}[{self._generate_code(ast.index)}]"
+
     @_generate_code.register
     def _(self, ast: ast_.TypedName) -> str:
         return self._generate_code(ast.name)
@@ -176,26 +254,51 @@ class CPPCodeGenerator(CodeGenerator):
         return f"{self._generate_code(ast.target)} = {self._generate_code(ast.value)};"
 
     @_generate_code.register
-    def _(self, ast: ast_.Return) -> str: ...
+    def _(self, ast: ast_.Return) -> str:
+        return f"return {self._generate_code(ast.value)};"
+
     @_generate_code.register
-    def _(self, ast: ast_.ControlFlowStmt) -> str: ...
+    def _(self, ast: ast_.ControlFlowStmt) -> str:
+        return f"{ast.op_type};"
+
     @_generate_code.register
-    def _(self, ast: ast_.Statements) -> str: ...
+    def _(self, ast: ast_.Statements) -> str:
+        return ";\n".join(self._generate_code(stmt) for stmt in ast.items) + ";\n"
+
     @_generate_code.register
-    def _(self, ast: ast_.Else) -> str: ...
+    def _(self, ast: ast_.Else) -> str:
+        return f"else {{\n{self._generate_code(ast.body)};\n}}"
+
     @_generate_code.register
-    def _(self, ast: ast_.If) -> str: ...
+    def _(self, ast: ast_.If) -> str:
+        return f"if ({self._generate_code(ast.condition)}) {{\n{self._generate_code(ast.body)};\n}} {self._generate_code(ast.else_body)}"
+
     @_generate_code.register
-    def _(self, ast: ast_.Elif) -> str: ...
+    def _(self, ast: ast_.Elif) -> str:
+        return f"else if ({self._generate_code(ast.condition)}) {{\n{self._generate_code(ast.body)};\n}} {self._generate_code(ast.else_body)}"
+
     @_generate_code.register
-    def _(self, ast: ast_.For) -> str: ...
+    def _(self, ast: ast_.For) -> str:
+        return f"for (auto {self._generate_code(ast.iterable_names)} : {self._generate_code(ast.iterable)}) {{\n{self._generate_code(ast.body)};\n}}"
+
     @_generate_code.register
-    def _(self, ast: ast_.While) -> str: ...
+    def _(self, ast: ast_.While) -> str:
+        return f"while ({self._generate_code(ast.condition)}) {{\n{self._generate_code(ast.body)};\n}}"
+
     @_generate_code.register
-    def _(self, ast: ast_.StructDef) -> str: ...
+    def _(self, ast: ast_.StructDef) -> str:
+        fields = "; ".join(f"{self._generate_code(field.type_)} {field.name}" for field in ast.items)
+        return f"struct {ast.name} {{ {fields}; }};"
+
     @_generate_code.register
-    def _(self, ast: ast_.ProcedureDef) -> str: ...
+    def _(self, ast: ast_.ProcedureDef) -> str:
+        args = ", ".join(f"{self._generate_code(arg.type_)} {arg.name}" for arg in ast.args)
+        return f"{self._generate_code(ast.return_type)} {ast.name}({args}) {{\n{self._generate_code(ast.body)};\n}}"
+
     @_generate_code.register
-    def _(self, ast: ast_.Import) -> str: ...
+    def _(self, ast: ast_.Import) -> str:
+        raise CodeGeneratorError(f"Import statements are not supported in C++ code generation. Got: {ast}")
+
     @_generate_code.register
-    def _(self, ast: ast_.Start) -> str: ...
+    def _(self, ast: ast_.Start) -> str:
+        return f"int main() {{\n{self._generate_code(ast.body)};\nreturn 0;\n}}"
