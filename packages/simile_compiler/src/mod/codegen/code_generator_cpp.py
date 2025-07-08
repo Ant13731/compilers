@@ -3,17 +3,18 @@ from dataclasses import dataclass, field
 from typing import ClassVar, Any
 
 from src.mod import ast_
-from src.mod.codegen.code_generator_base import CodeGenerator, CodeGeneratorError
-
-
-CPP_STARTING_ENVIRONMENT: ast_.Environment = ast_.STARTING_ENVIRONMENT
-CPP_STARTING_ENVIRONMENT.table = {name: CPPCodeGenerator.type_translator(typ, name) for name, typ in CPP_STARTING_ENVIRONMENT.table.items()}
+from src.mod.codegen.code_generator_base import CodeGenerator, CodeGeneratorError, CodeGenEnvironment
 
 
 @dataclass
 class CPPCodeGenerator(CodeGenerator):
     ast: ast_.ASTNode
-    new_symbol_table: ast_.Environment = field(default=ast_.STARTING_ENVIRONMENT, init=False, repr=False)
+    new_symbol_table: CodeGenEnvironment = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.new_symbol_table = CodeGenEnvironment(
+            table={name: CPPCodeGenerator.type_translator(typ, name) for name, typ in ast_.STARTING_ENVIRONMENT.table.items()},
+        )
 
     @classmethod
     def type_translator(cls, simile_type: ast_.SimileType, def_name: str = "") -> str:
@@ -63,13 +64,18 @@ class CPPCodeGenerator(CodeGenerator):
 #include <unordered_set>
 #include <utility>
 #include <string>
+#include <cmath>
 """
 
     def generate(self) -> str:
         if self.ast._env is None:
             raise ValueError("AST environment should have been populated before code generation (see analysis module).")
 
-        return self._generate_code(self.ast)
+        ret = ""
+        ret += self.preamble()
+        ret += self._generate_code(self.ast)
+
+        return ret
 
     @singledispatchmethod
     def _generate_code(self, ast: ast_.ASTNode) -> str:
@@ -99,10 +105,50 @@ class CPPCodeGenerator(CodeGenerator):
 
     @_generate_code.register
     def _(self, ast: ast_.IdentList) -> str:
-        return ", ".join(self._generate_code(ident) for ident in ast.identifiers)
+        return ", ".join(self._generate_code(ident) for ident in ast.items)
 
     @_generate_code.register
-    def _(self, ast: ast_.BinaryOp) -> str: ...
+    def _(self, ast: ast_.BinaryOp) -> str:
+        match ast.op_type:
+            case ast_.BinaryOperator.IMPLIES:
+                return f"({self._generate_code(ast.left)} ? {self._generate_code(ast.right)} : true)"
+            case ast_.BinaryOperator.REV_IMPLIES:
+                return f"({self._generate_code(ast.right)} ? {self._generate_code(ast.left)} : true)"
+            case ast_.BinaryOperator.EQUIVALENT | ast_.BinaryOperator.EQUAL:
+                return f"({self._generate_code(ast.left)} == {self._generate_code(ast.right)})"
+            case ast_.BinaryOperator.NOT_EQUIVALENT | ast_.BinaryOperator.NOT_EQUAL:
+                return f"({self._generate_code(ast.left)} != {self._generate_code(ast.right)})"
+            case ast_.BinaryOperator.ADD | ast_.BinaryOperator.SUBTRACT | ast_.BinaryOperator.MULTIPLY | ast_.BinaryOperator.DIVIDE | ast_.BinaryOperator.MODULO | ast_.BinaryOperator.LESS_THAN | ast_.BinaryOperator.LESS_THAN_OR_EQUAL | ast_.BinaryOperator.GREATER_THAN | ast_.BinaryOperator.GREATER_THAN_OR_EQUAL:
+                return f"({self._generate_code(ast.left)} {ast.op_type.value} {self._generate_code(ast.right)})"
+            case ast_.BinaryOperator.EXPONENT:
+                return f"std::pow({self._generate_code(ast.left)}, {self._generate_code(ast.right)})"
+            case ast_.BinaryOperator.IS:
+            case ast_.BinaryOperator.IS_NOT:
+            case ast_.BinaryOperator.IN:
+            case ast_.BinaryOperator.NOT_IN:
+            case ast_.BinaryOperator.UNION:
+            case ast_.BinaryOperator.INTERSECTION:
+            case ast_.BinaryOperator.DIFFERENCE:
+            case ast_.BinaryOperator.SUBSET:
+            case ast_.BinaryOperator.SUBSET_EQ:
+            case ast_.BinaryOperator.SUPERSET:
+            case ast_.BinaryOperator.SUPERSET_EQ:
+            case ast_.BinaryOperator.NOT_SUBSET:
+            case ast_.BinaryOperator.NOT_SUBSET_EQ:
+            case ast_.BinaryOperator.NOT_SUPERSET:
+            case ast_.BinaryOperator.NOT_SUPERSET_EQ:
+            case ast_.BinaryOperator.MAPLET:
+                return f"std::make_pair({self._generate_code(ast.left)}, {self._generate_code(ast.right)})"
+            case ast_.BinaryOperator.RELATION_OVERRIDING:
+            case ast_.BinaryOperator.COMPOSITION:
+            case ast_.BinaryOperator.CARTESIAN_PRODUCT:
+            case ast_.BinaryOperator.UPTO:
+            case ast_.BinaryOperator.DOMAIN_SUBTRACTION:
+            case ast_.BinaryOperator.DOMAIN_RESTRICTION:
+            case ast_.BinaryOperator.RANGE_SUBTRACTION:
+            case ast_.BinaryOperator.RANGE_RESTRICTION:
+        raise CodeGeneratorError(f"Binary operator {ast.op_type} is not supported in C++ code generation.")
+
     @_generate_code.register
     def _(self, ast: ast_.RelationOp) -> str: ...
     @_generate_code.register

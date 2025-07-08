@@ -1,14 +1,34 @@
+from __future__ import annotations
 from functools import singledispatchmethod
 from dataclasses import dataclass, field
-from typing import ClassVar, Any
+from typing import ClassVar, Any, Generic, TypeVar
 
 from src.mod import ast_
+
+T = TypeVar("T")
 
 
 class CodeGeneratorError(Exception):
     """Custom exception for code generation errors."""
 
     pass
+
+
+@dataclass
+class CodeGenEnvironment(Generic[T]):
+    previous: CodeGenEnvironment | None = None
+    table: dict[str, T] = field(default_factory=dict)
+
+    def put(self, key: str, value: T) -> None:
+        self.table[key] = value
+
+    def get(self, s: str) -> T | None:
+        current_env: CodeGenEnvironment[T] | None = self
+        while current_env is not None:
+            if s in current_env.table:
+                return current_env.table[s]
+            current_env = current_env.previous
+        return None
 
 
 @dataclass
