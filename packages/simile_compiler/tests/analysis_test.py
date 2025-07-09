@@ -6,8 +6,8 @@ from src import ast_
 from src import analysis
 
 
-def mk_starting_env(new_env: dict) -> ast_.Environment:
-    return ast_.Environment(
+def mk_starting_env(new_env: dict) -> ast_.SymbolTableEnvironment:
+    return ast_.SymbolTableEnvironment(
         previous=ast_.STARTING_ENVIRONMENT,
         table=new_env,
     )

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field, is_dataclass
 import pathlib
-from typing import TypeVar
+from typing import TypeVar, Generic
 
 from src.mod.ast_.symbol_table_types import (
     SimileType,
@@ -16,14 +16,28 @@ from src.mod.ast_.symbol_table_types import (
 )
 from src.mod.ast_.dataclass_helpers import dataclass_find_and_replace
 
+T = TypeVar("T")
+
 
 @dataclass
-class Environment:
-    previous: Environment | None = None
-    table: dict[str, SimileType] = field(default_factory=dict)
+class Environment(Generic[T]):
+    previous: Environment[T] | None = None
+    table: dict[str, T] = field(default_factory=dict)
 
-    def put(self, s: str, symbol: SimileType) -> None:
-        self.table[s] = symbol
+    def put(self, key: str, value: T) -> None:
+        self.table[key] = value
+
+    def get(self, s: str) -> T | None:
+        current_env: Environment[T] | None = self
+        while current_env is not None:
+            if s in current_env.table:
+                return current_env.table[s]
+            current_env = current_env.previous
+        return None
+
+
+@dataclass
+class SymbolTableEnvironment(Environment[SimileType]):
 
     def put_nested_struct(self, assignment_names: list[str], symbol: SimileType) -> None:
         """Put a symbol in the environment, allowing for nested struct access."""
@@ -65,14 +79,6 @@ class Environment:
                 f"Cannot assign to struct field '{assignment_name} (under {assignment_names})' because of conflicting types between existing {current_fields} and new {symbol} values"
             )
 
-    def get(self, s: str) -> SimileType | None:
-        current_env: Environment | None = self
-        while current_env is not None:
-            if s in current_env.table:
-                return current_env.table[s]
-            current_env = current_env.previous
-        return None
-
     def normalize_deferred_types(self) -> None:
         """Normalize deferred types in the current environment."""
 
@@ -97,7 +103,7 @@ class Environment:
             )
 
 
-STARTING_ENVIRONMENT: Environment = Environment(
+STARTING_ENVIRONMENT: SymbolTableEnvironment = SymbolTableEnvironment(
     previous=None,
     table={
         "int": BaseSimileType.Int,
@@ -108,7 +114,13 @@ STARTING_ENVIRONMENT: Environment = Environment(
         "ℤ": BaseSimileType.Int,
         "ℕ": BaseSimileType.Nat,
         "ℕ₁": BaseSimileType.PosInt,
-        "dom": DeferToSymbolTable(lookup_type="builtin_function"),
-        "ran": DeferToSymbolTable(lookup_type="builtin_function"),
+        "dom": SetType(
+            BaseSimileType.Any,
+            # DeferToSymbolTable(lookup_type="builtin_function"),
+        ),
+        "ran": SetType(
+            BaseSimileType.Any,
+            # DeferToSymbolTable(lookup_type="builtin_function"),
+        ),
     },
 )

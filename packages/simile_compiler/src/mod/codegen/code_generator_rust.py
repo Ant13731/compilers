@@ -5,18 +5,18 @@ from dataclasses import dataclass, field
 from typing import ClassVar, Any
 
 from src.mod import ast_
-from src.mod.codegen.code_generator_base import CodeGenerator, CodeGeneratorError, CodeGeneratorEnvironment
+from src.mod.codegen.code_generator_base import CodeGenerator, CodeGeneratorError
 
 
 @dataclass
 class RustCodeGenerator(CodeGenerator):
     # ast: ast_.ASTNode
-    new_symbol_table: CodeGeneratorEnvironment = field(init=False)
+    new_symbol_table: ast_.Environment[str] = field(init=False)
 
     template_path: ClassVar[str] = "packages/simile_compiler/src/mod/codegen/templates/rust"
 
     def __post_init__(self) -> None:
-        self.new_symbol_table = CodeGeneratorEnvironment(
+        self.new_symbol_table = ast_.Environment(
             table={name: RustCodeGenerator.type_translator(typ, name) for name, typ in ast_.STARTING_ENVIRONMENT.table.items()},
         )
 
@@ -64,7 +64,9 @@ class RustCodeGenerator(CodeGenerator):
                     return f"Option<{cls.type_translator(next(iter(types)))}>"
                 raise ValueError(f"Most union types are not supported in Rust code generation. Got: {simile_type}")
             case ast_.DeferToSymbolTable(lookup_type):
-                raise ValueError(f"DeferToSymbolTable types are not supported in Rust code generation (they should be resolved). Got: {simile_type}")
+                raise ValueError(f"DeferToSymbolTable types are not supported in Rust code generation (they should be resolved). Got: {simile_type} for field {def_name}")
+            case ast_.BaseSimileType.Any:
+                return "INVALID_TYPE"  # Placeholder for any type, should not be used in code generation.
         raise ValueError(f"Unsupported Simile type for Rust translation: {simile_type}")
 
     def generate(self) -> str:
@@ -310,7 +312,7 @@ class RustCodeGenerator(CodeGenerator):
 
     @_generate_code.register
     def _(self, ast: ast_.Statements) -> str:
-        self.new_symbol_table = CodeGeneratorEnvironment(previous=self.new_symbol_table, table={})
+        self.new_symbol_table = ast_.Environment(previous=self.new_symbol_table, table={})
         res = ";".join(self._generate_code(stmt) for stmt in ast.items) + ";"
 
         if self.new_symbol_table.previous is None:
@@ -337,7 +339,7 @@ class RustCodeGenerator(CodeGenerator):
 
     @_generate_code.register
     def _(self, ast: ast_.For) -> str:
-        self.new_symbol_table = CodeGeneratorEnvironment(previous=self.new_symbol_table, table={})
+        self.new_symbol_table = ast_.Environment(previous=self.new_symbol_table, table={})
 
         iterable_names = self._generate_code(ast.iterable_names)
         for name in iterable_names.split(","):

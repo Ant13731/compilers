@@ -21,6 +21,10 @@ class BaseSimileType(Enum):
     Bool = auto()
     None_ = auto()
 
+    # For unknown types. Right now, built-in generic polymorphic functions will be of this type, since the symbol table is not smart enough to look up the type of called functions.
+    # This is just a hack to get "dom" and "ran" to work for now.
+    Any = auto()
+
     def __repr__(self) -> str:
         return f"SimileType.{self.name}"
 

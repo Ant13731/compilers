@@ -50,6 +50,7 @@ from src.mod import RustCodeGenerator, CPPCodeGenerator
 # print("COMP CONSTR TEST STR:", comp_constr_test_str3.pretty_print())
 
 TEST_STR = "card({s · s in {1, 2} or s in {2, 3} | s})"
+
 print("TEST_STR 2:", TEST_STR)
 
 ast: ast_.ASTNode | list = parse(TEST_STR)
@@ -71,6 +72,29 @@ print("OPTIMIZED TEST_STR:", ast.pretty_print(print_env=True))
 print("OPTIMIZED TEST_STR:", ast.pretty_print_algorithmic())
 
 RustCodeGenerator(ast).build()
+
+
+TEST_STR_TO_GET_AST = f"""
+counter := 0
+for s in {{1,2}}:
+    expr_var := s
+    counter := counter + 1
+for q in {{2,3}}:
+    expr_var := q
+    if ¬(q ∈ {{1, 2}} ∧ expr_var = q):
+        counter := counter + 1
+"""
+ast_to_get = parse(TEST_STR_TO_GET_AST)
+print("TEST_STR_TO_GET_AST:", TEST_STR_TO_GET_AST)
+print("AST TO GET:", ast_to_get.pretty_print())
+
+
+print(
+    ast_.structurally_equal(
+        ast_to_get,
+        ast,
+    )
+)
 
 
 # comp_constr_test_str = SetComprehensionConstructionCollection().normalize(analyzed_test_str)

@@ -30,20 +30,20 @@ def populate_ast_environments(ast: T) -> T:
     return ast
 
 
-def add_environments_to_ast(ast: T, current_env: ast_.Environment | None = None) -> T:
+def add_environments_to_ast(ast: T, current_env: ast_.SymbolTableEnvironment | None = None) -> T:
     if current_env is None:
         current_env = ast_.STARTING_ENVIRONMENT
 
     def add_environments_to_ast_aux(node: ast_.ASTNode) -> None:
         nonlocal current_env
         if isinstance(node, ast_.Statements):
-            current_env = ast_.Environment(previous=current_env)
+            current_env = ast_.SymbolTableEnvironment(previous=current_env)
             node._env = current_env
             for child in node.children(True):
                 add_environments_to_ast_aux(child)
 
             assert current_env.previous is not None, "Environment stack should not be empty after processing Statements node"
-            current_env = current_env.previous
+            current_env = current_env.previous  # type: ignore
             return
         node._env = current_env
         for child in node.children(True):
@@ -80,7 +80,7 @@ def _populate_ast_environments_aux(node: ast_.ASTNode) -> None:
                     f"Expected iterable name to be a single identifier, got nested IdentList: {type_of_iterable_name} (in For loop - only maplets and single identifiers supported)",
                 )
 
-            def match_and_assign_types(iterable_name: ast_.Identifier | ast_.BinaryOp, iterable_element_type: SimileType, env: ast_.Environment) -> None:
+            def match_and_assign_types(iterable_name: ast_.Identifier | ast_.BinaryOp, iterable_element_type: SimileType, env: ast_.SymbolTableEnvironment) -> None:
                 if isinstance(iterable_name, ast_.Identifier):
                     # if env.get(iterable_name.name) is not None:
                     #     raise SimileTypeError(f"Identifier '{iterable_name.name}' already exists in the current scope")
@@ -247,7 +247,7 @@ def _populate_from_import(
         # Empty parse tree in module file
         return
 
-    assert isinstance(module_ast_with_types.body._env, ast_.Environment), "Module AST body should have an environment"
+    assert isinstance(module_ast_with_types.body._env, ast_.SymbolTableEnvironment), "Module AST body should have an environment"
 
     # Add module symbols to namespace
     match import_objects:

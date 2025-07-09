@@ -6,7 +6,7 @@ from functools import wraps
 from src.mod.ast_.ast_node_operators import Operators
 from src.mod.ast_.dataclass_helpers import dataclass_traverse, dataclass_find_and_replace
 from src.mod.ast_.symbol_table_types import SimileType, DeferToSymbolTable, SimileTypeError
-from src.mod.ast_.symbol_table_env import Environment
+from src.mod.ast_.symbol_table_env import SymbolTableEnvironment
 
 T = TypeVar("T")
 
@@ -16,7 +16,7 @@ class ASTNode:
     """Base class for all AST nodes."""
 
     def __post_init__(self) -> None:
-        self._env: Environment | None = None
+        self._env: SymbolTableEnvironment | None = None
 
     def well_formed(self) -> bool:
         """Check if the variables in expressions are well-formed (i.e., no clashes between :attr:`bound` and :attr:`free` variables)."""
@@ -83,7 +83,7 @@ class ASTNode:
 
         return list(filter(None, dataclass_traverse(self, isinstance_with_op_type)))
 
-    def children(self, ast_nodes_only: bool = False) -> Generator[ASTNode, None, None]:
+    def children(self, ast_nodes_only: bool = False) -> Generator[ASTNode | Any, None, None]:
         """Returns a list of all children AST nodes (only 1 level deep). Includes op_type fields if they exist."""
         for f in fields(self):
             field_value = getattr(self, f.name)

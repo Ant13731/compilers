@@ -16,23 +16,6 @@ class CodeGeneratorError(Exception):
 
 
 @dataclass
-class CodeGeneratorEnvironment(Generic[T]):
-    previous: CodeGeneratorEnvironment | None = None
-    table: dict[str, T] = field(default_factory=dict)
-
-    def put(self, key: str, value: T) -> None:
-        self.table[key] = value
-
-    def get(self, s: str) -> T | None:
-        current_env: CodeGeneratorEnvironment[T] | None = self
-        while current_env is not None:
-            if s in current_env.table:
-                return current_env.table[s]
-            current_env = current_env.previous
-        return None
-
-
-@dataclass
 class CodeGenerator:
     ast: ast_.ASTNode
 

@@ -176,5 +176,9 @@ from src.mod.ast_.symbol_table_types import (
 )
 from src.mod.ast_.symbol_table_env import (
     Environment,
+    SymbolTableEnvironment,
     STARTING_ENVIRONMENT,
+)
+from src.mod.ast_.ast_node_helpers import (
+    structurally_equal,
 )

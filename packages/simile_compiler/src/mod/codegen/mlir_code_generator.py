@@ -12,7 +12,7 @@ class MLIRCodeGenerator:
     ast: ast_.ASTNode
 
     @property
-    def env(self) -> ast_.Environment:
+    def env(self) -> ast_.SymbolTableEnvironment:
         assert self.ast._env is not None, "AST environment should be populated before code generation (run analysis.populate_ast_environments)."
         return self.ast._env
 
