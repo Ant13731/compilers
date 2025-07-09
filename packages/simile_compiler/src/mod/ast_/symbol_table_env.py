@@ -12,6 +12,7 @@ from src.mod.ast_.symbol_table_types import (
     SimileTypeError,
     BaseSimileType,
     DeferToSymbolTable,
+    SetType,
 )
 from src.mod.ast_.dataclass_helpers import dataclass_find_and_replace
 
@@ -107,5 +108,7 @@ STARTING_ENVIRONMENT: Environment = Environment(
         "ℤ": BaseSimileType.Int,
         "ℕ": BaseSimileType.Nat,
         "ℕ₁": BaseSimileType.PosInt,
+        "dom": DeferToSymbolTable(lookup_type="builtin_function"),
+        "ran": DeferToSymbolTable(lookup_type="builtin_function"),
     },
 )

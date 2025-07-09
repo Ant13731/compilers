@@ -17,7 +17,7 @@ class RustCodeGenerator(CodeGenerator):
 
     def __post_init__(self) -> None:
         self.new_symbol_table = CodeGeneratorEnvironment(
-            # table={name: RustCodeGenerator.type_translator(typ, name) for name, typ in ast_.STARTING_ENVIRONMENT.table.items()},
+            table={name: RustCodeGenerator.type_translator(typ, name) for name, typ in ast_.STARTING_ENVIRONMENT.table.items()},
         )
 
     @classmethod
@@ -224,7 +224,7 @@ class RustCodeGenerator(CodeGenerator):
             # case ast_.BinaryOperator.COMPOSITION:
             # case ast_.BinaryOperator.CARTESIAN_PRODUCT:
             case ast_.BinaryOperator.UPTO:
-                return f"{self._generate_code(ast.left)}..{self._generate_code(ast.right)}.collect::<HashSet<Int>>()"
+                return f"({self._generate_code(ast.left)}..{self._generate_code(ast.right)}).collect::<HashSet<Int>>()"
             # case ast_.BinaryOperator.DOMAIN_SUBTRACTION:
             # case ast_.BinaryOperator.DOMAIN_RESTRICTION:
             # case ast_.BinaryOperator.RANGE_SUBTRACTION:

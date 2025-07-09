@@ -659,10 +659,10 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   S \domsub R &\rightarrow filter(fst \notin S, R)
   \\
   \tag{Range Restriction}
-  S \triangleright R &\rightarrow filter(snd \in S, R)
+  R \triangleright S &\rightarrow filter(snd \in S, R)
   \\
   \tag{Range Subtraction}
-  S \ransub R &\rightarrow filter(snd \notin S, R)
+  R \ransub S &\rightarrow filter(snd \notin S, R)
 \end{align}
 
 \subsection{Bags}
