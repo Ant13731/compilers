@@ -53,6 +53,7 @@
     ],
     "rust-analyzer.linkedProjects": [
         "${workspaceFolder}/packages/simile_compiler/src/mod/codegen/templates/rust/Cargo.toml",
+        "${workspaceFolder}/packages/simile_compiler/build/rust/Cargo.toml",
     ],
     "biome.suggestInstallingGlobally": false
 }

@@ -10,7 +10,7 @@ from src.mod.codegen.code_generator_base import CodeGenerator, CodeGeneratorErro
 
 @dataclass
 class RustCodeGenerator(CodeGenerator):
-    ast: ast_.ASTNode
+    # ast: ast_.ASTNode
     new_symbol_table: CodeGeneratorEnvironment = field(init=False)
 
     template_path: ClassVar[str] = "packages/simile_compiler/src/mod/codegen/templates/rust"
@@ -96,6 +96,9 @@ class RustCodeGenerator(CodeGenerator):
     @_generate_code.register
     def _(self, ast: ast_.Identifier) -> str:
         # should we lookup the type here?
+
+        if ast.name.startswith("*"):
+            return self.hash_variable_name(ast.name)
         return ast.name
 
     @_generate_code.register

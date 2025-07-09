@@ -57,11 +57,54 @@ def _populate_ast_environments_aux(node: ast_.ASTNode) -> None:
     if not isinstance(node, ast_.ASTNode):
         raise TypeError(f"Expected ASTNode in ast environment population, got {type(node)}")
     if not node._env:
-        raise SimileTypeError("AST node environment is not set. Ensure environments are added before type analysis.")
+        raise SimileTypeError("AST node environment is not set. Ensure environme" "+nts are added before type analysis.")
 
     match node:
         case ast_.Assignment(target, value):
             _populate_from_assignment(node, target, value)
+
+        case ast_.For(iterable_names, iterable, body):
+            if not isinstance(iterable.get_type, ast_.SetType):
+                raise SimileTypeError(f"Expected iterable to be a SetType, got {iterable.get_type} (in For loop)")
+            type_of_iterable_elements = iterable.get_type.element_type
+
+            # Dont support destructuring iterable contents right now - except for mapping
+            if len(iterable_names.items) != 1:
+                raise SimileTypeError(
+                    f"Expected only one iterable name, got {len(iterable_names.items)} names: {iterable_names.items}. Iterable names may be a mapping or single identifier"
+                )
+            # Iterable names need to match the type structure of the iterable
+            type_of_iterable_name = iterable_names.items[0]
+            if isinstance(type_of_iterable_name, ast_.IdentList):
+                raise SimileTypeError(
+                    f"Expected iterable name to be a single identifier, got nested IdentList: {type_of_iterable_name} (in For loop - only maplets and single identifiers supported)",
+                )
+
+            def match_and_assign_types(iterable_name: ast_.Identifier | ast_.BinaryOp, iterable_element_type: SimileType, env: ast_.Environment) -> None:
+                if isinstance(iterable_name, ast_.Identifier):
+                    # if env.get(iterable_name.name) is not None:
+                    #     raise SimileTypeError(f"Identifier '{iterable_name.name}' already exists in the current scope")
+                    env.put(iterable_name.name, iterable_element_type)
+                    return
+
+                if isinstance(iterable_name, ast_.BinaryOp) and isinstance(iterable_element_type, ast_.PairType):
+                    if not isinstance(iterable_name.left, ast_.Identifier | ast_.BinaryOp) or not isinstance(iterable_name.right, ast_.Identifier | ast_.BinaryOp):
+                        raise SimileTypeError(
+                            f"Invalid iterable name structure (expected a maplet with two identifiers or binary operations): {iterable_name} (in For loop)",
+                        )
+                    match_and_assign_types(iterable_name.left, iterable_element_type.left, env)
+                    match_and_assign_types(iterable_name.right, iterable_element_type.right, env)
+                    return
+
+                raise SimileTypeError(
+                    f"Iterable name structure does not match iterable element type structure (iterable name is a maplet but type structure is not a PairType). Got {iterable_name} and {iterable_element_type}"
+                )
+
+            match_and_assign_types(type_of_iterable_name, type_of_iterable_elements, node._env)
+
+            for child in body.children(True):
+                _populate_ast_environments_aux(child)
+
         case ast_.StructDef(ast_.Identifier(name), items):
             fields: dict[str, SimileType] = {}
             for item in items:

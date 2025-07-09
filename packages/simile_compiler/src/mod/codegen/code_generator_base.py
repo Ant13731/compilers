@@ -2,6 +2,7 @@ from __future__ import annotations
 from functools import singledispatchmethod
 from dataclasses import dataclass, field
 from typing import ClassVar, Any, Generic, TypeVar
+import sys
 
 from src.mod import ast_
 
@@ -34,6 +35,10 @@ class CodeGeneratorEnvironment(Generic[T]):
 @dataclass
 class CodeGenerator:
     ast: ast_.ASTNode
+
+    def hash_variable_name(self, name: str) -> str:
+        """Hash the variable name to ensure it is unique in the generated code."""
+        return f"_fresh_var_{hash(name) + sys.maxsize + 1}"
 
     def generate(self) -> Any:
         if self.ast._env is None:

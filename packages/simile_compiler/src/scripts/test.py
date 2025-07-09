@@ -65,6 +65,11 @@ print("OPTIMIZED TEST_STR:", ast.pretty_print())
 print("OPTIMIZED TEST_STR:", ast.pretty_print(print_env=True))
 print("OPTIMIZED TEST_STR:", ast.pretty_print_algorithmic())
 
+ast = analysis.populate_ast_environments(ast)
+print("OPTIMIZED TEST_STR:", ast.pretty_print())
+print("OPTIMIZED TEST_STR:", ast.pretty_print(print_env=True))
+print("OPTIMIZED TEST_STR:", ast.pretty_print_algorithmic())
+
 RustCodeGenerator(ast).build()
 
 

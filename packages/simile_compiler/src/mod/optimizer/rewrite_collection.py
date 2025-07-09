@@ -6,6 +6,7 @@ from dataclasses import dataclass, fields
 from loguru import logger
 
 from src.mod import ast_
+from src.mod import analysis
 
 
 @dataclass
@@ -34,6 +35,7 @@ class RewriteCollection:
             result = rewrite_rule(ast)
             if result is not None:
                 self.num_of_matches += 1
+                # result = analysis.populate_ast_environments(result)
             return result
 
         return wrapped_rewrite_rule
