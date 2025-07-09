@@ -17,7 +17,7 @@ class RustCodeGenerator(CodeGenerator):
 
     def __post_init__(self) -> None:
         self.new_symbol_table = CodeGeneratorEnvironment(
-            table={name: RustCodeGenerator.type_translator(typ, name) for name, typ in ast_.STARTING_ENVIRONMENT.table.items()},
+            # table={name: RustCodeGenerator.type_translator(typ, name) for name, typ in ast_.STARTING_ENVIRONMENT.table.items()},
         )
 
     @classmethod
@@ -98,8 +98,14 @@ class RustCodeGenerator(CodeGenerator):
         # should we lookup the type here?
 
         if ast.name.startswith("*"):
-            return self.hash_variable_name(ast.name)
-        return ast.name
+            ret = self.hash_variable_name(ast.name)
+        else:
+            ret = ast.name
+
+        # loop variables are borrowed
+        if self.new_symbol_table.get(ret) == "loop_identifier_variable":
+            return f"*{ret}"
+        return ret
 
     @_generate_code.register
     def _(self, ast: ast_.Literal) -> str:
@@ -150,11 +156,11 @@ class RustCodeGenerator(CodeGenerator):
                 if ast.get_type == ast_.BaseSimileType.Float:
                     left_arg = f"{left_arg} as Float"
                     right_arg = f"{right_arg} as Float"
-                elif ast.get_type == ast_.BaseSimileType.Int:
-                    left_arg = f"{left_arg} as Int"
-                    right_arg = f"{right_arg} as Int"
+                # elif ast.get_type == ast_.BaseSimileType.Int:
+                #     left_arg = f"{left_arg} as Int"
+                #     right_arg = f"{right_arg} as Int"
 
-                return wrap_parens(f"({wrap_parens(left_arg)} {ast.op_type.value} {wrap_parens(right_arg)})")
+                return wrap_parens(f"({wrap_parens(left_arg)} {ast.op_type.pretty_print()} {wrap_parens(right_arg)})")
             case ast_.BinaryOperator.ADD if ast.get_type == ast_.BaseSimileType.String:
                 return wrap_parens(f"{self._generate_code(ast.left)}.clone() + {self._generate_code(ast.right)}.clone()")
 
@@ -173,8 +179,8 @@ class RustCodeGenerator(CodeGenerator):
                     right_arg = f"{right_arg} as Float"
                 elif ast.get_type == ast_.BaseSimileType.Int:
                     application_function = "Int" + application_function
-                    left_arg = f"{left_arg} as Int"
-                    right_arg = f"{right_arg} as Int"
+                #     left_arg = f"{left_arg} as Int"
+                #     right_arg = f"{right_arg} as Int"
 
                 return wrap_parens(f"{application_function}({wrap_parens(left_arg)}, {wrap_parens(right_arg)})")
 
@@ -286,7 +292,13 @@ class RustCodeGenerator(CodeGenerator):
 
     @_generate_code.register
     def _(self, ast: ast_.Assignment) -> str:
-        return f"let {self._generate_code(ast.target)}: {self.type_translator(ast.target.get_type)} = {self._generate_code(ast.value)};"
+        target_identifier = self._generate_code(ast.target)
+        if self.new_symbol_table.get(target_identifier) is not None:
+            return f"{target_identifier} = {self._generate_code(ast.value)};"
+
+        target_type = self.type_translator(ast.target.get_type)
+        self.new_symbol_table.put(target_identifier, target_type)
+        return f"let mut {self._generate_code(ast.target)}: {target_type} = {self._generate_code(ast.value)};"
 
     @_generate_code.register
     def _(self, ast: ast_.Return) -> str:
@@ -298,7 +310,14 @@ class RustCodeGenerator(CodeGenerator):
 
     @_generate_code.register
     def _(self, ast: ast_.Statements) -> str:
-        return ";".join(self._generate_code(stmt) for stmt in ast.items) + ";"
+        self.new_symbol_table = CodeGeneratorEnvironment(previous=self.new_symbol_table, table={})
+        res = ";".join(self._generate_code(stmt) for stmt in ast.items) + ";"
+
+        if self.new_symbol_table.previous is None:
+            raise CodeGeneratorError("Symbol table should always have a previous environment (the global one). This is a bug in the code generator.")
+        self.new_symbol_table = self.new_symbol_table.previous
+
+        return res
 
     @_generate_code.register
     def _(self, ast: ast_.Else) -> str:
@@ -306,15 +325,31 @@ class RustCodeGenerator(CodeGenerator):
 
     @_generate_code.register
     def _(self, ast: ast_.If) -> str:
+        if isinstance(ast.else_body, ast_.None_):
+            return f"if {self._generate_code(ast.condition)} {{{self._generate_code(ast.body)}}}"
         return f"if {self._generate_code(ast.condition)} {{{self._generate_code(ast.body)}}} {self._generate_code(ast.else_body)}"
 
     @_generate_code.register
     def _(self, ast: ast_.Elif) -> str:
+        if isinstance(ast.else_body, ast_.None_):
+            return f"else if {self._generate_code(ast.condition)} {{{self._generate_code(ast.body)}}}"
         return f"else if {self._generate_code(ast.condition)} {{{self._generate_code(ast.body)}}} {self._generate_code(ast.else_body)}"
 
     @_generate_code.register
     def _(self, ast: ast_.For) -> str:
-        return f"for {self._generate_code(ast.iterable_names)} in {self._generate_code(ast.iterable)}.iter() {{{self._generate_code(ast.body)}}}"
+        self.new_symbol_table = CodeGeneratorEnvironment(previous=self.new_symbol_table, table={})
+
+        iterable_names = self._generate_code(ast.iterable_names)
+        for name in iterable_names.split(","):
+            self.new_symbol_table.put(name, "loop_identifier_variable")
+
+        res = f"for {iterable_names} in {self._generate_code(ast.iterable)}.iter() {{{self._generate_code(ast.body)}}}"
+
+        if self.new_symbol_table.previous is None:
+            raise CodeGeneratorError("Symbol table should always have a previous environment (the global one). This is a bug in the code generator.")
+        self.new_symbol_table = self.new_symbol_table.previous
+
+        return res
 
     @_generate_code.register
     def _(self, ast: ast_.While) -> str:
@@ -322,16 +357,21 @@ class RustCodeGenerator(CodeGenerator):
 
     @_generate_code.register
     def _(self, ast: ast_.StructDef) -> str:
+        self.new_symbol_table.put(self._generate_code(ast.name), "struct_definition")
+
         fields = "; ".join(f"{self._generate_code(field.type_)} {field.name}" for field in ast.items)
-        return f"struct {ast.name} {{ {fields}, }}"
+        return f"struct {self._generate_code(ast.name)} {{ {fields}, }}"
 
     @_generate_code.register
     def _(self, ast: ast_.ProcedureDef) -> str:
+        self.new_symbol_table.put(self._generate_code(ast.name), "function_definition")
+
         args = ", ".join(f"{arg.name}: {self._generate_code(arg.type_)}" for arg in ast.args)
-        return f"fn {ast.name}({args}) -> {self._generate_code(ast.return_type)} {{{self._generate_code(ast.body)}}}"
+        return f"fn {self._generate_code(ast.name)}({args}) -> {self._generate_code(ast.return_type)} {{{self._generate_code(ast.body)}}}"
 
     @_generate_code.register
     def _(self, ast: ast_.Import) -> str:
+        # TODO import names should be added to the new symbol table
         raise CodeGeneratorError(f"Import statements are not supported in Rust code generation. Got: {ast}")
 
     @_generate_code.register
