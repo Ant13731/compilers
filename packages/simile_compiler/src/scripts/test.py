@@ -49,7 +49,8 @@ from src.mod import RustCodeGenerator, CPPCodeGenerator
 # print("COMP CONSTR TEST STR:", comp_constr_test_str2.pretty_print())
 # print("COMP CONSTR TEST STR:", comp_constr_test_str3.pretty_print())
 
-TEST_STR = "card({s · s in {1, 2} or s in {2, 3} | s})"
+# TEST_STR = "card({s · s in {1, 2} or s in {2, 3} | s})"
+# TEST_STR = "card({1, 2} \\/ {2, 3})"
 # TEST_STR = "card({1, 2} \/ {2, 3})"
 # len({1, 2} - {2, 3})
 
@@ -69,34 +70,34 @@ print("OPTIMIZED TEST_STR:", ast.pretty_print(print_env=True))
 print("OPTIMIZED TEST_STR:", ast.pretty_print_algorithmic())
 
 ast = analysis.populate_ast_environments(ast)
-print("OPTIMIZED TEST_STR:", ast.pretty_print())
-print("OPTIMIZED TEST_STR:", ast.pretty_print(print_env=True))
-print("OPTIMIZED TEST_STR:", ast.pretty_print_algorithmic())
+# print("OPTIMIZED TEST_STR:", ast.pretty_print())
+# print("OPTIMIZED TEST_STR:", ast.pretty_print(print_env=True))
+# print("OPTIMIZED TEST_STR:", ast.pretty_print_algorithmic())
 
 RustCodeGenerator(ast).build()
 
 
-TEST_STR_TO_GET_AST = f"""
-counter := 0
-for s in {{1,2}}:
-    expr_var := s
-    counter := counter + 1
-for q in {{2,3}}:
-    expr_var := q
-    if ¬(q ∈ {{1, 2}} ∧ expr_var = q):
-        counter := counter + 1
-"""
-ast_to_get = parse(TEST_STR_TO_GET_AST)
-print("TEST_STR_TO_GET_AST:", TEST_STR_TO_GET_AST)
-print("AST TO GET:", ast_to_get.pretty_print())
+# TEST_STR_TO_GET_AST = f"""
+# counter := 0
+# for s in {{1,2}}:
+#     expr_var := s
+#     counter := counter + 1
+# for q in {{2,3}}:
+#     expr_var := q
+#     if ¬(q ∈ {{1, 2}} ∧ expr_var = q):
+#         counter := counter + 1
+# """
+# ast_to_get = parse(TEST_STR_TO_GET_AST)
+# print("TEST_STR_TO_GET_AST:", TEST_STR_TO_GET_AST)
+# print("AST TO GET:", ast_to_get.pretty_print())
 
 
-print(
-    ast_.structurally_equal(
-        ast,
-        ast_to_get,
-    )
-)
+# print(
+#     ast_.structurally_equal(
+#         ast,
+#         ast_to_get,
+#     )
+# )
 
 
 # comp_constr_test_str = SetComprehensionConstructionCollection().normalize(analyzed_test_str)

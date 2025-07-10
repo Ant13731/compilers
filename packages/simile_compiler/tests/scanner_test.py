@@ -230,6 +230,25 @@ struct A:
                     TokenType.DEDENT,
                 ],
             ),
+            (
+                "{1, 2} \\/ {2, 3}",
+                [
+                    TokenType.L_BRACE,
+                    TokenType.INTEGER,
+                    TokenType.COMMA,
+                    TokenType.INTEGER,
+                    TokenType.R_BRACE,
+                    #
+                    TokenType.UNION,
+                    #
+                    TokenType.L_BRACE,
+                    TokenType.INTEGER,
+                    TokenType.COMMA,
+                    TokenType.INTEGER,
+                    TokenType.R_BRACE,
+                    TokenType.NEWLINE,
+                ],
+            ),
         ],
     )
     def test_manual(self, input_1: str, expected_1: list[TokenType]):

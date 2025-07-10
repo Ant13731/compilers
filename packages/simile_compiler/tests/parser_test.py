@@ -1,5 +1,5 @@
 import pytest
-
+from loguru import logger
 
 from src.mod.parser import parse, Parser
 from src.mod.scanner import scan, TokenType
@@ -15,6 +15,21 @@ manual_tests = dict(
     map(
         lambda item: (item[0], start_prefix(item[1])),
         {
+            "{1, 2} \\/ {2, 3}": Union(
+                SetEnumeration([Int("1"), Int("2")]),
+                SetEnumeration([Int("2"), Int("3")]),
+            ),
+            # "card({1, 2} \\/ {2, 3})": Sum(
+            #     And(
+            #         [
+            #             Union(
+            #                 SetEnumeration([Int("1"), Int("2")]),
+            #                 SetEnumeration([Int("2"), Int("3")]),
+            #             )
+            #         ]
+            #     ),
+            #     Identifier("c"),
+            # ),
             "a": Identifier("a"),
             "(a)": Identifier("a"),
             "1": Int("1"),
@@ -41,9 +56,13 @@ manual_tests = dict(
             "x <== y <== z": RevImplies(Identifier("x"), RevImplies(Identifier("y"), Identifier("z"))),
             "x |-> y": Maplet(Identifier("x"), Identifier("y")),
             "{x | x in [1, 2, 3]}": SetComprehension(
-                In(
-                    Identifier("x"),
-                    Enumeration([Int("1"), Int("2"), Int("3")], op_type=CollectionOperator.SEQUENCE),
+                And(
+                    [
+                        In(
+                            Identifier("x"),
+                            Enumeration([Int("1"), Int("2"), Int("3")], op_type=CollectionOperator.SEQUENCE),
+                        )
+                    ],
                 ),
                 Identifier("x"),
             ),
@@ -213,5 +232,8 @@ class TestParser:
             assert isinstance(token, TokenType)
 
     @pytest.mark.parametrize("input_, expected", manual_tests.items())
-    def test_manual(self, input_: str, expected: str):
+    def test_manual(self, input_: str, expected: ASTNode):
+        logger.debug(f"Testing input: {input_}")
+        logger.debug(f"Expected output: {expected.pretty_print_algorithmic()}")
+        logger.debug(f"actual output: {parse(input_).pretty_print_algorithmic()}")
         assert parse(input_) == expected

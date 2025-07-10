@@ -23,10 +23,15 @@ def structurally_equal(self: ASTNode, other: ASTNode) -> bool:
         if isinstance(self_, Identifier) and isinstance(other_, Identifier):
             # If both are identifiers, check if they are the same or if they can be renamed
             if env.get(self_.name) is not None:
-                return env.get(self_.name) == other_.name
+                if env.get(self_.name) == other_.name:
+                    return True
+
+                logger.debug(f"FAILED: {self_.name} and {other_.name} do not match")
+                return False
 
             # Other name is somewhere in the var table but doesn't correspond to this var...
             if env.get_value(other_.name):
+                logger.debug(f"FAILED: other variable name {other_.name} is in the environment but does have a corresponding match with {self_.name}")
                 return False
 
             # Add to variable rename table
@@ -36,10 +41,15 @@ def structurally_equal(self: ASTNode, other: ASTNode) -> bool:
 
         # If not an ASTNode, nothing special to check, just compare values
         if not isinstance(self_, ASTNode):
-            return self_ == other_
+            if self_ == other_:
+                return True
+
+            logger.debug(f"FAILED: {self_} and {other_} do not match")
+            return False
 
         # If self is an ast node but other is not, they are not structurally equal
         if not isinstance(other_, ASTNode):
+            logger.debug(f"FAILED: {self_} is an ASTNode but {other_} is not")
             return False
 
         # Eliminate superfluous And, Or, wrapped statements, etc.
@@ -58,6 +68,7 @@ def structurally_equal(self: ASTNode, other: ASTNode) -> bool:
         # Call on all other fields
         for self_f, other_f in zip(self_.children(), other_.children()):
             if not structurally_equal_aux(self_f, other_f, env):
+                logger.debug(f"FAILED (propagated): {self_f} and {other_f} do not match")
                 return False
         return True
 
