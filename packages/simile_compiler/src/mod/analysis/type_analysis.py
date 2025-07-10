@@ -45,6 +45,7 @@ def add_environments_to_ast(ast: T, current_env: ast_.SymbolTableEnvironment | N
             assert current_env.previous is not None, "Environment stack should not be empty after processing Statements node"
             current_env = current_env.previous  # type: ignore
             return
+
         node._env = current_env
         for child in node.children(True):
             add_environments_to_ast_aux(child)

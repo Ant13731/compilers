@@ -86,17 +86,17 @@ for q in {{2,3}}:
     if ¬(q ∈ {{1, 2}} ∧ expr_var = q):
         counter := counter + 1
 """
-# ast_to_get = parse(TEST_STR_TO_GET_AST)
-# print("TEST_STR_TO_GET_AST:", TEST_STR_TO_GET_AST)
-# print("AST TO GET:", ast_to_get.pretty_print())
+ast_to_get = parse(TEST_STR_TO_GET_AST)
+print("TEST_STR_TO_GET_AST:", TEST_STR_TO_GET_AST)
+print("AST TO GET:", ast_to_get.pretty_print())
 
 
-# print(
-#     ast_.structurally_equal(
-#         ast_to_get,
-#         ast,
-#     )
-# )
+print(
+    ast_.structurally_equal(
+        ast,
+        ast_to_get,
+    )
+)
 
 
 # comp_constr_test_str = SetComprehensionConstructionCollection().normalize(analyzed_test_str)

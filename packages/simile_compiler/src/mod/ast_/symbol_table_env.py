@@ -21,19 +21,35 @@ T = TypeVar("T")
 
 @dataclass
 class Environment(Generic[T]):
+
     previous: Environment[T] | None = None
+    """Scope of outer-block environments"""
+
     table: dict[str, T] = field(default_factory=dict)
 
     def put(self, key: str, value: T) -> None:
+        """Put a key-value pair in the current environment."""
         self.table[key] = value
 
     def get(self, s: str) -> T | None:
+        """Get the value associated with the symbol `s` in the environment."""
         current_env: Environment[T] | None = self
         while current_env is not None:
             if s in current_env.table:
                 return current_env.table[s]
             current_env = current_env.previous
         return None
+
+    def get_value(self, v: T) -> list[str]:
+        """Get the names of the symbols in the environment that match the given value."""
+        current_env: Environment[T] | None = self
+        names: list[str] = []
+        while current_env is not None:
+            for name, value in current_env.table.items():
+                if value == v:
+                    names.append(name)
+            current_env = current_env.previous
+        return names
 
 
 @dataclass
