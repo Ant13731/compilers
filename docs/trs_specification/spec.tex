@@ -291,12 +291,12 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   \bSetT{x}{x \in S \lor x \in T}
   \\
   \tag{Predicate Operations - Intersection}
-  S \cup T
+  S \cap T
   &\leadsto
   \bSetT{x}{x \in S \land x \in T}
   \\
   \tag{Predicate Operations - Difference}
-  S \cup T
+  S \setminus T
   &\leadsto
   \bSetT{x}{x \in S \land x \notin T}
   \\
@@ -380,9 +380,9 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   P_g \land \bigwedge P_a \land \bigwedge_{P_i \neq P_g, P_i \notin \bigcup P_a} P_i
   \\
   \tag{Simplified DNF Form \footnote{The LH term must occur inside a quantifier's predicate. Combines clauses with the same generator. Requires Generator Selection to be run first}}
-  (P_{g} \land \bigwedge P_a \land \bigwedge P_i) \lor (P_{g} \land \bigwedge Q_a \land \bigwedge_{Q_i \neq P_g} Q_i)
+  (P_{g} \land \bigwedge P_a \land \bigwedge P_i) \lor (P_{g} \land \bigwedge Q_a \land \bigwedge Q_i)
   &\leadsto
-  P_g, \bigwedge P_a \land \bigwedge Q_a,\bigwedge P_i \lor \bigwedge Q_i
+  P_g \land ((\bigwedge P_a \land \bigwedge P_i) \lor (\bigwedge Q_a \land \bigwedge Q_i) )% TODO dont "factor
 \end{align}
 \end{minipage}
 
@@ -390,8 +390,8 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
 
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
-  \tag{Quantifier Generation \footnote{$\oplus$ works for any quantifier. The identity and accumulate functions are determined by the realized $\oplus$. For example, if $\oplus = \sum$, the identity is 0 and accumulate is addition.}}
-  \oplus E \mid P
+  \tag{Quantifier Generation \footnote{$\oplus$ works for any quantifier (but not $\forall$ and $\exists$). The identity and accumulate functions are determined by the realized $\oplus$. For example, if $\oplus = \sum$, the identity is 0 and accumulate is addition.}}
+  \oplus E \mid P % TODO add side condition that P contains the dummy variables/ generators. Give pre and post conditions for each phase based on the internal structure of variables (ex. P at this point should be that form of the AND-triple)
   &\leadsto
   \begin{minipage}[]{0.4\textwidth}
   \begin{algorithmic}
@@ -442,7 +442,7 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   \begin{algorithmic}
     \If{$\bigwedge_{free(P_i)} P_i$}
       \For{$P_g$}
-        \State $P_as$
+        \State $P_as$ % TODO rewrite these to be more clear that they are assignments
         \If{$\bigwedge_{bound(P_i)} P_i$}
           \State body
         \EndIf

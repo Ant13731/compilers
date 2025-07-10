@@ -50,6 +50,8 @@ from src.mod import RustCodeGenerator, CPPCodeGenerator
 # print("COMP CONSTR TEST STR:", comp_constr_test_str3.pretty_print())
 
 TEST_STR = "card({s · s in {1, 2} or s in {2, 3} | s})"
+# TEST_STR = "card({1, 2} \/ {2, 3})"
+# len({1, 2} - {2, 3})
 
 print("TEST_STR 2:", TEST_STR)
 
@@ -84,17 +86,17 @@ for q in {{2,3}}:
     if ¬(q ∈ {{1, 2}} ∧ expr_var = q):
         counter := counter + 1
 """
-ast_to_get = parse(TEST_STR_TO_GET_AST)
-print("TEST_STR_TO_GET_AST:", TEST_STR_TO_GET_AST)
-print("AST TO GET:", ast_to_get.pretty_print())
+# ast_to_get = parse(TEST_STR_TO_GET_AST)
+# print("TEST_STR_TO_GET_AST:", TEST_STR_TO_GET_AST)
+# print("AST TO GET:", ast_to_get.pretty_print())
 
 
-print(
-    ast_.structurally_equal(
-        ast_to_get,
-        ast,
-    )
-)
+# print(
+#     ast_.structurally_equal(
+#         ast_to_get,
+#         ast,
+#     )
+# )
 
 
 # comp_constr_test_str = SetComprehensionConstructionCollection().normalize(analyzed_test_str)
