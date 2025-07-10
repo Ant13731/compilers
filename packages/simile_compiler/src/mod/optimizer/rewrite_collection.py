@@ -49,10 +49,10 @@ class RewriteCollection:
             new_ast = rewrite_rule(ast)
             if new_ast is not None:
                 ast = new_ast
-                logger.success(f"SUCCESS: matched {rewrite_rule.__name__}. New ast: {ast}")
+                logger.success(f"SUCCESS: matched {rewrite_rule.__name__}. New ast: {ast}\nPretty print: {ast.pretty_print_algorithmic()}")
                 continue
 
-            logger.trace(f"FAILED: to match {rewrite_rule.__name__} with AST: {ast}")
+            logger.trace(f"FAILED: to match {rewrite_rule.__name__} with AST: {ast}\nPretty print: {ast.pretty_print_algorithmic()}")
 
         return ast
 
@@ -95,7 +95,7 @@ class RewriteCollection:
             if hasattr(ast, field_name) and hasattr(new_ast, field_name):
                 setattr(new_ast, field_name, getattr(ast, field_name))
 
-        logger.info(f"Normalizing AST: {ast}")
+        logger.info(f"Normalizing AST: {new_ast}\nPretty print: {new_ast.pretty_print_algorithmic()}")
         return self.apply_all_rules_once(new_ast)
 
     def normalize(self, ast: ast_.ASTNode) -> ast_.ASTNode:

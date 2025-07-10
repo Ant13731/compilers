@@ -15,21 +15,28 @@ manual_tests = dict(
     map(
         lambda item: (item[0], start_prefix(item[1])),
         {
+            "a \\/ b": Union(
+                Identifier("a"),
+                Identifier("b"),
+            ),
             "{1, 2} \\/ {2, 3}": Union(
                 SetEnumeration([Int("1"), Int("2")]),
                 SetEnumeration([Int("2"), Int("3")]),
             ),
-            # "card({1, 2} \\/ {2, 3})": Sum(
-            #     And(
-            #         [
-            #             Union(
-            #                 SetEnumeration([Int("1"), Int("2")]),
-            #                 SetEnumeration([Int("2"), Int("3")]),
-            #             )
-            #         ]
-            #     ),
-            #     Identifier("c"),
-            # ),
+            "card({1, 2} \\/ {2, 3})": Sum(
+                And(
+                    [
+                        In(
+                            Identifier("*fresh_var_card14"),
+                            Union(
+                                SetEnumeration([Int("1"), Int("2")]),
+                                SetEnumeration([Int("2"), Int("3")]),
+                            ),
+                        )
+                    ]
+                ),
+                Int("1"),
+            ),
             "a": Identifier("a"),
             "(a)": Identifier("a"),
             "1": Int("1"),

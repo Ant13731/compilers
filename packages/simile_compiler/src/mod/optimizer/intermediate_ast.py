@@ -40,5 +40,6 @@ class GeneratorSelectionAST(ast_.ASTNode):
         ret = self.generator._pretty_print_algorithmic(indent)
         if assignments_str:
             ret += f" ∧ {assignments_str}"
-        ret += f" ∧ {self.condition._pretty_print_algorithmic(indent)}"
+        if len(self.condition.items) > 0:
+            ret += f" ∧ {self.condition._pretty_print_algorithmic(indent)}"
         return ret

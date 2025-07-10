@@ -212,9 +212,15 @@ class Parser:
             self.advance()
 
     def left_associative_optional_parse(
-        self, func: Callable[[], ast_.ASTNode], tokens_and_types: dict[TokenType, Callable[[ast_.ASTNode, ast_.ASTNode], ast_.BinaryOp]]
+        self,
+        func: Callable[[], ast_.ASTNode],
+        tokens_and_types: dict[TokenType, Callable[[ast_.ASTNode, ast_.ASTNode], ast_.BinaryOp]],
+        default_left: ast_.ASTNode | None = None,
     ) -> ast_.ASTNode:
-        left = func()
+        left = default_left
+        if left is None:
+            left = func()
+
         while (t := self.peek()).type_ in tokens_and_types:
             self.advance()  # TODO check this?
             left = tokens_and_types[t.type_](left, func())
@@ -287,16 +293,22 @@ class Parser:
                 ident_list = self.ident_list()
                 self.consume(TokenType.CDOT, "Expected FORALL quantification separator")
                 predicate = self.predicate()
+                if not isinstance(predicate, ast_.ListOp):
+                    predicate = ast_.And([predicate])
+
                 forall = ast_.Forall(predicate)
-                forall._bound_identifiers = ident_list
+                forall._bound_identifiers = ident_list.free
                 return forall
             case TokenType.EXISTS:
                 self.advance()
                 ident_list = self.ident_list()
                 self.consume(TokenType.CDOT, "Expected EXISTS quantification separator")
                 predicate = self.predicate()
+                if not isinstance(predicate, ast_.ListOp):
+                    predicate = ast_.And([predicate])
+
                 exists = ast_.Exists(predicate)
-                exists._bound_identifiers = ident_list
+                exists._bound_identifiers = ident_list.free
                 return exists
             case _ if t.type_ in self.get_first_set("unquantified_predicate"):
                 return self.unquantified_predicate()
@@ -569,8 +581,12 @@ class Parser:
             case _:
                 return interval_expr
 
-        self.advance()
-        n = self.left_associative_optional_parse(self.interval_expr, {bin_token: bin_op})
+        # self.advance()
+        n = self.left_associative_optional_parse(
+            self.interval_expr,
+            {bin_token: bin_op},
+            default_left=interval_expr,
+        )
 
         if bin_token == TokenType.INTERSECTION:
             if self.peek().type_ in self.get_first_set("rel_sub_expr"):

@@ -50,8 +50,8 @@ from src.mod import RustCodeGenerator, CPPCodeGenerator
 # print("COMP CONSTR TEST STR:", comp_constr_test_str3.pretty_print())
 
 # TEST_STR = "card({s · s in {1, 2} or s in {2, 3} | s})"
-# TEST_STR = "card({1, 2} \\/ {2, 3})"
-# TEST_STR = "card({1, 2} \/ {2, 3})"
+TEST_STR = "card({1, 2} \\/ {2, 3})"
+# TEST_STR = "{1, 2} \\/ {2, 3}"
 # len({1, 2} - {2, 3})
 
 print("TEST_STR 2:", TEST_STR)

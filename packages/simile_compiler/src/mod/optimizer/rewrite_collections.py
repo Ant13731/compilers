@@ -43,28 +43,33 @@ class SetComprehensionConstructionCollection(RewriteCollection):
             self.current_bound_identifiers.append(ast._bound_identifiers)
 
         ast = super().apply_all_rules_one_traversal(ast)
+        logger.debug(f"AST after applying all rules: {ast.pretty_print_algorithmic()}")
 
         self.bound_quantifier_variables = bound_quantifier_variables_before
         if self.current_bound_identifiers and hasattr(ast, "_bound_identifiers") and ast._bound_identifiers != self.current_bound_identifiers:
             # If the current bound identifiers are set, we need to update the AST's bound identifiers
             ast._bound_identifiers = self.current_bound_identifiers.pop()
+        logger.debug(f"AST after swapping identifiers: {ast.pretty_print_algorithmic()}")
+
         return ast
 
     # Collection setTypes should have no "demoted" predicates yet
     def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
         return [
-            self.predicate_operations_union,
-            self.predicate_operations_intersection,
-            self.predicate_operations_difference,
+            self.predicate_operations,
             # self.singleton_membership,
             self.membership_collapse,
         ]
 
-    def predicate_operations_union(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+    def predicate_operations(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
             # Idea, if we want to add some compilation-time optimizations (like union of two set enums into one set enum),
             # we can just add those rules here
-            case ast_.BinaryOp(left, right, ast_.BinaryOperator.UNION):
+            case ast_.BinaryOp(left, right, op_type) if op_type in (
+                ast_.BinaryOperator.UNION,
+                ast_.BinaryOperator.INTERSECTION,
+                ast_.BinaryOperator.DIFFERENCE,
+            ):
                 if any(
                     [
                         not isinstance(left.get_type, ast_.SetType),
@@ -74,71 +79,30 @@ class SetComprehensionConstructionCollection(RewriteCollection):
                     logger.debug(f"FAILED: at least one union child is not a set type: {left.get_type}, {right.get_type}")
                     return None
                 fresh_name = self._get_fresh_identifier_name()
+
+                match op_type:
+                    case ast_.BinaryOperator.UNION:
+                        list_op_type = ast_.ListOperator.OR
+                        right = ast_.In(ast_.Identifier(fresh_name), right)
+                    case ast_.BinaryOperator.INTERSECTION:
+                        list_op_type = ast_.ListOperator.AND
+                        right = ast_.In(ast_.Identifier(fresh_name), right)
+                    case ast_.BinaryOperator.DIFFERENCE:
+                        list_op_type = ast_.ListOperator.AND
+                        right = ast_.NotIn(ast_.Identifier(fresh_name), right)
+
                 new_ast = ast_.SetComprehension(
                     ast_.ListOp.flatten_and_join(
                         [
                             ast_.In(ast_.Identifier(fresh_name), left),
-                            ast_.In(ast_.Identifier(fresh_name), right),
+                            right,
                         ],
-                        ast_.ListOperator.OR,
+                        list_op_type,
                     ),
                     ast_.Identifier(fresh_name),
                 )
                 new_ast._bound_identifiers = {ast_.Identifier(fresh_name)}
-                return analysis.add_environments_to_ast(new_ast, ast._env)
-
-        return None
-
-    def predicate_operations_intersection(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
-        match ast:
-            case ast_.BinaryOp(left, right, ast_.BinaryOperator.INTERSECTION):
-                if any(
-                    [
-                        not isinstance(left.get_type, ast_.SetType),
-                        not isinstance(right.get_type, ast_.SetType),
-                    ]
-                ):
-                    logger.debug(f"FAILED: at least one intersection child is not a set type: {left.get_type}, {right.get_type}")
-                    return None
-                fresh_name = self._get_fresh_identifier_name()
-                new_ast = ast_.SetComprehension(
-                    ast_.ListOp.flatten_and_join(
-                        [
-                            ast_.In(ast_.Identifier(fresh_name), left),
-                            ast_.In(ast_.Identifier(fresh_name), right),
-                        ],
-                        ast_.ListOperator.AND,
-                    ),
-                    ast_.Identifier(fresh_name),
-                )
-                new_ast._bound_identifiers = {ast_.Identifier(fresh_name)}
-                return analysis.add_environments_to_ast(new_ast, ast._env)
-
-        return None
-
-    def predicate_operations_difference(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
-        match ast:
-            case ast_.BinaryOp(left, right, ast_.BinaryOperator.DIFFERENCE):
-                if any(
-                    [
-                        not isinstance(left.get_type, ast_.SetType),
-                        not isinstance(right.get_type, ast_.SetType),
-                    ]
-                ):
-                    logger.debug(f"FAILED: at least one difference child is not a set type: {left.get_type}, {right.get_type}")
-                    return None
-                fresh_name = self._get_fresh_identifier_name()
-                new_ast = ast_.SetComprehension(
-                    ast_.ListOp.flatten_and_join(
-                        [
-                            ast_.In(ast_.Identifier(fresh_name), left),
-                            ast_.NotIn(ast_.Identifier(fresh_name), right),
-                        ],
-                        ast_.ListOperator.AND,
-                    ),
-                    ast_.Identifier(fresh_name),
-                )
-                new_ast._bound_identifiers = {ast_.Identifier(fresh_name)}
+                self.current_bound_identifiers.append(new_ast._bound_identifiers)
                 return analysis.add_environments_to_ast(new_ast, ast._env)
 
         return None
@@ -169,6 +133,7 @@ class SetComprehensionConstructionCollection(RewriteCollection):
                     return None
 
                 if inner_quantifier._bound_identifiers is not None:
+                    logger.debug(f"DEBUG: AST {ast.pretty_print_algorithmic()}")
                     self.current_bound_identifiers[-1].update(inner_quantifier._bound_identifiers)
 
                 return analysis.add_environments_to_ast(
