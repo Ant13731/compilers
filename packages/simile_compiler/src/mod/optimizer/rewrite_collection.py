@@ -9,9 +9,11 @@ from src.mod import ast_
 from src.mod import analysis
 
 
+_fresh_var_counter = 0
+
+
 @dataclass
 class RewriteCollection:
-    fresh_variable_counter: int = 0
 
     num_of_attempted_matches: int = 0
     num_of_matches: int = 0
@@ -25,8 +27,9 @@ class RewriteCollection:
         raise NotImplementedError
 
     def _get_fresh_identifier_name(self) -> str:
-        self.fresh_variable_counter += 1
-        return f"*fresh_var_{self.fresh_variable_counter:05}"
+        global _fresh_var_counter
+        _fresh_var_counter += 1
+        return f"*fresh_var_{_fresh_var_counter:05}"
 
     def _counter_wrapper(self, rewrite_rule: Callable[[ast_.ASTNode], ast_.ASTNode | None]) -> Callable[[ast_.ASTNode], ast_.ASTNode | None]:
         @wraps(rewrite_rule)
@@ -48,7 +51,7 @@ class RewriteCollection:
 
             new_ast = rewrite_rule(ast)
             if new_ast is not None:
-                ast = new_ast
+                ast = analysis.populate_ast_environments(new_ast)
                 logger.success(f"SUCCESS: matched {rewrite_rule.__name__}. New ast: {ast}\nPretty print: {ast.pretty_print_algorithmic()}")
                 continue
 

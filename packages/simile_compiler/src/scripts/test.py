@@ -66,7 +66,7 @@ print("PARSED TEST_STR:", ast.pretty_print_algorithmic())
 
 ast = collection_optimizer(ast, SET_REWRITE_COLLECTION)
 print("OPTIMIZED TEST_STR:", ast.pretty_print())
-print("OPTIMIZED TEST_STR:", ast.pretty_print(print_env=True))
+# print("OPTIMIZED TEST_STR:", ast.pretty_print(print_env=True))
 print("OPTIMIZED TEST_STR:", ast.pretty_print_algorithmic())
 
 ast = analysis.populate_ast_environments(ast)

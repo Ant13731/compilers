@@ -8,7 +8,7 @@ from loguru import logger
 from src.mod import ast_
 from src.mod import analysis
 from src.mod.optimizer.rewrite_collection import RewriteCollection
-from src.mod.optimizer.intermediate_ast import GeneratorSelectionAST
+from src.mod.optimizer.intermediate_ast import GeneratorSelection
 
 # NOTE: REWRITE RULES MUST ALWAYS USE THE PARENT FORM FOR STRUCTURAL MATCHING (ex. BinaryOp instead of Add)
 
@@ -103,7 +103,7 @@ class SetComprehensionConstructionCollection(RewriteCollection):
                 )
                 new_ast._bound_identifiers = {ast_.Identifier(fresh_name)}
                 self.current_bound_identifiers.append(new_ast._bound_identifiers)
-                return analysis.add_environments_to_ast(new_ast, ast._env)
+                return new_ast
 
         return None
 
@@ -111,7 +111,7 @@ class SetComprehensionConstructionCollection(RewriteCollection):
     #     match ast:
     #         case ast_.BinaryOp(ast_.Identifier(_) as x, ast_.Enumeration([elem], _), ast_.BinaryOperator.IN):
     #             new_ast = ast_.Equal(x, elem)
-    #             return analysis.add_environments_to_ast(new_ast, ast._env)
+    #             return new_ast, ast._env)
 
     #     return None
 
@@ -136,15 +136,12 @@ class SetComprehensionConstructionCollection(RewriteCollection):
                     logger.debug(f"DEBUG: AST {ast.pretty_print_algorithmic()}")
                     self.current_bound_identifiers[-1].update(inner_quantifier._bound_identifiers)
 
-                return analysis.add_environments_to_ast(
-                    ast_.ListOp.flatten_and_join(
-                        [
-                            ast_.Equal(x, expression),
-                            predicate,
-                        ],
-                        ast_.ListOperator.AND,
-                    ),
-                    ast._env,
+                return ast_.ListOp.flatten_and_join(
+                    [
+                        ast_.Equal(x, expression),
+                        predicate,
+                    ],
+                    ast_.ListOperator.AND,
                 )
         return None
 
@@ -164,10 +161,8 @@ class DisjunctiveNormalFormQuantifierPredicateCollection(RewriteCollection):
             case ast_.ListOp(elems, ast_.ListOperator.AND):
                 if not any(map(lambda x: isinstance(x, ast_.ListOp) and x.op_type == ast_.ListOperator.AND, elems)):
                     return None
-                return analysis.add_environments_to_ast(
-                    ast_.ListOp.flatten_and_join(elems, ast_.ListOperator.AND),
-                    ast._env,
-                )
+                return ast_.ListOp.flatten_and_join(elems, ast_.ListOperator.AND)
+
         return None
 
     def flatten_nested_ors(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
@@ -175,10 +170,8 @@ class DisjunctiveNormalFormQuantifierPredicateCollection(RewriteCollection):
             case ast_.ListOp(elems, ast_.ListOperator.OR):
                 if not any(map(lambda x: isinstance(x, ast_.ListOp) and x.op_type == ast_.ListOperator.OR, elems)):
                     return None
-                return analysis.add_environments_to_ast(
-                    ast_.ListOp.flatten_and_join(elems, ast_.ListOperator.OR),
-                    ast._env,
-                )
+                return ast_.ListOp.flatten_and_join(elems, ast_.ListOperator.OR)
+
         return None
 
     def double_negation(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
@@ -190,7 +183,7 @@ class DisjunctiveNormalFormQuantifierPredicateCollection(RewriteCollection):
                 ),
                 ast_.UnaryOperator.NOT,
             ):
-                return analysis.add_environments_to_ast(x, ast._env)
+                return x
         return None
 
     def distribute_de_morgan(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
@@ -199,23 +192,17 @@ class DisjunctiveNormalFormQuantifierPredicateCollection(RewriteCollection):
                 ast_.ListOp(elems, ast_.ListOperator.OR),
                 ast_.UnaryOperator.NOT,
             ):
-                return analysis.add_environments_to_ast(
-                    ast_.ListOp(
-                        [ast_.UnaryOp(elem, ast_.UnaryOperator.NOT) for elem in elems],
-                        ast_.ListOperator.AND,
-                    ),
-                    ast._env,
+                return ast_.ListOp(
+                    [ast_.UnaryOp(elem, ast_.UnaryOperator.NOT) for elem in elems],
+                    ast_.ListOperator.AND,
                 )
             case ast_.UnaryOp(
                 ast_.ListOp(elems, ast_.ListOperator.AND),
                 ast_.UnaryOperator.NOT,
             ):
-                return analysis.add_environments_to_ast(
-                    ast_.ListOp(
-                        [ast_.UnaryOp(elem, ast_.UnaryOperator.NOT) for elem in elems],
-                        ast_.ListOperator.OR,
-                    ),
-                    ast._env,
+                return ast_.ListOp(
+                    [ast_.UnaryOp(elem, ast_.UnaryOperator.NOT) for elem in elems],
+                    ast_.ListOperator.OR,
                 )
         return None
 
@@ -251,7 +238,7 @@ class DisjunctiveNormalFormQuantifierPredicateCollection(RewriteCollection):
                         )
                     )
 
-                return analysis.add_environments_to_ast(ast_.Or(new_elems), ast._env)
+                return ast_.Or(new_elems)
 
         return None
 
@@ -292,7 +279,7 @@ class PredicateSimplificationCollection(RewriteCollection):
                 )
                 outer_quantifier._bound_identifiers = set(bound_identifiers[:1])
 
-                return analysis.add_environments_to_ast(outer_quantifier, ast._env)
+                return outer_quantifier
         return None
 
     def or_wrapping(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
@@ -304,7 +291,7 @@ class PredicateSimplificationCollection(RewriteCollection):
                     op_type,
                 )
                 new_quantifier._bound_identifiers = ast._bound_identifiers
-                return analysis.add_environments_to_ast(new_quantifier, ast._env)
+                return new_quantifier
 
         return None
 
@@ -315,29 +302,36 @@ class GeneratorSelectionCollection(RewriteCollection):
             # self.select_generator_predicates_or,
             # self.select_generator_predicates_and,
             # self.set_generation,
-            self.generator_selection_and_dummy_reassignment,
-            self.reduce_duplicate_generators,
+            # self.generator_selection_and_dummy_reassignment,
+            # self.reduce_duplicate_generators,
+            self.generator_selection,
+            self.equality_separation_and_substitution,
         ]
 
-    def generator_selection_and_dummy_reassignment(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+    def generator_selection(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
             case ast_.Quantifier(
                 ast_.ListOp(elems, ast_.ListOperator.OR),
                 expression,
                 op_type,
             ):
-                if all(map(lambda x: isinstance(x, GeneratorSelectionAST), elems)):
-                    logger.debug(f"FAILED: all elements in OR quantifier are already GeneratorSelectionASTs, no need to select generators")
+                if all(map(lambda x: isinstance(x, GeneratorSelection), elems)):
+                    logger.debug(f"FAILED: all elements in OR quantifier are already GeneratorSelections, no need to select generators")
                     return None
 
                 predicates: list[ast_.ASTNode] = []
                 for elem in elems:
-                    if isinstance(elem, ast_.BinaryOp) and elem.op_type == ast_.BinaryOperator.IN:
+                    if (
+                        isinstance(elem, ast_.BinaryOp)
+                        and elem.op_type == ast_.BinaryOperator.IN
+                        and isinstance(elem.right.get_type, ast_.SetType)
+                        and isinstance(elem.left, ast_.Identifier)
+                        and (not ast.bound or elem.left.name in ast.bound)
+                    ):
                         predicates.append(
-                            GeneratorSelectionAST(
-                                generator=elem,
-                                assignments=[],
-                                condition=ast_.And([]),
+                            GeneratorSelection(
+                                elem,
+                                ast_.And([]),
                             )
                         )
                         continue
@@ -349,42 +343,19 @@ class GeneratorSelectionCollection(RewriteCollection):
                         return None
 
                     candidate_generators = []
-                    equality_assignments = []
                     other_predicates = []
                     for item in elem.items:
-                        match item:
-                            case ast_.BinaryOp(
-                                ast_.Identifier(_) as x,
-                                set_type,
-                                ast_.BinaryOperator.IN,
-                            ) if isinstance(
-                                set_type.get_type, ast_.SetType
-                            ) and (ast.bound is None or x in ast.bound):
-                                candidate_generators.append(item)
-                            case ast_.BinaryOp(
-                                ast_.Identifier(_) as left,
-                                right,
-                                eq_type,
-                            ) if all(
-                                [
-                                    eq_type == ast_.BinaryOperator.EQUAL,
-                                    left in ast.bound,
-                                ]
-                            ):
-                                equality_assignments.append(ast_.Assignment(left, right))
-                            case ast_.BinaryOp(
-                                left,
-                                ast_.Identifier(_) as right,
-                                eq_type,
-                            ) if all(
-                                [
-                                    eq_type == ast_.BinaryOperator.EQUAL,
-                                    left in ast.bound,
-                                ]
-                            ):
-                                equality_assignments.append(ast_.Assignment(right, left))
-                            case _:
-                                other_predicates.append(item)
+                        if (
+                            isinstance(item, ast_.BinaryOp)
+                            and item.op_type == ast_.BinaryOperator.IN
+                            and isinstance(item.right.get_type, ast_.SetType)
+                            and isinstance(item.left, ast_.Identifier)
+                            and (not ast.bound or item.left in ast.bound)
+                        ):
+                            candidate_generators.append(item)
+                        else:
+                            other_predicates.append(item)
+
                     if not candidate_generators:
                         logger.debug(f"FAILED: no candidate generators found in AND predicate (bound variables are {ast.bound}, free are {ast.free})")
                         return None
@@ -393,21 +364,251 @@ class GeneratorSelectionCollection(RewriteCollection):
                     other_predicates += candidate_generators[1:]
 
                     predicates.append(
-                        GeneratorSelectionAST(
-                            generator=selected_generator,
-                            assignments=equality_assignments,
-                            condition=ast_.And.flatten_and_join(other_predicates, ast_.ListOperator.AND),
+                        GeneratorSelection(
+                            selected_generator,
+                            ast_.And.flatten_and_join(
+                                other_predicates,
+                                ast_.ListOperator.AND,
+                            ),
                         )
                     )
 
-                return analysis.add_environments_to_ast(
-                    ast_.Quantifier(
-                        ast_.Or(predicates),
-                        expression,
-                        op_type,
-                    ),
-                    ast._env,
+                return ast_.Quantifier(
+                    ast_.Or(predicates),
+                    expression,
+                    op_type,
                 )
+        return None
+
+    def equality_separation_and_substitution(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Quantifier(
+                ast_.ListOp(elems, ast_.ListOperator.OR),
+                expression,
+                op_type,
+            ) if all(map(lambda x: isinstance(x, GeneratorSelection), elems)):
+                if ast._env is None:
+                    logger.debug(f"FAILED: no environment found in quantifier (cannot perform substitutions)")
+                    return None
+
+                substitution_found = False
+                predicates: list[ast_.ASTNode] = []
+                for elem in elems:
+                    assert isinstance(elem, GeneratorSelection)
+                    logger.debug(f"Checking for substitutions in clause with generator {elem.generator}")
+
+                    substitution = None
+                    for and_clause in elem.predicates.items:
+                        if not isinstance(and_clause, ast_.BinaryOp) or and_clause.op_type != ast_.BinaryOperator.EQUAL:
+                            continue
+                        logger.debug(f"Checking for substitution in {and_clause}, {and_clause.free}, {and_clause.bound}")
+                        if isinstance(and_clause.left, ast_.Identifier) and and_clause.left != elem.generator.left and ast._env.get(and_clause.left.name) is None:
+                            substitution = and_clause
+                            substitution_found = True
+                            break
+                        if isinstance(and_clause.right, ast_.Identifier) and and_clause.right != elem.generator.left and ast._env.get(and_clause.right.name) is None:
+                            substitution = ast_.Equal(
+                                and_clause.right,
+                                and_clause.left,
+                            )
+                            substitution_found = True
+                            break
+
+                    if substitution is None:
+                        predicates.append(elem)
+                        continue
+
+                    predicates.append(
+                        elem.find_and_replace(
+                            substitution.left,
+                            substitution.right,
+                        )
+                    )
+
+                if not substitution_found:
+                    logger.debug(f"FAILED: no substitutions found in OR quantifier (current environment is {ast._env}), free variables are {ast.free}")
+                    return None
+
+                return ast_.Quantifier(
+                    ast_.Or(predicates),
+                    expression,
+                    op_type,
+                )
+        return None
+
+    # def generator_selection_and_dummy_reassignment(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+    #     match ast:
+    #         case ast_.Quantifier(
+    #             ast_.ListOp(elems, ast_.ListOperator.OR),
+    #             expression,
+    #             op_type,
+    #         ):
+    #             if all(map(lambda x: isinstance(x, GeneratorSelectionAST), elems)):
+    #                 logger.debug(f"FAILED: all elements in OR quantifier are already GeneratorSelectionASTs, no need to select generators")
+    #                 return None
+
+    #             predicates: list[ast_.ASTNode] = []
+    #             for elem in elems:
+    #                 if isinstance(elem, ast_.BinaryOp) and elem.op_type == ast_.BinaryOperator.IN:
+    #                     predicates.append(
+    #                         GeneratorSelectionAST(
+    #                             generator=elem,
+    #                             assignments=[],
+    #                             condition=ast_.And([]),
+    #                         )
+    #                     )
+    #                     continue
+
+    #                 if not isinstance(elem, ast_.ListOp) or elem.op_type != ast_.ListOperator.AND:
+    #                     logger.debug(
+    #                         f"FAILED: element {elem} is not a ListOp with AND operator (and not a generator itself). Expected predicates to be in disjunctive normal form (an OR of ANDs)"
+    #                     )
+    #                     return None
+
+    #                 candidate_generators = []
+    #                 equality_assignments = []
+    #                 other_predicates = []
+    #                 for item in elem.items:
+    #                     match item:
+    #                         case ast_.BinaryOp(
+    #                             ast_.Identifier(_) as x,
+    #                             set_type,
+    #                             ast_.BinaryOperator.IN,
+    #                         ) if isinstance(
+    #                             set_type.get_type, ast_.SetType
+    #                         ) and (ast.bound is None or x in ast.bound):
+    #                             candidate_generators.append(item)
+    #                         case ast_.BinaryOp(
+    #                             ast_.Identifier(_) as left,
+    #                             right,
+    #                             eq_type,
+    #                         ) if all(
+    #                             [
+    #                                 eq_type == ast_.BinaryOperator.EQUAL,
+    #                                 left in ast.bound,
+    #                             ]
+    #                         ):
+    #                             equality_assignments.append(ast_.Assignment(left, right))
+    #                         case ast_.BinaryOp(
+    #                             left,
+    #                             ast_.Identifier(_) as right,
+    #                             eq_type,
+    #                         ) if all(
+    #                             [
+    #                                 eq_type == ast_.BinaryOperator.EQUAL,
+    #                                 left in ast.bound,
+    #                             ]
+    #                         ):
+    #                             equality_assignments.append(ast_.Assignment(right, left))
+    #                         case _:
+    #                             other_predicates.append(item)
+    #                 if not candidate_generators:
+    #                     logger.debug(f"FAILED: no candidate generators found in AND predicate (bound variables are {ast.bound}, free are {ast.free})")
+    #                     return None
+
+    #                 selected_generator = candidate_generators[0]
+    #                 other_predicates += candidate_generators[1:]
+
+    #                 predicates.append(
+    #                     GeneratorSelectionAST(
+    #                         generator=selected_generator,
+    #                         assignments=equality_assignments,
+    #                         condition=ast_.And.flatten_and_join(other_predicates, ast_.ListOperator.AND),
+    #                     )
+    #                 )
+
+    #             return
+    #                 ast_.Quantifier(
+    #                     ast_.Or(predicates),
+    #                     expression,
+    #                     op_type,
+    #                 ),
+    #                 ast._env,
+    #             )
+    #     return None
+
+    # def reduce_duplicate_generators(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+    #     match ast:
+    #         case ast_.Quantifier(
+    #             ast_.ListOp(elems, ast_.ListOperator.OR),
+    #             expression,
+    #             op_type,
+    #         ) if all(map(lambda x: isinstance(x, GeneratorSelectionAST), elems)):
+
+    #             reduced_elem = False
+    #             condensed_elems: list[ast_.ASTNode] = []
+    #             for i in range(len(elems)):
+    #                 elem = elems[i]
+    #                 assert isinstance(elem, GeneratorSelectionAST)
+    #                 for j in range(i + 1, len(elems)):
+    #                     other_elem = elems[j]
+    #                     assert isinstance(other_elem, GeneratorSelectionAST)
+
+    #                     if elem.generator == other_elem.generator:
+    #                         new_elem = GeneratorSelectionAST(
+    #                             generator=elem.generator,
+    #                             assignments=elem.assignments + other_elem.assignments,
+    #                             condition=ast_.And.flatten_and_join([elem.condition, other_elem.condition], ast_.ListOperator.AND),
+    #                         )
+    #                         condensed_elems.append(new_elem)
+    #                         reduced_elem = True
+    #                         break
+    #                 else:
+    #                     condensed_elems.append(elem)
+
+    #             if not reduced_elem:
+    #                 logger.debug(f"FAILED: no duplicate generators found in OR quantifier (bound variables are {ast.bound}, free are {ast.free})")
+    #                 return None
+
+    #             return
+    #                 ast_.Quantifier(
+    #                     ast_.ListOp(condensed_elems, ast_.ListOperator.OR),
+    #                     expression,
+    #                     op_type,
+    #                 ),
+    #                 ast._env,
+    #             )
+    #     return None
+
+
+class PredicateSimplificationDNFCollection(RewriteCollection):
+    def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
+        return [
+            self.simplify_equality,
+            self.simplify_and,
+            self.reduce_duplicate_generators,
+        ]
+
+    def simplify_equality(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.BinaryOp(
+                ast_.Identifier(_) as x,
+                ast_.Identifier(_) as y,
+                ast_.BinaryOperator.EQUAL,
+            ):
+                if x.name == y.name:
+                    return ast_.True_()
+        return None
+
+    def simplify_and(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.ListOp(elems, ast_.ListOperator.AND):
+                new_elems = []
+                for elem in elems:
+                    if isinstance(elem, ast_.True_):
+                        continue
+                    if isinstance(elem, ast_.False_):
+                        return ast_.False_()
+                    new_elems.append(elem)
+
+                if elems == new_elems:
+                    logger.debug("FAILED: no simplification applied to AND list operation (no clauses were removed)")
+                    return None
+
+                if not new_elems:
+                    return ast_.And([])
+
+                return ast_.ListOp.flatten_and_join(new_elems, ast_.ListOperator.AND)
         return None
 
     def reduce_duplicate_generators(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
@@ -416,23 +617,19 @@ class GeneratorSelectionCollection(RewriteCollection):
                 ast_.ListOp(elems, ast_.ListOperator.OR),
                 expression,
                 op_type,
-            ) if all(map(lambda x: isinstance(x, GeneratorSelectionAST), elems)):
+            ) if all(map(lambda x: isinstance(x, GeneratorSelection), elems)):
 
                 reduced_elem = False
                 condensed_elems: list[ast_.ASTNode] = []
                 for i in range(len(elems)):
                     elem = elems[i]
-                    assert isinstance(elem, GeneratorSelectionAST)
+                    assert isinstance(elem, GeneratorSelection)
                     for j in range(i + 1, len(elems)):
                         other_elem = elems[j]
-                        assert isinstance(other_elem, GeneratorSelectionAST)
+                        assert isinstance(other_elem, GeneratorSelection)
 
                         if elem.generator == other_elem.generator:
-                            new_elem = GeneratorSelectionAST(
-                                generator=elem.generator,
-                                assignments=elem.assignments + other_elem.assignments,
-                                condition=ast_.And.flatten_and_join([elem.condition, other_elem.condition], ast_.ListOperator.AND),
-                            )
+                            new_elem = elem.copy_and_concat_predicates(other_elem.predicates)
                             condensed_elems.append(new_elem)
                             reduced_elem = True
                             break
@@ -443,13 +640,10 @@ class GeneratorSelectionCollection(RewriteCollection):
                     logger.debug(f"FAILED: no duplicate generators found in OR quantifier (bound variables are {ast.bound}, free are {ast.free})")
                     return None
 
-                return analysis.add_environments_to_ast(
-                    ast_.Quantifier(
-                        ast_.ListOp(condensed_elems, ast_.ListOperator.OR),
-                        expression,
-                        op_type,
-                    ),
-                    ast._env,
+                return ast_.Quantifier(
+                    ast_.ListOp(condensed_elems, ast_.ListOperator.OR),
+                    expression,
+                    op_type,
                 )
         return None
 
@@ -487,7 +681,7 @@ class SetCodeGenerationCollection(RewriteCollection):
                     #     if key not in new_env.table:
                     #         new_env.put(key, value)
 
-                return analysis.add_environments_to_ast(ast_.Statements(new_statements), ast._env)
+                return ast_.Statements(new_statements)
         return None
 
     def quantifier_generation(
@@ -509,8 +703,8 @@ class SetCodeGenerationCollection(RewriteCollection):
                 if not isinstance(predicate, ast_.ListOp) or predicate.op_type != ast_.ListOperator.OR:
                     logger.debug(f"FAILED: predicate is not a ListOp with OR operator (got {predicate}). This should be in DNF")
                     return None
-                if not all(map(lambda x: isinstance(x, GeneratorSelectionAST), predicate.items)):
-                    logger.debug(f"FAILED: not all items in predicate are GeneratorSelectionASTs (got {predicate.items}). Elements of predicates should be GeneratorSelectionASTs")
+                if not all(map(lambda x: isinstance(x, GeneratorSelection), predicate.items)):
+                    logger.debug(f"FAILED: not all items in predicate are GeneratorSelections (got {predicate.items}). Elements of predicates should be GeneratorSelectionASTs")
                     return None
 
                 assert ast._env is not None, f"Environment should not be None (in quantifier_generation, ast {ast})"
@@ -524,17 +718,14 @@ class SetCodeGenerationCollection(RewriteCollection):
                         accumulator(accumulator_var, expression),
                     ),
                 )
-                return analysis.add_environments_to_ast(
-                    ast_.Statements(
-                        [
-                            ast_.Assignment(
-                                accumulator_var,
-                                identity,
-                            ),
-                            if_statement,
-                        ]
-                    ),
-                    ast._env,
+                return ast_.Statements(
+                    [
+                        ast_.Assignment(
+                            accumulator_var,
+                            identity,
+                        ),
+                        if_statement,
+                    ]
                 )
         return None
 
@@ -558,7 +749,7 @@ class SetCodeGenerationCollection(RewriteCollection):
 
                 # Every predicate should have a generator matching 1-1 from the GeneratorSelectionCollection
                 for i, predicate in enumerate(predicates):
-                    if not isinstance(predicate, GeneratorSelectionAST):
+                    if not isinstance(predicate, GeneratorSelection):
                         logger.debug(f"FAILED: predicate {predicate} is not a GeneratorSelectionAST but should be")
                         return None
 
@@ -572,7 +763,7 @@ class SetCodeGenerationCollection(RewriteCollection):
                         )
 
                     if_statement = ast_.If(
-                        predicate.with_new_conditions(past_predicate_inverse),
+                        predicate.copy_and_concat_predicates(past_predicate_inverse),
                         body,
                     )
                     # if_statement._rewrite_generators = [ast._rewrite_generators[i]]
@@ -580,18 +771,16 @@ class SetCodeGenerationCollection(RewriteCollection):
                     statements.append(if_statement)
                     past_predicates.append(predicate.flatten())
 
-                return analysis.add_environments_to_ast(
-                    ast_.Statements(
-                        statements,
-                    ),
-                    ast._env,
+                return ast_.Statements(
+                    statements,
                 )
+
         return None
 
     def conjunct_conditional(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
             case ast_.If(
-                GeneratorSelectionAST(generator, assignments, condition),
+                GeneratorSelection(generator, predicate),
                 body,
             ):
                 if not isinstance(generator, ast_.BinaryOp) or generator.op_type != ast_.BinaryOperator.IN or not isinstance(generator.left, ast_.Identifier):
@@ -600,7 +789,7 @@ class SetCodeGenerationCollection(RewriteCollection):
 
                 free_predicates = []
                 bound_predicates = []
-                for condition_item in condition.items:
+                for condition_item in predicate.items:
                     if condition_item.contains_item(generator.left):
                         bound_predicates.append(condition_item)
                         continue
@@ -629,10 +818,10 @@ class SetCodeGenerationCollection(RewriteCollection):
                         ]
                     )
 
-                if assignments:
-                    statement = ast_.Statements(
-                        assignments + [statement],
-                    )
+                # if assignments:
+                #     statement = ast_.Statements(
+                #         assignments + [statement],
+                #     )
 
                 statement = ast_.For(
                     ast_.IdentList([generator.left]),
@@ -649,10 +838,8 @@ class SetCodeGenerationCollection(RewriteCollection):
                         body=ast_.Statements([statement]),
                     )
 
-                return analysis.add_environments_to_ast(
-                    ast_.Statements([statement]),
-                    ast._env,
-                )
+                return ast_.Statements([statement])
+
         return None
 
 
@@ -661,6 +848,7 @@ SET_REWRITE_COLLECTION: list[type[RewriteCollection]] = [
     DisjunctiveNormalFormQuantifierPredicateCollection,
     PredicateSimplificationCollection,
     GeneratorSelectionCollection,
+    PredicateSimplificationDNFCollection,
     SetCodeGenerationCollection,
 ]
 
@@ -727,10 +915,8 @@ class RelationOperatorCollection(RewriteCollection):
                 )
                 set_comprehension._bound_identifiers = {maplet_left}
 
-                return analysis.add_environments_to_ast(
-                    set_comprehension,
-                    ast._env,
-                )
+                return set_comprehension
+
         return None
 
     def product(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
@@ -763,16 +949,12 @@ class RelationOperatorCollection(RewriteCollection):
                     logger.debug(f"FAILED: {maplet_right} appears as a generator variable but is not bound by a quantifier")
                     return None
 
-                return analysis.add_environments_to_ast(
-                    ast_.And(
-                        [
-                            ast_.In(maplet_left, left),
-                            ast_.In(maplet_right, right),
-                        ]
-                    ),
-                    ast._env,
+                return ast_.And(
+                    [
+                        ast_.In(maplet_left, left),
+                        ast_.In(maplet_right, right),
+                    ]
                 )
-
         return None
 
     def inverse(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
@@ -803,15 +985,12 @@ class RelationOperatorCollection(RewriteCollection):
                     logger.debug(f"FAILED: {maplet_right} appears as a generator variable but is not bound by a quantifier")
                     return None
 
-                return analysis.add_environments_to_ast(
-                    ast_.In(
-                        ast_.Maplet(
-                            maplet_right,
-                            maplet_left,
-                        ),
-                        inner,
+                return ast_.In(
+                    ast_.Maplet(
+                        maplet_right,
+                        maplet_left,
                     ),
-                    ast._env,
+                    inner,
                 )
         return None
 
@@ -822,15 +1001,12 @@ class RelationOperatorCollection(RewriteCollection):
                 right,
                 ast_.BinaryOperator.RELATION_OVERRIDING,
             ):
-                return analysis.add_environments_to_ast(
-                    ast_.Union(
-                        left,
-                        ast_.DomainSubtraction(
-                            ast_.Call(ast_.Identifier("dom"), [left]),
-                            right,
-                        ),
+                return ast_.Union(
+                    left,
+                    ast_.DomainSubtraction(
+                        ast_.Call(ast_.Identifier("dom"), [left]),
+                        right,
                     ),
-                    ast._env,
                 )
         return None
 
@@ -853,10 +1029,8 @@ class RelationOperatorCollection(RewriteCollection):
                     maplet.left,
                 )
 
-                return analysis.add_environments_to_ast(
-                    set_comprehension,
-                    ast._env,
-                )
+                return set_comprehension
+
         return None
 
     def range(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
@@ -878,10 +1052,7 @@ class RelationOperatorCollection(RewriteCollection):
                     maplet.right,
                 )
 
-                return analysis.add_environments_to_ast(
-                    set_comprehension,
-                    ast._env,
-                )
+                return set_comprehension
         return None
 
     def domain_restriction(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
@@ -903,17 +1074,14 @@ class RelationOperatorCollection(RewriteCollection):
                     ast_.Identifier(self._get_fresh_identifier_name()),
                 )
 
-                return analysis.add_environments_to_ast(
-                    ast_.RelationComprehension(
-                        ast_.And(
-                            [
-                                ast_.In(maplet, right),
-                                ast_.In(maplet.left, left),
-                            ],
-                        ),
-                        maplet,
+                return ast_.RelationComprehension(
+                    ast_.And(
+                        [
+                            ast_.In(maplet, right),
+                            ast_.In(maplet.left, left),
+                        ],
                     ),
-                    ast._env,
+                    maplet,
                 )
         return None
 
@@ -937,17 +1105,14 @@ class RelationOperatorCollection(RewriteCollection):
                     ast_.Identifier(self._get_fresh_identifier_name()),
                 )
 
-                return analysis.add_environments_to_ast(
-                    ast_.RelationComprehension(
-                        ast_.And(
-                            [
-                                ast_.In(maplet, right),
-                                ast_.NotIn(maplet.left, left),
-                            ],
-                        ),
-                        maplet,
+                return ast_.RelationComprehension(
+                    ast_.And(
+                        [
+                            ast_.In(maplet, right),
+                            ast_.NotIn(maplet.left, left),
+                        ],
                     ),
-                    ast._env,
+                    maplet,
                 )
         return None
 
@@ -970,17 +1135,14 @@ class RelationOperatorCollection(RewriteCollection):
                     ast_.Identifier(self._get_fresh_identifier_name()),
                 )
 
-                return analysis.add_environments_to_ast(
-                    ast_.RelationComprehension(
-                        ast_.And(
-                            [
-                                ast_.In(maplet, left),
-                                ast_.In(maplet.left, right),
-                            ],
-                        ),
-                        maplet,
+                return ast_.RelationComprehension(
+                    ast_.And(
+                        [
+                            ast_.In(maplet, left),
+                            ast_.In(maplet.left, right),
+                        ],
                     ),
-                    ast._env,
+                    maplet,
                 )
         return None
 
@@ -1003,17 +1165,14 @@ class RelationOperatorCollection(RewriteCollection):
                     ast_.Identifier(self._get_fresh_identifier_name()),
                 )
 
-                return analysis.add_environments_to_ast(
-                    ast_.RelationComprehension(
-                        ast_.And(
-                            [
-                                ast_.In(maplet, left),
-                                ast_.NotIn(maplet.left, right),
-                            ],
-                        ),
-                        maplet,
+                return ast_.RelationComprehension(
+                    ast_.And(
+                        [
+                            ast_.In(maplet, left),
+                            ast_.NotIn(maplet.left, right),
+                        ],
                     ),
-                    ast._env,
+                    maplet,
                 )
         return None
 

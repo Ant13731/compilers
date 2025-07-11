@@ -364,7 +364,8 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   \\
 \end{align}
 \end{minipage}
-\subsubsection{Phase 3.2: Generator Selection 2}
+
+\subsubsection{Phase 3.2: Generator Selection}
 
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
@@ -373,16 +374,43 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   % &\leadsto
   % E[x := e] \oplus \oplus(E \mid P)
   % \\
-  \tag{Generator Selection and Dummy Reassignment \footnote{The LH term must occur inside a quantifier's predicate - one match per or-clause. $P_g$ is the generator, a single clause distinguished from the rest of $\bigwedge P_i$.\\
-  Dummy Reassignment uses assignment to calculate expressions outside of the if-statement. For example, $\bSet{x}{x \in S \land z = f(x)}{z}$ indirectly binds $z$ (if $z$ is free), although $z$ does not appear in the quantifier list. This may be less efficient for simple cases than directly rewriting all occurrences of z to f(x), but additional conditions that make use of z would benefit from the intermediate calculation. $P_a$ is an ordered list of such assignments (drawn from $\bigwedge P_i$), so that additional layers of indirection may be accommodated. The expectation is that LLVM will filter out superfluous assignments, though we will test this assumption later.\\Right now, we just make a naive selection of generator (ie., the first viable option). Later, this will be more intelligent.}}
+  \tag{Generator Selection \footnote{The LH term must occur inside a quantifier's predicate - one generator per or-clause. $P_g$ is the generator, a single clause distinguished from the rest of $\bigwedge P_i$. $P_g$ must be a set membership operation, of the form $x \in S$.}}
   \bigwedge P_i
   &\leadsto
-  P_g \land \bigwedge P_a \land \bigwedge_{P_i \neq P_g, P_i \notin \bigcup P_a} P_i
+  P_g \land \bigwedge_{P_i \neq P_g} P_i
   \\
-  \tag{Simplified DNF Form \footnote{The LH term must occur inside a quantifier's predicate. Combines clauses with the same generator. Requires Generator Selection to be run first}}
-  (P_{g} \land \bigwedge P_a \land \bigwedge P_i) \lor (P_{g} \land \bigwedge Q_a \land \bigwedge Q_i)
+  \tag{Equality Separation \footnote{All $P_eq$ equalities must follow that one argument contains a single, free identifier not defined the the current scope/context of this quantifier. These equalities will be converted into substitutions.}}
+  P_g \land \bigwedge P_i
   &\leadsto
-  P_g \land ((\bigwedge P_a \land \bigwedge P_i) \lor (\bigwedge Q_a \land \bigwedge Q_i) )% TODO dont "factor
+  P_g \land \bigwedge P_{eq} \land \bigwedge_{P_i \neq P_g \land P_i \notin \bigcup P_{eq}} P_i
+  \\
+  \tag{Equality Substitution \footnote{The LHS of $P_{eq}$ must match the form of $Identifier(x) = e$}}
+  P_g \land \bigwedge P_{eq} \land \bigwedge P_i
+  &\leadsto
+  P_g \land \bigwedge P_i[P_{eq}.identifier := P_{eq}.e]
+  \\
+  % \tag{Generator Selection and Dummy Reassignment \footnote{The LH term must occur inside a quantifier's predicate - one match per or-clause. $P_g$ is the generator, a single clause distinguished from the rest of $\bigwedge P_i$.\\
+  % Dummy Reassignment uses assignment to calculate expressions outside of the if-statement. For example, $\bSet{x}{x \in S \land z = f(x)}{z}$ indirectly binds $z$ (if $z$ is free), although $z$ does not appear in the quantifier list. This may be less efficient for simple cases than directly rewriting all occurrences of z to f(x), but additional conditions that make use of z would benefit from the intermediate calculation. $P_a$ is an ordered list of such assignments (drawn from $\bigwedge P_i$), so that additional layers of indirection may be accommodated. The expectation is that LLVM will filter out superfluous assignments, though we will test this assumption later.\\Right now, we just make a naive selection of generator (ie., the first viable option). Later, this will be more intelligent.}}
+  % \bigwedge P_i
+  % &\leadsto
+  % P_g \land \bigwedge P_a \land \bigwedge_{P_i \neq P_g, P_i \notin \bigcup P_a} P_i
+  % \\
+  % \tag{Simplified DNF Form \footnote{The LH term must occur inside a quantifier's predicate. Combines clauses with the same generator. Requires Generator Selection to be run first}}
+  % (P_{g} \land \bigwedge P_a \land \bigwedge P_i) \lor (P_{g} \land \bigwedge Q_a \land \bigwedge Q_i)
+  % &\leadsto
+  % P_g \land ((\bigwedge P_a \land \bigwedge P_i) \lor (\bigwedge Q_a \land \bigwedge Q_i) )% TODO dont "factor
+\end{align}
+\end{minipage}
+
+\subsubsection{Phase 3.3: Predicate Simplification 2}
+
+\noindent\begin{minipage}{\linewidth}
+\begin{align}
+  \tag{Reduce duplicate generators \footnote{The LH term must occur inside a quantifier's predicate. Combines clauses with the same generator. Requires Generator Selection to be run first}}
+  (P_g \land \bigwedge P_i) \lor (P_g \land \bigwedge Q_i)
+  &\leadsto
+  P_g \land (\bigwedge P_i \lor \bigwedge Q_i)
+  \\
 \end{align}
 \end{minipage}
 
@@ -429,10 +457,10 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
 \end{minipage}
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
-  \tag{Conjunct conditional \footnote{Function $free$ returns clauses in $P$ that contain only free variables. $generator$ is a single clause representing the selected generator of $P$ (of form $x \in S$ where $x$ will be bound by this loop condition). $bound$ returns the clauses that contain the bound variable $x$.}}
+  \tag{Conjunct conditional \footnote{Function $free$ returns clauses in $P$ that contain only free + defined variables. $generator$ is a single clause representing the selected generator of $P$ (of form $x \in S$ where $x$ will be bound by this loop condition). $bound$ returns the clauses that contain the bound variable $x$.}}
   \begin{minipage}[]{0.4\textwidth}
   \begin{algorithmic}
-    \If{$P_g \land \bigwedge P_a \land \bigwedge P_i$}
+    \If{$P_g \land \bigwedge P_i$}
       \State body
     \EndIf
   \end{algorithmic}
@@ -442,7 +470,7 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   \begin{algorithmic}
     \If{$\bigwedge_{free(P_i)} P_i$}
       \For{$P_g$}
-        \State $P_as$ % TODO rewrite these to be more clear that they are assignments
+        % \State $P_as$ % TODO rewrite these to be more clear that they are assignments
         \If{$\bigwedge_{bound(P_i)} P_i$}
           \State body
         \EndIf
