@@ -500,11 +500,11 @@ class ListOp(InheritedEqMixin, ASTNode):
 
     @property
     def bound(self) -> set[Identifier]:
-        return set.union(*(item.bound for item in self.items))
+        return set().union(*(item.bound for item in self.items))
 
     @property
     def free(self) -> set[Identifier]:
-        return set.union(*(item.free for item in self.items))
+        return set().union(*(item.free for item in self.items))
 
     def well_formed(self) -> bool:
         if not all(item.well_formed() for item in self.items):
@@ -579,9 +579,10 @@ class Quantifier(ASTNode):
         super().__post_init__()
         self._bound_identifiers: set[Identifier] | None = None
 
-        # Every quantifier must have one generator per OR clause
-        # All OR clauses will be on the top level
-        self._selected_generators: list[BinaryOp] | None = None
+        # These identifiers are not intended to be iterated over, but may serve as an alternative to the explicitly bound identifier.
+        # For example, in membership collapse, we inherit the bound identifier from the hidden quantifier, but we do not want to
+        # treat it as a nested for-loop. Further, we cannot replace the outer identifier with the collapsed one, as it may be used elsewhere
+        # in the predicate/expression
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
@@ -695,11 +696,11 @@ class Enumeration(InheritedEqMixin, ASTNode):
 
     @property
     def bound(self) -> set[Identifier]:
-        return set.union(*(item.bound for item in self.items))
+        return set().union(*(item.bound for item in self.items))
 
     @property
     def free(self) -> set[Identifier]:
-        return set.union(*(item.free for item in self.items))
+        return set().union(*(item.free for item in self.items))
 
     def well_formed(self) -> bool:
         if not all(item.well_formed() for item in self.items):

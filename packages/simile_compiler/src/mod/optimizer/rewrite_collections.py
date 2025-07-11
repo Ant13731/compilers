@@ -132,9 +132,10 @@ class SetComprehensionConstructionCollection(RewriteCollection):
                     logger.debug(f"FAILED: {x} appears as a generator variable but is not bound by a quantifier")
                     return None
 
-                if inner_quantifier._bound_identifiers is not None:
-                    logger.debug(f"DEBUG: AST {ast.pretty_print_algorithmic()}")
-                    self.current_bound_identifiers[-1].update(inner_quantifier._bound_identifiers)
+                # Trying to leave inner pred bound vars as free
+                # if inner_quantifier._bound_identifiers is not None:
+                # logger.debug(f"DEBUG: AST {ast.pretty_print_algorithmic()}")
+                # self.current_hidden_bound_identifiers[-1].update(inner_quantifier._bound_identifiers)
 
                 return ast_.ListOp.flatten_and_join(
                     [
@@ -315,6 +316,10 @@ class GeneratorSelectionCollection(RewriteCollection):
                 expression,
                 op_type,
             ):
+                if ast._env is None:
+                    logger.debug(f"FAILED: no environment found in quantifier (cannot choose generators)")
+                    return None
+
                 if all(map(lambda x: isinstance(x, GeneratorSelection), elems)):
                     logger.debug(f"FAILED: all elements in OR quantifier are already GeneratorSelections, no need to select generators")
                     return None
@@ -326,7 +331,7 @@ class GeneratorSelectionCollection(RewriteCollection):
                         and elem.op_type == ast_.BinaryOperator.IN
                         and isinstance(elem.right.get_type, ast_.SetType)
                         and isinstance(elem.left, ast_.Identifier)
-                        and (not ast.bound or elem.left.name in ast.bound)
+                        and (not ast.bound or elem.left in ast.bound or ast._env.get(elem.left.name) is None)
                     ):
                         predicates.append(
                             GeneratorSelection(
@@ -350,14 +355,16 @@ class GeneratorSelectionCollection(RewriteCollection):
                             and item.op_type == ast_.BinaryOperator.IN
                             and isinstance(item.right.get_type, ast_.SetType)
                             and isinstance(item.left, ast_.Identifier)
-                            and (not ast.bound or item.left in ast.bound)
+                            and (not ast.bound or item.left in ast.bound or ast._env.get(item.left.name) is None)
                         ):
                             candidate_generators.append(item)
                         else:
                             other_predicates.append(item)
 
                     if not candidate_generators:
-                        logger.debug(f"FAILED: no candidate generators found in AND predicate (bound variables are {ast.bound}, free are {ast.free})")
+                        logger.debug(
+                            f"FAILED: no candidate generators found in AND predicate (bound variables are {ast.bound}, hidden bound variables are {ast._hidden_bound_identifiers}, free are {ast.free})"
+                        )
                         return None
 
                     selected_generator = candidate_generators[0]
@@ -581,12 +588,8 @@ class PredicateSimplificationDNFCollection(RewriteCollection):
 
     def simplify_equality(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
-            case ast_.BinaryOp(
-                ast_.Identifier(_) as x,
-                ast_.Identifier(_) as y,
-                ast_.BinaryOperator.EQUAL,
-            ):
-                if x.name == y.name:
+            case ast_.BinaryOp(x, y, ast_.BinaryOperator.EQUAL):
+                if x == y:
                     return ast_.True_()
         return None
 
@@ -621,17 +624,34 @@ class PredicateSimplificationDNFCollection(RewriteCollection):
 
                 reduced_elem = False
                 condensed_elems: list[ast_.ASTNode] = []
+                visited_elem_indices = []
                 for i in range(len(elems)):
+                    if i in visited_elem_indices:
+                        continue
+
                     elem = elems[i]
                     assert isinstance(elem, GeneratorSelection)
+
                     for j in range(i + 1, len(elems)):
                         other_elem = elems[j]
                         assert isinstance(other_elem, GeneratorSelection)
 
                         if elem.generator == other_elem.generator:
-                            new_elem = elem.copy_and_concat_predicates(other_elem.predicates)
+                            new_elem = GeneratorSelection(
+                                generator=elem.generator,
+                                predicates=ast_.And(
+                                    [
+                                        ast_.Or.flatten_and_join(
+                                            [elem.predicates, other_elem.predicates],
+                                            ast_.ListOperator.OR,
+                                        )
+                                    ]
+                                ),
+                            )
+                            # elem.copy_and_concat_predicates(other_elem.predicates)
                             condensed_elems.append(new_elem)
                             reduced_elem = True
+                            visited_elem_indices.append(j)
                             break
                     else:
                         condensed_elems.append(elem)

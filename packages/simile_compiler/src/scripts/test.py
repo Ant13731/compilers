@@ -51,6 +51,9 @@ from src.mod import RustCodeGenerator, CPPCodeGenerator
 
 # TEST_STR = "card({s · s in {1, 2} or s in {2, 3} | s})"
 TEST_STR = "card({1, 2} \\/ {2, 3})"
+# TEST_STR = "card({s · s in {1, 2} | s})"
+# TEST_STR = "{s,e · s in {1, 2} and e in {2, 3} | s |-> e}"
+TEST_STR = "{s · s in { x + 1 | x in {1, 2} or x in {4}} or s in { x + 2 | x in {2, 3}} | s}"
 # TEST_STR = "{1, 2} \\/ {2, 3}"
 # len({1, 2} - {2, 3})
 
@@ -64,7 +67,7 @@ ast = analysis.populate_ast_environments(ast)
 print("PARSED TEST_STR:", ast.pretty_print())
 print("PARSED TEST_STR:", ast.pretty_print_algorithmic())
 
-ast = collection_optimizer(ast, SET_REWRITE_COLLECTION)
+ast = collection_optimizer(ast, SET_REWRITE_COLLECTION[:-2])
 print("OPTIMIZED TEST_STR:", ast.pretty_print())
 # print("OPTIMIZED TEST_STR:", ast.pretty_print(print_env=True))
 print("OPTIMIZED TEST_STR:", ast.pretty_print_algorithmic())
@@ -74,7 +77,7 @@ ast = analysis.populate_ast_environments(ast)
 # print("OPTIMIZED TEST_STR:", ast.pretty_print(print_env=True))
 # print("OPTIMIZED TEST_STR:", ast.pretty_print_algorithmic())
 
-RustCodeGenerator(ast).build()
+# RustCodeGenerator(ast).build()
 
 
 # TEST_STR_TO_GET_AST = f"""

@@ -27,11 +27,9 @@ for e in {1, 2}:
         """
 c := 0
 for e in {1, 2}:
-    unused_var := e
     c := c + 1
 for e in {2, 3}:
-    unused_var := e
-    if e not in {1, 2}:
+    if not (e in {1, 2}):
         c := c + 1
 """,
     ),
@@ -48,11 +46,9 @@ for e in {1, 2}:
         """
 c := 0
 for e in {1, 2}:
-    unused_var := e
     c := c + 1
 for e in {2, 3}:
-    unused_var := e
-    if e not in {1, 2}:
+    if not(e in {1, 2}):
         c := c + 1
 """,
     ),
@@ -61,12 +57,10 @@ for e in {2, 3}:
         """
 c := 0
 for e in {1, 2}:
-    unused_var := e
     if e != 1:
         c := c + 1
 for e in {2, 3}:
-    unused_var := e
-    if not(e in {1, 2} and s != 1) and e == 3:
+    if e = 3 and not(e in {1, 2} and e != 1):
         c := c + 1
 """,
     ),
@@ -75,12 +69,10 @@ for e in {2, 3}:
         """
 c := 0
 for e in {1, 2}:
-    unused_var := e
     if e != 1 or e != 0:
         c := c + 1
 for e in {2, 3}:
-    unused_var := e
-    if not(e in {1, 2} and (e != 1 or e != 0)) and e == 3:
+    if e = 3 and not(e in {1, 2} and (e != 1 or e != 0)):
         c := c + 1
 """,
     ),
@@ -110,11 +102,9 @@ for e in {1, 2}:
         """
 c := 0
 for e in {1, 2}:
-    unused_var := e
     c := c + 1
 for e in {2, 3}:
-    unused_var := e
-    if e not in {1, 2}:
+    if not(e in {1, 2}):
         c := c + 1
 """,
     ),
@@ -130,11 +120,9 @@ for e in {1, 2}:
         """
 c := {}
 for e in {1, 2}:
-    unused_var := e
     c = insert(c, e)
 for e in {2, 3}:
-    unused_var := e
-    if e not in {1, 2}:
+    if not(e in {1, 2}):
         c = insert(c, e)
 """,
     ),
@@ -150,11 +138,9 @@ T := {1}
 
 c := {}
 for e in {1, 2}:
-    unused_var := e
     c = insert(c, e)
 for e in {2, 3}:
-    unused_var := e
-    if e not in {1, 2}:
+    if not(e in {1, 2}):
         c = insert(c, e)
 S := c
 """,
@@ -171,7 +157,6 @@ T := {1}
 
 c := {}
 for e in {1, 2}:
-    unused_var := e
     if e in {1}:
         c = insert(c, e)
 
@@ -332,7 +317,7 @@ class TestRewritingSets:
         analyzed_input = populate_ast_environments(parsed_input)
         actual = collection_optimizer(analyzed_input, SET_REWRITE_COLLECTION)
 
-        logger.debug(f"Actual: {actual.pretty_print_algorithmic()}")
+        logger.debug(f"Actual:\n{actual.pretty_print_algorithmic()}")
 
         assert structurally_equal(actual, parsed_expected_input)
 

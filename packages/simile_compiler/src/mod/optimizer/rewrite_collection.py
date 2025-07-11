@@ -93,6 +93,7 @@ class RewriteCollection:
             "_selected_generators",
             "_rewrite_generators",
             "_bound_by_quantifier_rewrite",
+            "_hidden_bound_identifiers",
         ]
         for field_name in copy_hidden_fields:
             if hasattr(ast, field_name) and hasattr(new_ast, field_name):
