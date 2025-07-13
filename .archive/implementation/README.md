@@ -1,5 +1,7 @@
 # Compiler for A Very High Level Language
 
+NOTE: Superseded by packages/simile_compiler
+
 Companion to the report in directed_readings/implementation_v2.
 
 # Language Progress Tracker
