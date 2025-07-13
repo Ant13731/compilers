@@ -283,6 +283,11 @@ Below is a list of rewrite rules for key abstract data types and some builtin fu
 Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
 \subsubsection{Phase 1: Set Comprehension Construction}
 
+\begin{description}
+  \item[Pre-condition:] None
+  \item[Post-condition:] All terms with a set-like type (relations, bags, sets, sequences, etc.) must be in comprehension form: $type(S) = set \implies Quantifier(\dots,S,\dots)$ for some quantifier in the AST.
+\end{description}
+
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
   \tag{Predicate Operations - Union}
@@ -313,6 +318,13 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
 \end{minipage}
 
 \subsubsection{Phase 2: Disjunctive Normal Form}
+
+\begin{description}
+  \item[Pre-condition:] All terms with a set-like type (relations, bags, sets, sequences, etc.) must be in comprehension form: $type(S) = set \implies Quantifier(\dots,S,\dots)$ for some quantifier in the AST.
+  \\Note: All matches of this phase must occur inside the predicate of a quantification operation (to prevent superfluous matches in other parts of the AST).
+  \item[Post-condition:] All predicates will be in disjunctive normal form - top level or-clauses with inner and-clauses. If no $\lor$ operators exist within the expression, the predicate must only contain $\land$ operators.
+\end{description}
+
 % https://en.wikipedia.org/wiki/Disjunctive_normal_form
 \noindent\begin{minipage}{\linewidth} % Need minipage for footnote
 \begin{align}
@@ -350,6 +362,13 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
 
 \subsubsection{Phase 3.1: Predicate Simplification 1}
 
+\begin{description}
+  \item[Pre-condition:] All predicates will be in disjunctive normal form - top level or-clauses with inner and-clauses. If no $\lor$ operators exist within the expression, the predicate must only contain $\land$ operators.
+  \item[Post-condition:] All predicates will be in disjunctive normal form with a guaranteed top-level $\lor$ structure, even if such a structure only contains one child.
+  \\
+  All quantification operations will bind exactly one dummy variable.
+\end{description}
+
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
   \tag{Nesting \footnote{$y$ cannot occur in $P$}}
@@ -361,11 +380,17 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   \bSet{x}{\bigwedge P_i}{E}
   &\leadsto
   \bSet{x}{\bigvee \bigwedge P_i}{E}
-  \\
 \end{align}
 \end{minipage}
 
 \subsubsection{Phase 3.2: Generator Selection}
+
+\begin{description}
+  \item[Pre-condition:] All predicates will be in disjunctive normal form with a guaranteed top-level $\lor$ structure, even if such a structure only contains one child.
+  \\
+  All quantification operations will bind exactly one dummy variable.
+  \item[Post-condition:] Each top-level or-clause within quantification predicates must have one selected `generator' predicate of the form $x \in S$ that loops over the bound dummy variable $x$.
+\end{description}
 
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
@@ -374,21 +399,20 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   % &\leadsto
   % E[x := e] \oplus \oplus(E \mid P)
   % \\
-  \tag{Generator Selection \footnote{The LH term must occur inside a quantifier's predicate - one generator per or-clause. $P_g$ is the generator, a single clause distinguished from the rest of $\bigwedge P_i$. $P_g$ must be a set membership operation, of the form $x \in S$.}}
+  \tag{Generator Selection \footnote{The LH term must occur inside a quantifier's predicate - one generator per or-clause. $P_g$ is the generator, a single clause distinguished from the rest of $\bigwedge P_i$. $P_g$ must be a set membership operation, of the form $x \in S$. Currently, the selection of $P_g$ is arbitrary (and thus the rewrite system is not confluent), but heurestics may be added later to choose optimal generators.}}
   \bigwedge P_i
   &\leadsto
   P_g \land \bigwedge_{P_i \neq P_g} P_i
   \\
-  \tag{Equality Separation \footnote{All $P_eq$ equalities must follow that one argument contains a single, free identifier not defined the the current scope/context of this quantifier. These equalities will be converted into substitutions.}}
+  \tag{Equality Separation \footnote{All $P_{eq}$ equalities must follow that one argument contains a single, free identifier not defined the the current scope/context of this quantifier. These equalities will be converted into substitutions.}}
   P_g \land \bigwedge P_i
   &\leadsto
-  P_g \land \bigwedge P_{eq} \land \bigwedge_{P_i \neq P_g \land P_i \notin \bigcup P_{eq}} P_i
+  P_g \land P_{eq} \land \bigwedge_{P_i \neq P_g \land P_i \neq P_{eq}} P_i
   \\
-  \tag{Equality Substitution \footnote{The LHS of $P_{eq}$ must match the form of $Identifier(x) = e$}}
-  P_g \land \bigwedge P_{eq} \land \bigwedge P_i
+  \tag{Equality Substitution \footnote{The structure of $P_{eq}$ on the LHS of the rewrite rule must match the form of $x = e$, where $x$ is an unbound identifier.}}
+  P_g \land P_{eq} \land \bigwedge P_i
   &\leadsto
-  P_g \land \bigwedge P_i[P_{eq}.identifier := P_{eq}.e]
-  \\
+  P_g \land \bigwedge P_i[P_{eq}.x := P_{eq}.e]
   % \tag{Generator Selection and Dummy Reassignment \footnote{The LH term must occur inside a quantifier's predicate - one match per or-clause. $P_g$ is the generator, a single clause distinguished from the rest of $\bigwedge P_i$.\\
   % Dummy Reassignment uses assignment to calculate expressions outside of the if-statement. For example, $\bSet{x}{x \in S \land z = f(x)}{z}$ indirectly binds $z$ (if $z$ is free), although $z$ does not appear in the quantifier list. This may be less efficient for simple cases than directly rewriting all occurrences of z to f(x), but additional conditions that make use of z would benefit from the intermediate calculation. $P_a$ is an ordered list of such assignments (drawn from $\bigwedge P_i$), so that additional layers of indirection may be accommodated. The expectation is that LLVM will filter out superfluous assignments, though we will test this assumption later.\\Right now, we just make a naive selection of generator (ie., the first viable option). Later, this will be more intelligent.}}
   % \bigwedge P_i
@@ -404,17 +428,26 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
 
 \subsubsection{Phase 3.3: Predicate Simplification 2}
 
+\begin{description}
+  \item[Pre-condition:] Each top-level or-clause within quantification predicates must have one selected `generator' predicate of the form $x \in S$ that loops over the bound dummy variable $x$.
+  \item[Post-condition:] A partially-normalized disjunctive form, where or-clauses can be factored by equal generators.
+\end{description}
+
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
-  \tag{Reduce duplicate generators \footnote{The LH term must occur inside a quantifier's predicate. Combines clauses with the same generator. Requires Generator Selection to be run first}}
+  \tag{Reduce duplicate generators \footnote{The LH term must occur inside a quantifier's predicate. Combines clauses with the same generator. Requires Generator Selection to be run first.\\We leave this optimization out for now, given difficulties with counterexample $\bSetT{s}{(x \in \{1, 2\} \land (s = x + 1 \lor s = x + 2)) \lor (x \in \{4\} \land s = x + 1)}$.}}
   (P_g \land \bigwedge P_i) \lor (P_g \land \bigwedge Q_i)
   &\leadsto
   P_g \land (\bigwedge P_i \lor \bigwedge Q_i)
-  \\
 \end{align}
 \end{minipage}
 
 \subsubsection{Phase 4: Set Code Generation}
+
+\begin{description}
+  \item[Pre-condition:] Each top-level or-clause within quantification predicates must have one selected `generator' predicate of the form $x \in S$ that loops over the bound dummy variable $x$. Predicates may be in partial or complete disjunctive normal form.
+  \item[Post-condition:] Executable algorithm made of simple expressions, assignments, if-statements, and for-loops. All quantification operators should be completely eliminated, and all variables must be defined.
+\end{description}
 
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
@@ -424,9 +457,9 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   \begin{minipage}[]{0.4\textwidth}
   \begin{algorithmic}
   \State $a := identity(\oplus)$
-    \If{$P$} % should we use the \in operator here, or just plaintext in?
+    \Loop\ $P$ % should we use the \in operator here, or just plaintext in?
         \State $a := accumulate(a, E)$
-    \EndIf
+    \EndLoop
   \end{algorithmic}
   \end{minipage}
 \end{align}
@@ -436,20 +469,20 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   \tag{Disjunct conditional}
   \begin{minipage}[]{0.4\textwidth}
   \begin{algorithmic}
-    \If{$\bigvee P_i$}
+    \Loop\ $\bigvee P_i$
       \State body
-    \EndIf
+    \EndLoop
   \end{algorithmic}
   \end{minipage}
   &\leadsto
   \begin{minipage}[]{0.4\textwidth}
   \begin{algorithmic}
-    \If{$P_0$}
+    \Loop\ $P_0$
       \State body
-    \EndIf
-    \If{$P_1 \land \lnot P_0$}
+    \EndLoop
+    \Loop\ $P_1 \land \lnot P_0$
       \State body
-    \EndIf
+    \EndLoop
     \State ...
   \end{algorithmic}
   \end{minipage}
@@ -460,9 +493,9 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   \tag{Conjunct conditional \footnote{Function $free$ returns clauses in $P$ that contain only free + defined variables. $generator$ is a single clause representing the selected generator of $P$ (of form $x \in S$ where $x$ will be bound by this loop condition). $bound$ returns the clauses that contain the bound variable $x$.}}
   \begin{minipage}[]{0.4\textwidth}
   \begin{algorithmic}
-    \If{$P_g \land \bigwedge P_i$}
+    \Loop\ $P_g \land \bigwedge P_i$
       \State body
-    \EndIf
+    \EndLoop
   \end{algorithmic}
   \end{minipage}
   &\leadsto
@@ -491,9 +524,9 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   &\leadsto
   \begin{minipage}[]{0.4\textwidth}
   \begin{algorithmic}
-    \If{$P$}
+    \Loop\ $P$
       \State $a := accumulator(a, E)$
-    \EndIf
+    \EndLoop
   \end{algorithmic}
   \end{minipage}
 \end{align}
@@ -673,13 +706,13 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   R \ovl Q &\rightarrow Q \cup (dom(Q) \domsub R)
   \\
   \cline{1-2}
-  \tag{Domain}
-  dom(R) &\rightarrow map(fst, R)
-  \\
-  \tag{Range}
-  ran(R) &\rightarrow map(snd, R)
-  \\
-  \cline{1-2}
+  % \tag{Domain}
+  % dom(R) &\rightarrow map(fst, R)
+  % \\
+  % \tag{Range}
+  % ran(R) &\rightarrow map(snd, R)
+  % \\
+  % \cline{1-2}
   \tag{Domain Restriction}
   S \triangleleft R &\rightarrow filter(fst \in S, R)
   \\

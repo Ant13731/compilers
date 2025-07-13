@@ -890,12 +890,19 @@ class RelationOperatorCollection(RewriteCollection):
         self.bound_quantifier_variables = bound_quantifier_variables_before
         return ast
 
+    def inside_quantifier(self, ast: ast_.ASTNode) -> bool:
+        if isinstance(ast, ast_.Quantifier):
+            return True
+        if self.bound_quantifier_variables:
+            return True
+        return False
+
     def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
         return [
             self.image,
             self.product,
             self.inverse,
-            # self.composition,
+            self.composition,
             self.override,
             self.domain_restriction,
             self.range_restriction,
@@ -1011,6 +1018,48 @@ class RelationOperatorCollection(RewriteCollection):
                         maplet_left,
                     ),
                     inner,
+                )
+        return None
+
+    def composition(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.BinaryOp(
+                ast_.BinaryOp(
+                    maplet_left,
+                    maplet_right,
+                    ast_.BinaryOperator.MAPLET,
+                ),
+                ast_.BinaryOp(
+                    left,
+                    right,
+                    ast_.BinaryOperator.COMPOSITION,
+                ),
+                ast_.BinaryOperator.IN,
+            ):
+                if not isinstance(left.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: left side of composition is not a set type: {left.get_type}")
+                    return None
+                if not isinstance(right.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: right side of composition is not a set type: {right.get_type}")
+                    return None
+
+                # Inside quantifier predicate check, similar to membership collapse
+                if maplet_left not in self.bound_quantifier_variables:
+                    logger.debug(f"FAILED: {maplet_left} appears as a generator variable but is not bound by a quantifier")
+                    return None
+                if maplet_right not in self.bound_quantifier_variables:
+                    logger.debug(f"FAILED: {maplet_right} appears as a generator variable but is not bound by a quantifier")
+                    return None
+
+                fresh_var_left = ast_.Identifier(self._get_fresh_identifier_name())
+                fresh_var_right = ast_.Identifier(self._get_fresh_identifier_name())
+
+                return ast_.And(
+                    [
+                        ast_.In(ast_.Maplet(maplet_left, fresh_var_left), left),
+                        ast_.In(ast_.Maplet(fresh_var_right, maplet_right), right),
+                        ast_.Equal(fresh_var_left, fresh_var_right),
+                    ]
                 )
         return None
 
