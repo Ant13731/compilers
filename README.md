@@ -1,4 +1,4 @@
-# Compilers
+# Simile Compiler (WIP)
 
 Welcome to the very high level language repo! The repository is organized as follows:
 
