@@ -108,10 +108,10 @@ The TRS for this language primarily involves lowering collection data type expre
 \paragraph{Granular Strategy (Sets)}
 % TODO take from report.tex, give supporting equations too (all the rules must be stable first)
 \begin{description}
-  \item[Phase 1: Set Comprehension Construction] Break down all qualifying sets into comprehension forms, collapsing and simplifying where needed.
-  \item[Phase 2: DNF Predicates] Revise comprehension predicates to top-level disjunctive normal form. Each or-clause should have at least one feasible generator. Each clause should record a list of candidate generators
-  \item[Phase 3: Predicate Simplification] Remove superfluous dummy variables, group or-clauses that use the exact same generator (ex. $\bSetT{x}{x \in S \land x \neq 0 \lor x \in S \land x = 0} \rightarrow \bSetT{x}{x \in S \land (x \neq 0 \lor x = 0)}$). Clauses should be group-able based on DNF, and generators should be selected and recorded.
-  \item[Phase 4: Set Code Generation] Converts quantifiers into for-loops and if-statements.
+  \item[Set Comprehension Construction] Break down all qualifying sets into comprehension forms, collapsing and simplifying where needed.
+  \item[DNF Predicates] Revise comprehension predicates to top-level disjunctive normal form. Each or-clause should have at least one feasible generator. Each clause should record a list of candidate generators
+  \item[Predicate Simplification] Remove superfluous dummy variables, group or-clauses that use the exact same generator (ex. $\bSetT{x}{x \in S \land x \neq 0 \lor x \in S \land x = 0} \rightarrow \bSetT{x}{x \in S \land (x \neq 0 \lor x = 0)}$). Clauses should be group-able based on DNF, and generators should be selected and recorded.
+  \item[Set Code Generation] Converts quantifiers into for-loops and if-statements.
 \end{description}
 
 \section{Supported Operations}
@@ -281,7 +281,7 @@ Below is a list of rewrite rules for key abstract data types and some builtin fu
 \subsection{Sets}
 
 Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
-\subsubsection{Phase 1: Set Comprehension Construction}
+\subsubsection{Set Comprehension Construction}
 
 \paragraph{Intuition} All set-like variables and literals are decomposed into set comprehensions.
 
@@ -321,9 +321,11 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
 \end{align}
 \end{minipage}
 
-\subsubsection{Phase 2: Disjunctive Normal Form}
+\subsubsection{Disjunctive Normal Form}
 
 \paragraph{Intuition} All quantifier predicates are expanded to DNF (i.e. $\land$-operations nested within top-level $\lor$-operations).
+
+\paragraph{Notes} All matches of this phase occur only inside quantifier predicates.
 
 \paragraph{Post-condition}
 \begin{itemize}
@@ -367,22 +369,21 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
 \end{align}
 \end{minipage}
 
-\subsubsection{Phase 3.1: Predicate Simplification 1}
+\subsubsection{Predicate Simplification 1}
 
 \paragraph{Intuition} Restructuring quantifications to better suit code generation (ex. Some comprehensions require nested loops to generate all elements).
 
-% TODO continue refining the post conditions based on the powerpoint/notes
+\paragraph{Post-condition}
+\begin{itemize}
+  \item All terms with a set-like type (relations, bags, sets, sequences, etc.) must be in comprehension form.
+  \item Quantifier predicates are in disjunctive normal form - top level or-clauses with inner and-clauses.
+  \item One bound variable per quantifier.
+\end{itemize}
 
-\begin{description}
-  \item[Pre-condition:] All predicates will be in disjunctive normal form - top level or-clauses with inner and-clauses. If no $\lor$ operators exist within the expression, the predicate must only contain $\land$ operators.
-  \item[Post-condition:] All predicates will be in disjunctive normal form with a guaranteed top-level $\lor$ structure, even if such a structure only contains one child.
-  \\
-  All quantification operations will bind exactly one dummy variable.
-\end{description}
 
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
-  \tag{Nesting \footnote{$y$ cannot occur in $P$}}
+  \tag{Nesting \footnote{$y$ cannot occur in $P$. Nesting selection is currently arbitrary; in the future we plan to find an optimal selection heuristic.}}
   \bSet{x,y}{P \land Q}{E}
   &\leadsto
   \bSet{x}{P}{\bSet{y}{Q}{E}}
@@ -394,14 +395,31 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
 \end{align}
 \end{minipage}
 
-\subsubsection{Phase 3.2: Generator Selection}
+\subsubsection{Generator Selection}
 
-\begin{description}
-  \item[Pre-condition:] All predicates will be in disjunctive normal form with a guaranteed top-level $\lor$ structure, even if such a structure only contains one child.
-  \\
-  All quantification operations will bind exactly one dummy variable.
-  \item[Post-condition:] Each top-level or-clause within quantification predicates must have one selected `generator' predicate of the form $x \in S$ that loops over the bound dummy variable $x$.
-\end{description}
+\paragraph{Intuition} Selecting element generators for use as iterables in generated for-loops.
+
+\paragraph{Notes} All matches of this phase occur only inside quantifier predicates.
+
+\paragraph{Post-condition}
+\begin{itemize}
+  \item All terms with a set-like type (relations, bags, sets, sequences, etc.) must be in comprehension form.
+  \item Quantifier predicates are in disjunctive normal form - top level or-clauses with inner and-clauses.
+  \item One bound variable per quantifier.
+  \item Each top-level or-clause within quantification predicates must have one selected `generator' predicate of the form $x \in S$ that loops over its bound dummy variable $x$.
+\end{itemize}
+
+\paragraph{Brainstorming selection heuristics}
+Conditions to consider:
+\begin{itemize}
+  \item Prefer relation chains in case of nested loops (ex. $x \mapsto y \in R \land y \mapsto z \in Q$, but what about renaming? - $x \mapsto y \in R \land y' \mapsto z \in Q \land y = y'$). Perhaps this could just be a preference for relations over sets if we see a nested quantifier.
+  \item Choose most common generator among a list of or-clauses (allows for greater simplification later on)
+  \item Choose smallest generator (by set size). This information may not always be accessible (ex. if a set is created by reading values from standard input). Functions may need to choose this on a case-by-case basis (ie. one function call could have two args, with a small set on the left arg and a large set on the right arg. But what if the sizes are reversed later in the code? We've already statically lowered it).
+  \item When should constant folding happen? Equality substitution necessary for this?
+  \item This may need to work with nesting considerations.
+  \item What if we try moving these optimizations to $loop$ structures far later in the pipeline?
+\end{itemize}
+
 
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
@@ -414,16 +432,16 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   \bigwedge P_i
   &\leadsto
   P_g \land \bigwedge_{P_i \neq P_g} P_i
-  \\
-  \tag{Equality Separation \footnote{All $P_{eq}$ equalities must follow that one argument contains a single, free identifier not defined the the current scope/context of this quantifier. These equalities will be converted into substitutions.}}
-  P_g \land \bigwedge P_i
-  &\leadsto
-  P_g \land P_{eq} \land \bigwedge_{P_i \neq P_g \land P_i \neq P_{eq}} P_i
-  \\
-  \tag{Equality Substitution \footnote{The structure of $P_{eq}$ on the LHS of the rewrite rule must match the form of $x = e$, where $x$ is an unbound identifier.}}
-  P_g \land P_{eq} \land \bigwedge P_i
-  &\leadsto
-  P_g \land \bigwedge P_i[P_{eq}.x := P_{eq}.e]
+  % \\
+  % \tag{Equality Separation \footnote{All $P_{eq}$ equalities must follow that one argument contains a single, free identifier not defined the the current scope/context of this quantifier. These equalities will be converted into substitutions.}}
+  % P_g \land \bigwedge P_i
+  % &\leadsto
+  % P_g \land P_{eq} \land \bigwedge_{P_i \neq P_g \land P_i \neq P_{eq}} P_i
+  % \\
+  % \tag{Equality Substitution \footnote{The structure of $P_{eq}$ on the LHS of the rewrite rule must match the form of $x = e$, where $x$ is an unbound identifier.}}
+  % P_g \land P_{eq} \land \bigwedge P_i
+  % &\leadsto
+  % P_g \land \bigwedge P_i[P_{eq}.x := P_{eq}.e]
   % \tag{Generator Selection and Dummy Reassignment \footnote{The LH term must occur inside a quantifier's predicate - one match per or-clause. $P_g$ is the generator, a single clause distinguished from the rest of $\bigwedge P_i$.\\
   % Dummy Reassignment uses assignment to calculate expressions outside of the if-statement. For example, $\bSet{x}{x \in S \land z = f(x)}{z}$ indirectly binds $z$ (if $z$ is free), although $z$ does not appear in the quantifier list. This may be less efficient for simple cases than directly rewriting all occurrences of z to f(x), but additional conditions that make use of z would benefit from the intermediate calculation. $P_a$ is an ordered list of such assignments (drawn from $\bigwedge P_i$), so that additional layers of indirection may be accommodated. The expectation is that LLVM will filter out superfluous assignments, though we will test this assumption later.\\Right now, we just make a naive selection of generator (ie., the first viable option). Later, this will be more intelligent.}}
   % \bigwedge P_i
@@ -437,39 +455,87 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
 \end{align}
 \end{minipage}
 
-\subsubsection{Phase 3.3: Predicate Simplification 2}
+\subsubsection{Predicate Simplification 2}
 
-\begin{description}
-  \item[Pre-condition:] Each top-level or-clause within quantification predicates must have one selected `generator' predicate of the form $x \in S$ that loops over the bound dummy variable $x$.
-  \item[Post-condition:] A partially-normalized disjunctive form, where or-clauses can be factored by equal generators.
-\end{description}
+\paragraph{Intuition} Group up similar or-separated clauses sharing the same generator (factoring that generator).
+
+\paragraph{Post-condition}
+\begin{itemize}
+  \item All terms with a set-like type (relations, bags, sets, sequences, etc.) must be in comprehension form.
+  \item Quantifier predicates are in disjunctive partially-normal form - top level or-clauses with inner and-clauses. Generator predicates can "factor" one or more or-clauses. The expected predicate shape is either $\lor(P_g \land (\lor P_i))$ or $\lor(P_g \land P_i)$.
+  \item One bound variable per quantifier.
+  \item Each top-level or-clause within quantification predicates must have one selected `generator' predicate of the form $x \in S$ that loops over its bound dummy variable $x$.
+\end{itemize}
 
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
   \tag{Reduce duplicate generators \footnote{The LH term must occur inside a quantifier's predicate. Combines clauses with the same generator. Requires Generator Selection to be run first.\\We leave this optimization out for now, given difficulties with counterexample $\bSetT{s}{(x \in \{1, 2\} \land (s = x + 1 \lor s = x + 2)) \lor (x \in \{4\} \land s = x + 1)}$.}}
-  (P_g \land \bigwedge P_i) \lor (P_g \land \bigwedge Q_i)
+  (P_g \land \bigwedge P_i) \lor (P_g \land \bigwedge  Q_i)
   &\leadsto
   P_g \land (\bigwedge P_i \lor \bigwedge Q_i)
 \end{align}
 \end{minipage}
 
-\subsubsection{Phase 4: Set Code Generation}
+\subsubsection{Predicate Simplification 3}
 
-\begin{description}
-  \item[Pre-condition:] Each top-level or-clause within quantification predicates must have one selected `generator' predicate of the form $x \in S$ that loops over the bound dummy variable $x$. Predicates may be in partial or complete disjunctive normal form.
-  \item[Post-condition:] Executable algorithm made of simple expressions, assignments, if-statements, and for-loops. All quantification operators should be completely eliminated, and all variables must be defined.
-\end{description}
+\paragraph{Intuition} Adds extra nested or-structures to ensure consistency within each top-level or-clause.
+
+\paragraph{Post-condition}
+\begin{itemize}
+  \item All terms with a set-like type (relations, bags, sets, sequences, etc.) must be in comprehension form.
+  \item Quantifier predicates are in disjunctive partially-normal form - top level or-clauses with inner and-clauses. Generator predicates can "factor" one or more or-clauses. The expected predicate shape is $\lor(P_g \land (\lor P_i))$.
+  \item One bound variable per quantifier.
+  \item Each top-level or-clause within quantification predicates must have one selected `generator' predicate of the form $x \in S$ that loops over its bound dummy variable $x$.
+\end{itemize}
+
+\noindent\begin{minipage}{\linewidth}
+\begin{align}
+  \tag{Partially-normalized Disjunctive Form}
+  P_g \land \bigwedge P_i
+  &\leadsto
+  P_g \land (\bigvee \bigwedge P_i)
+\end{align}
+\end{minipage}
+
+\subsubsection{Code Generation 1}
+
+\paragraph{Intuition} Start lowering expressions into imperative-like loops.
+
+\paragraph{Post-condition}
+\begin{itemize}
+  \item All quantifiers are transformed into $loop$ structures.
+  \item $loop$ predicates are of the form $x \in S \land P \land \bigvee Q$
+  \item All $loop$ predicates have an assigned generator of the form $x \in S$.
+\end{itemize}
 
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
   \tag{Quantifier Generation \footnote{$\oplus$ works for any quantifier (but not $\forall$ and $\exists$). The identity and accumulate functions are determined by the realized $\oplus$. For example, if $\oplus = \sum$, the identity is 0 and accumulate is addition.}}
-  \oplus E \mid P % TODO add side condition that P contains the dummy variables/ generators. Give pre and post conditions for each phase based on the internal structure of variables (ex. P at this point should be that form of the AND-triple)
+  \oplus E \mid P
   &\leadsto
   \begin{minipage}[]{0.4\textwidth}
   \begin{algorithmic}
   \State $a := identity(\oplus)$
-    \Loop\ $P$ % should we use the \in operator here, or just plaintext in?
+    \Loop\ $P:$ % should we use the \in operator here, or just plaintext in?
         \State $a := accumulate(a, E)$
+    \EndLoop
+  \end{algorithmic}
+  \end{minipage}
+\end{align}
+\end{minipage}
+\noindent\begin{minipage}{\linewidth}
+\begin{align}
+  \tag{Nested Quantifier}
+  \begin{minipage}[]{0.5\textwidth}
+  \begin{algorithmic}
+    \State $a := accumulator(a, \oplus(E \mid P))$
+  \end{algorithmic}
+  \end{minipage}
+  &\leadsto
+  \begin{minipage}[]{0.4\textwidth}
+  \begin{algorithmic}
+    \Loop\ $P:$
+      \State $a := accumulator(a, E)$
     \EndLoop
   \end{algorithmic}
   \end{minipage}
@@ -488,10 +554,13 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   &\leadsto
   \begin{minipage}[]{0.4\textwidth}
   \begin{algorithmic}
-    \Loop\ $P_0$
+    \Loop\ $P_0:$
       \State body
     \EndLoop
-    \Loop\ $P_1 \land \lnot P_0$
+    \Loop\ $P_1 \land \lnot P_0:$
+      \State body
+    \EndLoop
+    \Loop\ $P_2 \land \lnot (\bigvee_{i < 2} P_i):$
       \State body
     \EndLoop
     \State ...
@@ -499,24 +568,45 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   \end{minipage}
 \end{align}
 \end{minipage}
+
+\subsubsection{Code Generation 2}
+
+\paragraph{Intuition} Eliminate all intermediate loop structures.
+
+\paragraph{Post-condition}
+\begin{itemize}
+  \item AST is in imperative code style (for loops, if statements, etc).
+  \item All $loop$ and quantification constructs have been eliminated.
+  \item Some variables may not be defined.
+\end{itemize}
+
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
-  \tag{Conjunct conditional \footnote{Function $free$ returns clauses in $P$ that contain only free + defined variables. $generator$ is a single clause representing the selected generator of $P$ (of form $x \in S$ where $x$ will be bound by this loop condition). $bound$ returns the clauses that contain the bound variable $x$.}}
+  \tag{Conjunct conditional \footnote{Function $free$ returns clauses in $P$ that contain only free + defined variables. $bound$ returns the clauses that contain the bound variable $x$ or undefined variables. $P_g$ is the selected generator.}}
   \begin{minipage}[]{0.4\textwidth}
   \begin{algorithmic}
-    \Loop\ $P_g \land \bigwedge P_i$
+    \Loop\ $P_g \land P \land \bigwedge Q_i$
       \State body
     \EndLoop
   \end{algorithmic}
   \end{minipage}
   &\leadsto
-  \begin{minipage}[]{0.4\textwidth}
+  \begin{minipage}[]{0.5\textwidth}
   \begin{algorithmic}
     \If{$\bigwedge_{free(P_i)} P_i$}
       \For{$P_g$}
         % \State $P_as$ % TODO rewrite these to be more clear that they are assignments
         \If{$\bigwedge_{bound(P_i)} P_i$}
-          \State body
+          \If{$Q_0$}
+            \State body
+          \EndIf
+          \If{$Q_1 \land \lnot Q_0$}
+            \State body
+          \EndIf
+          \If{$Q_2 \land \lnot (\bigvee_{i < 2} Q_i)$}
+            \State body
+          \EndIf
+          \State ...
         \EndIf
       \EndFor
     \EndIf
@@ -524,180 +614,10 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   \end{minipage}
 \end{align}
 \end{minipage}
-\noindent\begin{minipage}{\linewidth}
-\begin{align}
-  \tag{Accumulating Quantifier}
-  \begin{minipage}[]{0.5\textwidth}
-  \begin{algorithmic}
-    \State $a := accumulator(a, \oplus(E \mid P))$
-  \end{algorithmic}
-  \end{minipage}
-  &\leadsto
-  \begin{minipage}[]{0.4\textwidth}
-  \begin{algorithmic}
-    \Loop\ $P$
-      \State $a := accumulator(a, E)$
-    \EndLoop
-  \end{algorithmic}
-  \end{minipage}
-\end{align}
-\end{minipage}
 
-% \subsubsection{Old Rewrite System}
 
-% % Template code rule:
-% % \begin{minipage}[]{.45\textwidth}
-% % \end{minipage}
-% \begin{align}
-%   \tag{Set Construction}
-%   S &\rightarrow \bSetT{x}{x \in S}
-%   \\
-%   \tag{Singleton Membership}
-%   x \in {e} &\rightarrow x = e
-%   \\
-%   \tag{Membership Collapse}
-%   f(x) \cdot x \in \bSet{g(y)}{y \in S}{P} &\rightarrow f(g(y)) \cdot y \in S \mid P
-%   \\
-%   \tag{Predicate Promotion}
-%   x \cdot x \in S \land p(x) &\rightarrow x \cdot x \in S \mid p(x)
-%   \\
-%   \cline{1-2}
-%   \tag{Union}
-%   x \in S \cup T &\rightarrow x \in S \lor x \in T
-%   \\
-%   \tag{Intersection}
-%   x \in S \cap T &\rightarrow x \in S \land x \in T
-%   \\
-%   \tag{Difference}
-%   x \in S \setminus T &\rightarrow x \in S \land x \notin T
-%   \\
-%   \tag{Cardinality}
-%   card(S) &\rightarrow \sum x \in S \cdot 1
-%   \\
-%   \cline{1-2}
-%   \tag{Predicate Operations}
-%   filter(p, S) \oplus filter(q, T) &\rightarrow \bSetT{x}{(x \in S \land p(x)) \oplus_{bool} (x \in T \land q(y))}
-%   % \\
-%   % \tag{Single Operator Mapping}
-%   % map(f, S) \oplus T &\rightarrow \bSetT{f(x)}{x \in S \oplus_{bool} f(x) \in T}
-%   \\
-%   \tag{Filter Over Operators}
-%   filter(p, S) \oplus filter(p, T) &\rightarrow filter(p, S \oplus T)
-%   \\
-%   \tag{Mapping Operations}
-%   map(f, S) \oplus map(g, T) &\rightarrow \bSetT{z}{(x \in S \land f(x) = z) \oplus_{bool} (x \in T \land g(y) = z)}
-%   \\
-%   \tag{Mapping Over Operators}
-%   map(f, S) \oplus map(f, T) &\rightarrow map(f, S \oplus T)
-%   \\
-%   \tag{Map}
-%   map(f, S)  &\rightarrow \bSetT{f(x)}{x \in S}
-%   \\
-%   \tag{Filter}
-%   filter(p, S)  &\rightarrow \bSet{x}{x \in S}{p(x)}
-%   \\
-%   \cline{1-2}
-%   \tag{Union Subset Simplification}
-%   S \cup T \text{ where } S \subseteq T &\rightarrow T
-%   \\
-%   \tag{Intersection Subset Simplification}
-%   S \cap T \text{ where } S \subseteq T &\rightarrow S
-%   \\
-%   \tag{Difference Subset Simplification}
-%   S \setminus T \text{ where } S \subseteq T &\rightarrow \emptyset
-%   \\
-%   \tag{Predicate Union with Subset}
-%   filter(p, S) \cup filter(q, T) \text{ where } S \subseteq T &\rightarrow filter(p \lor q, T)
-%   \\
-%   \tag{Predicate Intersection with Subset}
-%   filter(p, S) \cap filter(q, T) \text{ where } S \subseteq T &\rightarrow filter(p \land q, S)
-%   \\
-%   \cline{1-2}
-%   \tag{Set generation}
-%   \bSet{E}{x \in S}{P}
-%   &\rightarrow
-%   \begin{minipage}[]{0.4\textwidth}
-%   \begin{algorithmic}
-%   \State $ret := \emptyset$
-%   \For{$x \in S$}
-%       \If{$P$} % should we use the \in operator here, or just plaintext in?
-%           ret.append(E)
-%       \EndIf
-%   \EndFor
-%   \end{algorithmic}
-%   \end{minipage}
-%   \\
-%   \tag{Summation}
-%   \sum x \in S \mid P \cdot E
-%   &\rightarrow
-%   \begin{minipage}[]{0.4\textwidth}
-%   \begin{algorithmic}
-%   \State $c := 0$
-%   \For{$x \in S$}
-%       \If{$P$} % should we use the \in operator here, or just plaintext in?
-%           $c := c + E$
-%       \EndIf
-%   \EndFor
-%   \end{algorithmic}
-%   \end{minipage}
-%   \\
-%   \tag{Composed conditional}
-%   \begin{minipage}[]{0.33\textwidth}
-%   \begin{algorithmic}
-%       \If{$P \land x \in S \land Q$}
-%           $p$
-%       \EndIf
-%   \end{algorithmic}
-%   where $x$ not free in $P$
-%   \end{minipage}
-%   & \rightarrow
-%   \begin{minipage}[]{0.27\textwidth}
-%   \begin{algorithmic}
-%   \If{$P$}
-%       \For{$x \in S$}
-%           \If{$Q$}
-%               $p$
-%           \EndIf
-%       \EndFor
-%   \EndIf
-%   \end{algorithmic}
-%   \end{minipage}
-%   \\
-%   \tag{Conjunct conditional}
-%   \begin{minipage}[]{0.4\textwidth}
-%   \begin{algorithmic}
-%       \If{$P \land ((x \in S \land V) \lor W) \land Q$}
-%           $p$
-%       \EndIf
-%   \end{algorithmic}
-%   where $x$ not free in $P$
-%   \end{minipage}
-%   & \rightarrow
-%   \begin{minipage}[]{0.4\textwidth}
-%   \begin{algorithmic}
-%   \If{$P$}
-%       \For{$x \in S$}
-%           \If{$V \land Q$}
-%               $p$
-%           \EndIf
-%       \EndFor
-%       \If{$W \land Q$}
-%         $p$
-%       \EndIf
-%   \EndIf
-%   \end{algorithmic}
-%   \end{minipage}
-% \end{align}
 
-% Additional notes and extended context:
-% \begin{description}
-%   \item[General] When the intention is clear, operands are written in a concise variable form instead of constructor notation, although the implementation should assume that variables are fully expanded by the (Set Construction) phase. The functions $map$ and $filter$ correspond to applying a function to all elements of a set and adding a predicate to the set respectively, so $map(f,S) = \bSetT{f(x)}{x \in S}$ and $filter(p, S) = \bSet{x}{x \in S}{p(x)}$.
-%   \item[Membership Collapse] Assumes context of the initial term results in a valid expression. For example, this rewrite would be reasonable within a quantification statement or set construction. The intention of this rule is to simplify nested set constructions and should only be used after the (Set Construction) phase.
-%   \item[Predicate Promotion] If a predicate within set construction cannot be considered as a loop iterator, it is promoted to a purely conditional role. The meaning of the before and after term does not necessarily change, but it clarifies the difference between candidate generators and regular predicates.
-%   \item[Operations involving $\oplus$] The operator $\oplus$ represents any union, intersection, or difference operation, with $\oplus_{bool}$ representing the corresponding construction operation.
-%   \item[Summation] The summation operation may be replaced with any reduction/folding operation, provided the correct low-level operation. More specific forms may be needed to consider non-associative operations.
-%   \item[Composed Conditional] $x$ not free in $P$ means $x$ must already be bound. More clearly, no candidate generator variables that have not been defined should occur in $P$. We differentiate $P$ from $Q$ so that if-statements may leave behind predicates that are not needed in the nested loop. In the case of top-level AND-separated generators that bind to the same variable, the larger generator should be promoted to a conditional.
-% \end{description}
+
 
 \subsection{Relations}
   \begin{align}
@@ -712,6 +632,9 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   \\
   \tag{Composition}
   x \mapsto y \in (Q \circ R) &\rightarrow x \mapsto z \in Q \land z' \mapsto y \in R \land z=z'
+  \\
+  \tag{Exists Elimination}
+  \exists z \cdot x \mapsto z \in Q \land z \mapsto y \in R &\rightarrow x \mapsto z \in Q \land z' \mapsto y \in R \land z=z'
   \\
   \tag{Override}
   R \ovl Q &\rightarrow Q \cup (dom(Q) \domsub R)
