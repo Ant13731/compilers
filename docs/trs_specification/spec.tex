@@ -257,7 +257,7 @@ The TRS for this language primarily involves lowering collection data type expre
 \end{table}
 
 \section{Rules}
-Below is a list of rewrite rules for key abstract data types and some builtin functions.
+Below is a list of rewrite rules for key abstract data types and some builtin functions. Phases are intended to be executed in order; the post-condition of one phase serves as the pre-condition for the next.
 \subsection{Builtin Functions}
 
 \noindent\begin{minipage}{\linewidth}
@@ -283,10 +283,13 @@ Below is a list of rewrite rules for key abstract data types and some builtin fu
 Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
 \subsubsection{Phase 1: Set Comprehension Construction}
 
-\begin{description}
-  \item[Pre-condition:] None
-  \item[Post-condition:] All terms with a set-like type (relations, bags, sets, sequences, etc.) must be in comprehension form: $type(S) = set \implies Quantifier(\dots,S,\dots)$ for some quantifier in the AST.
-\end{description}
+\paragraph{Intuition} All set-like variables and literals are decomposed into set comprehensions.
+
+\paragraph{Post-condition}
+\begin{itemize}
+  \item All terms with a set-like type (relations, bags, sets, sequences, etc.) must be in comprehension form.
+\end{itemize}
+
 
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
@@ -310,7 +313,8 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   &\leadsto
   x = e
   \\
-  \tag{Membership Collapse \footnote{Rule only matches inside the predicate of a quantifier. Explicitly enumerating all matches for all quantuantification types and predicate cases (ANDs, ORs, etc.) would require too much boilerplate. $x$ must be bound by the encasing quantifier.}}
+  \tag{Membership Collapse \footnote{Rule only matches inside the predicate of a quantifier. Explicitly enumerating all matches for all quantuantification types and predicate cases (ANDs, ORs, etc.) would require too much boilerplate. $x$ must be bound by the encasing quantifier.\\
+  The $\oplus$ operator represents any quantifier that returns a set-like type (ex. generalized union/intersection, set comprehension, relation comprehension).}}
   x \in \oplus(E \mid P)
   &\leadsto
   P \land x = E
@@ -319,24 +323,27 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
 
 \subsubsection{Phase 2: Disjunctive Normal Form}
 
-\begin{description}
-  \item[Pre-condition:] All terms with a set-like type (relations, bags, sets, sequences, etc.) must be in comprehension form: $type(S) = set \implies Quantifier(\dots,S,\dots)$ for some quantifier in the AST.
-  \\Note: All matches of this phase must occur inside the predicate of a quantification operation (to prevent superfluous matches in other parts of the AST).
-  \item[Post-condition:] All predicates will be in disjunctive normal form - top level or-clauses with inner and-clauses. If no $\lor$ operators exist within the expression, the predicate must only contain $\land$ operators.
-\end{description}
+\paragraph{Intuition} All quantifier predicates are expanded to DNF (i.e. $\land$-operations nested within top-level $\lor$-operations).
+
+\paragraph{Post-condition}
+\begin{itemize}
+  \item All terms with a set-like type (relations, bags, sets, sequences, etc.) must be in comprehension form.
+  \item Quantifier predicates are in disjunctive normal form - top level or-clauses with inner and-clauses.
+  \item If no $\lor$ operators exist within a quantifier predicate, the predicate must only contain $\land$ operators.
+\end{itemize}
 
 % https://en.wikipedia.org/wiki/Disjunctive_normal_form
 \noindent\begin{minipage}{\linewidth} % Need minipage for footnote
 \begin{align}
-  \tag{Flatten Nested Ands}
-  a \land ... \land (b \land c) \land ...
+  \tag{Flatten Nested $\land$}
+  x_1 \land ... \land (x_i \land x_{i+1}) \land ...
   &\leadsto
-  a \land ... \land b \land c \land ...
+  x_1 \land ... \land x_i \land x_{i+1} \land ...
   \\
-  \tag{Flatten Nested Ors}
-  a \lor ... \lor (b \lor c) \lor ...
+  \tag{Flatten Nested $\lor$}
+  x_1 \lor ... \lor (x_i \lor x_{i+1}) \lor ...
   &\leadsto
-  a \lor ... \lor b \lor c \lor ...
+  x_1 \lor ... \lor x_i \lor x_{i+1} \lor ...
   \\
   \tag{Double Negation}
   \lnot \lnot x
@@ -353,7 +360,7 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   &\leadsto
   \lnot x \lor \lnot y
   \\
-  \tag{Distribute Ands}
+  \tag{Distribute $\land$ over $\lor$}
   x \land (y \lor z)
   &\leadsto
   (x \land y) \lor (x \land z)
@@ -361,6 +368,10 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
 \end{minipage}
 
 \subsubsection{Phase 3.1: Predicate Simplification 1}
+
+\paragraph{Intuition} Restructuring quantifications to better suit code generation (ex. Some comprehensions require nested loops to generate all elements).
+
+% TODO continue refining the post conditions based on the powerpoint/notes
 
 \begin{description}
   \item[Pre-condition:] All predicates will be in disjunctive normal form - top level or-clauses with inner and-clauses. If no $\lor$ operators exist within the expression, the predicate must only contain $\land$ operators.
