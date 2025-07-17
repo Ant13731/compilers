@@ -616,6 +616,36 @@ Conditions to consider:
 \end{minipage}
 
 
+\subsubsection{Equality Elimination}
+
+\paragraph{Intuition} Eliminate all undefined variables (with implicit $\exists$ quantifiers).
+
+\paragraph{Post-condition}
+\begin{itemize}
+  \item AST is in imperative code style (for loops, if statements, etc).
+  \item All variables are defined.
+\end{itemize}
+
+\noindent\begin{minipage}{\linewidth}
+\begin{align}
+  \tag{Equality Elimination \footnote{$x$ is an undefined, unbound variable in the current scope. $E$ is an expression that does not contain $x$}}
+  \begin{minipage}[]{0.5\textwidth}
+  \begin{algorithmic}
+    \If{$Identifier(x) = E \land P$}
+      \State body
+    \EndIf
+  \end{algorithmic}
+  \end{minipage}
+  &\leadsto
+  \begin{minipage}[]{0.4\textwidth}
+  \begin{algorithmic}
+    \If{$P[x := E]$}
+      \State body[x := E]
+    \EndIf
+  \end{algorithmic}
+  \end{minipage}
+\end{align}
+\end{minipage}
 
 
 
