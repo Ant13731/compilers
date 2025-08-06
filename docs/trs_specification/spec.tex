@@ -343,7 +343,15 @@ Range One-to-manyness:
 
 
 \section{Rules}
-Below is a list of rewrite rules for key abstract data types and some builtin functions. Phases are intended to be executed in order; the post-condition of one phase serves as the pre-condition for the next.
+Below is a list of rewrite rules for key abstract data types, syntactic sugar, and some builtin functions. Phases are intended to be executed in order; the post-condition of one phase serves as the pre-condition for the next.
+
+\subsection{Syntactic Sugar - Bag Image}
+\begin{align}
+  \tag{Bag Image}
+  R[B]
+  &\leadsto
+  R^{-1} \circ B
+\end{align}
 \subsection{Builtin Functions}
 
 \noindent\begin{minipage}{\linewidth}
