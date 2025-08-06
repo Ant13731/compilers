@@ -1,5 +1,5 @@
 from src.mod.optimizer.intermediate_ast import (
-    GeneratorSelectionAST,
+    GeneratorSelection,
 )
 from src.mod.optimizer.optimizer import (
     collection_optimizer,
