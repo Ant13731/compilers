@@ -256,6 +256,92 @@ The TRS for this language primarily involves lowering collection data type expre
     \label{tab:relOps}
 \end{table}
 
+\section{Relational Subtypes}
+The notion of a relation is a broad classification of a set of pairs, where the domain, range, and relationship are not bound by any conditions. However, when generating code based on purely mathematical relations, it can be advantageous to use notions of totality, injectivity, surjectivity, etc. In particular, these named relational subtypes can be described with four properties: total on the domain, total on the range, one-to-many, and many-to-one.
+
+The below table converts conventional notation into these four subtypes:
+\begin{table}[H]
+  \centering\begin{tabular}{|c|c|c|c|c|}
+    \hline
+    Relational Subtype & \multicolumn{4}{c|}{Properties}\\
+    & T & TR & 1- & 1-R\\
+    \hline
+    Relation & & & & \\
+     & & & & \checkmark \\
+    Partial Function & & & \checkmark & \\
+    Partial Injection & & & \checkmark & \checkmark \\
+    Surjective Relation & & \checkmark & & \\
+     & & \checkmark & & \checkmark \\
+    Partial Surjection & & \checkmark & \checkmark & \\
+     & & \checkmark & \checkmark & \checkmark \\
+    Total Relation & \checkmark & & & \\
+     & \checkmark & & & \checkmark \\
+    Total Function & \checkmark & & \checkmark & \\
+    Total Injection & \checkmark & & \checkmark & \checkmark \\
+    Total Surjective Relation & \checkmark & \checkmark & & \\
+     & \checkmark & \checkmark & & \checkmark \\
+    Total Surjection & \checkmark & \checkmark & \checkmark & \\
+    Bijection & \checkmark & \checkmark & \checkmark & \checkmark \\
+    % Relation & \\
+    % Total Relation & T \\
+    % Surjective Relation & TR \\
+    % Total Surjective Relation & T, TR \\
+    % Partial Function & 1-\\
+    % Total Function & T, 1-\\
+    % Partial Injection & 1-, 1-R\\
+    % Total Injection & T, 1-, 1-R\\
+    % Partial Surjection & TR, 1-\\
+    % Total Surjection & T, TR, 1-\\
+    % Bijection & T, TR, 1-, 1-R\\
+    % Should we consider Partial Bijection too?
+    % Partial Bijection  & \\
+    \hline
+  \end{tabular}
+  \caption{Conventional mathematical notation of relational subtypes decomposed into four properties: domain totality (T), range totality (TR), domain one-to-manyness (1-), and range one-to-manyness (1-R)}
+  \label{tab:relSubtype}
+\end{table}
+
+\subsection{Properties}
+Properties that can affect code generation may involve:
+\begin{itemize}
+  \item New properties after applying operations on sets/relations
+  \item Size of result
+  \item Validity of operations
+  \item Deterministic nature of operations
+  \item Super/subset properties
+  \item Relational identities
+\end{itemize}
+%
+Below is a list of the impact of these properties.
+\\
+Domain Totality:
+\begin{itemize}
+  \item $R[S] \neq \emptyset$
+  \item $R(S)$ is always valid
+  \item $R^{-1}$ is TR
+  \item $|R| \geq dom(R)$
+\end{itemize}
+%
+Range Totality:
+\begin{itemize}
+  \item $R^{-1}$ is T
+  \item $|R| \geq ran(R)$
+\end{itemize}
+%
+Domain One-to-manyness:
+\begin{itemize}
+  \item $R(\{e\})$ is deterministic
+  \item $|R[\{e\}]| = 1$
+  \item $|R[S]| \leq |S|$
+  \item $|R| \leq dom(R)$
+\end{itemize}
+%
+Range One-to-manyness:
+\begin{itemize}
+  \item $|R| \leq ran(R)$
+\end{itemize}
+
+
 \section{Rules}
 Below is a list of rewrite rules for key abstract data types and some builtin functions. Phases are intended to be executed in order; the post-condition of one phase serves as the pre-condition for the next.
 \subsection{Builtin Functions}
