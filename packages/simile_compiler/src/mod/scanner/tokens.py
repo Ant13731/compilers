@@ -107,7 +107,7 @@ class TokenType(Enum):
     CARTESIAN_PRODUCT = auto()
     POWERSET = auto()
     NONEMPTY_POWERSET = auto()
-    CARDINALITY = auto()
+    # CARDINALITY = auto()
     TILDE = auto()  # set complement
 
     SUBSET = auto()
@@ -159,6 +159,9 @@ class TokenType(Enum):
 
     def __repr__(self) -> str:
         return f"TokenType.{self.name}"
+
+    def __str__(self) -> str:
+        return self.name
 
 
 OPERATOR_TOKEN_TABLE = {
@@ -311,7 +314,7 @@ KEYWORD_TABLE = {
     "import": TokenType.IMPORT,
     "pass": TokenType.PASS,
     "lambda": TokenType.LAMBDA,
-    "card": TokenType.CARDINALITY,
+    # "card": TokenType.CARDINALITY,
     # "fst": TokenType.FIRST,
     # "proj1": TokenType.FIRST,
     # "snd": TokenType.SECOND,

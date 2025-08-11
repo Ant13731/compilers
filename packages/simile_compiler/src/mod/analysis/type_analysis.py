@@ -58,7 +58,7 @@ def _populate_ast_environments_aux(node: ast_.ASTNode) -> None:
     if not isinstance(node, ast_.ASTNode):
         raise TypeError(f"Expected ASTNode in ast environment population, got {type(node)}")
     if not node._env:
-        raise SimileTypeError("AST node environment is not set. Ensure environme" "+nts are added before type analysis.")
+        raise SimileTypeError("AST node environment is not set. Ensure environments are added before type analysis.")
 
     match node:
         case ast_.Assignment(target, value):

@@ -563,7 +563,7 @@ Conditions to consider:
 
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
-  \tag{Reduce duplicate generators \footnote{The LH term must occur inside a quantifier's predicate. Combines clauses with the same generator. Requires Generator Selection to be run first.\\We leave this optimization out for now, given difficulties with counterexample $\bSetT{s}{(x \in \{1, 2\} \land (s = x + 1 \lor s = x + 2)) \lor (x \in \{4\} \land s = x + 1)}$.}}
+  \tag{Reduce Duplicate Generators \footnote{The LH term must occur inside a quantifier's predicate. Combines clauses with the same generator. Requires Generator Selection to be run first.\\We leave this optimization out for now, given difficulties with counterexample $\bSetT{s}{(x \in \{1, 2\} \land (s = x + 1 \lor s = x + 2)) \lor (x \in \{4\} \land s = x + 1)}$.}}
   (P_g \land \bigwedge P_i) \lor (P_g \land \bigwedge  Q_i)
   &\leadsto
   P_g \land (\bigwedge P_i \lor \bigwedge Q_i)
@@ -676,7 +676,7 @@ Conditions to consider:
 
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
-  \tag{Conjunct conditional \footnote{Function $free$ returns clauses in $P$ that contain only free + defined variables. $bound$ returns the clauses that contain the bound variable $x$ or undefined variables. $P_g$ is the selected generator.}}
+  \tag{Conjunct Conditional \footnote{Function $free$ returns clauses in $P$ that contain only free + defined variables. $bound$ returns the clauses that contain the bound variable $x$ or undefined variables. $P_g$ is the selected generator.}}
   \begin{minipage}[]{0.4\textwidth}
   \begin{algorithmic}
     \Loop\ $P_g \land P \land \bigwedge Q_i$
