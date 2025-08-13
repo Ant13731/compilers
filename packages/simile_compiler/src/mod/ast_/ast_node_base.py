@@ -16,21 +16,10 @@ T = TypeVar("T")
 class ASTNode:
     """Base class for all AST nodes."""
 
-    start_location: Location | None = field(
-        kw_only=True,
-        default=None,
-        repr=False,
-        compare=False,
-    )  # TODO remove default=None once we have checked error message generating functions - is this location necessary
-    end_location: Location | None = field(
-        kw_only=True,
-        default=None,
-        repr=False,
-        compare=False,
-    )  # TODO remove default=None once we have checked error message generating functions - is this location necessary
-
     def __post_init__(self) -> None:
         self._env: SymbolTableEnvironment | None = None
+        self._start_location: Location | None = None
+        self._end_location: Location | None = None
 
     def well_formed(self) -> bool:
         """Check if the variables in expressions are well-formed (i.e., no clashes between :attr:`bound` and :attr:`free` variables)."""
@@ -54,7 +43,7 @@ class ASTNode:
         After running :func:`src.mod.analysis.type_analysis.populate_ast_with_types`, all nodes will contain resolved types.
         """
         if self._env is None:
-            raise SimileTypeError("Type analysis must be run before calling the `get_type` function (self._env is None)")
+            raise SimileTypeError("Type analysis must be run before calling the `get_type` function (self._env is None)", self)
         return self._get_type()
 
     def _get_type(self) -> SimileType:
@@ -72,7 +61,7 @@ class ASTNode:
             if not hasattr(n, "op_type"):
                 return False
             assert hasattr(n, "op_type")
-            return n.op_type == with_op_type
+            return n.op_type == with_op_type  # type: ignore
 
         return any(dataclass_traverse(self, is_matching_node))
 
@@ -91,7 +80,7 @@ class ASTNode:
                 return None
             if with_op_type is None:
                 return n
-            if hasattr(n, "op_type") and n.op_type == with_op_type:
+            if hasattr(n, "op_type") and n.op_type == with_op_type:  # type: ignore
                 return n
             return None
 
@@ -198,6 +187,13 @@ class ASTNode:
 
     def _pretty_print_algorithmic(self, indent: int) -> str:
         raise NotImplementedError
+
+    def add_location(self, start: Location, end: Location) -> None:
+        self._start_location = start
+        self._end_location = end
+
+    def get_location(self) -> str:
+        return f"({self._start_location}, {self._end_location})"
 
 
 @dataclass

@@ -13,6 +13,12 @@ T = TypeVar("T", bound=ast_.ASTNode)
 
 
 def semantic_analysis(ast: T) -> T:
+    """Combines all semantic analysis passes into one function:
+    - Populates AST environments
+    - Checks for reserved keywords
+    - Infers bound identifiers for quantifiers
+    - Performs type checking
+    """
     ast = populate_ast_environments(ast)
     ast = reserved_keywords_check(ast)
     populate_bound_identifiers(ast)

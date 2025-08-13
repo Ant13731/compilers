@@ -20,6 +20,7 @@ T = TypeVar("T", bound=ast_.ASTNode)
 
 
 def populate_bound_identifiers(ast: ast_.ASTNode) -> None:
+    """Attempts to infer the bound variables of implicitly-bound quantifiers"""
     if isinstance(ast, ast_.Quantifier) and ast._bound_identifiers == set():
         possible_generators = list(filter(lambda x: x.op_type == ast_.BinaryOperator.IN, ast.predicate.find_all_instances(ast_.BinaryOp)))
         possible_bound_identifiers: list[ast_.Identifier | ast_.BinaryOp] = []
@@ -46,7 +47,10 @@ def populate_bound_identifiers(ast: ast_.ASTNode) -> None:
 
         if not possible_bound_identifiers:
             raise SimileTypeError(
-                f"Failed to infer bound variables for quantifier {ast.pretty_print_algorithmic()}. Either the expression is ambiguously overwriting a predefined variable in scope, or no valid generators are present in the quantification expression. Please explicitly state bound variables"
+                f"Failed to infer bound variables for quantifier {ast.pretty_print_algorithmic()}. "
+                "Either the expression is ambiguously overwriting a predefined variable in scope, "
+                "or no valid generators are present in the quantification expression. Please explicitly state bound variables",
+                ast,
             )
 
         ast._bound_identifiers = set(possible_bound_identifiers)

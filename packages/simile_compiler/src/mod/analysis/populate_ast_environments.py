@@ -25,12 +25,14 @@ class ParseImportError(Exception):
 
 
 def populate_ast_environments(ast: T) -> T:
+    """Attach a symbol table to the AST."""
     ast = add_environments_to_ast(ast)
     _populate_ast_environments_aux(ast)
     return ast
 
 
 def add_environments_to_ast(ast: T, current_env: ast_.SymbolTableEnvironment | None = None) -> T:
+    """Helper to establish empty environments in all statement "blocks" of the AST"""
     if current_env is None:
         current_env = ast_.STARTING_ENVIRONMENT
 
@@ -59,7 +61,7 @@ def _populate_ast_environments_aux(node: ast_.ASTNode) -> None:
     if not isinstance(node, ast_.ASTNode):
         raise TypeError(f"Expected ASTNode in ast environment population, got {type(node)}")
     if not node._env:
-        raise SimileTypeError("AST node environment is not set. Ensure environments are added before type analysis.")
+        raise SimileTypeError("AST node environment is not set. Ensure environments are added before type analysis.", node)
 
     match node:
         case ast_.Assignment(target, value):
@@ -67,19 +69,21 @@ def _populate_ast_environments_aux(node: ast_.ASTNode) -> None:
 
         case ast_.For(iterable_names, iterable, body):
             if not isinstance(iterable.get_type, ast_.SetType):
-                raise SimileTypeError(f"Expected iterable to be a SetType, got {iterable.get_type} (in For loop)")
+                raise SimileTypeError(f"Expected iterable to be a SetType, got {iterable.get_type} (in For loop)", iterable)
             type_of_iterable_elements = iterable.get_type.element_type
 
             # Dont support destructuring iterable contents right now - except for mapping
             if len(iterable_names.items) != 1:
                 raise SimileTypeError(
-                    f"Expected only one iterable name, got {len(iterable_names.items)} names: {iterable_names.items}. Iterable names may be a mapping or single identifier"
+                    f"Expected only one iterable name, got {len(iterable_names.items)} names: {iterable_names.items}. Iterable names may be a mapping or single identifier",
+                    iterable_names,
                 )
             # Iterable names need to match the type structure of the iterable
             type_of_iterable_name = iterable_names.items[0]
             if isinstance(type_of_iterable_name, ast_.IdentList):
                 raise SimileTypeError(
                     f"Expected iterable name to be a single identifier, got nested IdentList: {type_of_iterable_name} (in For loop - only maplets and single identifiers supported)",
+                    type_of_iterable_name,
                 )
 
             def match_and_assign_types(iterable_name: ast_.Identifier | ast_.BinaryOp, iterable_element_type: SimileType, env: ast_.SymbolTableEnvironment) -> None:
@@ -93,13 +97,15 @@ def _populate_ast_environments_aux(node: ast_.ASTNode) -> None:
                     if not isinstance(iterable_name.left, ast_.Identifier | ast_.BinaryOp) or not isinstance(iterable_name.right, ast_.Identifier | ast_.BinaryOp):
                         raise SimileTypeError(
                             f"Invalid iterable name structure (expected a maplet with two identifiers or binary operations): {iterable_name} (in For loop)",
+                            iterable_name,
                         )
                     match_and_assign_types(iterable_name.left, iterable_element_type.left, env)
                     match_and_assign_types(iterable_name.right, iterable_element_type.right, env)
                     return
 
                 raise SimileTypeError(
-                    f"Iterable name structure does not match iterable element type structure (iterable name is a maplet but type structure is not a PairType). Got {iterable_name} and {iterable_element_type}"
+                    f"Iterable name structure does not match iterable element type structure (iterable name is a maplet but type structure is not a PairType). Got {iterable_name} and {iterable_element_type}",
+                    iterable_name,
                 )
 
             match_and_assign_types(type_of_iterable_name, type_of_iterable_elements, node._env)
@@ -111,7 +117,7 @@ def _populate_ast_environments_aux(node: ast_.ASTNode) -> None:
             fields: dict[str, SimileType] = {}
             for item in items:
                 if not isinstance(item.name, ast_.Identifier):
-                    raise SimileTypeError(f"Invalid struct field name (must be an identifier): {item.name}")
+                    raise SimileTypeError(f"Invalid struct field name (must be an identifier): {item.name}", item)
                 fields[item.name.name] = item.type_.get_type
 
             node._env.put(
@@ -119,12 +125,14 @@ def _populate_ast_environments_aux(node: ast_.ASTNode) -> None:
                 StructTypeDef(fields=fields),
             )
         case ast_.ProcedureDef(ast_.Identifier(name), args, body, return_type):
-            assert body._env is not None, "Procedure body should have an environment - ensure add_empty_environments_to_ast was called before populating environments"
+            assert (
+                body._env is not None
+            ), f"Procedure body at {node.get_location()} should have an environment - ensure add_empty_environments_to_ast was called before populating environments"
 
             arg_types = {}
             for arg in args:
                 if not isinstance(arg.name, ast_.Identifier):
-                    raise SimileTypeError(f"Invalid procedure argument name (must be an identifier): {arg.name}")
+                    raise SimileTypeError(f"Invalid procedure argument name (must be an identifier): {arg.name}", arg)
                 arg_types[arg.name.name] = arg.get_type
 
             node._env.put(
@@ -183,14 +191,14 @@ def _populate_from_assignment(node: ast_.ASTNode, target: ast_.ASTNode, value: a
                 node._env.put(target.name, value.get_type)
         case ast_.TypedName(ast_.Identifier(name), explicit_type):
             if node._env.get(name) is not None and node._env.get(name) != explicit_type:
-                raise SimileTypeError(f"Type mismatch: cannot assign explicit type {explicit_type} to {node._env.get(name)} (type clashes with a previous definition)")
+                raise SimileTypeError(f"Type mismatch: cannot assign explicit type {explicit_type} to {node._env.get(name)} (type clashes with a previous definition)", node)
             if value.get_type != explicit_type.get_type:
-                raise SimileTypeError(f"Type mismatch: cannot assign value of type {value.get_type} to explicit type {explicit_type}")
+                raise SimileTypeError(f"Type mismatch: cannot assign value of type {value.get_type} to explicit type {explicit_type}", value)
 
             if isinstance(explicit_type, ast_.Identifier) and explicit_type.name == "enum":  # should look like ... : enum = ...
                 added_enum, reason = _check_and_add_for_enum(node, name, value)
                 if not added_enum:
-                    raise SimileTypeError(f"Enum assignment failed: {reason}")
+                    raise SimileTypeError(f"Enum assignment failed: {reason}", node)
             else:
                 node._env.put(name, value.get_type)
 
@@ -200,23 +208,23 @@ def _populate_from_assignment(node: ast_.ASTNode, target: ast_.ASTNode, value: a
                 assign_names = [struct.field_name.name] + assign_names
                 struct = struct.struct
             if not isinstance(struct, ast_.Identifier):
-                raise SimileTypeError(f"Invalid struct access for assignment (can only assign to identifiers): {struct}")
+                raise SimileTypeError(f"Invalid struct access for assignment (can only assign to identifiers): {struct}", struct)
 
             node._env.put_nested_struct(assign_names, value.get_type)
         case ast_.TypedName(ast_.StructAccess(struct, field), explicit_type):
             if value.get_type != explicit_type.get_type:
-                raise SimileTypeError(f"Type mismatch: cannot assign value of type {value.get_type} to explicit type {explicit_type}")
+                raise SimileTypeError(f"Type mismatch: cannot assign value of type {value.get_type} to explicit type {explicit_type}", value)
 
             assign_names = [field.name]
             while isinstance(struct, ast_.StructAccess):
                 assign_names = [struct.field_name.name] + assign_names
                 struct = struct.struct
             if not isinstance(struct, ast_.Identifier):
-                raise SimileTypeError(f"Invalid struct access for assignment (can only assign to identifiers): {struct}")
+                raise SimileTypeError(f"Invalid struct access for assignment (can only assign to identifiers): {struct}", struct)
 
             node._env.put_nested_struct(assign_names, value.get_type)
         case _:
-            raise SimileTypeError(f"Unsupported assignment target type: {type(target)} (expected Identifier or StructAccess or TypedName counterparts)")
+            raise SimileTypeError(f"Unsupported assignment target type: {type(target)} (expected Identifier or StructAccess or TypedName counterparts)", target)
 
 
 def _populate_from_import(
@@ -265,7 +273,7 @@ def _populate_from_import(
             identifier_names = []
             for identifier in identifiers:
                 if not isinstance(identifier, ast_.Identifier):
-                    raise SimileTypeError(f"Invalid import identifier (must be an identifier): {identifier}")
+                    raise SimileTypeError(f"Invalid import identifier (must be an identifier): {identifier}", identifier)
                 identifier_names.append(identifier.name)
 
             for name, symbol in module_ast_with_types.body._env.table.items():

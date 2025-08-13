@@ -5,11 +5,20 @@ from typing import Callable, TypeVar, Generic, TypeGuard, Literal
 
 from src.mod.ast_.ast_node_operators import CollectionOperator, RelationOperator
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.mod.ast_.ast_node_base import ASTNode
+
 
 class SimileTypeError(Exception):
     """Custom exception for Simile type errors."""
 
-    pass
+    def __init__(self, message: str, node: ASTNode) -> None:
+        message = f"Error {node.get_location()}: {message}"
+
+        super().__init__(message)
+        self.node = node
 
 
 class BaseSimileType(Enum):

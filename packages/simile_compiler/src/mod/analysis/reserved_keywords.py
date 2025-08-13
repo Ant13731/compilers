@@ -36,7 +36,7 @@ class ReservedKeywordErr:
     def __str__(self) -> str:
         ret = ""
         ret += f"Error: Reserved keyword {self.clashing_keyword} (from keyword list {self.keyword_list_name}) used as identifier within program, "
-        ret += f"{self.node.start_location} to {self.node.end_location}\n"
+        ret += f"{self.node.get_location()}\n"
         return ret
 
 
@@ -51,6 +51,7 @@ def check_clash(node: ast_.ASTNode, name: str) -> ReservedKeywordErr | None:
 
 
 def reserved_keywords_check(ast: T) -> T:
+    """Throws an error if reserved keywords are used as identifiers in the AST."""
 
     def traversal_function(node: ast_.ASTNode) -> ReservedKeywordErr | None:
         match node:
@@ -77,5 +78,5 @@ def reserved_keywords_check(ast: T) -> T:
     errors = list(filter(None, ast_.dataclass_traverse(ast, traversal_function, True, True)))
 
     if errors:
-        raise SimileTypeError(f"Reserved keywords used as identifiers: {'\n'.join(map(str,errors))}")
+        raise ValueError(f"Reserved keywords used as identifiers: {'\n'.join(map(str,errors))}")
     return ast

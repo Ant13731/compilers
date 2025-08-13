@@ -21,6 +21,10 @@ T = TypeVar("T", bound=ast_.ASTNode)
 
 
 def type_check(ast: ast_.ASTNode) -> None:
+    """Calls `ast.get_type` throughout the entire AST.
+
+    The `get_type` property performs hidden checks before returning a result."""
+
     # Getting the type of an ast node performs some type checks under the hood, so we just "call" the property and discard its result
     ast.get_type
 

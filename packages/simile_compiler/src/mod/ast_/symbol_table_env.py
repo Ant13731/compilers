@@ -21,6 +21,10 @@ from src.mod.ast_.dataclass_helpers import dataclass_find_and_replace
 T = TypeVar("T")
 
 
+class SymbolTableError(Exception):
+    pass
+
+
 @dataclass
 class Environment(Generic[T]):
 
@@ -60,7 +64,7 @@ class SymbolTableEnvironment(Environment[SimileType]):
     def put_nested_struct(self, assignment_names: list[str], symbol: SimileType) -> None:
         """Put a symbol in the environment, allowing for nested struct access."""
         if not assignment_names:
-            raise SimileTypeError("Cannot insert symbol into symbol table with an empty assignment name list")
+            raise SymbolTableError("Cannot insert symbol into symbol table with an empty assignment name list")
 
         prev_fields: dict[str, SimileType] = {}
         for i, assignment_name in enumerate(assignment_names[:-1]):
@@ -71,7 +75,7 @@ class SymbolTableEnvironment(Environment[SimileType]):
                     prev_fields = self.table[assignment_name].fields  # type: ignore
                     continue
                 if not isinstance(current_struct_val, StructTypeDef):
-                    raise SimileTypeError(
+                    raise SymbolTableError(
                         f"Cannot assign to struct field '{assignment_name}' because it is not a struct (current type: {current_struct_val}) (full expected subfields: {assignment_names})"
                     )
                 prev_fields = current_struct_val.fields
@@ -85,7 +89,7 @@ class SymbolTableEnvironment(Environment[SimileType]):
             if isinstance(current_fields, StructTypeDef):
                 prev_fields = current_fields.fields
                 continue
-            raise SimileTypeError(
+            raise SymbolTableError(
                 f"Cannot assign to struct field '{assignment_name}' because it is not a struct (current type: {current_fields}) (full expected subfields: {assignment_names})"
             )
         assignment_name = assignment_names[-1]
@@ -93,7 +97,7 @@ class SymbolTableEnvironment(Environment[SimileType]):
         if current_fields is None:
             prev_fields[assignment_name] = symbol
         if current_fields != symbol:
-            raise SimileTypeError(
+            raise SymbolTableError(
                 f"Cannot assign to struct field '{assignment_name} (under {assignment_names})' because of conflicting types between existing {current_fields} and new {symbol} values"
             )
 
@@ -104,7 +108,7 @@ class SymbolTableEnvironment(Environment[SimileType]):
             if isinstance(symbol, DeferToSymbolTable):
                 deferred_type = self.get(symbol.lookup_type)
                 if deferred_type is None:
-                    raise SimileTypeError(f"Failed to find symbol for {symbol.lookup_type} when normalizing deferred type {symbol}")
+                    raise SymbolTableError(f"Failed to find symbol for {symbol.lookup_type} when normalizing deferred type {symbol}")
                 return deferred_type
             return None
 
