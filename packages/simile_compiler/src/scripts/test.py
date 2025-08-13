@@ -118,10 +118,14 @@ from src.mod import RustCodeGenerator, CPPCodeGenerator
 # print(comp_constr_test_str.pretty_print_algorithmic())
 
 TEST_STR = """
-s := True
-{s | s in one {1,2}}
+s := False
+s := s + 1
+{s | s in {1,2}}
 """
 ast: ast_.ASTNode = parse(TEST_STR)
-ast = analysis.populate_ast_environments(ast)
+ast = analysis.semantic_analysis(ast)
+
+# ast = collection_optimizer(ast, SET_REWRITE_COLLECTION)
 print("PARSED TEST_STR:", ast.pretty_print(print_env=True))
 print("PARSED TEST_STR:", ast.pretty_print_algorithmic())
+print(ast.body.items[0]._bound_identifiers)

@@ -7,6 +7,7 @@ from loguru import logger
 
 from src.mod import ast_
 from src.mod import analysis
+from src.mod.scanner import Location
 
 
 _fresh_var_counter = 0
@@ -63,6 +64,10 @@ class RewriteCollection:
         """Apply all rewrite rules in the collection to the AST, traversing the AST recursively."""
         new_ast_children: list = []
         for c in fields(ast):
+            # Ignore locations since all semantic analysis should be complete
+            if c.name in ["start_location", "end_location"]:
+                continue
+
             child = getattr(ast, c.name)
             if isinstance(child, list):
                 # If the child is a list, we need to apply the rules to each element in the list
@@ -84,6 +89,7 @@ class RewriteCollection:
             child = self.apply_all_rules_one_traversal(child)
             new_ast_children.append(child)
 
+        print(new_ast_children)
         new_ast = ast.__class__(*new_ast_children)
 
         # FIXME: Kind of a hack to copy hidden fields like this?

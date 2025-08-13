@@ -3,6 +3,7 @@ from dataclasses import dataclass, fields, field
 from typing import Generator, Any, TypeVar, Callable
 from functools import wraps
 
+from src.mod.scanner import Location
 from src.mod.ast_.ast_node_operators import Operators
 from src.mod.ast_.dataclass_helpers import dataclass_traverse, dataclass_find_and_replace
 from src.mod.ast_.symbol_table_types import SimileType, DeferToSymbolTable, SimileTypeError
@@ -14,6 +15,19 @@ T = TypeVar("T")
 @dataclass
 class ASTNode:
     """Base class for all AST nodes."""
+
+    start_location: Location | None = field(
+        kw_only=True,
+        default=None,
+        repr=False,
+        compare=False,
+    )  # TODO remove default=None once we have checked error message generating functions - is this location necessary
+    end_location: Location | None = field(
+        kw_only=True,
+        default=None,
+        repr=False,
+        compare=False,
+    )  # TODO remove default=None once we have checked error message generating functions - is this location necessary
 
     def __post_init__(self) -> None:
         self._env: SymbolTableEnvironment | None = None

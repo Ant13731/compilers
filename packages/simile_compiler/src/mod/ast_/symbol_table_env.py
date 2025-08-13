@@ -13,6 +13,8 @@ from src.mod.ast_.symbol_table_types import (
     BaseSimileType,
     DeferToSymbolTable,
     SetType,
+    PairType,
+    GenericType,
 )
 from src.mod.ast_.dataclass_helpers import dataclass_find_and_replace
 
@@ -119,24 +121,59 @@ class SymbolTableEnvironment(Environment[SimileType]):
             )
 
 
+PRIMITIVE_TYPES = {
+    "int": BaseSimileType.Int,
+    "str": BaseSimileType.String,
+    "float": BaseSimileType.Float,
+    "bool": BaseSimileType.Bool,
+    "none": BaseSimileType.None_,
+    "ℤ": BaseSimileType.Int,
+    "ℕ": BaseSimileType.Nat,
+    "ℕ₁": BaseSimileType.PosInt,
+}
+
+BUILTIN_FUNCTIONS = {
+    # These aren't actually procedures - they are processed as rewrites of relational functions later on,
+    # but their types can be better expressed using the procedure notation
+    "dom": ProcedureTypeDef(
+        {
+            "s": SetType(
+                PairType(
+                    GenericType("L"),
+                    GenericType("R"),
+                ),
+            ),
+        },
+        GenericType("L"),
+    ),
+    "ran": ProcedureTypeDef(
+        {
+            "s": SetType(
+                PairType(
+                    GenericType("L"),
+                    GenericType("R"),
+                ),
+            ),
+        },
+        GenericType("R"),
+    ),
+    "card": ProcedureTypeDef(
+        {
+            "s": SetType(
+                PairType(
+                    GenericType("L"),
+                    GenericType("R"),
+                ),
+            ),
+        },
+        BaseSimileType.PosInt,
+    ),
+}
+
 STARTING_ENVIRONMENT: SymbolTableEnvironment = SymbolTableEnvironment(
     previous=None,
     table={
-        "int": BaseSimileType.Int,
-        "str": BaseSimileType.String,
-        "float": BaseSimileType.Float,
-        "bool": BaseSimileType.Bool,
-        "none": BaseSimileType.None_,
-        "ℤ": BaseSimileType.Int,
-        "ℕ": BaseSimileType.Nat,
-        "ℕ₁": BaseSimileType.PosInt,
-        "dom": SetType(
-            BaseSimileType.Any,
-            # DeferToSymbolTable(lookup_type="builtin_function"),
-        ),
-        "ran": SetType(
-            BaseSimileType.Any,
-            # DeferToSymbolTable(lookup_type="builtin_function"),
-        ),
+        **PRIMITIVE_TYPES,
+        **BUILTIN_FUNCTIONS,
     },
 )

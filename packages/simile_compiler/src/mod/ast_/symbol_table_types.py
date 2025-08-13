@@ -13,6 +13,12 @@ class SimileTypeError(Exception):
 
 
 class BaseSimileType(Enum):
+    """Primitive/Atomic Simile types.
+
+    Although these types may be broken down in terms of set theory,
+    code generation targets often have extremely efficient pre-existing implementations.
+    """
+
     PosInt = auto()
     Nat = auto()
     Int = auto()
@@ -20,10 +26,12 @@ class BaseSimileType(Enum):
     String = auto()
     Bool = auto()
     None_ = auto()
+    """Intended for statements without a type, not expressions. For example, a while loop node doesn't have a type."""
 
-    # For unknown types. Right now, built-in generic polymorphic functions will be of this type, since the symbol table is not smart enough to look up the type of called functions.
+    # For unknown types. Right now, built-in generic polymorphic functions will be of this type,
+    # since the symbol table is not smart enough to look up the type of called functions.
     # This is just a hack to get "dom" and "ran" to work for now.
-    Any = auto()
+    # Any = auto()
 
     def __repr__(self) -> str:
         return f"SimileType.{self.name}"
@@ -35,13 +43,27 @@ T = TypeVar("T", bound="SimileType")
 
 
 @dataclass(frozen=True)
+class GenericType:
+    """Generic types are used primarily for resolving generic procedures/functions into a specific type based on context.
+
+    IDs are only locally valid (i.e., introduced by a procedure argument and used by a procedure's return value).
+    """
+
+    id_: str
+
+
+@dataclass(frozen=True)
 class PairType(Generic[L, R]):
+    """Maplet type"""
+
     left: L
     right: R
 
 
 @dataclass(frozen=True)
 class SetType(Generic[T]):
+    """Type to represent sets and set-dependent types: bags, relations, sequences, etc."""
+
     element_type: T
     relation_subtype: RelationOperator | None = None
 
@@ -133,6 +155,8 @@ def type_union(*types: SimileType) -> SimileType:
 
 @dataclass(frozen=True)
 class TypeUnion:
+    """OR-selection of types. This type should only be exposed internally, for narrowing purposes"""
+
     types: set[SimileType]
 
 
@@ -144,7 +168,10 @@ class ModuleImports:
 
 @dataclass(frozen=True)
 class DeferToSymbolTable:
+    """Types dependent on this will not be resolved until the analysis phase"""
+
     lookup_type: str
+    """Identifier to look up in table"""
 
 
-SimileType = BaseSimileType | PairType | StructTypeDef | EnumTypeDef | ProcedureTypeDef | TypeUnion | ModuleImports | DeferToSymbolTable | SetType  # | InstanceOfDef
+SimileType = BaseSimileType | PairType | StructTypeDef | EnumTypeDef | ProcedureTypeDef | TypeUnion | ModuleImports | DeferToSymbolTable | SetType | GenericType  # | InstanceOfDef

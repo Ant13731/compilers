@@ -261,14 +261,14 @@ class Parser:
     @store_derivation
     def start(self) -> ast_.Start:
         if not self.tokens or self.eof:
-            return ast_.Start(ast_.None_())
+            return ast_.Start(ast_.None_(), self.original_text)
         statements = self.statements()
         try:
             if not self.eof and self.peek().type_ != TokenType.NEWLINE and self.peek(1).type_ != TokenType.EOF:
                 self.error(f"Unexpected token(s) after parsing statements (all tokens should be consumed by this point). Leftover tokens: {self.tokens[self.current_index :]}")
         except ParseException:
             pass
-        return ast_.Start(statements)
+        return ast_.Start(statements, self.original_text)
 
     @store_derivation
     def statements(self) -> ast_.Statements:

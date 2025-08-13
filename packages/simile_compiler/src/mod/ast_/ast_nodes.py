@@ -118,6 +118,22 @@ class IdentList(ASTNode):
     def _pretty_print_algorithmic(self, indent: int) -> str:
         return ", ".join(item._pretty_print_algorithmic(indent) for item in self.items)
 
+    def flatten(self) -> list[Identifier]:
+        ret: list[Identifier] = []
+        stack = self.items
+        while stack:
+            item = stack.pop()
+            if isinstance(item, BinaryOp):
+                assert isinstance(item.left, Identifier | IdentList | BinaryOp)
+                assert isinstance(item.right, Identifier | IdentList | BinaryOp)
+                stack.append(item.left)
+                stack.append(item.right)
+            elif isinstance(item, IdentList):
+                ret += item.flatten()
+            else:
+                ret.append(item)
+        return ret
+
 
 class InheritedEqMixin:
     """Introduces structural equality between super/subclasses that ignore type names.
@@ -1105,6 +1121,7 @@ class Import(ASTNode):
 @dataclass
 class Start(ASTNode):
     body: Statements | None_
+    original_text: str
 
     def _get_type(self) -> SimileType:
         return BaseSimileType.None_
