@@ -593,7 +593,7 @@ class Quantifier(ASTNode):
 
     def __post_init__(self) -> None:
         super().__post_init__()
-        self._bound_identifiers: set[Identifier] | None = None
+        self._bound_identifiers: set[Identifier | BinaryOp] = set()  # | None = None
 
         # These identifiers are not intended to be iterated over, but may serve as an alternative to the explicitly bound identifier.
         # For example, in membership collapse, we inherit the bound identifier from the hidden quantifier, but we do not want to
@@ -641,13 +641,13 @@ class Quantifier(ASTNode):
     @property
     def bound(self) -> set[Identifier]:
         if self._bound_identifiers:
-            return self.all_predicates.bound | self.expression.bound | self._bound_identifiers
+            return self.all_predicates.bound | self.expression.bound | self.flatten_bound_identifiers()
         return self.all_predicates.bound | self.expression.bound | self.expression.free
 
     @property
     def free(self) -> set[Identifier]:
         if self._bound_identifiers:
-            return (self.all_predicates.free | self.expression.free) - self._bound_identifiers
+            return (self.all_predicates.free | self.expression.free) - self.flatten_bound_identifiers()
         return self.all_predicates.free - self.expression.free
 
     def well_formed(self) -> bool:
@@ -703,6 +703,23 @@ class Quantifier(ASTNode):
         else:
             quantifier = f"{self.op_type.pretty_print()} {quantifier}"
         return quantifier
+
+    def flatten_bound_identifiers(self) -> set[Identifier]:
+        stack = list(self._bound_identifiers)
+        flattened_bound_identifiers = []
+        while stack:
+            item = stack.pop()
+            if isinstance(item, Identifier):
+                flattened_bound_identifiers.append(item)
+            elif isinstance(item, BinaryOp):
+                assert isinstance(item.left, Identifier | BinaryOp), f"Bound identifiers must be identifiers or maplets. Got {item.left}"
+                assert isinstance(item.right, Identifier | BinaryOp), f"Bound identifiers must be identifiers or maplets. Got {item.right}"
+                stack.append(item.left)
+                stack.append(item.right)
+            else:
+                raise ValueError(f"Bound identifiers should only contain identifiers or maplets. Got {item}")
+
+        return set(flattened_bound_identifiers)
 
 
 @dataclass(eq=False)

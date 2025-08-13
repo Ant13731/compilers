@@ -22,7 +22,7 @@ T = TypeVar("T", bound=ast_.ASTNode)
 def populate_bound_identifiers(ast: ast_.ASTNode) -> None:
     if isinstance(ast, ast_.Quantifier) and ast._bound_identifiers == set():
         possible_generators = list(filter(lambda x: x.op_type == ast_.BinaryOperator.IN, ast.predicate.find_all_instances(ast_.BinaryOp)))
-        possible_bound_identifiers: list[ast_.Identifier | ast_.Maplet] = []
+        possible_bound_identifiers: list[ast_.Identifier | ast_.BinaryOp] = []
         possible_bound_identifier_names: list[ast_.Identifier] = []
         for possible_generator in possible_generators:
             if isinstance(possible_generator.left, ast_.Identifier):
