@@ -1,9 +1,9 @@
 from __future__ import annotations
 from dataclasses import dataclass, field, Field, fields, is_dataclass
-from typing import Callable, ClassVar, Any, Self
+from typing import Callable, ClassVar, Any, Self, Container
 
 
-from src.mod.ast_.ast_node_base import ASTNode, Identifier
+from src.mod.ast_.ast_node_base import ASTNode, Identifier, MapletIdentifier
 from src.mod.ast_.ast_node_operators import (
     BinaryOperator,
     RelationOperator,
@@ -26,6 +26,7 @@ from src.mod.ast_.symbol_table_types import (
     TypeUnion,
     SimileTypeError,
     DeferToSymbolTable,
+    RelationSubTypeMask,
 )
 
 
@@ -93,11 +94,11 @@ class None_(ASTNode):
 
 @dataclass
 class IdentList(ASTNode):
-    items: list[Identifier | IdentList | BinaryOp]  # This binaryop can only be a maplet
+    items: list[Identifier | IdentList | MapletIdentifier]  # This binaryop can only be a maplet
 
     @property
     def free(self) -> set[Identifier]:
-        return set(self.find_all_instances(Identifier))
+        return self.flatten()
 
     def well_formed(self) -> bool:
         identifiers = self.find_all_instances(Identifier)
@@ -118,18 +119,19 @@ class IdentList(ASTNode):
     def _pretty_print_algorithmic(self, indent: int) -> str:
         return ", ".join(item._pretty_print_algorithmic(indent) for item in self.items)
 
-    def flatten(self) -> list[Identifier]:
-        ret: list[Identifier] = []
-        stack = self.items
-        while stack:
-            item = stack.pop()
-            if isinstance(item, BinaryOp):
-                assert isinstance(item.left, Identifier | IdentList | BinaryOp)
-                assert isinstance(item.right, Identifier | IdentList | BinaryOp)
-                stack.append(item.left)
-                stack.append(item.right)
+    def flatten(self) -> set[Identifier]:
+        ret: set[Identifier] = set()
+        for item in self.items:
+            ret |= item.flatten()
+        return ret
+
+    def flatten_until_leaf_node(self) -> list[Identifier | MapletIdentifier]:
+        ret: list[Identifier | MapletIdentifier] = []
+        for item in self.items:
+            if isinstance(item, MapletIdentifier):
+                ret.append(item)
             elif isinstance(item, IdentList):
-                ret += item.flatten()
+                ret.extend(item.flatten_until_leaf_node())
             else:
                 ret.append(item)
         return ret
@@ -338,7 +340,7 @@ class BinaryOp(InheritedEqMixin, ASTNode):
 
                 return SetType(
                     element_type=PairType(l_type.element_type, r_type.element_type),
-                    relation_subtype=RelationOperator.RELATION,
+                    relation_subtype=RelationSubTypeMask.from_relation_operator(RelationOperator.RELATION),
                 )
             case BinaryOperator.UPTO:
                 if not isinstance(l_type, Int) or not isinstance(r_type, Int):
@@ -350,10 +352,10 @@ class BinaryOp(InheritedEqMixin, ASTNode):
                 relation_subtype_l = l_type.relation_subtype
                 relation_subtype_r = r_type.relation_subtype
                 if relation_subtype_l is None:
-                    relation_subtype_l = RelationOperator.RELATION
+                    relation_subtype_l = RelationSubTypeMask.from_relation_operator(RelationOperator.RELATION)
                 if relation_subtype_r is None:
-                    relation_subtype_r = RelationOperator.RELATION
-                relation_subtype: RelationOperator | None = relation_subtype_l.get_resulting_operator(relation_subtype_r, BinaryOperator.RELATION_OVERRIDING)
+                    relation_subtype_r = RelationSubTypeMask.from_relation_operator(RelationOperator.RELATION)
+                relation_subtype = relation_subtype_l.get_resulting_operator_bin_relation(relation_subtype_r, BinaryOperator.RELATION_OVERRIDING)
 
                 return SetType(
                     element_type=type_union(l_type.element_type, r_type.element_type),
@@ -373,10 +375,10 @@ class BinaryOp(InheritedEqMixin, ASTNode):
                 relation_subtype_l = l_type.relation_subtype
                 relation_subtype_r = r_type.relation_subtype
                 if relation_subtype_l is None:
-                    relation_subtype_l = RelationOperator.RELATION
+                    relation_subtype_l = RelationSubTypeMask.from_relation_operator(RelationOperator.RELATION)
                 if relation_subtype_r is None:
-                    relation_subtype_r = RelationOperator.RELATION
-                relation_subtype = relation_subtype_l.get_resulting_operator(relation_subtype_r, BinaryOperator.COMPOSITION)
+                    relation_subtype_r = RelationSubTypeMask.from_relation_operator(RelationOperator.RELATION)
+                relation_subtype = relation_subtype_l.get_resulting_operator_bin_relation(relation_subtype_r, BinaryOperator.COMPOSITION)
 
                 return SetType(
                     element_type=PairType(l_type.element_type.left, r_type.element_type.right),
@@ -389,7 +391,7 @@ class BinaryOp(InheritedEqMixin, ASTNode):
                     raise SimileTypeError(f"Invalid collection type for domain operation (right operand must be a relation): {r_type.element_type}", self)
                 if not SetType.is_set(l_type):
                     raise SimileTypeError(f"Invalid collection type for domain operation (left operand must be a relation or set): {l_type.element_type}", self)
-                relation_subtype = None
+                relation_subtype = RelationSubTypeMask.from_relation_operator(RelationOperator.RELATION)
                 if r_type.relation_subtype is not None:
                     relation_subtype = r_type.relation_subtype.get_resulting_operator_set_or_unary(BinaryOperator.DOMAIN_SUBTRACTION)
                 return SetType(
@@ -403,7 +405,7 @@ class BinaryOp(InheritedEqMixin, ASTNode):
                     raise SimileTypeError(f"Invalid collection type for domain operation (left operand must be a relation): {l_type.element_type}", self)
                 if not SetType.is_set(r_type):
                     raise SimileTypeError(f"Invalid collection type for domain operation (right operand must be a relation or set): {r_type.element_type}", self)
-                relation_subtype = None
+                relation_subtype = RelationSubTypeMask.from_relation_operator(RelationOperator.RELATION)
                 if l_type.relation_subtype is not None:
                     relation_subtype = l_type.relation_subtype.get_resulting_operator_set_or_unary(BinaryOperator.RANGE_SUBTRACTION)
                 return SetType(
@@ -416,6 +418,28 @@ class BinaryOp(InheritedEqMixin, ASTNode):
         left_str = self.left._pretty_print_algorithmic(indent)
         right_str = self.right._pretty_print_algorithmic(indent)
         return f"{left_str} {self.op_type.pretty_print()} {right_str}"
+
+    def try_cast_maplet_to_maplet_identifier(self) -> MapletIdentifier | None:
+        if self.op_type != BinaryOperator.MAPLET:
+            return None
+
+        if isinstance(self.left, Identifier | MapletIdentifier):
+            left: Identifier | MapletIdentifier | None = self.left
+        elif isinstance(self.left, BinaryOp):
+            left = self.left.try_cast_maplet_to_maplet_identifier()
+        else:
+            left = None
+
+        if isinstance(self.right, Identifier | MapletIdentifier):
+            right: Identifier | MapletIdentifier | None = self.right
+        elif isinstance(self.right, BinaryOp):
+            right = self.right.try_cast_maplet_to_maplet_identifier()
+        else:
+            right = None
+
+        if left is not None and right is not None:
+            return MapletIdentifier(left, right)
+        return None
 
 
 @dataclass(eq=False)
@@ -594,7 +618,7 @@ class Quantifier(ASTNode):
 
     def __post_init__(self) -> None:
         super().__post_init__()
-        self._bound_identifiers: set[Identifier | BinaryOp] = set()  # | None = None
+        self._bound_identifiers: set[Identifier | MapletIdentifier] = set()  # | None = None
 
         # These identifiers are not intended to be iterated over, but may serve as an alternative to the explicitly bound identifier.
         # For example, in membership collapse, we inherit the bound identifier from the hidden quantifier, but we do not want to
@@ -706,21 +730,10 @@ class Quantifier(ASTNode):
         return quantifier
 
     def flatten_bound_identifiers(self) -> set[Identifier]:
-        stack = list(self._bound_identifiers)
-        flattened_bound_identifiers = []
-        while stack:
-            item = stack.pop()
-            if isinstance(item, Identifier):
-                flattened_bound_identifiers.append(item)
-            elif isinstance(item, BinaryOp):
-                assert isinstance(item.left, Identifier | BinaryOp), f"Bound identifiers must be identifiers or maplets. Got {item.left}"
-                assert isinstance(item.right, Identifier | BinaryOp), f"Bound identifiers must be identifiers or maplets. Got {item.right}"
-                stack.append(item.left)
-                stack.append(item.right)
-            else:
-                raise ValueError(f"Bound identifiers should only contain identifiers or maplets. Got {item}")
-
-        return set(flattened_bound_identifiers)
+        identifiers = set()
+        for i in self._bound_identifiers:
+            identifiers.update(i.flatten())
+        return identifiers
 
 
 @dataclass(eq=False)

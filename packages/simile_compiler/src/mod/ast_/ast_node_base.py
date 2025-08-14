@@ -6,7 +6,7 @@ from functools import wraps
 from src.mod.scanner import Location
 from src.mod.ast_.ast_node_operators import Operators
 from src.mod.ast_.dataclass_helpers import dataclass_traverse, dataclass_find_and_replace
-from src.mod.ast_.symbol_table_types import SimileType, DeferToSymbolTable, SimileTypeError
+from src.mod.ast_.symbol_table_types import SimileType, DeferToSymbolTable, SimileTypeError, PairType
 from src.mod.ast_.symbol_table_env import SymbolTableEnvironment
 
 T = TypeVar("T")
@@ -225,3 +225,36 @@ class Identifier(ASTNode):
         if self.name.startswith("*"):
             return f"x{''.join(filter(str.isnumeric, self.name))}"
         return self.name
+
+    def flatten(self) -> set[Identifier]:
+        """Used to simplify the flatten operation of :cls:`MapletIdentifier`"""
+        return {self}
+
+
+@dataclass
+class MapletIdentifier(ASTNode):
+    """Special variation of maplet used for binding loop and quantification variables (also hashable)"""
+
+    left: MapletIdentifier | Identifier
+    right: MapletIdentifier | Identifier
+
+    def __hash__(self) -> int:
+        return hash((self.left, self.right))
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, MapletIdentifier):
+            return False
+        return self.left == other.left and self.right == other.right
+
+    @property
+    def free(self) -> set[Identifier]:
+        return self.flatten()
+
+    def _get_type(self) -> SimileType:
+        return PairType(self.left.get_type, self.right.get_type)
+
+    def _pretty_print_algorithmic(self, indent: int) -> str:
+        return f"{self.left._pretty_print_algorithmic(indent)} ↦ {self.right._pretty_print_algorithmic(indent)}"
+
+    def flatten(self) -> set[Identifier]:
+        return self.left.flatten() | self.right.flatten()

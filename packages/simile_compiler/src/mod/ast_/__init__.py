@@ -1,6 +1,7 @@
 from src.mod.ast_.ast_node_base import (
     ASTNode,
     Identifier,
+    MapletIdentifier,
 )
 from src.mod.ast_.dataclass_helpers import (
     dataclass_traverse,
@@ -173,6 +174,7 @@ from src.mod.ast_.symbol_table_types import (
     DeferToSymbolTable,
     ModuleImports,
     GenericType,
+    RelationSubTypeMask,
     # InstanceOfDef,
 )
 from src.mod.ast_.symbol_table_env import (

@@ -23,22 +23,20 @@ def populate_bound_identifiers(ast: ast_.ASTNode) -> None:
     """Attempts to infer the bound variables of implicitly-bound quantifiers"""
     if isinstance(ast, ast_.Quantifier) and ast._bound_identifiers == set():
         possible_generators = list(filter(lambda x: x.op_type == ast_.BinaryOperator.IN, ast.predicate.find_all_instances(ast_.BinaryOp)))
-        possible_bound_identifiers: list[ast_.Identifier | ast_.BinaryOp] = []
-        possible_bound_identifier_names: list[ast_.Identifier] = []
+        possible_bound_identifiers: list[ast_.Identifier | ast_.MapletIdentifier] = []
+        possible_bound_identifier_names: set[ast_.Identifier] = set()
         for possible_generator in possible_generators:
-            if isinstance(possible_generator.left, ast_.Identifier):
-                possible_bound_identifier_names.append(possible_generator.left)
+            if isinstance(possible_generator.left, ast_.Identifier | ast_.MapletIdentifier):
                 possible_bound_identifiers.append(possible_generator.left)
+                possible_bound_identifier_names.update(possible_generator.left.flatten())
 
-            if (
-                isinstance(possible_generator.left, ast_.BinaryOp)
-                and possible_generator.left.op_type == ast_.BinaryOperator.MAPLET
-                and isinstance(possible_generator.left.left, ast_.Identifier)
-                and isinstance(possible_generator.left.right, ast_.Identifier)
-            ):
-                possible_bound_identifier_names.append(possible_generator.left.left)
-                possible_bound_identifier_names.append(possible_generator.left.right)
-                possible_bound_identifiers.append(ast_.Maplet(possible_generator.left.left, possible_generator.left.right))
+            if isinstance(possible_generator.left, ast_.BinaryOp):
+                left = possible_generator.left.try_cast_maplet_to_maplet_identifier()
+                if left is None:
+                    continue
+
+                possible_bound_identifiers.append(left)
+                possible_bound_identifier_names.update(left.flatten())
 
         for possible_bound_identifier in possible_bound_identifier_names:
             assert ast._env is not None

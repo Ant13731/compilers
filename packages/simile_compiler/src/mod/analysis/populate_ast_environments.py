@@ -86,15 +86,15 @@ def _populate_ast_environments_aux(node: ast_.ASTNode) -> None:
                     type_of_iterable_name,
                 )
 
-            def match_and_assign_types(iterable_name: ast_.Identifier | ast_.BinaryOp, iterable_element_type: SimileType, env: ast_.SymbolTableEnvironment) -> None:
+            def match_and_assign_types(iterable_name: ast_.Identifier | ast_.MapletIdentifier, iterable_element_type: SimileType, env: ast_.SymbolTableEnvironment) -> None:
                 if isinstance(iterable_name, ast_.Identifier):
                     # if env.get(iterable_name.name) is not None:
                     #     raise SimileTypeError(f"Identifier '{iterable_name.name}' already exists in the current scope")
                     env.put(iterable_name.name, iterable_element_type)
                     return
 
-                if isinstance(iterable_name, ast_.BinaryOp) and isinstance(iterable_element_type, ast_.PairType):
-                    if not isinstance(iterable_name.left, ast_.Identifier | ast_.BinaryOp) or not isinstance(iterable_name.right, ast_.Identifier | ast_.BinaryOp):
+                if isinstance(iterable_name, ast_.MapletIdentifier) and isinstance(iterable_element_type, ast_.PairType):
+                    if not isinstance(iterable_name.left, ast_.Identifier | ast_.MapletIdentifier) or not isinstance(iterable_name.right, ast_.Identifier | ast_.MapletIdentifier):
                         raise SimileTypeError(
                             f"Invalid iterable name structure (expected a maplet with two identifiers or binary operations): {iterable_name} (in For loop)",
                             iterable_name,

@@ -328,7 +328,7 @@ class Parser:
                     predicate = ast_.And([predicate])
 
                 forall = ast_.Forall(predicate)
-                forall._bound_identifiers = ident_list.free
+                forall._bound_identifiers = set(ident_list.flatten_until_leaf_node())
                 return forall
             case TokenType.EXISTS:
                 self.advance()
@@ -339,7 +339,7 @@ class Parser:
                     predicate = ast_.And([predicate])
 
                 exists = ast_.Exists(predicate)
-                exists._bound_identifiers = ident_list.free
+                exists._bound_identifiers = set(ident_list.flatten_until_leaf_node())
                 return exists
             case _ if t.type_ in self.get_first_set("unquantified_predicate"):
                 return self.unquantified_predicate()
@@ -354,10 +354,10 @@ class Parser:
         return ast_.IdentList(ident_patterns)  # TODO figure out ident patterns vs ident list,,,
 
     @store_derivation
-    def ident_pattern(self) -> ast_.Identifier | ast_.BinaryOp | ast_.IdentList:
+    def ident_pattern(self) -> ast_.Identifier | ast_.MapletIdentifier | ast_.IdentList:
         match (t := self.advance()).type_:
             case TokenType.IDENTIFIER:
-                ident_pattern: ast_.Identifier | ast_.BinaryOp | ast_.IdentList = ast_.Identifier(t.value)
+                ident_pattern: ast_.Identifier | ast_.MapletIdentifier | ast_.IdentList = ast_.Identifier(t.value)
             case TokenType.L_PAREN:
                 self.advance()
                 ident_pattern = self.ident_list()
@@ -365,7 +365,25 @@ class Parser:
             case _:
                 self.error("No identifier or sub-pattern found")
         if self.match(TokenType.MAPLET):
-            return ast_.Maplet(ident_pattern, self.ident_pattern())
+            ident_pattern_r = self.ident_pattern()
+
+            # MapletIdentifier only takes in Identifiers or other MapletIdentifiers
+            # Because we nest an IdentList every time we see an opening parenthesis, we need
+            # to check whether there were superfluous parentheses (resulting in a nested IdentList of len == 1)
+            # or if the IdentList was malformed. This effectively prevents IdentLists of the form (x,y,z) |-> (x,y,z),
+            # which is ambiguous for bound relation identifiers, while allowing nested loops like `forall x,y | ...`
+            if isinstance(ident_pattern, ast_.IdentList):
+                if len(ident_pattern.flatten_until_leaf_node()) == 1:
+                    ident_pattern = ident_pattern.flatten_until_leaf_node()[0]
+                else:
+                    self.error("Identifier lists cannot be nested inside a maplet (suggestion: nest another maplet instead)")
+            if isinstance(ident_pattern_r, ast_.IdentList):
+                if len(ident_pattern_r.flatten_until_leaf_node()) != 1:
+                    ident_pattern_r = ident_pattern_r.flatten_until_leaf_node()[0]
+                else:
+                    self.error("Identifier lists cannot be nested inside a maplet (suggestion: nest another maplet instead)")
+
+            return ast_.MapletIdentifier(ident_pattern, ident_pattern_r)
         return ident_pattern
 
     @store_derivation
@@ -496,12 +514,12 @@ class Parser:
             case TokenType.UNION_ALL:
                 ident_list, predicate, expression = self.quantification_body()
                 union_all = ast_.UnionAll(predicate, expression)
-                union_all._bound_identifiers = ident_list.free
+                union_all._bound_identifiers = set(ident_list.flatten_until_leaf_node())
                 return union_all
             case TokenType.INTERSECTION_ALL:
                 ident_list, predicate, expression = self.quantification_body()
                 intersection_all = ast_.IntersectionAll(predicate, expression)
-                intersection_all._bound_identifiers = ident_list.free
+                intersection_all._bound_identifiers = set(ident_list.flatten_until_leaf_node())
                 return intersection_all
             case _:
                 self.error("Invalid start to quantification")
@@ -806,7 +824,7 @@ class Parser:
             self.error(f"Failed to convert collection operator {collection_operator} to quantification operator")
 
         ret = ast_.Quantifier(predicate, expression, quantification_operator)
-        ret._bound_identifiers = ident_list.free
+        ret._bound_identifiers = set(ident_list.flatten_until_leaf_node())
         self.consume(closing_symbol, f"Expected closing symbol for collection")
         return ret
 
@@ -926,7 +944,7 @@ class Parser:
 
         t = self.peek()
         self.consume(TokenType.IDENTIFIER, "Expected identifier in import list")
-        import_list: list[ast_.Identifier | ast_.IdentList | ast_.BinaryOp] = [ast_.Identifier(t.value)]
+        import_list: list[ast_.Identifier | ast_.IdentList | ast_.MapletIdentifier] = [ast_.Identifier(t.value)]
 
         while self.match(TokenType.COMMA):
             t = self.advance()
