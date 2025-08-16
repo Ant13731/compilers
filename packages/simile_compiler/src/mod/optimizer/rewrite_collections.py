@@ -33,19 +33,24 @@ from src.mod.optimizer.intermediate_ast import GeneratorSelection
 class SetComprehensionConstructionCollection(RewriteCollection):
 
     bound_quantifier_variables: set[ast_.Identifier] = field(default_factory=set)
-    current_bound_identifiers: list[set[ast_.Identifier]] = field(default_factory=list)
+    current_bound_identifiers: list[set[ast_.Identifier | ast_.MapletIdentifier]] = field(default_factory=list)
 
     def apply_all_rules_one_traversal(self, ast):
+        # Before entering a new quantifier, record currently bound variables
+        # (so we can restore them later)
         bound_quantifier_variables_before = deepcopy(self.bound_quantifier_variables)
         if isinstance(ast, ast_.Quantifier):
             logger.debug(f"Quantifier found with bound variables: {ast.bound}")
+            # Add newly accessible (bound) variables, used for generator checks in membership collapse
             self.bound_quantifier_variables |= ast.bound
             self.current_bound_identifiers.append(ast._bound_identifiers)
 
         ast = super().apply_all_rules_one_traversal(ast)
         logger.debug(f"AST after applying all rules: {ast.pretty_print_algorithmic()}")
 
+        # Restore bound variable record since we have exited the possibly nested quantifier
         self.bound_quantifier_variables = bound_quantifier_variables_before
+
         if self.current_bound_identifiers and hasattr(ast, "_bound_identifiers") and ast._bound_identifiers != self.current_bound_identifiers:
             # If the current bound identifiers are set, we need to update the AST's bound identifiers
             ast._bound_identifiers = self.current_bound_identifiers.pop()
@@ -92,7 +97,7 @@ class SetComprehensionConstructionCollection(RewriteCollection):
                         right = ast_.NotIn(ast_.Identifier(fresh_name), right)
 
                 new_ast = ast_.SetComprehension(
-                    ast_.ListOp.flatten_and_join(
+                    ast_.ListOp(
                         [
                             ast_.In(ast_.Identifier(fresh_name), left),
                             right,
@@ -137,7 +142,7 @@ class SetComprehensionConstructionCollection(RewriteCollection):
                 # logger.debug(f"DEBUG: AST {ast.pretty_print_algorithmic()}")
                 # self.current_hidden_bound_identifiers[-1].update(inner_quantifier._bound_identifiers)
 
-                return ast_.ListOp.flatten_and_join(
+                return ast_.ListOp(
                     [
                         ast_.Equal(x, expression),
                         predicate,
@@ -162,7 +167,7 @@ class DisjunctiveNormalFormQuantifierPredicateCollection(RewriteCollection):
             case ast_.ListOp(elems, ast_.ListOperator.AND):
                 if not any(map(lambda x: isinstance(x, ast_.ListOp) and x.op_type == ast_.ListOperator.AND, elems)):
                     return None
-                return ast_.ListOp.flatten_and_join(elems, ast_.ListOperator.AND)
+                return ast_.ListOp(elems, ast_.ListOperator.AND)
 
         return None
 
@@ -171,7 +176,7 @@ class DisjunctiveNormalFormQuantifierPredicateCollection(RewriteCollection):
             case ast_.ListOp(elems, ast_.ListOperator.OR):
                 if not any(map(lambda x: isinstance(x, ast_.ListOp) and x.op_type == ast_.ListOperator.OR, elems)):
                     return None
-                return ast_.ListOp.flatten_and_join(elems, ast_.ListOperator.OR)
+                return ast_.ListOp(elems, ast_.ListOperator.OR)
 
         return None
 
@@ -373,7 +378,7 @@ class GeneratorSelectionCollection(RewriteCollection):
                     predicates.append(
                         GeneratorSelection(
                             selected_generator,
-                            ast_.And.flatten_and_join(
+                            ast_.And(
                                 other_predicates,
                                 ast_.ListOperator.AND,
                             ),
@@ -520,7 +525,7 @@ class GeneratorSelectionCollection(RewriteCollection):
     #                     GeneratorSelectionAST(
     #                         generator=selected_generator,
     #                         assignments=equality_assignments,
-    #                         condition=ast_.And.flatten_and_join(other_predicates, ast_.ListOperator.AND),
+    #                         condition=ast_.And(other_predicates, ast_.ListOperator.AND),
     #                     )
     #                 )
 
@@ -555,7 +560,7 @@ class GeneratorSelectionCollection(RewriteCollection):
     #                         new_elem = GeneratorSelectionAST(
     #                             generator=elem.generator,
     #                             assignments=elem.assignments + other_elem.assignments,
-    #                             condition=ast_.And.flatten_and_join([elem.condition, other_elem.condition], ast_.ListOperator.AND),
+    #                             condition=ast_.And([elem.condition, other_elem.condition], ast_.ListOperator.AND),
     #                         )
     #                         condensed_elems.append(new_elem)
     #                         reduced_elem = True
@@ -611,7 +616,7 @@ class PredicateSimplificationDNFCollection(RewriteCollection):
                 if not new_elems:
                     return ast_.And([])
 
-                return ast_.ListOp.flatten_and_join(new_elems, ast_.ListOperator.AND)
+                return ast_.ListOp(new_elems, ast_.ListOperator.AND)
         return None
 
     def reduce_duplicate_generators(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
@@ -641,7 +646,7 @@ class PredicateSimplificationDNFCollection(RewriteCollection):
                                 generator=elem.generator,
                                 predicates=ast_.And(
                                     [
-                                        ast_.Or.flatten_and_join(
+                                        ast_.Or(
                                             [elem.predicates, other_elem.predicates],
                                             ast_.ListOperator.OR,
                                         )
@@ -776,7 +781,7 @@ class SetCodeGenerationCollection(RewriteCollection):
                     past_predicate_inverse: ast_.Not | None = None
                     if past_predicates:
                         past_predicate_inverse = ast_.Not(
-                            ast_.ListOp.flatten_and_join(
+                            ast_.ListOp(
                                 past_predicates,
                                 ast_.ListOperator.AND,
                             ),
@@ -829,7 +834,7 @@ class SetCodeGenerationCollection(RewriteCollection):
                     statement = ast_.Statements(
                         [
                             ast_.If(
-                                ast_.ListOp.flatten_and_join(
+                                ast_.ListOp(
                                     bound_predicates,
                                     ast_.ListOperator.AND,
                                 ),
@@ -851,7 +856,7 @@ class SetCodeGenerationCollection(RewriteCollection):
 
                 if free_predicates:
                     statement = ast_.If(
-                        ast_.ListOp.flatten_and_join(
+                        ast_.ListOp(
                             free_predicates,
                             ast_.ListOperator.AND,
                         ),

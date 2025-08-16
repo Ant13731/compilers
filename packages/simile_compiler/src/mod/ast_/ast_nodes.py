@@ -539,6 +539,18 @@ class ListOp(InheritedEqMixin, ASTNode):
     items: list[ASTNode]
     op_type: ListOperator
 
+    def __post_init__(self) -> None:
+        super().__post_init__()
+
+        # Flatten nested ListOps of the same type (eg. nested Ands flatten to one list)
+        flattened_objs = []
+        for obj in self.items:
+            if isinstance(obj, ListOp) and obj.op_type == self.op_type:
+                flattened_objs += obj.items
+            else:
+                flattened_objs.append(obj)
+        self.items = flattened_objs
+
     @property
     def bound(self) -> set[Identifier]:
         return set().union(*(item.bound for item in self.items))
@@ -590,17 +602,6 @@ class ListOp(InheritedEqMixin, ASTNode):
                     predicates.append(item)
         return candidate_generators, predicates
 
-    @classmethod
-    def flatten_and_join(cls, obj_lst: list[Any], type_: ListOperator) -> Self:
-        """Flatten a list of objects and join them with the given ListOp."""
-        flattened_objs = []
-        for obj in obj_lst:
-            if isinstance(obj, ListOp) and obj.op_type == type_:
-                flattened_objs += obj.items
-            else:
-                flattened_objs.append(obj)
-        return cls(items=flattened_objs, op_type=type_)
-
     def _pretty_print_algorithmic(self, indent: int) -> str:
         if len(self.items) == 0:
             return ""
@@ -618,12 +619,11 @@ class Quantifier(ASTNode):
 
     def __post_init__(self) -> None:
         super().__post_init__()
-        self._bound_identifiers: set[Identifier | MapletIdentifier] = set()  # | None = None
 
-        # These identifiers are not intended to be iterated over, but may serve as an alternative to the explicitly bound identifier.
-        # For example, in membership collapse, we inherit the bound identifier from the hidden quantifier, but we do not want to
-        # treat it as a nested for-loop. Further, we cannot replace the outer identifier with the collapsed one, as it may be used elsewhere
-        # in the predicate/expression
+        # After semantic analysis, all Quantifiers should have at least one bound identifier + generator suitable to loop over
+        # Relations use MapletIdentifiers, sets use regular identifiers. At the end of optimization,
+        # one quantifier will only bind one new identifier and translate down to (at most) one for-loop
+        self._bound_identifiers: set[Identifier | MapletIdentifier] = set()  # | None = None
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):

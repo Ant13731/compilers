@@ -12,12 +12,11 @@ class GeneratorSelection(ast_.ASTNode):
 
     def flatten(self) -> ast_.ListOp:
         """Flatten the generator selection AST into a list of assignments and a condition."""
-        return ast_.ListOp.flatten_and_join(
+        return ast_.And(
             [
                 self.generator,
                 self.predicates,
             ],
-            ast_.ListOperator.AND,
         )
 
     def copy_and_concat_predicates(self, new_conditions: ast_.ASTNode | None) -> GeneratorSelection:
@@ -26,9 +25,11 @@ class GeneratorSelection(ast_.ASTNode):
 
         return GeneratorSelection(
             generator=self.generator,
-            predicates=ast_.And.flatten_and_join(
-                [self.predicates, new_conditions],
-                ast_.ListOperator.AND,
+            predicates=ast_.And(
+                [
+                    self.predicates,
+                    new_conditions,
+                ],
             ),
         )
 

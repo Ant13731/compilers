@@ -117,12 +117,19 @@ from src.mod import RustCodeGenerator, CPPCodeGenerator
 # print(parsed_test_str.pretty_print_algorithmic())
 # print(comp_constr_test_str.pretty_print_algorithmic())
 
+# R := {x |-> y | x |-> y in {1 |-> 2}}
 TEST_STR = """
-R := {x |-> y | x |-> y in {1 |-> 2}}
+{s · s in ({ t · t in {1, 2} | t } \\/ {3}) | s}
 """
 ast: ast_.ASTNode = parse(TEST_STR)
 ast = analysis.semantic_analysis(ast)
 
 # ast = collection_optimizer(ast, SET_REWRITE_COLLECTION)
+from src.mod.optimizer.rewrite_collections import SetComprehensionConstructionCollection as S1
+from src.mod.optimizer.rewrite_collections_v2 import SetComprehensionConstructionCollection as S2
+
+ast = S1().normalize(ast)
 print("PARSED TEST_STR:", ast.pretty_print(print_env=True))
 print("PARSED TEST_STR:", ast.pretty_print_algorithmic())
+print("PARSED TEST_STR:", ast.body.items[0])
+print("PARSED TEST_STR:", ast.body.items[0].predicate.items[1].items[0].right._bound_identifiers)
