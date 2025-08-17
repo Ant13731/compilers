@@ -1,18 +1,38 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Callable, TypeVar, Generic, TypeGuard, Literal
+from typing import Callable, TypeVar, Generic, TypeGuard, Literal, ClassVar
 
-from src.mod.ast_.ast_node_operators import CollectionOperator, RelationOperator
+from src.mod.ast_.ast_node_operators import (
+    CollectionOperator,
+    RelationOperator,
+    BinaryOperator,
+    UnaryOperator,
+)
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.mod.ast_.ast_node_base import ASTNode
 
 
 class SimileTypeError(Exception):
     """Custom exception for Simile type errors."""
 
-    pass
+    def __init__(self, message: str, node: ASTNode) -> None:
+        message = f"Error {node.get_location()}: {message}"
+
+        super().__init__(message)
+        self.node = node
 
 
 class BaseSimileType(Enum):
+    """Primitive/Atomic Simile types.
+
+    Although these types may be broken down in terms of set theory,
+    code generation targets often have extremely efficient pre-existing implementations.
+    """
+
     PosInt = auto()
     Nat = auto()
     Int = auto()
@@ -20,10 +40,12 @@ class BaseSimileType(Enum):
     String = auto()
     Bool = auto()
     None_ = auto()
+    """Intended for statements without a type, not expressions. For example, a while loop node doesn't have a type."""
 
-    # For unknown types. Right now, built-in generic polymorphic functions will be of this type, since the symbol table is not smart enough to look up the type of called functions.
+    # For unknown types. Right now, built-in generic polymorphic functions will be of this type,
+    # since the symbol table is not smart enough to look up the type of called functions.
     # This is just a hack to get "dom" and "ran" to work for now.
-    Any = auto()
+    # Any = auto()
 
     def __repr__(self) -> str:
         return f"SimileType.{self.name}"
@@ -35,15 +57,117 @@ T = TypeVar("T", bound="SimileType")
 
 
 @dataclass(frozen=True)
+class GenericType:
+    """Generic types are used primarily for resolving generic procedures/functions into a specific type based on context.
+
+    IDs are only locally valid (i.e., introduced by a procedure argument and used by a procedure's return value).
+    """
+
+    id_: str
+
+
+@dataclass(frozen=True)
 class PairType(Generic[L, R]):
+    """Maplet type"""
+
     left: L
     right: R
 
 
 @dataclass(frozen=True)
+class RelationSubTypeMask:
+    total: bool
+    total_on_range: bool
+    one_to_many: bool
+    many_to_one: bool
+
+    _subtype_table: ClassVar[dict[tuple[bool, bool, bool, bool], RelationOperator | None]] = {
+        (False, False, False, False): RelationOperator.RELATION,
+        (False, False, False, True): None,
+        (False, False, True, False): RelationOperator.PARTIAL_FUNCTION,
+        (False, False, True, True): RelationOperator.PARTIAL_INJECTION,
+        (False, True, False, False): RelationOperator.SURJECTIVE_RELATION,
+        (False, True, False, True): None,
+        (False, True, True, False): RelationOperator.PARTIAL_SURJECTION,
+        (False, True, True, True): None,
+        (True, False, False, False): RelationOperator.TOTAL_RELATION,
+        (True, False, False, True): None,
+        (True, False, True, False): RelationOperator.TOTAL_FUNCTION,
+        (True, False, True, True): RelationOperator.TOTAL_INJECTION,
+        (True, True, False, False): RelationOperator.TOTAL_SURJECTIVE_RELATION,
+        (True, True, False, True): None,
+        (True, True, True, False): RelationOperator.TOTAL_SURJECTION,
+        (True, True, True, True): RelationOperator.BIJECTION,
+    }
+
+    @property
+    def one_to_one(self) -> bool:
+        return self.one_to_many and self.many_to_one
+
+    def get_properties(self) -> dict[str, bool]:
+        return {
+            "total": self.total,
+            "total_on_range": self.total_on_range,
+            "one_to_many": self.one_to_many,
+            "many_to_one": self.many_to_one,
+        }
+
+    def to_relation_operator(self) -> RelationOperator:
+        return self._subtype_table.get(tuple(self.get_properties().values()), RelationOperator.RELATION)  # type: ignore
+
+    @classmethod
+    def from_relation_operator(cls, relation_operator: RelationOperator | None) -> RelationSubTypeMask:
+        if relation_operator is None:
+            return RelationSubTypeMask(False, False, False, False)
+        inv_subtype_table = {v: k for k, v in cls._subtype_table.items() if v is not None}
+        return RelationSubTypeMask(*inv_subtype_table[relation_operator])
+
+    def get_resulting_operator_set_or_unary(self, combining_operator: BinaryOperator | UnaryOperator) -> RelationSubTypeMask:
+        new_properties = self.get_properties()
+        match combining_operator:
+            case BinaryOperator.DOMAIN_RESTRICTION | BinaryOperator.DOMAIN_SUBTRACTION:
+                new_properties["total"] = False
+                return RelationSubTypeMask(**new_properties)
+            case BinaryOperator.RANGE_RESTRICTION | BinaryOperator.RANGE_SUBTRACTION:
+                new_properties["total_on_range"] = False
+                return RelationSubTypeMask(**new_properties)
+            case UnaryOperator.INVERSE:
+                new_properties["one_to_many"], new_properties["many_to_one"] = self.many_to_one, self.one_to_many
+                new_properties["total"], new_properties["total_on_range"] = self.total_on_range, self.total
+                return RelationSubTypeMask(**new_properties)
+            case _:
+                return self
+
+    def get_resulting_operator_bin_relation(self, other: RelationSubTypeMask, combining_operator: BinaryOperator) -> RelationSubTypeMask:
+        match combining_operator:
+            case BinaryOperator.RELATION_OVERRIDING:
+                new_properties = self.get_properties()
+                new_properties["one_to_many"] = self.one_to_many and other.one_to_many
+                new_properties["many_to_one"] = self.many_to_one and other.many_to_one
+                new_properties["total"] = other.total
+                new_properties["total_on_range"] = other.total_on_range
+                return RelationSubTypeMask(**new_properties)
+
+            case BinaryOperator.COMPOSITION:
+                new_properties = self.get_properties()
+                new_properties["one_to_many"] = self.one_to_many and other.one_to_many
+                new_properties["many_to_one"] = self.many_to_one and other.many_to_one
+                new_properties["total"] = self.total
+                new_properties["total_on_range"] = self.total_on_range and other.total_on_range
+                return RelationSubTypeMask(**new_properties)
+
+            case _:
+                raise ValueError(
+                    f"Cannot combine relation operators with {combining_operator.name} operator (types to be combined were: {self} ({self.to_relation_operator().name}), {other} ({other.to_relation_operator().name}))"
+                )
+
+
+@dataclass(frozen=True)
 class SetType(Generic[T]):
+    """Type to represent sets and set-dependent types: bags, relations, sequences, etc."""
+
     element_type: T
-    relation_subtype: RelationOperator | None = None
+    relation_subtype: RelationSubTypeMask | None = None
 
     @staticmethod
     def is_set(self_: SetType) -> bool:
@@ -133,6 +257,8 @@ def type_union(*types: SimileType) -> SimileType:
 
 @dataclass(frozen=True)
 class TypeUnion:
+    """OR-selection of types. This type should only be exposed internally, for narrowing purposes"""
+
     types: set[SimileType]
 
 
@@ -144,7 +270,10 @@ class ModuleImports:
 
 @dataclass(frozen=True)
 class DeferToSymbolTable:
+    """Types dependent on this will not be resolved until the analysis phase"""
+
     lookup_type: str
+    """Identifier to look up in table"""
 
 
-SimileType = BaseSimileType | PairType | StructTypeDef | EnumTypeDef | ProcedureTypeDef | TypeUnion | ModuleImports | DeferToSymbolTable | SetType  # | InstanceOfDef
+SimileType = BaseSimileType | PairType | StructTypeDef | EnumTypeDef | ProcedureTypeDef | TypeUnion | ModuleImports | DeferToSymbolTable | SetType | GenericType  # | InstanceOfDef

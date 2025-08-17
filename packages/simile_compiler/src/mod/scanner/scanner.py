@@ -19,6 +19,9 @@ class Location:
     line: int
     column: int
 
+    def __str__(self):
+        return f"line {self.line}, column {self.column}"
+
 
 @dataclass
 class Token:
@@ -30,7 +33,7 @@ class Token:
     end_location: Location
 
     def __repr__(self) -> str:
-        if self.value:
+        if self.value and self.value.lower() != self.type_.name.lower():
             return f"{self.type_.name}({self.value})"
         return self.type_.name
 

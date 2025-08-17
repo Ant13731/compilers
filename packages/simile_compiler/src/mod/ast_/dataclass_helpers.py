@@ -28,7 +28,7 @@ def dataclass_traverse(
     visit_leaves: bool = False,
     visit_root: bool = True,
 ) -> list[T]:
-    """Apply a visit function to all dataclass instances in the traversal target (pre-order traversal, root node first), accumulating non-None results.
+    """Apply a visit function to all dataclass instances in the traversal target (pre-order traversal, root node first), accumulating results.
 
     Args:
         traversal_target: The target to traverse.
@@ -37,7 +37,7 @@ def dataclass_traverse(
         visit_root: Whether to visit the root node. Defaults to True.
 
     Returns:
-        list[T]: A list of non-None results from the visit function.
+        list[T]: A list of results from the visit function.
     """
 
     accumulator: list[T] = []

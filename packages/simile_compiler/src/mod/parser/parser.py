@@ -4,41 +4,72 @@ from typing import Callable, ClassVar, Any, NoReturn, TypeVar
 import inspect
 from functools import wraps
 
+from colorama import just_fix_windows_console
+from termcolor import colored
+
+
 from src.mod.scanner import Token, TokenType, scan
 from src.mod import ast_
 
 T = TypeVar("T")
+just_fix_windows_console()
 
 
 @dataclass
-class ParseError:
+class ParseErr:
     """Class to represent a parser error."""
 
     message: str
-    token: Token | None = None
-    token_index: int | None = None
-    offending_line: str | None = None
+    token: Token
+    token_index: int
+    offending_line: str
     derivation: list[str] = field(default_factory=list)
 
     def __str__(self) -> str:
-        if self.token:
-            ret = ""
-            if self.offending_line is not None:
-                ret += f"Error occurred on line {self.token.start_location.line}:"
-                ret += f"\n{self.offending_line}\n"
-                ret += " " * self.token.start_location.column
-                if self.token.multiline():
-                    ret += "^..."
-                else:
-                    ret += "^" * (self.token.length() - 1)
-            ret += f"\nParseError for token {self.token} at parser index {self.token_index}: {self.message}"
-            ret += "\nDerivation: " + " -> ".join(self.derivation)
-            return ret
-        return f"ParseError: {self.message}"
+        ret = ""
+        ret += f"Error occurred on line {self.token.start_location.line}:"
+        ret += f"\n{self.offending_line}\n"
+
+        ret += " " * self.token.start_location.column
+        if self.token.multiline():
+            ret += colored("^...", "red")
+        else:
+            ret += colored("^" * (self.token.length() - 1), "red")
+
+        ret += f"\nParseError for token {self.token} at parser index {self.token_index}:"
+        ret += f"\n - {"\n - ".join(self.message.splitlines())}"
+        ret += "\nDerivation: " + " -> ".join(self.derivation)
+        return ret
 
 
 class ParseException(Exception):
     """Used to enter panic mode (and should be recovered through the parser)"""
+
+    pass
+
+
+class ParseError(Exception):
+    """Raised with all parse errors formatted as clear stdout output"""
+
+    def __init__(self, parser: Parser):
+        err_str = f"Failed to parse input, found {len(parser.errors)} error(s).\n"
+        for err in parser.errors:
+            err_str += f"{err}\n"
+
+        err_str += "\nParser info:\n"
+        err_str += f"Tokens: {len(parser.tokens)}\n"
+        err_str += f"Errors: {len(parser.errors)}\n"
+        err_str += f"Current index: {parser.current_index}\n"
+        # Tried to limit the number of tokens to relevant areas, but doesnt really work
+        # pre_tokens = ", ".join(list(map(str, parser.tokens[parser.current_index - 6 : parser.current_index - 1])))
+        # cur_token = colored(parser.tokens[parser.current_index], "green")
+        # post_tokens = ", ".join(list(map(str, parser.tokens[parser.current_index + 1 : parser.current_index + 6])))
+        # err_str += f"Surrounding input tokens: {pre_tokens}, {cur_token}, {post_tokens}\n"
+        # For debug
+        err_str += f"Input tokens: {parser.tokens}\n"
+
+        super().__init__(err_str)
+        self.parser = parser
 
     pass
 
@@ -63,7 +94,7 @@ class Parser:
     tokens: list[Token]
     original_text: str = ""  # Used only for error messages
     current_index: int = 0
-    errors: list[ParseError] = field(default_factory=list)
+    errors: list[ParseErr] = field(default_factory=list)
     derivation: list[str] = field(default_factory=list)
 
     # Idea: store the first sets and the corresponding functions (that would otherwise be "matched" when making decisions)
@@ -124,7 +155,7 @@ class Parser:
         "set": {TokenType.L_BRACE},
         "sequence": {TokenType.L_BRACKET},
         "bag": {TokenType.L_BRACE_BAR},
-        "builtin_functions": {TokenType.POWERSET, TokenType.NONEMPTY_POWERSET, TokenType.CARDINALITY},  # , TokenType.FIRST, TokenType.SECOND},
+        "builtin_functions": {TokenType.POWERSET, TokenType.NONEMPTY_POWERSET},  # , TokenType.CARDINALITY, TokenType.FIRST, TokenType.SECOND},
         "control_flow_stmt": {TokenType.RETURN, TokenType.BREAK, TokenType.CONTINUE, TokenType.PASS},
         "assignment": {"struct_access"},
         "typed_name": {TokenType.IDENTIFIER},
@@ -192,11 +223,11 @@ class Parser:
         if not msg_2:
             msg_2 = f"Expected one of {self.get_first_set(inspect.stack()[1 + level_offset].function)}"
         self.errors.append(
-            ParseError(
-                msg + f"\n{msg_2}. Error originated from {inspect.stack()[1 + level_offset].function}",
+            ParseErr(
+                msg + f"\n{msg_2}",  # \nError originated from {inspect.stack()[1 + level_offset].function}"
                 current_token,
                 self.current_index,
-                self.original_text.splitlines()[current_token.start_location.line - 1],
+                self.original_text.splitlines()[current_token.start_location.line],
                 self.derivation,
             )
         )
@@ -230,14 +261,14 @@ class Parser:
     @store_derivation
     def start(self) -> ast_.Start:
         if not self.tokens or self.eof:
-            return ast_.Start(ast_.None_())
+            return ast_.Start(ast_.None_(), self.original_text)
         statements = self.statements()
         try:
             if not self.eof and self.peek().type_ != TokenType.NEWLINE and self.peek(1).type_ != TokenType.EOF:
                 self.error(f"Unexpected token(s) after parsing statements (all tokens should be consumed by this point). Leftover tokens: {self.tokens[self.current_index :]}")
         except ParseException:
             pass
-        return ast_.Start(statements)
+        return ast_.Start(statements, self.original_text)
 
     @store_derivation
     def statements(self) -> ast_.Statements:
@@ -297,7 +328,7 @@ class Parser:
                     predicate = ast_.And([predicate])
 
                 forall = ast_.Forall(predicate)
-                forall._bound_identifiers = ident_list.free
+                forall._bound_identifiers = set(ident_list.flatten_until_leaf_node())
                 return forall
             case TokenType.EXISTS:
                 self.advance()
@@ -308,7 +339,7 @@ class Parser:
                     predicate = ast_.And([predicate])
 
                 exists = ast_.Exists(predicate)
-                exists._bound_identifiers = ident_list.free
+                exists._bound_identifiers = set(ident_list.flatten_until_leaf_node())
                 return exists
             case _ if t.type_ in self.get_first_set("unquantified_predicate"):
                 return self.unquantified_predicate()
@@ -323,10 +354,10 @@ class Parser:
         return ast_.IdentList(ident_patterns)  # TODO figure out ident patterns vs ident list,,,
 
     @store_derivation
-    def ident_pattern(self) -> ast_.Identifier | ast_.BinaryOp | ast_.IdentList:
+    def ident_pattern(self) -> ast_.Identifier | ast_.MapletIdentifier | ast_.IdentList:
         match (t := self.advance()).type_:
             case TokenType.IDENTIFIER:
-                ident_pattern: ast_.Identifier | ast_.BinaryOp | ast_.IdentList = ast_.Identifier(t.value)
+                ident_pattern: ast_.Identifier | ast_.MapletIdentifier | ast_.IdentList = ast_.Identifier(t.value)
             case TokenType.L_PAREN:
                 self.advance()
                 ident_pattern = self.ident_list()
@@ -334,7 +365,25 @@ class Parser:
             case _:
                 self.error("No identifier or sub-pattern found")
         if self.match(TokenType.MAPLET):
-            return ast_.Maplet(ident_pattern, self.ident_pattern())
+            ident_pattern_r = self.ident_pattern()
+
+            # MapletIdentifier only takes in Identifiers or other MapletIdentifiers
+            # Because we nest an IdentList every time we see an opening parenthesis, we need
+            # to check whether there were superfluous parentheses (resulting in a nested IdentList of len == 1)
+            # or if the IdentList was malformed. This effectively prevents IdentLists of the form (x,y,z) |-> (x,y,z),
+            # which is ambiguous for bound relation identifiers, while allowing nested loops like `forall x,y | ...`
+            if isinstance(ident_pattern, ast_.IdentList):
+                if len(ident_pattern.flatten_until_leaf_node()) == 1:
+                    ident_pattern = ident_pattern.flatten_until_leaf_node()[0]
+                else:
+                    self.error("Identifier lists cannot be nested inside a maplet (suggestion: nest another maplet instead)")
+            if isinstance(ident_pattern_r, ast_.IdentList):
+                if len(ident_pattern_r.flatten_until_leaf_node()) != 1:
+                    ident_pattern_r = ident_pattern_r.flatten_until_leaf_node()[0]
+                else:
+                    self.error("Identifier lists cannot be nested inside a maplet (suggestion: nest another maplet instead)")
+
+            return ast_.MapletIdentifier(ident_pattern, ident_pattern_r)
         return ident_pattern
 
     @store_derivation
@@ -465,12 +514,12 @@ class Parser:
             case TokenType.UNION_ALL:
                 ident_list, predicate, expression = self.quantification_body()
                 union_all = ast_.UnionAll(predicate, expression)
-                union_all._bound_identifiers = ident_list.free
+                union_all._bound_identifiers = set(ident_list.flatten_until_leaf_node())
                 return union_all
             case TokenType.INTERSECTION_ALL:
                 ident_list, predicate, expression = self.quantification_body()
                 intersection_all = ast_.IntersectionAll(predicate, expression)
-                intersection_all._bound_identifiers = ident_list.free
+                intersection_all._bound_identifiers = set(ident_list.flatten_until_leaf_node())
                 return intersection_all
             case _:
                 self.error("Invalid start to quantification")
@@ -718,17 +767,18 @@ class Parser:
                 powerset = self.expr()
                 self.consume(TokenType.R_PAREN, "Need to close parenthesis")
                 return ast_.NonemptyPowerset(powerset)
-            case TokenType.CARDINALITY:
-                self.consume(TokenType.L_PAREN, "Cardinality requires object call notation")
-                cardinality = self.expr()
-                self.consume(TokenType.R_PAREN, "Need to close parenthesis")
-                fresh_variable = ast_.Identifier(f"*fresh_var_card{self.current_index}")
-                ast_sum = ast_.Sum(
-                    ast_.And([ast_.In(fresh_variable, cardinality)]),
-                    ast_.Int("1"),
-                )
-                ast_sum._bound_identifiers = {fresh_variable}
-                return ast_sum
+            # case TokenType.CARDINALITY:
+            #     self.consume(TokenType.L_PAREN, "Cardinality requires object call notation")
+            #     cardinality = self.expr()
+            #     self.consume(TokenType.R_PAREN, "Need to close parenthesis")
+            #     fresh_variable = ast_.Identifier(f"*fresh_var_card{self.current_index}")
+            #     # Inlined rewrite rule - Cardinality
+            #     ast_sum = ast_.Sum(
+            #         ast_.And([ast_.In(fresh_variable, cardinality)]),
+            #         ast_.Int("1"),
+            #     )
+            #     ast_sum._bound_identifiers = {fresh_variable}
+            #     return ast_sum
             # case TokenType.FIRST:
             #     self.consume(TokenType.L_PAREN, "First requires object call notation")
             #     first = self.expr()
@@ -774,8 +824,8 @@ class Parser:
             self.error(f"Failed to convert collection operator {collection_operator} to quantification operator")
 
         ret = ast_.Quantifier(predicate, expression, quantification_operator)
-        ret._bound_identifiers = ident_list.free
-        self.consume(closing_symbol, f"Expected closing symbol {closing_symbol} for collection")
+        ret._bound_identifiers = set(ident_list.flatten_until_leaf_node())
+        self.consume(closing_symbol, f"Expected closing symbol for collection")
         return ret
 
     @store_derivation
@@ -894,7 +944,7 @@ class Parser:
 
         t = self.peek()
         self.consume(TokenType.IDENTIFIER, "Expected identifier in import list")
-        import_list: list[ast_.Identifier | ast_.IdentList | ast_.BinaryOp] = [ast_.Identifier(t.value)]
+        import_list: list[ast_.Identifier | ast_.IdentList | ast_.MapletIdentifier] = [ast_.Identifier(t.value)]
 
         while self.match(TokenType.COMMA):
             t = self.advance()
@@ -1074,7 +1124,7 @@ class Parser:
         return statements
 
 
-def parse(source_text: str) -> ast_.Start | list[ParseError]:
+def parse(source_text: str) -> ast_.Start:
     """Parse a list of tokens into an abstract syntax tree (AST)."""
     tokens = scan(source_text)
     parser = Parser(tokens, source_text)
@@ -1083,14 +1133,4 @@ def parse(source_text: str) -> ast_.Start | list[ParseError]:
     if not parser.errors:
         return res
 
-    print("Failed to parse input! (Errors found within in the parser):")
-    for i, err in enumerate(parser.errors):
-        print(f"{i}.")
-        print(err)
-    print("Parser info:")
-    print(f"Tokens: {len(tokens)}")
-    print(f"Errors: {len(parser.errors)}")
-    print(f"Current index: {parser.current_index}")
-    print(f"Input tokens: {tokens}")
-
-    return parser.errors
+    raise ParseError(parser)

@@ -463,25 +463,17 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
 \end{align}
 \end{minipage}
 
-\subsubsection{Predicate Simplification 1}
-
-\paragraph{Intuition} Restructuring quantifications to better suit code generation (ex. Some comprehensions require nested loops to generate all elements).
+\subsubsection{Or-wrapping}
+\paragraph{Intuition} Restructuring quantifier predicates with top-level ORs for later rules.
 
 \paragraph{Post-condition}
 \begin{itemize}
   \item All terms with a set-like type (relations, bags, sets, sequences, etc.) must be in comprehension form.
   \item Quantifier predicates are in disjunctive normal form - top level or-clauses with inner and-clauses.
-  \item One bound variable per quantifier.
 \end{itemize}
-
 
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
-  \tag{Nesting \footnote{$y$ cannot occur in $P$. Nesting selection is currently arbitrary; in the future we plan to find an optimal selection heuristic.}}
-  \bSet{x,y}{P \land Q}{E}
-  &\leadsto
-  \bSet{x}{P}{\bSet{y}{Q}{E}}
-  \\
   \tag{Or-wrapping \footnote{To simplify the matching process later on, we wrap every top-level AND statement (which is guaranteed to be a ListOp by the dataclass field type definition) with an OR.}}
   \bSet{x}{\bigwedge P_i}{E}
   &\leadsto
@@ -490,23 +482,21 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
 \end{minipage}
 
 \subsubsection{Generator Selection}
-
-\paragraph{Intuition} Selecting element generators for use as iterables in generated for-loops.
-
-\paragraph{Notes} All matches of this phase occur only inside quantifier predicates.
+\paragraph{Intuition} All nested ANDs are placed in a tree structure to better suit loop lowering.
 
 \paragraph{Post-condition}
 \begin{itemize}
   \item All terms with a set-like type (relations, bags, sets, sequences, etc.) must be in comprehension form.
-  \item Quantifier predicates are in disjunctive normal form - top level or-clauses with inner and-clauses.
-  \item One bound variable per quantifier.
-  \item Each top-level or-clause within quantification predicates must have one selected `generator' predicate of the form $x \in S$ that loops over its bound dummy variable $x$.
+  \item Each top-level or-clause within quantification predicates must have one selected `generator' predicate (GeneratorSelectedPredicate - GSP) of the form $x \in S$ that loops over its bound dummy variable $x$.
+  \item Quantifier predicates are in disjunctive normal form (with GSP replacing AND structures) - top level or-clauses with inner and-clauses.
 \end{itemize}
+
+\paragraph{Notes} All matches of this phase occur only inside quantifier predicates.
 
 \paragraph{Brainstorming selection heuristics}
 Conditions to consider:
 \begin{itemize}
-  \item Prefer relation chains in case of nested loops (ex. $x \mapsto y \in R \land y \mapsto z \in Q$, but what about renaming? - $x \mapsto y \in R \land y' \mapsto z \in Q \land y = y'$). Perhaps this could just be a preference for relations over sets if we see a nested quantifier.
+  \item Prefer composition chains in case of nested loops (ex. $x \mapsto y \in R \land y \mapsto z \in Q$, but what about renaming? - $x \mapsto y \in R \land y' \mapsto z \in Q \land y = y'$). Perhaps this could just be a preference for relations over sets if we see a nested quantifier.
   \item Choose most common generator among a list of or-clauses (allows for greater simplification later on)
   \item Choose smallest generator (by set size). This information may not always be accessible (ex. if a set is created by reading values from standard input). Functions may need to choose this on a case-by-case basis (ie. one function call could have two args, with a small set on the left arg and a large set on the right arg. But what if the sizes are reversed later in the code? We've already statically lowered it).
   \item When should constant folding happen? Equality substitution necessary for this?
@@ -515,81 +505,208 @@ Conditions to consider:
 \end{itemize}
 
 
+
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
-  % \tag{Singleton Membership One-Point Rule \footnote{From LADM 8.14. $x \in \{e\}$ must be a generator. $\oplus$ represents any quantifier, $\otimes_b$ represents any boolean operation}}
-  % \oplus (E \mid x \in \{e\} \otimes_b P)
-  % &\leadsto
-  % E[x := e] \oplus \oplus(E \mid P)
-  % \\
-  \tag{Generator Selection \footnote{The LH term must occur inside a quantifier's predicate - one generator per or-clause. $P_g$ is the generator, a single clause distinguished from the rest of $\bigwedge P_i$. $P_g$ must be a set membership operation, of the form $x \in S$. Currently, the selection of $P_g$ is arbitrary (and thus the rewrite system is not confluent), but heurestics may be added later to choose optimal generators.}}
+  \tag{GSP Wrapping \footnote{GSP is a recursive structure, where all entries can be flattened into an AND. The LH term must occur inside a quantifier's predicate - one generator per or-clause. $P_g$ is the generator, a single clause distinguished from the rest of $\bigwedge P_i$. $P_g$ must be a set membership operation, of the form $x \in S$. Currently, the selection of $P_g$ is arbitrary (and thus the rewrite system is not confluent), but heurestics may be added later to choose optimal generators.}}
   \bigwedge P_i
   &\leadsto
-  P_g \land \bigwedge_{P_i \neq P_g} P_i
-  % \\
-  % \tag{Equality Separation \footnote{All $P_{eq}$ equalities must follow that one argument contains a single, free identifier not defined the the current scope/context of this quantifier. These equalities will be converted into substitutions.}}
-  % P_g \land \bigwedge P_i
-  % &\leadsto
-  % P_g \land P_{eq} \land \bigwedge_{P_i \neq P_g \land P_i \neq P_{eq}} P_i
-  % \\
-  % \tag{Equality Substitution \footnote{The structure of $P_{eq}$ on the LHS of the rewrite rule must match the form of $x = e$, where $x$ is an unbound identifier.}}
-  % P_g \land P_{eq} \land \bigwedge P_i
-  % &\leadsto
-  % P_g \land \bigwedge P_i[P_{eq}.x := P_{eq}.e]
-  % \tag{Generator Selection and Dummy Reassignment \footnote{The LH term must occur inside a quantifier's predicate - one match per or-clause. $P_g$ is the generator, a single clause distinguished from the rest of $\bigwedge P_i$.\\
-  % Dummy Reassignment uses assignment to calculate expressions outside of the if-statement. For example, $\bSet{x}{x \in S \land z = f(x)}{z}$ indirectly binds $z$ (if $z$ is free), although $z$ does not appear in the quantifier list. This may be less efficient for simple cases than directly rewriting all occurrences of z to f(x), but additional conditions that make use of z would benefit from the intermediate calculation. $P_a$ is an ordered list of such assignments (drawn from $\bigwedge P_i$), so that additional layers of indirection may be accommodated. The expectation is that LLVM will filter out superfluous assignments, though we will test this assumption later.\\Right now, we just make a naive selection of generator (ie., the first viable option). Later, this will be more intelligent.}}
-  % \bigwedge P_i
-  % &\leadsto
-  % P_g \land \bigwedge P_a \land \bigwedge_{P_i \neq P_g, P_i \notin \bigcup P_a} P_i
-  % \\
-  % \tag{Simplified DNF Form \footnote{The LH term must occur inside a quantifier's predicate. Combines clauses with the same generator. Requires Generator Selection to be run first}}
-  % (P_{g} \land \bigwedge P_a \land \bigwedge P_i) \lor (P_{g} \land \bigwedge Q_a \land \bigwedge Q_i)
-  % &\leadsto
-  % P_g \land ((\bigwedge P_a \land \bigwedge P_i) \lor (\bigwedge Q_a \land \bigwedge Q_i) )% TODO dont "factor
+  GSP(P_g, \bigwedge_{P_i \neq P_g} P_i \land True)
+  \\
+  \tag{Nested Generator Selection \footnote{$free$ is a function that returns true when variables in the predicate are defined (either bound by the current generator or bound prior to the current statement)}}
+  GSP(P_g, \bigwedge P_i)
+  &\leadsto
+  GSP(P_g, \bigwedge_{free(P_i)} P_i \land GSP(P_{g_2}, \bigwedge_{\lnot free(P_i) \land P_i \neq P_{g_2}} P_i))
 \end{align}
 \end{minipage}
 
-\subsubsection{Predicate Simplification 2}
+\subsubsection{Reduce Duplicate Generators}
 
 \paragraph{Intuition} Group up similar or-separated clauses sharing the same generator (factoring that generator).
 
 \paragraph{Post-condition}
 \begin{itemize}
   \item All terms with a set-like type (relations, bags, sets, sequences, etc.) must be in comprehension form.
-  \item Quantifier predicates are in disjunctive partially-normal form - top level or-clauses with inner and-clauses. Generator predicates can "factor" one or more or-clauses. The expected predicate shape is either $\lor(P_g \land (\lor P_i))$ or $\lor(P_g \land P_i)$.
-  \item One bound variable per quantifier.
+  \item Quantifier predicates are in disjunctive partial-normal form (with GSP replacing AND structures). Generator predicates can "factor" one or more or-clauses. The expected predicate shape is $\bigvee GSP(P_g, P)$
+  % The expected predicate shape is $\bigvee GSP(P_g, \bigvee \bigwedge P_i)$, where $P_i$ is either a boolean statement or a $GSP(P_g, \bigvee ...)$ structure itself.
   \item Each top-level or-clause within quantification predicates must have one selected `generator' predicate of the form $x \in S$ that loops over its bound dummy variable $x$.
 \end{itemize}
 
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
-  \tag{Reduce duplicate generators \footnote{The LH term must occur inside a quantifier's predicate. Combines clauses with the same generator. Requires Generator Selection to be run first.\\We leave this optimization out for now, given difficulties with counterexample $\bSetT{s}{(x \in \{1, 2\} \land (s = x + 1 \lor s = x + 2)) \lor (x \in \{4\} \land s = x + 1)}$.}}
-  (P_g \land \bigwedge P_i) \lor (P_g \land \bigwedge  Q_i)
+  \tag{Reduce Duplicate Generators \footnote{The LH term must occur inside a quantifier's predicate. Combines clauses with the same generator. Requires Generator Selection to be run first.
+  % \\We leave this optimization out for now, given difficulties with counterexample $\bSetT{s}{(x \in \{1, 2\} \land (s = x + 1 \lor s = x + 2)) \lor (x \in \{4\} \land s = x + 1)}$.
+  }}
+  GSP(P_g, P) \lor GSP(P_g, Q)
   &\leadsto
-  P_g \land (\bigwedge P_i \lor \bigwedge Q_i)
+  GSP(P_g, P \lor Q)
+  % \\
+  % \tag{GSP And-wrapping}
+  % GSP(P_g, P) % where P is of the form GSP(...), not wrapped with And or Or?
+  % &\leadsto
+  % GSP(P_g, \bigwedge P)
+  % \\
+  % \tag{GSP Or-wrapping}
+  % GSP(P_g, \bigwedge P)
+  % &\leadsto
+  % GSP(P_g, \bigvee \bigwedge P)
 \end{align}
 \end{minipage}
 
-\subsubsection{Predicate Simplification 3}
 
-\paragraph{Intuition} Adds extra nested or-structures to ensure consistency within each top-level or-clause.
 
-\paragraph{Post-condition}
-\begin{itemize}
-  \item All terms with a set-like type (relations, bags, sets, sequences, etc.) must be in comprehension form.
-  \item Quantifier predicates are in disjunctive partially-normal form - top level or-clauses with inner and-clauses. Generator predicates can "factor" one or more or-clauses. The expected predicate shape is $\lor(P_g \land (\lor P_i))$.
-  \item One bound variable per quantifier.
-  \item Each top-level or-clause within quantification predicates must have one selected `generator' predicate of the form $x \in S$ that loops over its bound dummy variable $x$.
-\end{itemize}
 
-\noindent\begin{minipage}{\linewidth}
-\begin{align}
-  \tag{Partially-normalized Disjunctive Form}
-  P_g \land \bigwedge P_i
-  &\leadsto
-  P_g \land (\bigvee \bigwedge P_i)
-\end{align}
-\end{minipage}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+% \subsubsection{Predicate Simplification 1}
+
+% \paragraph{Intuition} Restructuring quantifications to better suit code generation (ex. Some comprehensions require nested loops to generate all elements).
+
+% \paragraph{Post-condition}
+% \begin{itemize}
+%   \item All terms with a set-like type (relations, bags, sets, sequences, etc.) must be in comprehension form.
+%   \item Quantifier predicates are in disjunctive normal form - top level or-clauses with inner and-clauses.
+%   \item One bound variable per quantifier.
+% \end{itemize}
+
+
+% \noindent\begin{minipage}{\linewidth}
+% \begin{align}
+%   \tag{Nesting \footnote{$y$ cannot occur in $P$. Nesting selection is currently arbitrary; in the future we plan to find an optimal selection heuristic.}}
+%   \bSet{x,y}{P \land Q}{E}
+%   &\leadsto
+%   \bSet{x}{P}{\bSet{y}{Q}{E}}
+%   \\
+%   \tag{Or-wrapping \footnote{To simplify the matching process later on, we wrap every top-level AND statement (which is guaranteed to be a ListOp by the dataclass field type definition) with an OR.}}
+%   \bSet{x}{\bigwedge P_i}{E}
+%   &\leadsto
+%   \bSet{x}{\bigvee \bigwedge P_i}{E}
+% \end{align}
+% \end{minipage}
+
+% \subsubsection{Generator Selection}
+
+% \paragraph{Intuition} Selecting element generators for use as iterables in generated for-loops.
+
+% \paragraph{Notes} All matches of this phase occur only inside quantifier predicates.
+
+% \paragraph{Post-condition}
+% \begin{itemize}
+%   \item All terms with a set-like type (relations, bags, sets, sequences, etc.) must be in comprehension form.
+%   \item Quantifier predicates are in disjunctive normal form - top level or-clauses with inner and-clauses.
+%   \item One bound variable per quantifier.
+%   \item Each top-level or-clause within quantification predicates must have one selected `generator' predicate of the form $x \in S$ that loops over its bound dummy variable $x$.
+% \end{itemize}
+
+% \paragraph{Brainstorming selection heuristics}
+% Conditions to consider:
+% \begin{itemize}
+%   \item Prefer relation chains in case of nested loops (ex. $x \mapsto y \in R \land y \mapsto z \in Q$, but what about renaming? - $x \mapsto y \in R \land y' \mapsto z \in Q \land y = y'$). Perhaps this could just be a preference for relations over sets if we see a nested quantifier.
+%   \item Choose most common generator among a list of or-clauses (allows for greater simplification later on)
+%   \item Choose smallest generator (by set size). This information may not always be accessible (ex. if a set is created by reading values from standard input). Functions may need to choose this on a case-by-case basis (ie. one function call could have two args, with a small set on the left arg and a large set on the right arg. But what if the sizes are reversed later in the code? We've already statically lowered it).
+%   \item When should constant folding happen? Equality substitution necessary for this?
+%   \item This may need to work with nesting considerations.
+%   \item What if we try moving these optimizations to $loop$ structures far later in the pipeline?
+% \end{itemize}
+
+
+% \noindent\begin{minipage}{\linewidth}
+% \begin{align}
+%   % \tag{Singleton Membership One-Point Rule \footnote{From LADM 8.14. $x \in \{e\}$ must be a generator. $\oplus$ represents any quantifier, $\otimes_b$ represents any boolean operation}}
+%   % \oplus (E \mid x \in \{e\} \otimes_b P)
+%   % &\leadsto
+%   % E[x := e] \oplus \oplus(E \mid P)
+%   % \\
+%   \tag{Generator Selection \footnote{The LH term must occur inside a quantifier's predicate - one generator per or-clause. $P_g$ is the generator, a single clause distinguished from the rest of $\bigwedge P_i$. $P_g$ must be a set membership operation, of the form $x \in S$. Currently, the selection of $P_g$ is arbitrary (and thus the rewrite system is not confluent), but heurestics may be added later to choose optimal generators.}}
+%   \bigwedge P_i
+%   &\leadsto
+%   P_g \land \bigwedge_{P_i \neq P_g} P_i
+%   % \\
+%   % \tag{Equality Separation \footnote{All $P_{eq}$ equalities must follow that one argument contains a single, free identifier not defined the the current scope/context of this quantifier. These equalities will be converted into substitutions.}}
+%   % P_g \land \bigwedge P_i
+%   % &\leadsto
+%   % P_g \land P_{eq} \land \bigwedge_{P_i \neq P_g \land P_i \neq P_{eq}} P_i
+%   % \\
+%   % \tag{Equality Substitution \footnote{The structure of $P_{eq}$ on the LHS of the rewrite rule must match the form of $x = e$, where $x$ is an unbound identifier.}}
+%   % P_g \land P_{eq} \land \bigwedge P_i
+%   % &\leadsto
+%   % P_g \land \bigwedge P_i[P_{eq}.x := P_{eq}.e]
+%   % \tag{Generator Selection and Dummy Reassignment \footnote{The LH term must occur inside a quantifier's predicate - one match per or-clause. $P_g$ is the generator, a single clause distinguished from the rest of $\bigwedge P_i$.\\
+%   % Dummy Reassignment uses assignment to calculate expressions outside of the if-statement. For example, $\bSet{x}{x \in S \land z = f(x)}{z}$ indirectly binds $z$ (if $z$ is free), although $z$ does not appear in the quantifier list. This may be less efficient for simple cases than directly rewriting all occurrences of z to f(x), but additional conditions that make use of z would benefit from the intermediate calculation. $P_a$ is an ordered list of such assignments (drawn from $\bigwedge P_i$), so that additional layers of indirection may be accommodated. The expectation is that LLVM will filter out superfluous assignments, though we will test this assumption later.\\Right now, we just make a naive selection of generator (ie., the first viable option). Later, this will be more intelligent.}}
+%   % \bigwedge P_i
+%   % &\leadsto
+%   % P_g \land \bigwedge P_a \land \bigwedge_{P_i \neq P_g, P_i \notin \bigcup P_a} P_i
+%   % \\
+%   % \tag{Simplified DNF Form \footnote{The LH term must occur inside a quantifier's predicate. Combines clauses with the same generator. Requires Generator Selection to be run first}}
+%   % (P_{g} \land \bigwedge P_a \land \bigwedge P_i) \lor (P_{g} \land \bigwedge Q_a \land \bigwedge Q_i)
+%   % &\leadsto
+%   % P_g \land ((\bigwedge P_a \land \bigwedge P_i) \lor (\bigwedge Q_a \land \bigwedge Q_i) )% TODO dont "factor
+% \end{align}
+% \end{minipage}
+
+% \subsubsection{Predicate Simplification 2}
+
+% \paragraph{Intuition} Group up similar or-separated clauses sharing the same generator (factoring that generator).
+
+% \paragraph{Post-condition}
+% \begin{itemize}
+%   \item All terms with a set-like type (relations, bags, sets, sequences, etc.) must be in comprehension form.
+%   \item Quantifier predicates are in disjunctive partially-normal form - top level or-clauses with inner and-clauses. Generator predicates can "factor" one or more or-clauses. The expected predicate shape is either $\lor(P_g \land (\lor P_i))$ or $\lor(P_g \land P_i)$.
+%   \item One bound variable per quantifier.
+%   \item Each top-level or-clause within quantification predicates must have one selected `generator' predicate of the form $x \in S$ that loops over its bound dummy variable $x$.
+% \end{itemize}
+
+% \noindent\begin{minipage}{\linewidth}
+% \begin{align}
+%   \tag{Reduce Duplicate Generators \footnote{The LH term must occur inside a quantifier's predicate. Combines clauses with the same generator. Requires Generator Selection to be run first.\\We leave this optimization out for now, given difficulties with counterexample $\bSetT{s}{(x \in \{1, 2\} \land (s = x + 1 \lor s = x + 2)) \lor (x \in \{4\} \land s = x + 1)}$.}}
+%   (P_g \land \bigwedge P_i) \lor (P_g \land \bigwedge  Q_i)
+%   &\leadsto
+%   P_g \land (\bigwedge P_i \lor \bigwedge Q_i)
+% \end{align}
+% \end{minipage}
+
+% \subsubsection{Predicate Simplification 3}
+
+% \paragraph{Intuition} Adds extra nested or-structures to ensure consistency within each top-level or-clause.
+
+% \paragraph{Post-condition}
+% \begin{itemize}
+%   \item All terms with a set-like type (relations, bags, sets, sequences, etc.) must be in comprehension form.
+%   \item Quantifier predicates are in disjunctive partially-normal form - top level or-clauses with inner and-clauses. Generator predicates can "factor" one or more or-clauses. The expected predicate shape is $\lor(P_g \land (\lor P_i))$.
+%   \item One bound variable per quantifier.
+%   \item Each top-level or-clause within quantification predicates must have one selected `generator' predicate of the form $x \in S$ that loops over its bound dummy variable $x$.
+% \end{itemize}
+
+% \noindent\begin{minipage}{\linewidth}
+% \begin{align}
+%   \tag{Partially-normalized Disjunctive Form}
+%   P_g \land \bigwedge P_i
+%   &\leadsto
+%   P_g \land (\bigvee \bigwedge P_i)
+% \end{align}
+% \end{minipage}
 
 \subsubsection{Code Generation 1}
 
@@ -638,26 +755,48 @@ Conditions to consider:
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
   \tag{Disjunct conditional}
-  \begin{minipage}[]{0.4\textwidth}
+  \begin{minipage}[]{0.33\textwidth}
   \begin{algorithmic}
-    \Loop\ $\bigvee P_i$
+    \Loop\ $\bigvee GSP_i(P_{g_i}, P_i)$
       \State body
     \EndLoop
   \end{algorithmic}
   \end{minipage}
   &\leadsto
-  \begin{minipage}[]{0.4\textwidth}
+  \begin{minipage}[]{0.5\textwidth}
   \begin{algorithmic}
-    \Loop\ $P_0:$
+    \Loop\ $GSP_0(P_{g_0}, P_0):$
       \State body
     \EndLoop
-    \Loop\ $P_1 \land \lnot P_0:$
+    \Loop\ $GSP_1(P_{g_1}, P_1 \land \lnot GSP_0):$
       \State body
     \EndLoop
-    \Loop\ $P_2 \land \lnot (\bigvee_{i < 2} P_i):$
+    \Loop\ $GSP_2(P_{g_2}, P_2 \land \lnot (\bigvee_{i < 2} GSP_i)):$
       \State body
     \EndLoop
     \State ...
+  \end{algorithmic}
+  \end{minipage}
+  \\
+  \tag{Disjunct Conditional 2}
+  \begin{minipage}[]{0.3\textwidth}
+  \begin{algorithmic}
+    \Loop\ $GSP(P_g, \bigvee P_i)$
+      \State body
+    \EndLoop
+  \end{algorithmic}
+  \end{minipage}
+  &\leadsto
+  \begin{minipage}[]{0.8\textwidth}
+  \begin{algorithmic}
+    \Loop\ $GSP(P_g, \bigwedge True):$
+      \If{$\bigvee_{ P_i \neq GSP(...)} P_i$}
+        \State body
+      \EndIf
+      \Loop\ $\bigvee_{P_i: GSP(P_{ig}, P_{is})} GSP(P_{g_i}, P_{is} \land \lnot \bigvee_{P_i \neq GSP(...)} P_i):$
+        \State body
+      \EndLoop
+    \EndLoop
   \end{algorithmic}
   \end{minipage}
 \end{align}
@@ -676,10 +815,10 @@ Conditions to consider:
 
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
-  \tag{Conjunct conditional \footnote{Function $free$ returns clauses in $P$ that contain only free + defined variables. $bound$ returns the clauses that contain the bound variable $x$ or undefined variables. $P_g$ is the selected generator.}}
+  \tag{Conjunct Conditional \footnote{Function $free$ returns clauses in $P$ that contain only free + defined variables. $bound$ returns the clauses that contain the bound variable $x$ or undefined variables. $P_g$ is the selected generator.}}
   \begin{minipage}[]{0.4\textwidth}
   \begin{algorithmic}
-    \Loop\ $P_g \land P \land \bigwedge Q_i$
+    \Loop\ $GSP(P_g, \bigwedge P_i)$
       \State body
     \EndLoop
   \end{algorithmic}
@@ -691,16 +830,17 @@ Conditions to consider:
       \For{$P_g$}
         % \State $P_as$ % TODO rewrite these to be more clear that they are assignments
         \If{$\bigwedge_{bound(P_i)} P_i$}
-          \If{$Q_0$}
             \State body
-          \EndIf
-          \If{$Q_1 \land \lnot Q_0$}
-            \State body
-          \EndIf
-          \If{$Q_2 \land \lnot (\bigvee_{i < 2} Q_i)$}
-            \State body
-          \EndIf
-          \State ...
+          % \If{$Q_0$}
+          %   \State body
+          % \EndIf
+          % \If{$Q_1 \land \lnot Q_0$}
+          %   \State body
+          % \EndIf
+          % \If{$Q_2 \land \lnot (\bigvee_{i < 2} Q_i)$}
+          %   \State body
+          % \EndIf
+          % \State ...
         \EndIf
       \EndFor
     \EndIf
@@ -708,6 +848,7 @@ Conditions to consider:
   \end{minipage}
 \end{align}
 \end{minipage}
+
 
 
 \subsubsection{Equality Elimination}

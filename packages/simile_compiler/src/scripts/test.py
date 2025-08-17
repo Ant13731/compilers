@@ -50,29 +50,29 @@ from src.mod import RustCodeGenerator, CPPCodeGenerator
 # print("COMP CONSTR TEST STR:", comp_constr_test_str3.pretty_print())
 
 # TEST_STR = "card({s · s in {1, 2} or s in {2, 3} | s})"
-TEST_STR = "card({1, 2} \\/ {2, 3})"
+# TEST_STR = "card({1, 2} \\/ {2, 3})"
 # TEST_STR = "card({s · s in {1, 2} | s})"
 # TEST_STR = "{s,e · s in {1, 2} and e in {2, 3} | s |-> e}"
-TEST_STR = "{s · s in { x + 1 | x in {1, 2} or x in {4}} or s in { x + 2 | x in {2, 3}} | s}"
+# TEST_STR = "{s · s in { x + 1 | x in {1, 2} or x in {4}} or s in { x + 2 | x in {2, 3}} | s}"
 # TEST_STR = "{1, 2} \\/ {2, 3}"
 # len({1, 2} - {2, 3})
 
-print("TEST_STR 2:", TEST_STR)
+# print("TEST_STR 2:", TEST_STR)
 
-ast: ast_.ASTNode | list = parse(TEST_STR)
-if isinstance(ast, list):
-    raise ValueError(f"Expected a single AST, got a list (parsing failed): {ast}")
+# ast: ast_.ASTNode | list = parse(TEST_STR)
+# if isinstance(ast, list):
+#     raise ValueError(f"Expected a single AST, got a list (parsing failed): {ast}")
 
-ast = analysis.populate_ast_environments(ast)
-print("PARSED TEST_STR:", ast.pretty_print())
-print("PARSED TEST_STR:", ast.pretty_print_algorithmic())
+# ast = analysis.populate_ast_environments(ast)
+# print("PARSED TEST_STR:", ast.pretty_print())
+# print("PARSED TEST_STR:", ast.pretty_print_algorithmic())
 
-ast = collection_optimizer(ast, SET_REWRITE_COLLECTION[:-2])
-print("OPTIMIZED TEST_STR:", ast.pretty_print())
-# print("OPTIMIZED TEST_STR:", ast.pretty_print(print_env=True))
-print("OPTIMIZED TEST_STR:", ast.pretty_print_algorithmic())
+# ast = collection_optimizer(ast, SET_REWRITE_COLLECTION[:-2])
+# print("OPTIMIZED TEST_STR:", ast.pretty_print())
+# # print("OPTIMIZED TEST_STR:", ast.pretty_print(print_env=True))
+# print("OPTIMIZED TEST_STR:", ast.pretty_print_algorithmic())
 
-ast = analysis.populate_ast_environments(ast)
+# ast = analysis.populate_ast_environments(ast)
 # print("OPTIMIZED TEST_STR:", ast.pretty_print())
 # print("OPTIMIZED TEST_STR:", ast.pretty_print(print_env=True))
 # print("OPTIMIZED TEST_STR:", ast.pretty_print_algorithmic())
@@ -116,3 +116,20 @@ ast = analysis.populate_ast_environments(ast)
 # print("COMP CONSTR TEST STR 2 5:", comp_constr_test_str.pretty_print())
 # print(parsed_test_str.pretty_print_algorithmic())
 # print(comp_constr_test_str.pretty_print_algorithmic())
+
+# R := {x |-> y | x |-> y in {1 |-> 2}}
+TEST_STR = """
+{s · s in ({ t · t in {1, 2} | t } \\/ {3}) | s}
+"""
+ast: ast_.ASTNode = parse(TEST_STR)
+ast = analysis.semantic_analysis(ast)
+
+# ast = collection_optimizer(ast, SET_REWRITE_COLLECTION)
+from src.mod.optimizer.rewrite_collections import SetComprehensionConstructionCollection as S1
+from src.mod.optimizer.rewrite_collections_v2 import SetComprehensionConstructionCollection as S2
+
+ast = S1().normalize(ast)
+print("PARSED TEST_STR:", ast.pretty_print(print_env=True))
+print("PARSED TEST_STR:", ast.pretty_print_algorithmic())
+print("PARSED TEST_STR:", ast.body.items[0])
+print("PARSED TEST_STR:", ast.body.items[0].predicate.items[1].items[0].right._bound_identifiers)

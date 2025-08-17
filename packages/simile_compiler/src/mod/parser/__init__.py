@@ -1,6 +1,6 @@
 from src.mod.parser.parser import (
     parse,
     Parser,
+    ParseErr,
     ParseError,
-    ParseException,
 )

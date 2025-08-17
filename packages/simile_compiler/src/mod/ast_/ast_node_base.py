@@ -3,9 +3,10 @@ from dataclasses import dataclass, fields, field
 from typing import Generator, Any, TypeVar, Callable
 from functools import wraps
 
+from src.mod.scanner import Location
 from src.mod.ast_.ast_node_operators import Operators
 from src.mod.ast_.dataclass_helpers import dataclass_traverse, dataclass_find_and_replace
-from src.mod.ast_.symbol_table_types import SimileType, DeferToSymbolTable, SimileTypeError
+from src.mod.ast_.symbol_table_types import SimileType, DeferToSymbolTable, SimileTypeError, PairType
 from src.mod.ast_.symbol_table_env import SymbolTableEnvironment
 
 T = TypeVar("T")
@@ -17,6 +18,8 @@ class ASTNode:
 
     def __post_init__(self) -> None:
         self._env: SymbolTableEnvironment | None = None
+        self._start_location: Location | None = None
+        self._end_location: Location | None = None
 
     def well_formed(self) -> bool:
         """Check if the variables in expressions are well-formed (i.e., no clashes between :attr:`bound` and :attr:`free` variables)."""
@@ -40,7 +43,7 @@ class ASTNode:
         After running :func:`src.mod.analysis.type_analysis.populate_ast_with_types`, all nodes will contain resolved types.
         """
         if self._env is None:
-            raise SimileTypeError("Type analysis must be run before calling the `get_type` function (self._env is None)")
+            raise SimileTypeError("Type analysis must be run before calling the `get_type` function (self._env is None)", self)
         return self._get_type()
 
     def _get_type(self) -> SimileType:
@@ -58,7 +61,7 @@ class ASTNode:
             if not hasattr(n, "op_type"):
                 return False
             assert hasattr(n, "op_type")
-            return n.op_type == with_op_type
+            return n.op_type == with_op_type  # type: ignore
 
         return any(dataclass_traverse(self, is_matching_node))
 
@@ -77,7 +80,7 @@ class ASTNode:
                 return None
             if with_op_type is None:
                 return n
-            if hasattr(n, "op_type") and n.op_type == with_op_type:
+            if hasattr(n, "op_type") and n.op_type == with_op_type:  # type: ignore
                 return n
             return None
 
@@ -185,6 +188,13 @@ class ASTNode:
     def _pretty_print_algorithmic(self, indent: int) -> str:
         raise NotImplementedError
 
+    def add_location(self, start: Location, end: Location) -> None:
+        self._start_location = start
+        self._end_location = end
+
+    def get_location(self) -> str:
+        return f"({self._start_location}, {self._end_location})"
+
 
 @dataclass
 class Identifier(ASTNode):
@@ -215,3 +225,36 @@ class Identifier(ASTNode):
         if self.name.startswith("*"):
             return f"x{''.join(filter(str.isnumeric, self.name))}"
         return self.name
+
+    def flatten(self) -> set[Identifier]:
+        """Used to simplify the flatten operation of :cls:`MapletIdentifier`"""
+        return {self}
+
+
+@dataclass
+class MapletIdentifier(ASTNode):
+    """Special variation of maplet used for binding loop and quantification variables (also hashable)"""
+
+    left: MapletIdentifier | Identifier
+    right: MapletIdentifier | Identifier
+
+    def __hash__(self) -> int:
+        return hash((self.left, self.right))
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, MapletIdentifier):
+            return False
+        return self.left == other.left and self.right == other.right
+
+    @property
+    def free(self) -> set[Identifier]:
+        return self.flatten()
+
+    def _get_type(self) -> SimileType:
+        return PairType(self.left.get_type, self.right.get_type)
+
+    def _pretty_print_algorithmic(self, indent: int) -> str:
+        return f"{self.left._pretty_print_algorithmic(indent)} ↦ {self.right._pretty_print_algorithmic(indent)}"
+
+    def flatten(self) -> set[Identifier]:
+        return self.left.flatten() | self.right.flatten()
