@@ -8,7 +8,12 @@ from loguru import logger
 from src.mod import ast_
 from src.mod import analysis
 from src.mod.optimizer.rewrite_collection import RewriteCollection
-from src.mod.optimizer.intermediate_ast import GeneratorSelection
+from src.mod.optimizer.intermediate_ast import (
+    GeneratorSelectionV2,
+    CombinedGeneratorSelectionV2,
+    SingleGeneratorSelectionV2,
+    Loop,
+)
 
 # NOTE: REWRITE RULES MUST ALWAYS USE THE PARENT FORM FOR STRUCTURAL MATCHING (ex. BinaryOp instead of Add)
 
@@ -290,45 +295,12 @@ class DisjunctiveNormalFormCollection(RewriteCollection):
         return None
 
 
-class PredicateSimplificationCollection(RewriteCollection):
+@dataclass
+class OrWrappingCollection(RewriteCollection):
     def _rewrite_collection(self):
         return [
-            self.nesting,
             self.or_wrapping,
         ]
-
-    def nesting(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
-        match ast:
-            # TODO, should nesting work with top-level ORs too? should we try to choose nesting more carefully (ie composition chains)
-            case ast_.Quantifier(ast_.ListOp(elems, ast_.ListOperator.AND), expression, op_type):
-                if not ast._bound_identifiers:
-                    logger.debug(f"FAILED: no bound identifiers found in quantifier")
-                    return None
-                if len(ast._bound_identifiers) <= 1:
-                    logger.debug(f"FAILED: not enough bound identifiers to nest quantifier (found {len(ast._bound_identifiers)})")
-                    return None
-
-                bound_identifiers = list(ast._bound_identifiers)
-                outer_bound_identifier = bound_identifiers[0]
-                outer_predicate = list(filter(lambda x: x.contains_item(outer_bound_identifier), elems))
-                inner_predicate = list(filter(lambda x: not x.contains_item(outer_bound_identifier), elems))
-
-                inner_quantifier = ast_.Quantifier(
-                    ast_.And(inner_predicate),
-                    expression,
-                    op_type,
-                )
-                inner_quantifier._bound_identifiers = set(bound_identifiers[1:])
-
-                outer_quantifier = ast_.Quantifier(
-                    ast_.And(outer_predicate),
-                    inner_quantifier,
-                    op_type,
-                )
-                outer_quantifier._bound_identifiers = set(bound_identifiers[:1])
-
-                return outer_quantifier
-        return None
 
     def or_wrapping(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
@@ -342,3 +314,176 @@ class PredicateSimplificationCollection(RewriteCollection):
                 return new_quantifier
 
         return None
+
+
+@dataclass
+class GeneratorSelectionCollection(RewriteCollection):
+    def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
+        return [
+            self.generator_selection,
+            self.reduce_duplicate_generators,
+        ]
+
+    def generator_selection(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Quantifier(
+                ast_.ListOp(elems, ast_.ListOperator.OR),
+                expression,
+                op_type,
+            ):
+                raise NotImplementedError
+            # This should only match once per quantifier
+            # For each And inside the Or:
+            # - Only match if valid generator selection:
+            #   - Generator structure exists with LHS in _bound_identifiers
+            # - Then:
+            #   - Only one generator per bound identifier - need to find all alternatives and then restrict from there
+            #   - Try to order in list as a composition chain
+        return None
+
+    def reduce_duplicate_generators(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.ListOp(elems, ast_.ListOperator.OR):
+                raise NotImplementedError
+            # Only match if all elems are either GeneratorSelectionV2 or CombinedGeneratorSelection
+            # Check all elements for matches:
+            # - elements that share a generator are placed in a combinedgeneratorselection
+            # - predicates set to True/None
+        return None
+
+
+@dataclass
+class GSPToLoopsCollection(RewriteCollection):
+    def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
+        return [
+            self.summation,
+        ]
+
+    def quantifier_generation(
+        self,
+        ast: ast_.ASTNode,
+        op_type: ast_.QuantifierOperator,
+        identity: ast_.ASTNode,
+        accumulator: Callable[[ast_.ASTNode, ast_.ASTNode], ast_.ASTNode],
+        accumulator_type: ast_.SimileType,
+    ) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Quantifier(
+                predicate,  # Should be an OR[GeneratorSelection | CombinedGeneratorSelection]
+                expression,
+                op_type_,
+            ) if (
+                op_type_ == op_type
+            ):
+                if not isinstance(predicate, ast_.ListOp) or predicate.op_type != ast_.ListOperator.OR:
+                    logger.debug(f"FAILED: predicate is not a ListOp with OR operator (got {predicate}). This should be in DNF")
+                    return None
+                if not all(map(lambda x: isinstance(x, GeneratorSelectionV2) or isinstance(x, CombinedGeneratorSelectionV2), predicate.items)):
+                    logger.debug(f"FAILED: not all items in predicate are GeneratorSelections (got {predicate.items}). Elements of predicates should be GeneratorSelectionASTs")
+                    return None
+
+                assert ast._env is not None, f"Environment should not be None (in quantifier_generation, ast {ast})"
+                accumulator_var = ast_.Identifier(self._get_fresh_identifier_name())
+                ast._env.put(accumulator_var.name, accumulator_type)
+
+                predicate = ast_.Or(predicate.items)
+
+                if_statement = Loop(
+                    predicate,
+                    ast_.Assignment(
+                        accumulator_var,
+                        accumulator(accumulator_var, expression),
+                    ),
+                )
+                return ast_.Statements(
+                    [
+                        ast_.Assignment(
+                            accumulator_var,
+                            identity,
+                        ),
+                        if_statement,
+                    ]
+                )
+        return None
+
+    def summation(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        return self.quantifier_generation(
+            ast,
+            ast_.QuantifierOperator.SUM,
+            ast_.Int("0"),
+            ast_.Add,
+            ast_.BaseSimileType.Int,
+        )
+
+    def top_level_or_loop(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case Loop(
+                ast_.ListOp(predicates, ast_.ListOperator.OR),
+                body,
+            ):
+                ...
+        return None
+
+    def chained_gsp_loop(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case Loop(
+                GeneratorSelectionV2(generators, predicates),
+                body,
+            ):
+                ...
+        return None
+
+    def single_gsp_loop(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case Loop(
+                GeneratorSelectionV2([generator], predicates),
+                body,
+            ):
+                ...
+        return None
+
+    def combined_gsp_loop(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case Loop(
+                CombinedGeneratorSelectionV2(
+                    generator,
+                    gsp_predicates,
+                    predicates,
+                ),
+                body,
+            ):
+                ...
+        return None
+
+
+class LoopsCodeGenerationCollection(RewriteCollection):
+
+    def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
+        return [
+            self.conjunct_conditional,
+        ]
+
+    def conjunct_conditional(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case Loop(
+                SingleGeneratorSelectionV2(
+                    generator,
+                    predicates,
+                ),
+                body,
+            ):
+                ...
+        return None
+
+
+class ReplaceAndSimplifyCollection(RewriteCollection):
+    def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
+        return [
+            self.equality_elimination,
+            self.simplify_equalities,
+            self.simplify_and_true,
+            self.simplify_and_false,
+            self.simplify_or_true,
+            self.simplify_or_false,
+            self.flatten_nested_statements,
+        ]

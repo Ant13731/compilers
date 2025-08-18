@@ -37,6 +37,31 @@ class GeneratorSelection(ast_.ASTNode):
         return self.flatten()._pretty_print_algorithmic(indent)
 
 
+@dataclass
+class GeneratorSelectionV2(ast_.ASTNode):
+    generators: list[ast_.In]
+    predicates: ast_.And
+
+
+@dataclass
+class CombinedGeneratorSelectionV2(ast_.ASTNode):
+    generator: ast_.In
+    gsp_predicates: ast_.Or  # Or[GeneratorSelectionV2]
+    predicates: ast_.And
+
+
+@dataclass
+class SingleGeneratorSelectionV2(ast_.ASTNode):
+    generator: ast_.In
+    predicates: ast_.And
+
+
+@dataclass
+class Loop(ast_.ASTNode):
+    predicate: ast_.Or | GeneratorSelectionV2 | CombinedGeneratorSelectionV2 | SingleGeneratorSelectionV2
+    body: ast_.ASTNode
+
+
 # @dataclass
 # class GeneratorSelectionWithSubstitution(ast_.ASTNode):
 #     generator: ast_.In | ast_.BinaryOp
