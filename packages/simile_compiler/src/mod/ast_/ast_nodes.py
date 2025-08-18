@@ -623,6 +623,8 @@ class Quantifier(ASTNode):
         # After semantic analysis, all Quantifiers should have at least one bound identifier + generator suitable to loop over
         # Relations use MapletIdentifiers, sets use regular identifiers. At the end of optimization,
         # one quantifier will only bind one new identifier and translate down to (at most) one for-loop
+        #
+        # One identifier name should appear only once in the set of bound identifiers
         self._bound_identifiers: set[Identifier | MapletIdentifier] = set()  # | None = None
 
     def __eq__(self, other: object) -> bool:
@@ -696,6 +698,17 @@ class Quantifier(ASTNode):
         return all(check_list)
 
     def _get_type(self) -> SimileType:
+        if self._bound_identifiers:
+            for identifier in self._bound_identifiers:
+                for identifier_ in self._bound_identifiers:
+                    if identifier == identifier_:
+                        continue
+
+                    if identifier.contains_item(identifier_) or identifier_.contains_item(identifier):
+                        raise SimileTypeError(
+                            f"Invalid bound identifier setup - all identifiers can be bound at most once, found reused variable between {identifier} and {identifier_}", self
+                        )
+
         if not self.all_predicates.get_type == BaseSimileType.Bool:
             raise SimileTypeError(f"Invalid type for boolean quantifier predicate: {self.all_predicates.get_type}", self)
 

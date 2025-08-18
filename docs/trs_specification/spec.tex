@@ -513,7 +513,7 @@ Conditions to consider:
   GSP(\bigwedge P_{g_i}, \bigwedge_{P_i \notin P_g} P_i)
   \\
   \tag{Nested Generator Selection \footnote{$free$ is a function that returns true when variables in the predicate are defined (either bound by the current generator or bound prior to the current statement)}}
-  GSP(x:xs, P) \lor GSP(x:ys, Q)
+  GSP(x \land xs, P) \lor GSP(x \land ys, Q)
   &\leadsto
   CombGSP(x, GSP(xs, P) \lor GSP(ys, Q))
 \end{align}

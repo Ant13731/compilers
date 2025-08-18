@@ -39,19 +39,22 @@ class GeneratorSelection(ast_.ASTNode):
 
 @dataclass
 class GeneratorSelectionV2(ast_.ASTNode):
+    bound_identifiers: set[ast_.Identifier | ast_.MapletIdentifier]
     generators: list[ast_.In]
     predicates: ast_.And
 
 
 @dataclass
 class CombinedGeneratorSelectionV2(ast_.ASTNode):
+    bound_identifier: ast_.Identifier | ast_.MapletIdentifier
     generator: ast_.In
     gsp_predicates: ast_.Or  # Or[GeneratorSelectionV2]
-    predicates: ast_.And
+    predicates: ast_.And | None = None
 
 
 @dataclass
 class SingleGeneratorSelectionV2(ast_.ASTNode):
+    bound_identifier: ast_.Identifier | ast_.MapletIdentifier
     generator: ast_.In
     predicates: ast_.And
 

@@ -312,6 +312,16 @@ class OrWrappingCollection(RewriteCollection):
                 )
                 new_quantifier._bound_identifiers = ast._bound_identifiers
                 return new_quantifier
+            case ast_.Quantifier(ast_.ListOp(_, ast_.ListOperator.OR) as elem, expression, op_type):
+                return None
+            case ast_.Quantifier(elem, expression, op_type):
+                new_quantifier = ast_.Quantifier(
+                    ast_.And([elem]),
+                    expression,
+                    op_type,
+                )
+                new_quantifier._bound_identifiers = ast._bound_identifiers
+                return new_quantifier
 
         return None
 
@@ -331,7 +341,44 @@ class GeneratorSelectionCollection(RewriteCollection):
                 expression,
                 op_type,
             ):
-                raise NotImplementedError
+
+                if ast._env is None:
+                    logger.debug(f"FAILED: no environment found in quantifier (cannot choose generators)")
+                    return None
+
+                if all(map(lambda x: isinstance(x, GeneratorSelectionV2) or isinstance(x, CombinedGeneratorSelectionV2), elems)):
+                    logger.debug(f"FAILED: all elements in OR quantifier are already GeneratorSelections, no need to select generators")
+                    return None
+
+                gsps: list[GeneratorSelectionV2] = []
+                for elem in elems:
+                    if not isinstance(elem, ast_.ListOp) or elem.op_type != ast_.ListOperator.AND:
+                        logger.debug(f"FAILED: element in OR quantifier is not an And operation (got {elem})")
+                        return None
+
+                    gsp = self._make_gsp_from_and_clause(elem.items, ast._bound_identifiers)
+                    if gsp is None:
+                        logger.debug(f"FAILED: could not make GSP from and clause {elem} with bound identifiers {ast._bound_identifiers}")
+                        return None
+
+                    gsps.append(gsp)
+
+                if not gsps:
+                    logger.debug(f"FAILED: no valid generator selections found in OR quantifier (got {elems})")
+                    return None
+
+                # No _bound_identifiers from this point on?
+                ret = ast_.Quantifier(
+                    ast_.Or(elems),
+                    expression,
+                    op_type,
+                )
+                ret._bound_identifiers = ast._bound_identifiers
+                return ret
+                # predicates: list[ast_.ASTNode] = []
+                # generators_with_alternatives: list[list[ast_.In]] = []
+                # for elem in elems:
+
             # This should only match once per quantifier
             # For each And inside the Or:
             # - Only match if valid generator selection:
@@ -341,10 +388,92 @@ class GeneratorSelectionCollection(RewriteCollection):
             #   - Try to order in list as a composition chain
         return None
 
+    def _make_gsp_from_and_clause(
+        self,
+        and_clause: list[ast_.ASTNode],
+        bound_identifiers: set[ast_.Identifier | ast_.MapletIdentifier],
+    ) -> GeneratorSelectionV2 | None:
+        candidate_generators_per_identifier: dict[ast_.Identifier | ast_.MapletIdentifier, set[ast_.In]] = {identifier: set() for identifier in bound_identifiers}
+        other_predicates: list[ast_.ASTNode] = []
+        for elem in and_clause:
+            if not isinstance(elem, ast_.BinaryOp):
+                other_predicates.append(elem)
+                continue
+            if any(
+                [
+                    elem.op_type != ast_.BinaryOperator.IN,
+                    not isinstance(elem.left, ast_.Identifier | ast_.MapletIdentifier),
+                    elem.left not in candidate_generators_per_identifier,
+                    isinstance(elem.right.get_type, ast_.SetType),
+                ]
+            ):
+                other_predicates.append(elem)
+                continue
+
+            assert isinstance(elem.left, ast_.Identifier | ast_.MapletIdentifier)
+            casted_elem = ast_.In(elem.left, elem.right)
+            candidate_generators_per_identifier[elem.left].add(casted_elem)
+
+        # Ensure every identifier has at least one suitable generator
+        for identifier, candidate_generators in candidate_generators_per_identifier.items():
+            if len(candidate_generators) == 0:
+                logger.debug(f"Failed to find a suitable generator for identifier {identifier}. Dict of generators: {candidate_generators_per_identifier}")
+                return None
+
+        identifiers: set[ast_.Identifier] = set(filter(lambda x: isinstance(x, ast_.Identifier), bound_identifiers))  # type: ignore
+        # There may be more than one chain, chains will contain a sequence of MapletIdentifiers
+        maplets: set[ast_.MapletIdentifier] = set(filter(lambda x: isinstance(x, ast_.MapletIdentifier), bound_identifiers))  # type: ignore
+        maplet_chains: list[list[ast_.MapletIdentifier]] = []
+
+        while maplets:
+            maplet = maplets.pop()
+            # Each maplet should only occur once, and only be added to a chain once (variable names are guaranteed to be unique)
+
+            for i in range(len(maplet_chains)):
+                if any(
+                    [
+                        maplet.left == maplet_chains[i][-1].right,
+                        ast_.Equal(maplet.left, maplet_chains[i][-1].right) in other_predicates,
+                        ast_.Equal(maplet_chains[i][-1].right, maplet.left) in other_predicates,
+                    ]
+                ):
+                    maplet_chains[i].append(maplet)
+                    break
+
+                if any(
+                    [
+                        maplet.right == maplet_chains[i][0].left,
+                        ast_.Equal(maplet.right, maplet_chains[i][0].left) in other_predicates,
+                        ast_.Equal(maplet_chains[i][0].left, maplet.right) in other_predicates,
+                    ]
+                ):
+                    maplet_chains[i].insert(0, maplet)
+                    break
+            else:
+                maplet_chains.append([maplet])
+
+        # TODO make a proper ordering for this, base on size, relation subtype, etc.
+        generators = []
+        # For now, take the longest chain first
+        sorted_maplet_chains = sorted(maplet_chains, key=lambda chain: len(chain), reverse=True)
+        for maplet_chain in sorted_maplet_chains:
+            for maplet in maplet_chain:
+                generators.append(candidate_generators_per_identifier[maplet].pop())
+        for identifier in identifiers:
+            generators.append(candidate_generators_per_identifier[identifier].pop())
+
+        for unselected_candidate_generators in candidate_generators_per_identifier.values():
+            other_predicates.extend(list(unselected_candidate_generators))
+
+        return GeneratorSelectionV2(bound_identifiers, generators, ast_.And(other_predicates))
+
     def reduce_duplicate_generators(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
             case ast_.ListOp(elems, ast_.ListOperator.OR):
-                raise NotImplementedError
+                if all(map(lambda x: isinstance(x, GeneratorSelectionV2) or isinstance(x, CombinedGeneratorSelectionV2), elems)):
+                    logger.debug(f"FAILED: all elements in OR quantifier are already GeneratorSelections, no need to select generators")
+                    return None
+
             # Only match if all elems are either GeneratorSelectionV2 or CombinedGeneratorSelection
             # Check all elements for matches:
             # - elements that share a generator are placed in a combinedgeneratorselection
