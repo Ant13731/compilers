@@ -474,6 +474,9 @@ class GeneratorSelectionCollection(RewriteCollection):
                     logger.debug(f"FAILED: all elements in OR quantifier are already GeneratorSelections, no need to select generators")
                     return None
 
+                combination_dict: dict[ast_.In, list[GeneratorSelectionV2 | CombinedGeneratorSelectionV2]] = {}
+                for elem
+
             # Only match if all elems are either GeneratorSelectionV2 or CombinedGeneratorSelection
             # Check all elements for matches:
             # - elements that share a generator are placed in a combinedgeneratorselection
