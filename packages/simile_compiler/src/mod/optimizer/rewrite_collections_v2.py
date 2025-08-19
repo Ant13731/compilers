@@ -475,7 +475,58 @@ class GeneratorSelectionCollection(RewriteCollection):
                     return None
 
                 combination_dict: dict[ast_.In, list[GeneratorSelectionV2 | CombinedGeneratorSelectionV2]] = {}
-                for elem
+                for elem in elems:
+                    match elem:
+                        case GeneratorSelectionV2(bound_identifiers, generators, predicates):
+                            if not combination_dict.get(generators[0]):
+                                combination_dict[generators[0]] = []
+                            new_bound_identifiers = bound_identifiers
+                            new_bound_identifiers.remove(generators[0].left)  # type: ignore
+                            combination_dict[generators[0]].append(
+                                GeneratorSelectionV2(
+                                    new_bound_identifiers,
+                                    generators[1:],
+                                    predicates,
+                                )
+                            )
+                        case CombinedGeneratorSelectionV2(bound_identifier, generator, child_generators):
+                            if not combination_dict.get(generator):
+                                combination_dict[generator] = []
+                            combination_dict[generator].extend(child_generators.items)  # type: ignore
+                        case _:
+                            logger.debug(f"FAILED: element is not a valid GeneratorSelection or CombinedGeneratorSelection (got {elem})")
+                            return None
+
+                if len(elems) != len([y for x in combination_dict.values() for y in x]):
+                    logger.debug("FAILED: some elements were not added to combination dict - this should not happen")
+                    return None
+
+                combined_generators: list[ast_.ASTNode] = []
+                for combined_generator, generator_list in combination_dict.items():
+                    assert isinstance(combined_generator.left, ast_.Identifier | ast_.MapletIdentifier), "Combined generator should have an identifier on the left side"
+
+                    # If the generator list only has one entry, we didn't combine anything - recreate the original GeneratorSelectionV2
+                    if len(generator_list) == 1:
+                        combined_generators.append(
+                            GeneratorSelectionV2(
+                                {combined_generator.left},
+                                [combined_generator],
+                                generator_list[0].predicates,
+                            )
+                        )
+                        continue
+
+                    # Actually combine generators that need to be combined. Note that this may end up
+                    # creating GeneratorSelections without a generator.
+                    combined_generators.append(
+                        CombinedGeneratorSelectionV2(
+                            combined_generator.left,
+                            combined_generator,
+                            ast_.Or(generator_list),  # type: ignore
+                        )
+                    )
+
+                return ast_.Or(combined_generators)
 
             # Only match if all elems are either GeneratorSelectionV2 or CombinedGeneratorSelection
             # Check all elements for matches:
@@ -550,28 +601,60 @@ class GSPToLoopsCollection(RewriteCollection):
     def top_level_or_loop(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
             case Loop(
-                ast_.ListOp(predicates, ast_.ListOperator.OR),
+                ast_.ListOp(generators, ast_.ListOperator.OR),
                 body,
             ):
-                ...
+                if not all(map(lambda x: isinstance(x, GeneratorSelectionV2) or isinstance(x, CombinedGeneratorSelectionV2), generators)):
+                    logger.debug(f"FAILED: all elements in top level OR predicate expected to be GeneratorSelections (got {generators}).")
+                    return None
+
+                statements: list[ast_.ASTNode] = []
+                used_generators: list[ast_.ASTNode] = []
+                for generator in generators:
+                    assert isinstance(generator, GeneratorSelectionV2 | CombinedGeneratorSelectionV2)
+                    generator.predicates = ast_.And([generator.predicates, ast_.Not(ast_.Or(used_generators))])
+
+                    statements.append(Loop(generator, deepcopy(body)))
+                    used_generators.append(generator.flatten())
+
+                return ast_.Statements(statements)
+
         return None
 
     def chained_gsp_loop(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
+            # empty_gsp_loop
             case Loop(
-                GeneratorSelectionV2(generators, predicates),
+                GeneratorSelectionV2([], predicates),
                 body,
             ):
-                ...
-        return None
+                return ast_.If(predicates, body)
+            case Loop(
+                GeneratorSelectionV2(_, generators, predicates),
+                body,
+            ):
+                free_predicates = []
+                bound_predicates = []
+                # FIXME actually filter predicates
+                raise NotImplementedError
+                return Loop(
+                    SingleGeneratorSelectionV2(
+                        generators[0].left,
+                        generators[0],
+                        ast_.And(
+                            free_predicates,
+                        ),
+                    ),
+                    Loop(
+                        GeneratorSelectionV2(
+                            set(map(lambda x: x.left, generators[1:])),
+                            generators[1:],
+                            ast_.And(bound_predicates),
+                        ),
+                        body,
+                    ),
+                )
 
-    def single_gsp_loop(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
-        match ast:
-            case Loop(
-                GeneratorSelectionV2([generator], predicates),
-                body,
-            ):
-                ...
         return None
 
     def combined_gsp_loop(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:

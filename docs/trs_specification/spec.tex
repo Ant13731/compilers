@@ -615,12 +615,33 @@ Conditions to consider:
 \end{align}
 \end{minipage}
 %
+% \noindent\begin{minipage}{\linewidth}
+% \begin{align}
+%   \tag{Single GSP Loop}
+%   \begin{minipage}[]{0.4\textwidth}
+%   \begin{algorithmic}
+%     \Loop\ $GSP(g, P)$
+%       \State body
+%     \EndLoop
+%   \end{algorithmic}
+%   \end{minipage}
+%   &\leadsto
+%   \begin{minipage}[]{0.4\textwidth}
+%   \begin{algorithmic}
+%     \Loop\ $SingleGSP(g, P)$
+%       \State body
+%     \EndLoop
+%   \end{algorithmic}
+%   \end{minipage}
+% \end{align}
+% \end{minipage}
+%
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
-  \tag{Single GSP Loop}
+  \tag{Empty GSP Loop}
   \begin{minipage}[]{0.4\textwidth}
   \begin{algorithmic}
-    \Loop\ $GSP(g, P)$
+    \Loop\ $GSP([], P)$
       \State body
     \EndLoop
   \end{algorithmic}
@@ -628,9 +649,9 @@ Conditions to consider:
   &\leadsto
   \begin{minipage}[]{0.4\textwidth}
   \begin{algorithmic}
-    \Loop\ $SingleGSP(g, P)$
+    \If{$P$}
       \State body
-    \EndLoop
+    \EndIf
   \end{algorithmic}
   \end{minipage}
 \end{align}

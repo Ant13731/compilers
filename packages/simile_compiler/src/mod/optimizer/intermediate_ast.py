@@ -1,5 +1,5 @@
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from src.mod import ast_
 
@@ -43,13 +43,25 @@ class GeneratorSelectionV2(ast_.ASTNode):
     generators: list[ast_.In]
     predicates: ast_.And
 
+    def flatten(self) -> ast_.And:
+        ret: list[ast_.ASTNode] = []
+        ret += self.generators
+        ret += self.predicates.items
+        return ast_.And(ret)
+
 
 @dataclass
 class CombinedGeneratorSelectionV2(ast_.ASTNode):
     bound_identifier: ast_.Identifier | ast_.MapletIdentifier
     generator: ast_.In
-    gsp_predicates: ast_.Or  # Or[GeneratorSelectionV2]
-    predicates: ast_.And | None = None
+    gsp_predicates: ast_.Or  # Or[GeneratorSelectionV2 | Bool] # Bool here is for empty gsp
+    predicates: ast_.And = field(default_factory=lambda: ast_.And([]))
+
+    def flatten(self) -> ast_.And:
+        ret: list[ast_.ASTNode] = [self.generator]
+        ret.append(self.gsp_predicates)
+        ret += self.predicates.items
+        return ast_.And(ret)
 
 
 @dataclass
@@ -57,6 +69,10 @@ class SingleGeneratorSelectionV2(ast_.ASTNode):
     bound_identifier: ast_.Identifier | ast_.MapletIdentifier
     generator: ast_.In
     predicates: ast_.And
+
+    def flatten(self) -> ast_.And:
+        ret = [self.generator] + self.predicates.items
+        return ast_.And(ret)
 
 
 @dataclass
