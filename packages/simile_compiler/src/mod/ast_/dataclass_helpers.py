@@ -1,5 +1,5 @@
 from dataclasses import fields, is_dataclass
-from typing import TypeVar, Callable, Any
+from typing import TypeVar, Callable, Any, Iterable
 
 T = TypeVar("T")
 V = TypeVar("V")
@@ -155,6 +155,10 @@ def dataclass_find_and_replace(
         return replacement_target
     else:
         return traversal_target
+
+
+def flatten(xss: Iterable[Iterable[T]]) -> list[T]:
+    return [x for xs in xss for x in xs]
 
 
 # def find_and_replace(

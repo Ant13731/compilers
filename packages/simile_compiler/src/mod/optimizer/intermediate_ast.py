@@ -39,7 +39,6 @@ class GeneratorSelection(ast_.ASTNode):
 
 @dataclass
 class GeneratorSelectionV2(ast_.ASTNode):
-    bound_identifiers: set[ast_.Identifier | ast_.MapletIdentifier]
     generators: list[ast_.In]
     predicates: ast_.And
 
@@ -49,10 +48,20 @@ class GeneratorSelectionV2(ast_.ASTNode):
         ret += self.predicates.items
         return ast_.And(ret)
 
+    @property
+    def bound_identifiers(self) -> set[ast_.Identifier | ast_.MapletIdentifier]:
+        bound_identifiers = set()
+        for generator in self.generators:
+            assert isinstance(generator.left, ast_.Identifier | ast_.MapletIdentifier), f"Expected Identifier or MapletIdentifier, got {type(generator.left)}"
+            if generator.left in bound_identifiers:
+                raise ValueError(f"Identifier {generator.left} is already bound in the generator selection. All generators are expected to bind unique identifiers")
+
+            bound_identifiers.add(generator.left)
+        return bound_identifiers
+
 
 @dataclass
 class CombinedGeneratorSelectionV2(ast_.ASTNode):
-    bound_identifier: ast_.Identifier | ast_.MapletIdentifier
     generator: ast_.In
     gsp_predicates: ast_.Or  # Or[GeneratorSelectionV2 | Bool] # Bool here is for empty gsp
     predicates: ast_.And = field(default_factory=lambda: ast_.And([]))
@@ -63,16 +72,25 @@ class CombinedGeneratorSelectionV2(ast_.ASTNode):
         ret += self.predicates.items
         return ast_.And(ret)
 
+    @property
+    def bound_identifier(self) -> ast_.Identifier | ast_.MapletIdentifier:
+        assert isinstance(self.generator.left, ast_.Identifier | ast_.MapletIdentifier), f"Expected Identifier or MapletIdentifier, got {type(self.generator.left)}"
+        return self.generator.left
+
 
 @dataclass
 class SingleGeneratorSelectionV2(ast_.ASTNode):
-    bound_identifier: ast_.Identifier | ast_.MapletIdentifier
     generator: ast_.In
     predicates: ast_.And
 
     def flatten(self) -> ast_.And:
         ret = [self.generator] + self.predicates.items
         return ast_.And(ret)
+
+    @property
+    def bound_identifier(self) -> ast_.Identifier | ast_.MapletIdentifier:
+        assert isinstance(self.generator.left, ast_.Identifier | ast_.MapletIdentifier), f"Expected Identifier or MapletIdentifier, got {type(self.generator.left)}"
+        return self.generator.left
 
 
 @dataclass

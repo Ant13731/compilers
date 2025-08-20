@@ -8,6 +8,7 @@ from src.mod.ast_.dataclass_helpers import (
     dataclass_children,
     is_dataclass_leaf,
     dataclass_find_and_replace,
+    flatten,
 )
 from src.mod.ast_.ast_node_operators import (
     Operators,

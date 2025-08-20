@@ -465,7 +465,7 @@ class GeneratorSelectionCollection(RewriteCollection):
         for unselected_candidate_generators in candidate_generators_per_identifier.values():
             other_predicates.extend(list(unselected_candidate_generators))
 
-        return GeneratorSelectionV2(bound_identifiers, generators, ast_.And(other_predicates))
+        return GeneratorSelectionV2(generators, ast_.And(other_predicates))
 
     def reduce_duplicate_generators(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
@@ -477,19 +477,16 @@ class GeneratorSelectionCollection(RewriteCollection):
                 combination_dict: dict[ast_.In, list[GeneratorSelectionV2 | CombinedGeneratorSelectionV2]] = {}
                 for elem in elems:
                     match elem:
-                        case GeneratorSelectionV2(bound_identifiers, generators, predicates):
+                        case GeneratorSelectionV2(generators, predicates):
                             if not combination_dict.get(generators[0]):
                                 combination_dict[generators[0]] = []
-                            new_bound_identifiers = bound_identifiers
-                            new_bound_identifiers.remove(generators[0].left)  # type: ignore
                             combination_dict[generators[0]].append(
                                 GeneratorSelectionV2(
-                                    new_bound_identifiers,
                                     generators[1:],
                                     predicates,
                                 )
                             )
-                        case CombinedGeneratorSelectionV2(bound_identifier, generator, child_generators):
+                        case CombinedGeneratorSelectionV2(generator, child_generators):
                             if not combination_dict.get(generator):
                                 combination_dict[generator] = []
                             combination_dict[generator].extend(child_generators.items)  # type: ignore
@@ -509,7 +506,6 @@ class GeneratorSelectionCollection(RewriteCollection):
                     if len(generator_list) == 1:
                         combined_generators.append(
                             GeneratorSelectionV2(
-                                {combined_generator.left},
                                 [combined_generator],
                                 generator_list[0].predicates,
                             )
@@ -520,7 +516,6 @@ class GeneratorSelectionCollection(RewriteCollection):
                     # creating GeneratorSelections without a generator.
                     combined_generators.append(
                         CombinedGeneratorSelectionV2(
-                            combined_generator.left,
                             combined_generator,
                             ast_.Or(generator_list),  # type: ignore
                         )
@@ -565,7 +560,10 @@ class GSPToLoopsCollection(RewriteCollection):
                     logger.debug(f"FAILED: not all items in predicate are GeneratorSelections (got {predicate.items}). Elements of predicates should be GeneratorSelectionASTs")
                     return None
 
-                assert ast._env is not None, f"Environment should not be None (in quantifier_generation, ast {ast})"
+                if ast._env is None:
+                    logger.debug(f"FAILED: no environment found in quantifier (cannot perform optimizations)")
+                    return None
+
                 accumulator_var = ast_.Identifier(self._get_fresh_identifier_name())
                 ast._env.put(accumulator_var.name, accumulator_type)
 
@@ -623,23 +621,42 @@ class GSPToLoopsCollection(RewriteCollection):
 
     def chained_gsp_loop(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
-            # empty_gsp_loop
+            # Inline empty_gsp_loop rule
             case Loop(
                 GeneratorSelectionV2([], predicates),
                 body,
             ):
                 return ast_.If(predicates, body)
             case Loop(
-                GeneratorSelectionV2(_, generators, predicates),
+                GeneratorSelectionV2(generators, predicates),
                 body,
             ):
+                if ast._env is None:
+                    logger.debug(f"FAILED: no environment found in loop (cannot perform optimizations)")
+                    return None
+
                 free_predicates = []
                 bound_predicates = []
-                # FIXME actually filter predicates
-                raise NotImplementedError
+                identifiers_within_child_generators: list[ast_.Identifier] = ast_.flatten(map(lambda x: x.left.find_all_instances(ast_.Identifier), generators[1:]))
+                for predicate in predicates.items:
+                    identifiers_within_predicate = predicate.find_all_instances(ast_.Identifier)
+
+                    for identifier in identifiers_within_predicate:
+                        if (
+                            # If the identifier is not bound outside of the quantifier (and is not the current bound quantifier var)
+                            ast._env.get(identifier.name) is None
+                            and identifier not in generators[0].left.find_all_instances(ast_.Identifier)
+                            # or if it is used within a child generator
+                        ) or identifier in identifiers_within_child_generators:
+                            # propagate predicate to child
+                            bound_predicates.append(predicate)
+                            break
+                    else:
+                        free_predicates.append(predicate)
+
+                assert isinstance(generators[0].left, ast_.Identifier | ast_.MapletIdentifier), "Generators should have an identifier on the left side"
                 return Loop(
                     SingleGeneratorSelectionV2(
-                        generators[0].left,
                         generators[0],
                         ast_.And(
                             free_predicates,
@@ -647,7 +664,6 @@ class GSPToLoopsCollection(RewriteCollection):
                     ),
                     Loop(
                         GeneratorSelectionV2(
-                            set(map(lambda x: x.left, generators[1:])),
                             generators[1:],
                             ast_.And(bound_predicates),
                         ),
@@ -667,7 +683,18 @@ class GSPToLoopsCollection(RewriteCollection):
                 ),
                 body,
             ):
-                ...
+                child_loops: list[ast_.ASTNode] = []
+                for gsp_predicate in gsp_predicates.items:
+                    if not isinstance(gsp_predicate, GeneratorSelectionV2 | CombinedGeneratorSelectionV2 | SingleGeneratorSelectionV2):
+                        logger.debug(f"FAILED: gsp predicate is not a valid GeneratorSelection (got {gsp_predicate})")
+                        return None
+
+                    child_loops.append(Loop(gsp_predicate, body))
+
+                return Loop(
+                    SingleGeneratorSelectionV2(generator, predicates),
+                    ast_.Statements(child_loops),
+                )
         return None
 
 
@@ -687,18 +714,193 @@ class LoopsCodeGenerationCollection(RewriteCollection):
                 ),
                 body,
             ):
-                ...
+                if ast._env is None:
+                    logger.debug(f"FAILED: no environment found in loop (cannot perform optimizations)")
+                    return None
+
+                free_predicates = []
+                bound_predicates = []
+                for predicate in predicates.items:
+                    identifiers_within_predicate = predicate.find_all_instances(ast_.Identifier)
+
+                    for identifier in identifiers_within_predicate:
+                        # If the identifier is not bound outside of the quantifier or if it is used within the generator
+                        if ast._env.get(identifier.name) is None or generator.contains_item(identifier):
+                            bound_predicates.append(predicate)
+                            break
+                    else:
+                        free_predicates.append(predicate)
+
+                statement: ast_.ASTNode = body
+                if bound_predicates:
+                    statement = ast_.Statements(
+                        [
+                            ast_.If(
+                                ast_.And(bound_predicates),
+                                statement,
+                            )
+                        ]
+                    )
+
+                assert isinstance(generator.left, ast_.Identifier | ast_.MapletIdentifier), f"Generator should have an identifier on the left side (got {generator.left})"
+                statement = ast_.For(
+                    ast_.IdentList([generator.left]),
+                    generator.right,
+                    statement,
+                )
+
+                if free_predicates:
+                    statement = ast_.If(
+                        ast_.And(free_predicates),
+                        body=ast_.Statements([statement]),
+                    )
+
+                return ast_.Statements([statement])
+
         return None
 
 
 class ReplaceAndSimplifyCollection(RewriteCollection):
+    bound_generator_variables: set[ast_.Identifier] = field(default_factory=set)
+
+    def apply_all_rules_one_traversal(self, ast):
+        # Before entering a new quantifier, record currently bound variables
+        # (so we can restore them later)
+        bound_generator_variables_before = deepcopy(self.bound_generator_variables)
+        if isinstance(ast, ast_.For):
+            logger.debug(f"For loop found with bound variables: {ast.iterable_names.flatten()}")
+            # Add newly accessible (bound) loop variables, used for equality elimination
+            self.bound_generator_variables |= ast.iterable_names.flatten()
+
+        ast = super().apply_all_rules_one_traversal(ast)
+        logger.debug(f"AST after applying all rules: {ast.pretty_print_algorithmic()}")
+
+        # Restore bound variable record since we have exited the possibly nested quantifier
+        self.bound_generator_variables = bound_generator_variables_before
+
+        return ast
+
     def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
         return [
             self.equality_elimination,
             self.simplify_equalities,
-            self.simplify_and_true,
-            self.simplify_and_false,
-            self.simplify_or_true,
-            self.simplify_or_false,
+            self.simplify_and,
+            self.simplify_or,
             self.flatten_nested_statements,
         ]
+
+    def equality_elimination(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.If(
+                ast_.ListOp(elems, ast_.ListOperator.AND) as predicate,
+                body,
+            ):
+                if ast._env is None:
+                    logger.debug(f"FAILED: no environment found in if (cannot perform optimizations)")
+                    return None
+
+                new_predicate_items = predicate.items
+                substitution = None
+                for and_clause in elems:
+                    if not isinstance(and_clause, ast_.BinaryOp) or and_clause.op_type != ast_.BinaryOperator.EQUAL:
+                        continue
+
+                    if isinstance(and_clause.left, ast_.Identifier) and and_clause.left not in self.bound_generator_variables and ast._env.get(and_clause.left.name) is None:
+                        substitution = and_clause
+                        new_predicate_items.remove(and_clause)
+                        break
+                    if isinstance(and_clause.right, ast_.Identifier) and and_clause.right not in self.bound_generator_variables and ast._env.get(and_clause.right.name) is None:
+                        substitution = ast_.Equal(
+                            and_clause.right,
+                            and_clause.left,
+                        )
+                        new_predicate_items.remove(and_clause)
+                        break
+
+                if not substitution:
+                    logger.debug(f"FAILED: no substitutions found in OR quantifier (current environment is {ast._env}), free variables are {ast.free}")
+                    return None
+                logger.debug(f"Running substitution {substitution} in {elems}")
+
+                new_predicate = ast_.And(new_predicate_items)
+                new_predicate.find_and_replace(
+                    substitution.left,
+                    substitution.right,
+                )
+                body.find_and_replace(
+                    substitution.left,
+                    substitution.right,
+                )
+                return ast_.If(
+                    new_predicate,
+                    body,
+                )
+
+        return None
+
+    def simplify_equalities(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.BinaryOp(x, y, ast_.BinaryOperator.EQUAL):
+                if x == y:
+                    return ast_.True_()
+        return None
+
+    def simplify_and(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.ListOp(elems, ast_.ListOperator.AND):
+                new_elems = []
+                for elem in elems:
+                    if isinstance(elem, ast_.True_):
+                        continue
+                    if isinstance(elem, ast_.False_):
+                        return ast_.False_()
+                    new_elems.append(elem)
+
+                if elems == new_elems:
+                    logger.debug("FAILED: no simplification applied to AND list operation (no clauses were removed)")
+                    return None
+
+                if not new_elems:
+                    return ast_.And([])
+
+                return ast_.And(new_elems)
+        return None
+
+    def simplify_or(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.ListOp(elems, ast_.ListOperator.OR):
+                new_elems = []
+                for elem in elems:
+                    if isinstance(elem, ast_.True_):
+                        return ast_.True_()
+                    if isinstance(elem, ast_.False_):
+                        continue
+                    new_elems.append(elem)
+
+                if elems == new_elems:
+                    logger.debug("FAILED: no simplification applied to OR list operation (no clauses were removed)")
+                    return None
+
+                if not new_elems:
+                    return ast_.Or([])
+
+                return ast_.Or(new_elems)
+        return None
+
+    def flatten_nested_statements(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Statements(items):
+
+                if not any(map(lambda x: isinstance(x, ast_.Statements), items)):
+                    return None
+
+                new_statements: list[ast_.ASTNode] = []
+                for item in items:
+                    if not isinstance(item, ast_.Statements):
+                        new_statements.append(item)
+                        continue
+
+                    new_statements.extend(item.items)
+
+                return ast_.Statements(new_statements)
+        return None
