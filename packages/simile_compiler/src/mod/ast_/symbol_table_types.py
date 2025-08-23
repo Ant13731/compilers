@@ -50,6 +50,9 @@ class BaseSimileType(Enum):
     def __repr__(self) -> str:
         return f"SimileType.{self.name}"
 
+    def is_numeric(self) -> bool:
+        return self in {BaseSimileType.Int, BaseSimileType.Float, BaseSimileType.PosInt, BaseSimileType.Nat}
+
 
 L = TypeVar("L", bound="SimileType")
 R = TypeVar("R", bound="SimileType")

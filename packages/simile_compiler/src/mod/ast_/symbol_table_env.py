@@ -172,6 +172,38 @@ BUILTIN_FUNCTIONS = {
         },
         BaseSimileType.PosInt,
     ),
+    # Return any element from a set
+    "pop": ProcedureTypeDef(
+        {
+            "s": SetType(GenericType("T")),
+        },
+        GenericType("T"),
+    ),
+    "pop_default": ProcedureTypeDef(
+        {
+            "s": SetType(GenericType("T")),
+            "default": GenericType("T"),
+        },
+        GenericType("T"),
+    ),
+    "sum": ProcedureTypeDef(
+        {
+            "s": SetType(GenericType("T")),
+        },
+        GenericType("T"),
+    ),
+    "max": ProcedureTypeDef(
+        {
+            "s": SetType(GenericType("T")),
+        },
+        GenericType("T"),
+    ),
+    "min": ProcedureTypeDef(
+        {
+            "s": SetType(GenericType("T")),
+        },
+        GenericType("T"),
+    ),
 }
 
 STARTING_ENVIRONMENT: SymbolTableEnvironment = SymbolTableEnvironment(

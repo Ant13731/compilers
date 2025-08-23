@@ -370,12 +370,27 @@ Below is a list of rewrite rules for key abstract data types, syntactic sugar, a
   ran(R)
   &\leadsto
   \bSet{x \mapsto y}{x \mapsto y \in R}{y}
+  \\
+  \tag{Override}
+  R \ovl Q &\leadsto Q \cup (dom(Q) \domsub R)
+  \\
+  \tag{Domain Restriction}
+  S \triangleleft R &\leadsto \bSet{x\mapsto y}{x \mapsto y \in R \land x \in S}{x \mapsto y}
+  \\
+  \tag{Domain Subtraction}
+  S \domsub R &\leadsto \bSet{x\mapsto y}{x \mapsto y \in R \land x \notin S}{x \mapsto y}
+  \\
+  \tag{Range Restriction}
+  R \triangleright S &\leadsto \bSet{x\mapsto y}{x \mapsto y \in R \land y \in S}{x \mapsto y}
+  \\
+  \tag{Range Subtraction}
+  R \ransub S &\leadsto \bSet{x\mapsto y}{x \mapsto y \in R \land y \notin S}{x \mapsto y}
 \end{align}
 \end{minipage}
 \subsection{Sets}
 
 Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
-\subsubsection{Set Comprehension Construction}
+\subsubsection{Comprehension Construction}
 
 \paragraph{Intuition} All set-like variables and literals are decomposed into set comprehensions.
 
@@ -387,6 +402,21 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
 
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
+  \tag{Image}
+  R[S] &\leadsto \bSet{x \mapsto y \in R}{x \in S}{y}
+  \\
+  \tag{Product}
+  x \mapsto y \in S \times T &\leadsto x \in S \land y \in T
+  \\
+  \tag{Inverse}
+  x \mapsto y \in R^{-1} &\leadsto y \mapsto x \in R
+  \\
+  \tag{Composition}
+  x \mapsto y \in (Q \circ R) &\leadsto x \mapsto z \in Q \land z' \mapsto y \in R \land z=z'
+  \\
+  % \tag{Exists Elimination}
+  % \exists z \cdot x \mapsto z \in Q \land z \mapsto y \in R &\leadsto x \mapsto z \in Q \land z' \mapsto y \in R \land z=z'
+  % \\
   \tag{Predicate Operations - Union}
   S \cup T
   &\leadsto
@@ -843,69 +873,23 @@ Conditions to consider:
 \end{align}
 \end{minipage}
 
-
-
-\subsection{Relations}
-  \begin{align}
-  \tag{Image}
-  R[S] &\rightarrow \bSet{x \mapsto y \in R}{x \in S}{y}
-  \\
-  \tag{Product}
-  x \mapsto y \in S \times T &\rightarrow x \in S \land y \in T
-  \\
-  \tag{Inverse}
-  x \mapsto y \in R^{-1} &\rightarrow y \mapsto x \in R
-  \\
-  \tag{Composition}
-  x \mapsto y \in (Q \circ R) &\rightarrow x \mapsto z \in Q \land z' \mapsto y \in R \land z=z'
-  \\
-  \tag{Exists Elimination}
-  \exists z \cdot x \mapsto z \in Q \land z \mapsto y \in R &\rightarrow x \mapsto z \in Q \land z' \mapsto y \in R \land z=z'
-  \\
-  \tag{Override}
-  R \ovl Q &\rightarrow Q \cup (dom(Q) \domsub R)
-  \\
-  \cline{1-2}
-  % \tag{Domain}
-  % dom(R) &\rightarrow map(fst, R)
-  % \\
-  % \tag{Range}
-  % ran(R) &\rightarrow map(snd, R)
-  % \\
-  % \cline{1-2}
-  \tag{Domain Restriction}
-  S \triangleleft R &\rightarrow filter(fst \in S, R)
-  \\
-  \tag{Domain Subtraction}
-  S \domsub R &\rightarrow filter(fst \notin S, R)
-  \\
-  \tag{Range Restriction}
-  R \triangleright S &\rightarrow filter(snd \in S, R)
-  \\
-  \tag{Range Subtraction}
-  R \ransub S &\rightarrow filter(snd \notin S, R)
-\end{align}
-
 \subsection{Bags}
 Since bags can be interpreted as a set of tuples $(element, repetitions)$, all set operations apply, except for the overriding operations below.
 \begin{align}
   \tag{Union}
-  % S \cup T &\rightarrow \bag{(x, max(a,b))}{(x,a) \in S \land (x,b) \in T}{a, b \geq 0}
-  S \cup T &\rightarrow \bag{(x, r)}{x \in set(S) \cup set(T)}{r = max(\#(x,S), \#(x,T))}
+  S \cup T &\leadsto \bag{x}{x \in dom(S) \cup dom(T) \land n = max(S[x] \cup T[x])}{x \mapsto n}
   \\
   \tag{Intersection}
-  S \cap T &\rightarrow \bag{(x, min(a,b))}{(x,a) \in S \land (x,b) \in T}{a, b \geq 0}
+  S \cap T &\leadsto \bag{x}{x \in dom(S) \cap dom(T) \land n = min(S[x] \cup T[x]) \land n > 0}{x \mapsto n}
   \\
   \tag{Sum}
-  % S + T &\rightarrow \bag{(x, a+b)}{(x,a) \in S \land (x,b) \in T}{a, b \geq 0}
-  S + T &\rightarrow \bag{(x, r)}{x \in set(S) \cup set(T)}{r = \#(x,S) + \#(x, T)}
+  S + T &\leadsto \bag{x}{x \in dom(S) \cup dom(T) \land n = sum(S[x] \cup T[x])}{x \mapsto n}
   \\
   \tag{Difference}
-  % S - T &\rightarrow \bag{(x, a-b)}{(x,a) \in S \land (x,b) \in T}{a, b \geq 0 \land a-b > 0}
-  S - T &\rightarrow \bag{(x, r)}{(x,a) \in S}{r = a-\#(x, T) \land r > 0}
+  S - T &\leadsto \bag{x}{x \in dom(S) \land pop(S[x]) - popDefault(T[x], 0) \land n > 0}{x \mapsto n}
   \\
   \tag{Size}
-  size(S) &\rightarrow \sum (x,r) \in S \cdot r
+  size(S) &\leadsto \sum x \mapsto n \in S \cdot n
 \end{align}
 
 Additional notes and extended context:

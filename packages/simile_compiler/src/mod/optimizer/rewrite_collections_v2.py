@@ -37,6 +37,121 @@ class SyntacticSugarForBags(RewriteCollection):
                 return ast_.Composition(ast_.Inverse(r), b)
         return None
 
+    def bag_predicate_operations(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            # Idea, if we want to add some compilation-time optimizations (like union of two set enums into one set enum),
+            # we can just add those rules here
+            case ast_.BinaryOp(left, right, op_type) if op_type in (
+                ast_.BinaryOperator.UNION,
+                ast_.BinaryOperator.INTERSECTION,
+                ast_.BinaryOperator.ADD,
+                ast_.BinaryOperator.SUBTRACT,
+            ):
+                if not isinstance(left.get_type, ast_.SetType) or not isinstance(right.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: at least one union child is not a set type: {left.get_type}, {right.get_type}")
+                    return None
+
+                if not ast_.SetType.is_bag(left.get_type) or not ast_.SetType.is_bag(right.get_type):
+                    logger.debug(f"FAILED: Both operands must be bags")
+                    return None
+
+                maplet = ast_.MapletIdentifier(
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                )
+
+                match op_type:
+                    case ast_.BinaryOperator.SUBTRACT:
+                        logger.debug("WARNING: Subtracting bags not fully correctly implemented (subtraction doesn't work)")
+                        # TODO see if this method is more efficient?
+                        new_ast = ast_.BagComprehension(
+                            ast_.And(
+                                [
+                                    ast_.In(
+                                        maplet.left,
+                                        ast_.Call(ast_.Identifier("dom"), [left]),
+                                    ),
+                                    ast_.Equal(
+                                        maplet.left,
+                                        ast_.Subtract(
+                                            ast_.Call(
+                                                ast_.Identifier("pop"),
+                                                [
+                                                    ast_.Image(left, maplet.left),
+                                                ],
+                                            ),
+                                            ast_.Call(
+                                                ast_.Identifier("pop_default"),
+                                                [
+                                                    ast_.Image(right, maplet.left),
+                                                    ast_.Int("0"),
+                                                ],
+                                            ),
+                                        ),
+                                    ),
+                                    ast_.GreaterThan(maplet.right, ast_.Int("0")),
+                                ]
+                            ),
+                            maplet,
+                        )
+                        new_ast._bound_identifiers = {maplet.left}
+                        return new_ast
+                    case ast_.BinaryOperator.UNION:
+                        func_name = "max"
+                        generator = ast_.In(
+                            maplet.left,
+                            ast_.Union(
+                                ast_.Call(ast_.Identifier("dom"), [left]),
+                                ast_.Call(ast_.Identifier("dom"), [right]),
+                            ),
+                        )
+                        additional_cond: ast_.ASTNode = ast_.True_()
+                    case ast_.BinaryOperator.ADD:
+                        func_name = "sum"
+                        generator = ast_.In(
+                            maplet.left,
+                            ast_.Union(
+                                ast_.Call(ast_.Identifier("dom"), [left]),
+                                ast_.Call(ast_.Identifier("dom"), [right]),
+                            ),
+                        )
+                        additional_cond = ast_.True_()
+                    case ast_.BinaryOperator.INTERSECTION:
+                        func_name = "min"
+                        generator = ast_.In(
+                            maplet.left,
+                            ast_.Intersection(
+                                ast_.Call(ast_.Identifier("dom"), [left]),
+                                ast_.Call(ast_.Identifier("dom"), [right]),
+                            ),
+                        )
+                        additional_cond = ast_.GreaterThan(maplet.right, ast_.Int("0"))
+
+                new_ast = ast_.BagComprehension(
+                    ast_.And(
+                        [
+                            generator,
+                            ast_.Equal(
+                                maplet.left,
+                                ast_.Call(
+                                    ast_.Identifier(func_name),
+                                    [
+                                        ast_.Union(
+                                            ast_.Image(left, maplet.left),
+                                            ast_.Image(right, maplet.left),
+                                        ),
+                                    ],
+                                ),
+                            ),
+                            additional_cond,
+                        ]
+                    ),
+                    maplet,
+                )
+                new_ast._bound_identifiers = {maplet.left}
+                return new_ast
+        return None
+
 
 @dataclass
 class BuiltinFunctions(RewriteCollection):
@@ -254,6 +369,44 @@ class BuiltinFunctions(RewriteCollection):
                 )
         return None
 
+    def sum(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Call(ast_.Identifier("sum"), [arg]):
+                if not isinstance(arg.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: argument of sum is not a set type: {arg.get_type}")
+                    return None
+                if not isinstance(arg.get_type.element_type, ast_.BaseSimileType) or not arg.get_type.element_type.is_numeric():
+                    logger.debug(f"FAILED: element type of sum argument is not a numeric type: {arg.get_type.element_type}")
+                    return None
+
+                iterator = ast_.Identifier(self._get_fresh_identifier_name())
+                new_ast = ast_.Sum(
+                    ast_.And([ast_.In(iterator, arg)]),
+                    iterator,
+                )
+                new_ast._bound_identifiers = {iterator}
+                return new_ast
+        return None
+
+    def bag_size(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Call(ast_.Identifier("size"), [arg]):
+                if not isinstance(arg.get_type, ast_.SetType) or not ast_.SetType.is_bag(arg.get_type):
+                    logger.debug(f"FAILED: argument of size is not a bag type: {arg.get_type}")
+                    return None
+
+                maplet = ast_.MapletIdentifier(
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                )
+                new_ast = ast_.Sum(
+                    ast_.And([ast_.In(maplet, arg)]),
+                    maplet.right,
+                )
+                new_ast._bound_identifiers = {maplet}
+                return new_ast
+        return None
+
 
 @dataclass
 class InsideQuantifierRewriteCollection(RewriteCollection):
@@ -288,8 +441,8 @@ class InsideQuantifierRewriteCollection(RewriteCollection):
 class ComprehensionConstructionCollection(InsideQuantifierRewriteCollection):
     def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
         return [
-            self.predicate_operations,
             self.image,
+            self.set_predicate_operations,
             self.product,
             self.inverse,
             self.composition,
@@ -426,7 +579,29 @@ class ComprehensionConstructionCollection(InsideQuantifierRewriteCollection):
 
         return None
 
-    def predicate_operations(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+    def functional_image(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Call(
+                rel,
+                [arg],
+            ) if isinstance(
+                rel.get_type, ast_.SetType
+            ) and ast_.SetType.is_relation(rel.get_type):
+                if rel.get_type.relation_subtype is None:
+                    logger.debug(f"FAILED: relation {rel} does not have a functional subtype - functional image may be undefined (disabled for now)")
+                    return None
+                if not rel.get_type.relation_subtype.total:
+                    logger.debug(f"FAILED: relation {rel} is not total - functional image may return nothing (disabled for now)")
+                    return None
+                if not rel.get_type.relation_subtype.one_to_many:
+                    logger.debug(f"FAILED: relation {rel} is not one-to-many - functional image may return multiple values (disabled for now)")
+                    return None
+
+                return ast_.Call(ast_.Identifier("pop"), [ast_.Image(rel, arg)])
+
+        return None
+
+    def set_predicate_operations(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
             # Idea, if we want to add some compilation-time optimizations (like union of two set enums into one set enum),
             # we can just add those rules here
@@ -435,13 +610,12 @@ class ComprehensionConstructionCollection(InsideQuantifierRewriteCollection):
                 ast_.BinaryOperator.INTERSECTION,
                 ast_.BinaryOperator.DIFFERENCE,
             ):
-                if any(
-                    [
-                        not isinstance(left.get_type, ast_.SetType),
-                        not isinstance(right.get_type, ast_.SetType),
-                    ]
-                ):
+                if not isinstance(left.get_type, ast_.SetType) or not isinstance(right.get_type, ast_.SetType):
                     logger.debug(f"FAILED: at least one union child is not a set type: {left.get_type}, {right.get_type}")
+                    return None
+
+                if ast_.SetType.is_bag(left.get_type) and ast_.SetType.is_bag(right.get_type):
+                    logger.debug(f"FAILED: Union/Intersection/Difference operations must use bag_predicate_operations rule (both operands are bags)")
                     return None
                 fresh_name = self._get_fresh_identifier_name()
 
