@@ -45,6 +45,11 @@ class BuiltinFunctions(RewriteCollection):
             self.cardinality,
             self.domain,
             self.range_,
+            self.override,
+            self.range_restriction,
+            self.range_subtraction,
+            self.domain_restriction,
+            self.domain_subtraction,
         ]
 
     def cardinality(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
@@ -65,77 +70,361 @@ class BuiltinFunctions(RewriteCollection):
 
     def domain(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
-            case ast_.Call(ast_.Identifier("dom"), [s]):
-                if not isinstance(s.get_type, ast_.SetType):
-                    logger.warning(f"Argument to domain {s} is not a set")
+            case ast_.Call(ast_.Identifier("dom"), [relation]):
+                if not isinstance(relation.get_type, ast_.SetType):
+                    logger.warning(f"Argument to domain {relation} is not a set")
                     return None
 
-                left = ast_.Identifier(self._get_fresh_identifier_name())
-                right = ast_.Identifier(self._get_fresh_identifier_name())
-                fresh_variable = ast_.Maplet(left, right)
-
-                ast_sum = ast_.SetComprehension(
-                    ast_.And([ast_.In(fresh_variable, s)]),
-                    fresh_variable.left,
+                maplet = ast_.MapletIdentifier(
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                    ast_.Identifier(self._get_fresh_identifier_name()),
                 )
-                ast_sum._bound_identifiers = {left, right}
-                return ast_sum
+
+                new_ast = ast_.SetComprehension(
+                    ast_.And([ast_.In(maplet, relation)]),
+                    maplet.left,
+                )
+                new_ast._bound_identifiers = {maplet}
+                return new_ast
         return None
 
     def range_(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
-            case ast_.Call(ast_.Identifier("ran"), [s]):
-                if not isinstance(s.get_type, ast_.SetType):
-                    logger.warning(f"Argument to range {s} is not a set")
+            case ast_.Call(ast_.Identifier("ran"), [relation]):
+                if not isinstance(relation.get_type, ast_.SetType):
+                    logger.warning(f"Argument to range {relation} is not a set")
                     return None
 
-                left = ast_.Identifier(self._get_fresh_identifier_name())
-                right = ast_.Identifier(self._get_fresh_identifier_name())
-                fresh_variable = ast_.Maplet(left, right)
-
-                ast_sum = ast_.SetComprehension(
-                    ast_.And([ast_.In(fresh_variable, s)]),
-                    fresh_variable.right,
+                maplet = ast_.MapletIdentifier(
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                    ast_.Identifier(self._get_fresh_identifier_name()),
                 )
-                ast_sum._bound_identifiers = {left, right}
-                return ast_sum
+
+                new_ast = ast_.SetComprehension(
+                    ast_.And([ast_.In(maplet, relation)]),
+                    maplet.right,
+                )
+                new_ast._bound_identifiers = {maplet}
+                return new_ast
+        return None
+
+    def domain_restriction(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.BinaryOp(
+                left,
+                right,
+                ast_.BinaryOperator.DOMAIN_RESTRICTION,
+            ):
+                if not isinstance(left.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: left side of domain restriction is not a set type: {left.get_type}")
+                    return None
+                if not isinstance(right.get_type, ast_.SetType) or not ast_.SetType.is_relation(right.get_type):
+                    logger.debug(f"FAILED: right side of domain restriction is not a relation type: {right.get_type}")
+                    return None
+
+                maplet = ast_.MapletIdentifier(
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                )
+
+                new_ast = ast_.RelationComprehension(
+                    ast_.And(
+                        [
+                            ast_.In(maplet, right),
+                            ast_.In(maplet.left, left),
+                        ],
+                    ),
+                    maplet,
+                )
+
+                new_ast._bound_identifiers = {maplet}
+                return new_ast
+        return None
+
+    def domain_subtraction(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.BinaryOp(
+                left,
+                right,
+                ast_.BinaryOperator.DOMAIN_SUBTRACTION,
+            ):
+                if not isinstance(left.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: left side of domain subtraction is not a set type: {left.get_type}")
+                    return None
+
+                if not isinstance(right.get_type, ast_.SetType) or not ast_.SetType.is_relation(right.get_type):
+                    logger.debug(f"FAILED: right side of domain subtraction is not a relation type: {right.get_type}")
+                    return None
+
+                maplet = ast_.MapletIdentifier(
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                )
+
+                new_ast = ast_.RelationComprehension(
+                    ast_.And(
+                        [
+                            ast_.In(maplet, right),
+                            ast_.NotIn(maplet.left, left),
+                        ],
+                    ),
+                    maplet,
+                )
+                new_ast._bound_identifiers = {maplet}
+                return new_ast
+        return None
+
+    def range_restriction(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.BinaryOp(
+                left,
+                right,
+                ast_.BinaryOperator.RANGE_RESTRICTION,
+            ):
+                if not isinstance(right.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: left side of range restriction is not a set type: {right.get_type}")
+                    return None
+                if not isinstance(left.get_type, ast_.SetType) or not ast_.SetType.is_relation(left.get_type):
+                    logger.debug(f"FAILED: right side of range restriction is not a relation type: {left.get_type}")
+                    return None
+
+                maplet = ast_.MapletIdentifier(
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                )
+
+                new_ast = ast_.RelationComprehension(
+                    ast_.And(
+                        [
+                            ast_.In(maplet, left),
+                            ast_.In(maplet.left, right),
+                        ],
+                    ),
+                    maplet,
+                )
+                new_ast._bound_identifiers = {maplet}
+                return new_ast
+        return None
+
+    def range_subtraction(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.BinaryOp(
+                left,
+                right,
+                ast_.BinaryOperator.RANGE_SUBTRACTION,
+            ):
+                if not isinstance(right.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: left side of range subtraction is not a set type: {right.get_type}")
+                    return None
+                if not isinstance(left.get_type, ast_.SetType) or not ast_.SetType.is_relation(left.get_type):
+                    logger.debug(f"FAILED: right side of range subtraction is not a relation type: {left.get_type}")
+                    return None
+
+                maplet = ast_.MapletIdentifier(
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                )
+
+                new_ast = ast_.RelationComprehension(
+                    ast_.And(
+                        [
+                            ast_.In(maplet, left),
+                            ast_.NotIn(maplet.left, right),
+                        ],
+                    ),
+                    maplet,
+                )
+                new_ast._bound_identifiers = {maplet}
+                return new_ast
+        return None
+
+    def override(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.BinaryOp(
+                left,
+                right,
+                ast_.BinaryOperator.RELATION_OVERRIDING,
+            ):
+                return ast_.Union(
+                    left,
+                    ast_.DomainSubtraction(
+                        ast_.Call(ast_.Identifier("dom"), [left]),
+                        right,
+                    ),
+                )
         return None
 
 
 @dataclass
-class SetComprehensionConstructionCollection(RewriteCollection):
+class InsideQuantifierRewriteCollection(RewriteCollection):
     bound_quantifier_variables: set[ast_.Identifier] = field(default_factory=set)
-    # current_bound_identifiers: list[set[ast_.Identifier | ast_.MapletIdentifier]] = field(default_factory=list)
+    current_bound_identifiers: list[set[ast_.Identifier | ast_.MapletIdentifier]] = field(default_factory=list)
 
     def apply_all_rules_one_traversal(self, ast):
-        # Before entering a new quantifier, record currently bound variables
-        # (so we can restore them later)
         bound_quantifier_variables_before = deepcopy(self.bound_quantifier_variables)
         if isinstance(ast, ast_.Quantifier):
             logger.debug(f"Quantifier found with bound variables: {ast.bound}")
-            # Add newly accessible (bound) variables, used for generator checks in membership collapse
-            self.bound_quantifier_variables |= ast.bound
-            # self.current_bound_identifiers.append(ast._bound_identifiers)
+            self.bound_quantifier_variables |= ast.flatten_bound_identifiers()
+            self.current_bound_identifiers.append(ast._bound_identifiers)
 
         ast = super().apply_all_rules_one_traversal(ast)
-        logger.debug(f"AST after applying all rules: {ast.pretty_print_algorithmic()}")
 
-        # Restore bound variable record since we have exited the possibly nested quantifier
         self.bound_quantifier_variables = bound_quantifier_variables_before
-
-        # if self.current_bound_identifiers and hasattr(ast, "_bound_identifiers") and ast._bound_identifiers != self.current_bound_identifiers:
-        #     # If the current bound identifiers are set, we need to update the AST's bound identifiers
-        #     ast._bound_identifiers = self.current_bound_identifiers.pop()
-        logger.debug(f"AST after swapping bound identifiers: {ast.pretty_print_algorithmic()}")
-
+        if self.current_bound_identifiers and hasattr(ast, "_bound_identifiers"):
+            if ast._bound_identifiers != self.current_bound_identifiers:  # type: ignore
+                # If the current bound identifiers are set, we need to update the AST's bound identifiers
+                ast._bound_identifiers = self.current_bound_identifiers.pop()  # type: ignore
+            else:
+                self.current_bound_identifiers.pop()
         return ast
 
+    def inside_quantifier(self) -> bool:
+        if self.bound_quantifier_variables:
+            return True
+        return False
+
+
+@dataclass
+class ComprehensionConstructionCollection(InsideQuantifierRewriteCollection):
     def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
         return [
             self.predicate_operations,
+            self.image,
+            self.product,
+            self.inverse,
+            self.composition,
             # self.singleton_membership,
             self.membership_collapse,
         ]
+
+    def product(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.BinaryOp(
+                ast_.MapletIdentifier(_, _) as maplet,
+                ast_.BinaryOp(left, right, ast_.BinaryOperator.CARTESIAN_PRODUCT),
+                ast_.BinaryOperator.IN,
+            ) if self.inside_quantifier():
+                # Inside quantifier predicate check, similar to membership collapse
+                if not maplet.flatten().issubset(self.bound_quantifier_variables):
+                    logger.debug(f"FAILED: {maplet} appears as a generator variable but is not bound by a quantifier")
+                    return None
+
+                if not isinstance(left.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: left side of product is not a set type: {left.get_type}")
+                    return None
+                if not isinstance(right.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: right side of product is not a set type: {right.get_type}")
+                    return None
+
+                # TODO is this really the correct move? nested quantifiers may cause trouble...
+                self.current_bound_identifiers[-1].remove(maplet)
+                self.current_bound_identifiers[-1].update({maplet.left, maplet.right})
+
+                return ast_.And(
+                    [
+                        ast_.In(maplet.left, left),
+                        ast_.In(maplet.right, right),
+                    ]
+                )
+        return None
+
+    def inverse(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.BinaryOp(
+                ast_.MapletIdentifier(_, _) as maplet,
+                ast_.UnaryOp(
+                    inner,
+                    ast_.UnaryOperator.INVERSE,
+                ),
+                ast_.BinaryOperator.IN,
+            ) if self.inside_quantifier():
+                if not maplet.flatten().issubset(self.bound_quantifier_variables):
+                    logger.debug(f"FAILED: {maplet} appears as a generator variable but is not bound by a quantifier")
+                    return None
+
+                if not isinstance(inner.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: inner side of inverse is not a set/relation type: {inner.get_type}")
+                    return None
+                if not ast_.SetType.is_relation(inner.get_type):
+                    logger.debug(f"FAILED: inner side of inverse is not a relation type: {inner.get_type}")
+                    return None
+
+                rev_maplet = ast_.MapletIdentifier(maplet.right, maplet.left)
+                self.current_bound_identifiers[-1].remove(maplet)
+                self.current_bound_identifiers[-1].update({rev_maplet})
+
+                return ast_.In(rev_maplet, inner)
+        return None
+
+    def composition(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.BinaryOp(
+                ast_.MapletIdentifier(_, _) as maplet,
+                ast_.BinaryOp(
+                    left,
+                    right,
+                    ast_.BinaryOperator.COMPOSITION,
+                ),
+                ast_.BinaryOperator.IN,
+            ) if self.inside_quantifier():
+                if not maplet.flatten().issubset(self.bound_quantifier_variables):
+                    logger.debug(f"FAILED: {maplet} appears as a generator variable but is not bound by a quantifier")
+                    return None
+
+                if not isinstance(left.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: left side of composition is not a set type: {left.get_type}")
+                    return None
+                if not isinstance(right.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: right side of composition is not a set type: {right.get_type}")
+                    return None
+
+                fresh_var_left = ast_.Identifier(self._get_fresh_identifier_name())
+                fresh_var_right = ast_.Identifier(self._get_fresh_identifier_name())
+
+                maplet_left = ast_.MapletIdentifier(maplet.left, fresh_var_left)
+                maplet_right = ast_.MapletIdentifier(fresh_var_right, maplet.right)
+
+                self.current_bound_identifiers[-1].remove(maplet)
+                self.current_bound_identifiers[-1].update({maplet_left, maplet_right})
+
+                return ast_.And(
+                    [
+                        ast_.In(maplet_left, left),
+                        ast_.In(maplet_right, right),
+                        ast_.Equal(fresh_var_left, fresh_var_right),
+                    ]
+                )
+        return None
+
+    def image(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Image(left, right):
+                if not isinstance(left.get_type, ast_.SetType) or not ast_.SetType.is_relation(left.get_type):
+                    logger.debug(f"FAILED: left side of image is not a relation type: {left.get_type}")
+                    return None
+                if not isinstance(right.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: right side of image is not a set type: {right.get_type}")
+                    return None
+
+                maplet = ast_.MapletIdentifier(
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                )
+
+                set_comprehension = ast_.SetComprehension(
+                    ast_.And(
+                        [
+                            ast_.In(maplet, left),
+                            ast_.In(maplet.left, right),
+                        ]
+                    ),
+                    maplet.right,
+                )
+                set_comprehension._bound_identifiers = {maplet}
+
+                return set_comprehension
+
+        return None
 
     def predicate_operations(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
@@ -191,7 +480,7 @@ class SetComprehensionConstructionCollection(RewriteCollection):
 
                 # If x is not bound by a quantifier, this expression may just be an equality check (ie, is x in {1,2,3}?)
                 # rather than a generator
-                if x not in self.bound_quantifier_variables:
+                if self.inside_quantifier() and x not in self.bound_quantifier_variables:
                     logger.debug(f"FAILED: {x} appears as a generator variable but is not bound by a quantifier")
                     return None
 
@@ -904,3 +1193,16 @@ class ReplaceAndSimplifyCollection(RewriteCollection):
 
                 return ast_.Statements(new_statements)
         return None
+
+
+REWRITE_COLLECTION: list[type[RewriteCollection]] = [
+    SyntacticSugarForBags,
+    BuiltinFunctions,
+    ComprehensionConstructionCollection,
+    DisjunctiveNormalFormCollection,
+    OrWrappingCollection,
+    GeneratorSelectionCollection,
+    GSPToLoopsCollection,
+    LoopsCodeGenerationCollection,
+    ReplaceAndSimplifyCollection,
+]

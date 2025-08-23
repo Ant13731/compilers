@@ -126,7 +126,7 @@ ast = analysis.semantic_analysis(ast)
 
 # ast = collection_optimizer(ast, SET_REWRITE_COLLECTION)
 from src.mod.optimizer.rewrite_collections import SetComprehensionConstructionCollection as S1
-from src.mod.optimizer.rewrite_collections_v2 import SetComprehensionConstructionCollection as S2
+from src.mod.optimizer.rewrite_collections_v2 import ComprehensionConstructionCollection as S2
 
 ast = S1().normalize(ast)
 print("PARSED TEST_STR:", ast.pretty_print(print_env=True))
