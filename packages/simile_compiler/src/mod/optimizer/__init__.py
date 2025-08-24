@@ -1,5 +1,8 @@
 from src.mod.optimizer.intermediate_ast import (
     GeneratorSelection,
+    CombinedGeneratorSelection,
+    SingleGeneratorSelection,
+    Loop,
 )
 from src.mod.optimizer.optimizer import (
     collection_optimizer,
@@ -7,7 +10,7 @@ from src.mod.optimizer.optimizer import (
 from src.mod.optimizer.rewrite_collection import (
     RewriteCollection,
 )
-from src.mod.optimizer.rewrite_collections_v2 import (
+from mod.optimizer.rewrite_collections import (
     REWRITE_COLLECTION,
     SyntacticSugarForBags,
     BuiltinFunctions,

@@ -9,9 +9,9 @@ from src.mod import ast_
 from src.mod import analysis
 from src.mod.optimizer.rewrite_collection import RewriteCollection
 from src.mod.optimizer.intermediate_ast import (
-    GeneratorSelectionV2,
-    CombinedGeneratorSelectionV2,
-    SingleGeneratorSelectionV2,
+    GeneratorSelection,
+    CombinedGeneratorSelection,
+    SingleGeneratorSelection,
     Loop,
 )
 
@@ -809,11 +809,11 @@ class GeneratorSelectionCollection(RewriteCollection):
                     logger.debug(f"FAILED: no environment found in quantifier (cannot choose generators)")
                     return None
 
-                if all(map(lambda x: isinstance(x, GeneratorSelectionV2) or isinstance(x, CombinedGeneratorSelectionV2), elems)):
+                if all(map(lambda x: isinstance(x, GeneratorSelection) or isinstance(x, CombinedGeneratorSelection), elems)):
                     logger.debug(f"FAILED: all elements in OR quantifier are already GeneratorSelections, no need to select generators")
                     return None
 
-                gsps: list[GeneratorSelectionV2] = []
+                gsps: list[GeneratorSelection] = []
                 for elem in elems:
                     if not isinstance(elem, ast_.ListOp) or elem.op_type != ast_.ListOperator.AND:
                         logger.debug(f"FAILED: element in OR quantifier is not an And operation (got {elem})")
@@ -855,7 +855,7 @@ class GeneratorSelectionCollection(RewriteCollection):
         self,
         and_clause: list[ast_.ASTNode],
         bound_identifiers: set[ast_.Identifier | ast_.MapletIdentifier],
-    ) -> GeneratorSelectionV2 | None:
+    ) -> GeneratorSelection | None:
         candidate_generators_per_identifier: dict[ast_.Identifier | ast_.MapletIdentifier, set[ast_.In]] = {identifier: set() for identifier in bound_identifiers}
         other_predicates: list[ast_.ASTNode] = []
         for elem in and_clause:
@@ -928,28 +928,28 @@ class GeneratorSelectionCollection(RewriteCollection):
         for unselected_candidate_generators in candidate_generators_per_identifier.values():
             other_predicates.extend(list(unselected_candidate_generators))
 
-        return GeneratorSelectionV2(generators, ast_.And(other_predicates))
+        return GeneratorSelection(generators, ast_.And(other_predicates))
 
     def reduce_duplicate_generators(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
             case ast_.ListOp(elems, ast_.ListOperator.OR):
-                if all(map(lambda x: isinstance(x, GeneratorSelectionV2) or isinstance(x, CombinedGeneratorSelectionV2), elems)):
+                if all(map(lambda x: isinstance(x, GeneratorSelection) or isinstance(x, CombinedGeneratorSelection), elems)):
                     logger.debug(f"FAILED: all elements in OR quantifier are already GeneratorSelections, no need to select generators")
                     return None
 
-                combination_dict: dict[ast_.In, list[GeneratorSelectionV2 | CombinedGeneratorSelectionV2]] = {}
+                combination_dict: dict[ast_.In, list[GeneratorSelection | CombinedGeneratorSelection]] = {}
                 for elem in elems:
                     match elem:
-                        case GeneratorSelectionV2(generators, predicates):
+                        case GeneratorSelection(generators, predicates):
                             if not combination_dict.get(generators[0]):
                                 combination_dict[generators[0]] = []
                             combination_dict[generators[0]].append(
-                                GeneratorSelectionV2(
+                                GeneratorSelection(
                                     generators[1:],
                                     predicates,
                                 )
                             )
-                        case CombinedGeneratorSelectionV2(generator, child_generators):
+                        case CombinedGeneratorSelection(generator, child_generators):
                             if not combination_dict.get(generator):
                                 combination_dict[generator] = []
                             combination_dict[generator].extend(child_generators.items)  # type: ignore
@@ -968,7 +968,7 @@ class GeneratorSelectionCollection(RewriteCollection):
                     # If the generator list only has one entry, we didn't combine anything - recreate the original GeneratorSelectionV2
                     if len(generator_list) == 1:
                         combined_generators.append(
-                            GeneratorSelectionV2(
+                            GeneratorSelection(
                                 [combined_generator],
                                 generator_list[0].predicates,
                             )
@@ -978,7 +978,7 @@ class GeneratorSelectionCollection(RewriteCollection):
                     # Actually combine generators that need to be combined. Note that this may end up
                     # creating GeneratorSelections without a generator.
                     combined_generators.append(
-                        CombinedGeneratorSelectionV2(
+                        CombinedGeneratorSelection(
                             combined_generator,
                             ast_.Or(generator_list),  # type: ignore
                         )
@@ -1019,7 +1019,7 @@ class GSPToLoopsCollection(RewriteCollection):
                 if not isinstance(predicate, ast_.ListOp) or predicate.op_type != ast_.ListOperator.OR:
                     logger.debug(f"FAILED: predicate is not a ListOp with OR operator (got {predicate}). This should be in DNF")
                     return None
-                if not all(map(lambda x: isinstance(x, GeneratorSelectionV2) or isinstance(x, CombinedGeneratorSelectionV2), predicate.items)):
+                if not all(map(lambda x: isinstance(x, GeneratorSelection) or isinstance(x, CombinedGeneratorSelection), predicate.items)):
                     logger.debug(f"FAILED: not all items in predicate are GeneratorSelections (got {predicate.items}). Elements of predicates should be GeneratorSelectionASTs")
                     return None
 
@@ -1065,14 +1065,14 @@ class GSPToLoopsCollection(RewriteCollection):
                 ast_.ListOp(generators, ast_.ListOperator.OR),
                 body,
             ):
-                if not all(map(lambda x: isinstance(x, GeneratorSelectionV2) or isinstance(x, CombinedGeneratorSelectionV2), generators)):
+                if not all(map(lambda x: isinstance(x, GeneratorSelection) or isinstance(x, CombinedGeneratorSelection), generators)):
                     logger.debug(f"FAILED: all elements in top level OR predicate expected to be GeneratorSelections (got {generators}).")
                     return None
 
                 statements: list[ast_.ASTNode] = []
                 used_generators: list[ast_.ASTNode] = []
                 for generator in generators:
-                    assert isinstance(generator, GeneratorSelectionV2 | CombinedGeneratorSelectionV2)
+                    assert isinstance(generator, GeneratorSelection | CombinedGeneratorSelection)
                     generator.predicates = ast_.And([generator.predicates, ast_.Not(ast_.Or(used_generators))])
 
                     statements.append(Loop(generator, deepcopy(body)))
@@ -1086,12 +1086,12 @@ class GSPToLoopsCollection(RewriteCollection):
         match ast:
             # Inline empty_gsp_loop rule
             case Loop(
-                GeneratorSelectionV2([], predicates),
+                GeneratorSelection([], predicates),
                 body,
             ):
                 return ast_.If(predicates, body)
             case Loop(
-                GeneratorSelectionV2(generators, predicates),
+                GeneratorSelection(generators, predicates),
                 body,
             ):
                 if ast._env is None:
@@ -1119,14 +1119,14 @@ class GSPToLoopsCollection(RewriteCollection):
 
                 assert isinstance(generators[0].left, ast_.Identifier | ast_.MapletIdentifier), "Generators should have an identifier on the left side"
                 return Loop(
-                    SingleGeneratorSelectionV2(
+                    SingleGeneratorSelection(
                         generators[0],
                         ast_.And(
                             free_predicates,
                         ),
                     ),
                     Loop(
-                        GeneratorSelectionV2(
+                        GeneratorSelection(
                             generators[1:],
                             ast_.And(bound_predicates),
                         ),
@@ -1139,7 +1139,7 @@ class GSPToLoopsCollection(RewriteCollection):
     def combined_gsp_loop(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
             case Loop(
-                CombinedGeneratorSelectionV2(
+                CombinedGeneratorSelection(
                     generator,
                     gsp_predicates,
                     predicates,
@@ -1148,14 +1148,14 @@ class GSPToLoopsCollection(RewriteCollection):
             ):
                 child_loops: list[ast_.ASTNode] = []
                 for gsp_predicate in gsp_predicates.items:
-                    if not isinstance(gsp_predicate, GeneratorSelectionV2 | CombinedGeneratorSelectionV2 | SingleGeneratorSelectionV2):
+                    if not isinstance(gsp_predicate, GeneratorSelection | CombinedGeneratorSelection | SingleGeneratorSelection):
                         logger.debug(f"FAILED: gsp predicate is not a valid GeneratorSelection (got {gsp_predicate})")
                         return None
 
                     child_loops.append(Loop(gsp_predicate, body))
 
                 return Loop(
-                    SingleGeneratorSelectionV2(generator, predicates),
+                    SingleGeneratorSelection(generator, predicates),
                     ast_.Statements(child_loops),
                 )
         return None
@@ -1171,7 +1171,7 @@ class LoopsCodeGenerationCollection(RewriteCollection):
     def conjunct_conditional(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
             case Loop(
-                SingleGeneratorSelectionV2(
+                SingleGeneratorSelection(
                     generator,
                     predicates,
                 ),

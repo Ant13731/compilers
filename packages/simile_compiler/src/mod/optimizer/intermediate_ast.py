@@ -6,39 +6,6 @@ from src.mod import ast_
 
 @dataclass
 class GeneratorSelection(ast_.ASTNode):
-
-    generator: ast_.In | ast_.BinaryOp
-    predicates: ast_.And
-
-    def flatten(self) -> ast_.ListOp:
-        """Flatten the generator selection AST into a list of assignments and a condition."""
-        return ast_.And(
-            [
-                self.generator,
-                self.predicates,
-            ],
-        )
-
-    def copy_and_concat_predicates(self, new_conditions: ast_.ASTNode | None) -> GeneratorSelection:
-        if new_conditions is None:
-            return self
-
-        return GeneratorSelection(
-            generator=self.generator,
-            predicates=ast_.And(
-                [
-                    self.predicates,
-                    new_conditions,
-                ],
-            ),
-        )
-
-    def _pretty_print_algorithmic(self, indent: int) -> str:
-        return self.flatten()._pretty_print_algorithmic(indent)
-
-
-@dataclass
-class GeneratorSelectionV2(ast_.ASTNode):
     generators: list[ast_.In]
     predicates: ast_.And
 
@@ -59,9 +26,15 @@ class GeneratorSelectionV2(ast_.ASTNode):
             bound_identifiers.add(generator.left)
         return bound_identifiers
 
+    def _get_type(self) -> ast_.SimileType:
+        return self.flatten()._get_type()
+
+    def _pretty_print_algorithmic(self, indent: int) -> str:
+        return self.flatten()._pretty_print_algorithmic(indent)
+
 
 @dataclass
-class CombinedGeneratorSelectionV2(ast_.ASTNode):
+class CombinedGeneratorSelection(ast_.ASTNode):
     generator: ast_.In
     gsp_predicates: ast_.Or  # Or[GeneratorSelectionV2 | Bool] # Bool here is for empty gsp
     predicates: ast_.And = field(default_factory=lambda: ast_.And([]))
@@ -77,9 +50,15 @@ class CombinedGeneratorSelectionV2(ast_.ASTNode):
         assert isinstance(self.generator.left, ast_.Identifier | ast_.MapletIdentifier), f"Expected Identifier or MapletIdentifier, got {type(self.generator.left)}"
         return self.generator.left
 
+    def _get_type(self) -> ast_.SimileType:
+        return self.flatten()._get_type()
+
+    def _pretty_print_algorithmic(self, indent: int) -> str:
+        return self.flatten()._pretty_print_algorithmic(indent)
+
 
 @dataclass
-class SingleGeneratorSelectionV2(ast_.ASTNode):
+class SingleGeneratorSelection(ast_.ASTNode):
     generator: ast_.In
     predicates: ast_.And
 
@@ -92,39 +71,22 @@ class SingleGeneratorSelectionV2(ast_.ASTNode):
         assert isinstance(self.generator.left, ast_.Identifier | ast_.MapletIdentifier), f"Expected Identifier or MapletIdentifier, got {type(self.generator.left)}"
         return self.generator.left
 
+    def _get_type(self) -> ast_.SimileType:
+        return self.flatten()._get_type()
+
+    def _pretty_print_algorithmic(self, indent: int) -> str:
+        return self.flatten()._pretty_print_algorithmic(indent)
+
 
 @dataclass
 class Loop(ast_.ASTNode):
-    predicate: ast_.Or | GeneratorSelectionV2 | CombinedGeneratorSelectionV2 | SingleGeneratorSelectionV2
+    predicate: ast_.Or | GeneratorSelection | CombinedGeneratorSelection | SingleGeneratorSelection
     body: ast_.ASTNode
 
+    def _get_type(self) -> ast_.SimileType:
+        return ast_.BaseSimileType.None_
 
-# @dataclass
-# class GeneratorSelectionWithSubstitution(ast_.ASTNode):
-#     generator: ast_.In | ast_.BinaryOp
-#     substitution: ast_.Equal
-#     predicates: ast_.And
-
-#     def flatten(self) -> ast_.ListOp:
-#         """Flatten the generator selection AST into a list of assignments and a condition."""
-#         return ast_.ListOp.flatten_and_join(
-#             [
-#                 self.generator,
-#                 self.substitution,
-#                 self.predicates,
-#             ],
-#             ast_.ListOperator.AND,
-#         )
-
-#     def orient_substitution(self) -> ast_.Equal:
-#         """Ensure the LHS of the target of each substitution is an identifier."""
-
-#         if isinstance(self.substitution.left, ast_.Identifier):
-#             return self.substitution
-#         elif isinstance(self.substitution.right, ast_.Identifier):
-#             return ast_.Equal(self.substitution.right, self.substitution.left)
-#         else:
-#             raise ValueError(f"Substitution {self.substitution} does not have an identifier on either side.")
-
-#     def _pretty_print_algorithmic(self, indent: int) -> str:
-#         return self.flatten()._pretty_print_algorithmic(indent)
+    def _pretty_print_algorithmic(self, indent: int) -> str:
+        predicate = self.predicate._pretty_print_algorithmic(indent)
+        body = self.body._pretty_print_algorithmic(indent + 1)
+        return f"loop {predicate}:\n{'\t' * (indent + 1)}{body}\n"
