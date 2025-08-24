@@ -20,10 +20,21 @@ class SimileTypeError(Exception):
     """Custom exception for Simile type errors."""
 
     def __init__(self, message: str, node: ASTNode) -> None:
-        message = f"Error {node.get_location()}: {message}"
+        message = f"Error {node.get_location()} (at node {node}): {message}"
 
         super().__init__(message)
         self.node = node
+
+
+class SubstituteSimileTypeAddon:
+
+    def substitute_eq(self, other: SimileType, mapping: dict[str, SimileType] | None = None) -> bool:
+        if mapping is None:
+            mapping = {}
+        return self._substitute_eq(other, mapping)
+
+    def _substitute_eq(self, other: SimileType, mapping: dict[str, SimileType]) -> bool:
+        raise NotImplementedError
 
 
 class BaseSimileType(Enum):
@@ -53,6 +64,9 @@ class BaseSimileType(Enum):
     def is_numeric(self) -> bool:
         return self in {BaseSimileType.Int, BaseSimileType.Float, BaseSimileType.PosInt, BaseSimileType.Nat}
 
+    def substitute_eq(self, other: SimileType, mapping: dict[str, SimileType] | None = None) -> bool:
+        return self == other
+
 
 L = TypeVar("L", bound="SimileType")
 R = TypeVar("R", bound="SimileType")
@@ -60,7 +74,7 @@ T = TypeVar("T", bound="SimileType")
 
 
 @dataclass(frozen=True)
-class GenericType:
+class GenericType(SubstituteSimileTypeAddon):
     """Generic types are used primarily for resolving generic procedures/functions into a specific type based on context.
 
     IDs are only locally valid (i.e., introduced by a procedure argument and used by a procedure's return value).
@@ -68,13 +82,23 @@ class GenericType:
 
     id_: str
 
+    def _substitute_eq(self, other: SimileType, mapping: dict[str, SimileType]) -> bool:
+        if self.id_ not in mapping:
+            mapping[self.id_] = other
+        return mapping[self.id_] == other
+
 
 @dataclass(frozen=True)
-class PairType(Generic[L, R]):
+class PairType(Generic[L, R], SubstituteSimileTypeAddon):
     """Maplet type"""
 
     left: L
     right: R
+
+    def _substitute_eq(self, other: SimileType, mapping: dict[str, SimileType]) -> bool:
+        if not isinstance(other, PairType):
+            return False
+        return self.left.substitute_eq(other.left, mapping) and self.right.substitute_eq(other.right, mapping)
 
 
 @dataclass(frozen=True)
@@ -106,6 +130,10 @@ class RelationSubTypeMask:
     @property
     def one_to_one(self) -> bool:
         return self.one_to_many and self.many_to_one
+
+    @staticmethod
+    def bag_type() -> RelationSubTypeMask:
+        return RelationSubTypeMask(False, False, True, True)
 
     def get_properties(self) -> dict[str, bool]:
         return {
@@ -166,7 +194,7 @@ class RelationSubTypeMask:
 
 
 @dataclass(frozen=True)
-class SetType(Generic[T]):
+class SetType(Generic[T], SubstituteSimileTypeAddon):
     """Type to represent sets and set-dependent types: bags, relations, sequences, etc."""
 
     element_type: T
@@ -187,6 +215,11 @@ class SetType(Generic[T]):
     @staticmethod
     def is_bag(self_: SetType) -> TypeGuard[SetType[PairType[SimileType, Literal[BaseSimileType.Int]]]]:
         return SetType.is_relation(self_) and self_.element_type.right == BaseSimileType.Int
+
+    def _substitute_eq(self, other: SimileType, mapping: dict[str, SimileType]) -> bool:
+        if not isinstance(other, SetType):
+            return False
+        return self.element_type.substitute_eq(other.element_type, mapping) and self.relation_subtype == other.relation_subtype
 
 
 # TODO:
@@ -216,21 +249,32 @@ class SetType(Generic[T]):
 
 
 @dataclass(frozen=True)
-class StructTypeDef:
+class StructTypeDef(SubstituteSimileTypeAddon):
     # Internally a (many-to-one) (total on defined fields) function
     fields: dict[str, SimileType]
 
+    def _substitute_eq(self, other: SimileType, mapping: dict[str, SimileType]) -> bool:
+        if not isinstance(other, StructTypeDef):
+            return False
+        return all(f.substitute_eq(o, mapping) for f, o in zip(self.fields.values(), other.fields.values()))
+
 
 @dataclass(frozen=True)
-class EnumTypeDef:
+class EnumTypeDef(SetType[Literal[BaseSimileType.String]]):
     # Internally a set of identifiers
-    members: set[str]
+    element_type: Literal[BaseSimileType.String] = BaseSimileType.String
+    members: set[str] = field(default_factory=set)
 
 
 @dataclass(frozen=True)
-class ProcedureTypeDef:
+class ProcedureTypeDef(SubstituteSimileTypeAddon):
     arg_types: dict[str, SimileType]
     return_type: SimileType
+
+    def _substitute_eq(self, other: SimileType, mapping: dict[str, SimileType]) -> bool:
+        if not isinstance(other, ProcedureTypeDef):
+            return False
+        return all(f.substitute_eq(o, mapping) for f, o in zip(self.arg_types.values(), other.arg_types.values())) and self.return_type.substitute_eq(other.return_type, mapping)
 
 
 # @dataclass
@@ -249,6 +293,9 @@ def type_union(*types: SimileType) -> SimileType:
     """Create a single type or TypeUnion from multiple SimileTypes."""
     types_set = set()
     for t in types:
+        if isinstance(t, GenericType):
+            continue
+
         if isinstance(t, TypeUnion):
             types_set.update(t.types)
         else:
@@ -259,20 +306,25 @@ def type_union(*types: SimileType) -> SimileType:
 
 
 @dataclass(frozen=True)
-class TypeUnion:
+class TypeUnion(SubstituteSimileTypeAddon):
     """OR-selection of types. This type should only be exposed internally, for narrowing purposes"""
 
     types: set[SimileType]
 
+    def _substitute_eq(self, other: SimileType, mapping: dict[str, SimileType]) -> bool:
+        if not isinstance(other, TypeUnion):
+            return False
+        return all(f.substitute_eq(o, mapping) for f, o in zip(self.types, other.types))
+
 
 @dataclass(frozen=True)
-class ModuleImports:
+class ModuleImports(SubstituteSimileTypeAddon):
     # import these objects into the module namespace
     import_objects: dict[str, SimileType]
 
 
 @dataclass(frozen=True)
-class DeferToSymbolTable:
+class DeferToSymbolTable(SubstituteSimileTypeAddon):
     """Types dependent on this will not be resolved until the analysis phase"""
 
     lookup_type: str

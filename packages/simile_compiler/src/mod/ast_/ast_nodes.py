@@ -296,14 +296,14 @@ class BinaryOp(InheritedEqMixin, ASTNode):
                         ),
                     )
 
-                if SetType.is_relation(l_type):
-                    raise SimileTypeError(f"Invalid types for set operation (left operand is a relation): {l_type}, {r_type}", self)
-                if SetType.is_sequence(l_type):
-                    raise SimileTypeError(f"Invalid types for set operation (left operand is a sequence): {l_type}, {r_type}", self)
-                if SetType.is_relation(r_type):
-                    raise SimileTypeError(f"Invalid types for set operation (right operand is a relation): {l_type}, {r_type}", self)
-                if SetType.is_sequence(r_type):
-                    raise SimileTypeError(f"Invalid types for set operation (right operand is a sequence): {l_type}, {r_type}", self)
+                # if SetType.is_relation(l_type):
+                #     raise SimileTypeError(f"Invalid types for set operation (left operand is a relation): {l_type}, {r_type}", self)
+                # if SetType.is_sequence(l_type):
+                #     raise SimileTypeError(f"Invalid types for set operation (left operand is a sequence): {l_type}, {r_type}", self)
+                # if SetType.is_relation(r_type):
+                #     raise SimileTypeError(f"Invalid types for set operation (right operand is a relation): {l_type}, {r_type}", self)
+                # if SetType.is_sequence(r_type):
+                #     raise SimileTypeError(f"Invalid types for set operation (right operand is a sequence): {l_type}, {r_type}", self)
 
                 return SetType(
                     element_type=type_union(l_type.element_type, r_type.element_type),
@@ -343,7 +343,7 @@ class BinaryOp(InheritedEqMixin, ASTNode):
                     relation_subtype=RelationSubTypeMask.from_relation_operator(RelationOperator.RELATION),
                 )
             case BinaryOperator.UPTO:
-                if not isinstance(l_type, Int) or not isinstance(r_type, Int):
+                if l_type != BaseSimileType.Int or r_type != BaseSimileType.Int:
                     raise SimileTypeError(f"Invalid types for upto operation (must be ints): {l_type}, {r_type}", self)
                 return SetType(element_type=BaseSimileType.Int)
             case BinaryOperator.RELATION_OVERRIDING:
@@ -882,16 +882,27 @@ class Call(ASTNode):
             case ProcedureTypeDef(arg_types, return_type):
                 if len(self.args) != len(arg_types):
                     raise SimileTypeError(f"Argument count mismatch: expected {len(arg_types)}, got {len(self.args)}", self)
-                for i, arg in enumerate(self.args):
-                    if arg.get_type != list(arg_types.values())[i]:
-                        raise SimileTypeError(f"Argument type mismatch at position {i}: expected {list(arg_types.values())[i]}, got {arg.get_type}", self)
+                # for i, arg in enumerate(self.args):
+                #     if arg.get_type != list(arg_types.values())[i]:
+                #         raise SimileTypeError(f"Argument type mismatch at position {i}: expected {list(arg_types.values())[i]}, got {arg.get_type}", self)
+                # return return_type
+                for arg, expected_arg_type in zip(self.args, arg_types.values()):
+                    if arg.get_type == expected_arg_type:
+                        continue
+                    if expected_arg_type.substitute_eq(arg.get_type):
+                        continue
+                    raise SimileTypeError(f"Argument type mismatch at arg {arg}: expected {expected_arg_type}, got {arg.get_type}", self)
                 return return_type
             case StructTypeDef(arg_types):
                 if len(self.args) != len(arg_types):
                     raise SimileTypeError(f"Argument count mismatch: expected {len(arg_types)}, got {len(self.args)}", self)
-                for i, arg in enumerate(self.args):
-                    if arg.get_type != list(arg_types.values())[i]:
-                        raise SimileTypeError(f"Argument type mismatch at position {i}: expected {list(arg_types.values())[i]}, got {arg.get_type}", self)
+                for arg, expected_arg_type in zip(self.args, arg_types.values()):
+                    if arg.get_type == expected_arg_type:
+                        continue
+                    if expected_arg_type.substitute_eq(arg.get_type):
+                        continue
+
+                    raise SimileTypeError(f"Argument type mismatch at arg {arg}: expected {expected_arg_type}, got {arg.get_type}", self)
                 return StructTypeDef(arg_types)
             case SetType(_) as set_type:
                 if not SetType.is_relation(set_type):
@@ -913,10 +924,10 @@ class Image(ASTNode):
 
     def _get_type(self) -> SimileType:
         if not isinstance(self.target.get_type, SetType):
-            raise SimileTypeError(f"Indexing target must be a collection type, got {self.target.get_type}", self)
+            raise SimileTypeError(f"Image target must be a collection type, got {self.target.get_type}", self)
 
         if not SetType.is_relation(self.target.get_type):
-            raise SimileTypeError(f"Indexing target must be a relation type (not set), got {self.target.get_type}", self)
+            raise SimileTypeError(f"Image target must be a relation type (not set), got {self.target.get_type}", self)
 
         return SetType(element_type=self.target.get_type.element_type.right)
 

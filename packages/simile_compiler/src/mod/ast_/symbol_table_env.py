@@ -15,6 +15,7 @@ from src.mod.ast_.symbol_table_types import (
     SetType,
     PairType,
     GenericType,
+    RelationSubTypeMask,
 )
 from src.mod.ast_.dataclass_helpers import dataclass_find_and_replace
 
@@ -131,9 +132,22 @@ PRIMITIVE_TYPES = {
     "float": BaseSimileType.Float,
     "bool": BaseSimileType.Bool,
     "none": BaseSimileType.None_,
-    "ℤ": BaseSimileType.Int,
-    "ℕ": BaseSimileType.Nat,
-    "ℕ₁": BaseSimileType.PosInt,
+    "ℤ": SetType(BaseSimileType.Int),
+    "ℕ": SetType(BaseSimileType.Nat),
+    "ℕ₁": SetType(BaseSimileType.PosInt),
+    "set": ProcedureTypeDef(
+        {"s": GenericType("T")},
+        SetType(
+            GenericType("T"),
+        ),
+    ),
+    "bag": ProcedureTypeDef(
+        {"s": GenericType("T")},
+        SetType(
+            PairType(GenericType("T"), BaseSimileType.Int),
+            relation_subtype=RelationSubTypeMask.bag_type(),
+        ),
+    ),
 }
 
 BUILTIN_FUNCTIONS = {
@@ -164,10 +178,7 @@ BUILTIN_FUNCTIONS = {
     "card": ProcedureTypeDef(
         {
             "s": SetType(
-                PairType(
-                    GenericType("L"),
-                    GenericType("R"),
-                ),
+                GenericType("T"),
             ),
         },
         BaseSimileType.PosInt,

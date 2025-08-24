@@ -14,6 +14,8 @@ from src.mod.ast_.symbol_table_types import (
     EnumTypeDef,
     SimileTypeError,
     BaseSimileType,
+    DeferToSymbolTable,
+    GenericType,
 )
 
 
@@ -65,6 +67,7 @@ def _populate_ast_environments_aux(node: ast_.ASTNode) -> None:
 
     match node:
         case ast_.Assignment(target, value):
+            _populate_ast_environments_aux(value)
             _populate_from_assignment(node, target, value)
 
         case ast_.For(iterable_names, iterable, body):
@@ -148,6 +151,13 @@ def _populate_ast_environments_aux(node: ast_.ASTNode) -> None:
                 body._env.put(arg_name, arg_type)
             _populate_ast_environments_aux(body)
 
+        case ast_.Quantifier(predicate, expression, op_type):
+            # FIXME actually check for types between predicate and bound identifiers - right now we just use a generic type
+            for identifier in node.flatten_bound_identifiers():
+                node._env.put(identifier.name, GenericType("T"))
+            _populate_ast_environments_aux(predicate)
+            _populate_ast_environments_aux(expression)
+
         case ast_.Import(module_file_path, import_objects):
             _populate_from_import(node, import_objects, module_file_path)
 
@@ -177,7 +187,9 @@ def _check_and_add_for_enum(node: ast_.ASTNode, name: str, value: ast_.ASTNode) 
         items_to_add.add(item.name)
 
     # Add the enum to the environment
-    node._env.put(name, EnumTypeDef(members=items_to_add))
+    node._env.put(name, EnumTypeDef(element_type=BaseSimileType.String, members=items_to_add))
+    for item_ in items_to_add:
+        node._env.put(item_, DeferToSymbolTable(name))
     return True, ""
 
 
@@ -192,15 +204,18 @@ def _populate_from_assignment(node: ast_.ASTNode, target: ast_.ASTNode, value: a
         case ast_.TypedName(ast_.Identifier(name), explicit_type):
             if node._env.get(name) is not None and node._env.get(name) != explicit_type:
                 raise SimileTypeError(f"Type mismatch: cannot assign explicit type {explicit_type} to {node._env.get(name)} (type clashes with a previous definition)", node)
-            if value.get_type != explicit_type.get_type:
-                raise SimileTypeError(f"Type mismatch: cannot assign value of type {value.get_type} to explicit type {explicit_type}", value)
+            # if value.get_type != explicit_type.get_type:
+            #     raise SimileTypeError(f"Type mismatch: cannot assign value of type {value.get_type} to explicit type {explicit_type}", value)
 
             if isinstance(explicit_type, ast_.Identifier) and explicit_type.name == "enum":  # should look like ... : enum = ...
+                if value.get_type != explicit_type.get_type:
+                    raise SimileTypeError(f"Type mismatch: cannot assign value of type {value.get_type} to explicit type {explicit_type}", value)
+
                 added_enum, reason = _check_and_add_for_enum(node, name, value)
                 if not added_enum:
                     raise SimileTypeError(f"Enum assignment failed: {reason}", node)
             else:
-                node._env.put(name, value.get_type)
+                node._env.put(name, explicit_type.get_type)
 
         case ast_.StructAccess(struct, field):
             assign_names = [field.name]

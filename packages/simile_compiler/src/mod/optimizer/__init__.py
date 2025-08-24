@@ -10,7 +10,7 @@ from src.mod.optimizer.optimizer import (
 from src.mod.optimizer.rewrite_collection import (
     RewriteCollection,
 )
-from mod.optimizer.rewrite_collections import (
+from src.mod.optimizer.rewrite_collections import (
     REWRITE_COLLECTION,
     SyntacticSugarForBags,
     BuiltinFunctions,

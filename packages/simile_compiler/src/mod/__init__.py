@@ -7,5 +7,5 @@ from src.mod import optimizer
 from src.mod.parser import parse
 from src.mod.scanner import scan
 from src.mod.analysis import populate_ast_environments
-from src.mod.optimizer import collection_optimizer, SET_REWRITE_COLLECTION
+from src.mod.optimizer import collection_optimizer, REWRITE_COLLECTION
 from src.mod.codegen import RustCodeGenerator, CPPCodeGenerator

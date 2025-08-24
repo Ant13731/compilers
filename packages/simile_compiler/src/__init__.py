@@ -9,4 +9,5 @@ from src.mod import (
     scan,
     parse,
     collection_optimizer,
+    REWRITE_COLLECTION,
 )

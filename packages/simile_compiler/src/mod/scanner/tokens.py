@@ -153,9 +153,9 @@ class TokenType(Enum):
     UPTO = auto()
 
     # Common sets
-    NATURAL_NUMBERS = auto()
-    POSITIVE_INTEGERS = auto()
-    INTEGERS = auto()
+    # NATURAL_NUMBERS = auto()
+    # POSITIVE_INTEGERS = auto()
+    # INTEGERS = auto()
 
     def __repr__(self) -> str:
         return f"TokenType.{self.name}"
@@ -279,9 +279,9 @@ OPERATOR_TOKEN_TABLE = {
     "⤖": TokenType.BIJECTION,
     ">->>": TokenType.BIJECTION,
     "..": TokenType.UPTO,
-    "ℤ": TokenType.INTEGERS,
-    "ℕ": TokenType.NATURAL_NUMBERS,
-    "ℕ₁": TokenType.POSITIVE_INTEGERS,
+    "ℤ": TokenType.IDENTIFIER,
+    "ℕ": TokenType.IDENTIFIER,
+    "ℕ₁": TokenType.IDENTIFIER,
 }
 
 KEYWORD_TABLE = {

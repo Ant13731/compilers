@@ -340,7 +340,7 @@ class Scanner:
                         f"Cannot find symbol {consumed_characters} in operator token table. Possible matches are {possible_tokens}, but none were valid with the next character {self.peek()}",
                     )
 
-                self.add_token(OPERATOR_TOKEN_TABLE[consumed_characters])
+                self.add_token(OPERATOR_TOKEN_TABLE[consumed_characters], consumed_characters)
             case _ if c.isalpha() or c == "_":
                 self.ignore_newline = False
                 while True:

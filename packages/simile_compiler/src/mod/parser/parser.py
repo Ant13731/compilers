@@ -104,7 +104,7 @@ class Parser:
     # (ie. using strings instead of TokenTypes)
     first_sets: ClassVar[dict[str, set[str | TokenType]]] = {
         "start": {TokenType.EOF, "statements"},
-        "statements": {"simple_stmt", "compound_stmt"},
+        "statements": {TokenType.COMMENT, "simple_stmt", "compound_stmt"},
         "simple_stmt": {"expr", "assignment", "control_flow_stmt", "import_stmt"},
         "predicate": {"bool_quantification", "unquantified_predicate"},
         "bool_quantification": {TokenType.FORALL, TokenType.EXISTS},
@@ -276,6 +276,9 @@ class Parser:
         statements_first_set = self.get_first_set("statements")
         while self.peek().type_ in statements_first_set:
             try:
+                if self.match(TokenType.COMMENT):
+                    continue
+
                 if self.peek().type_ in self.get_first_set("simple_stmt"):
                     statements.append(self.simple_stmt())
                 elif self.peek().type_ in self.get_first_set("compound_stmt"):
@@ -627,6 +630,8 @@ class Parser:
                 if self.peek().type_ in self.get_first_set("rel_sub_expr"):
                     right = self.rel_sub_expr()(right)
                 return ast_.BinaryOp(interval_expr, right, ast_.BinaryOperator.DOMAIN_RESTRICTION)
+            case x if x in self.get_first_set("rel_sub_expr"):
+                return self.rel_sub_expr()(interval_expr)
             case _:
                 return interval_expr
 
@@ -644,15 +649,15 @@ class Parser:
 
     @store_derivation
     def rel_sub_expr(self) -> Callable[[ast_.ASTNode], ast_.ASTNode]:
-        match self.advance():
+        match self.advance().type_:
             case TokenType.BACKSLASH:
                 return lambda n: ast_.BinaryOp(n, self.interval_expr(), ast_.BinaryOperator.DIFFERENCE)
             case TokenType.RANGE_RESTRICTION:
                 return lambda n: ast_.BinaryOp(n, self.interval_expr(), ast_.BinaryOperator.RANGE_RESTRICTION)
             case TokenType.RANGE_SUBTRACTION:
                 return lambda n: ast_.BinaryOp(n, self.interval_expr(), ast_.BinaryOperator.RANGE_SUBTRACTION)
-            case _:
-                self.error("Unexpected token")
+            case t:
+                self.error(f"Unexpected token {t}")
 
     @store_derivation
     def interval_expr(self) -> ast_.ASTNode:
@@ -800,6 +805,9 @@ class Parser:
 
     @store_derivation
     def collection_body(self, collection_operator: ast_.CollectionOperator, closing_symbol: TokenType) -> ast_.ASTNode:
+        if self.match(TokenType.NEWLINE):
+            self.match(TokenType.INDENT)
+
         # Since sets may start with an ident_list even if they are just set enumeration,
         # we need to use similar hacks to quantification body
         starting_index = self.current_index
@@ -811,7 +819,12 @@ class Parser:
         # Then try set enumeration with one elem
         enumeration = [self.expr()]
         while self.match(TokenType.COMMA):
+            if self.match(TokenType.NEWLINE):
+                self.match(TokenType.INDENT)
             enumeration.append(self.expr())
+
+        if self.match(TokenType.NEWLINE):
+            self.match(TokenType.DEDENT)
 
         if self.match(closing_symbol):
             return ast_.Enumeration(enumeration, collection_operator)
@@ -913,7 +926,7 @@ class Parser:
         elif t.type_ == TokenType.IMPORT:
             return ast_.Import(import_name.value, ast_.None_())
         else:
-            self.error("Unexpected token")
+            self.error(f"Unexpected token {t}")
 
     @store_derivation
     def import_name(self) -> list[ast_.Identifier]:
