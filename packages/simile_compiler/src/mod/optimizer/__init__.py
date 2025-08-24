@@ -7,11 +7,15 @@ from src.mod.optimizer.optimizer import (
 from src.mod.optimizer.rewrite_collection import (
     RewriteCollection,
 )
-from src.mod.optimizer.rewrite_collections import (
-    SET_REWRITE_COLLECTION,
-    SetComprehensionConstructionCollection,
-    DisjunctiveNormalFormQuantifierPredicateCollection,
-    PredicateSimplificationCollection,
+from src.mod.optimizer.rewrite_collections_v2 import (
+    REWRITE_COLLECTION,
+    SyntacticSugarForBags,
+    BuiltinFunctions,
+    ComprehensionConstructionCollection,
+    DisjunctiveNormalFormCollection,
+    OrWrappingCollection,
     GeneratorSelectionCollection,
-    SetCodeGenerationCollection,
+    GSPToLoopsCollection,
+    LoopsCodeGenerationCollection,
+    ReplaceAndSimplifyCollection,
 )

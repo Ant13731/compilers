@@ -6,11 +6,16 @@ from src.mod.parser import parse
 from src.mod.analysis import populate_ast_environments
 from src.mod.optimizer import (
     collection_optimizer,
-    SET_REWRITE_COLLECTION,
-    SetComprehensionConstructionCollection,
-    DisjunctiveNormalFormQuantifierPredicateCollection,
+    REWRITE_COLLECTION,
+    SyntacticSugarForBags,
+    BuiltinFunctions,
+    ComprehensionConstructionCollection,
+    DisjunctiveNormalFormCollection,
+    OrWrappingCollection,
     GeneratorSelectionCollection,
-    SetCodeGenerationCollection,
+    GSPToLoopsCollection,
+    LoopsCodeGenerationCollection,
+    ReplaceAndSimplifyCollection,
 )
 
 EXPECTED_STRUCTURE_TEST = [

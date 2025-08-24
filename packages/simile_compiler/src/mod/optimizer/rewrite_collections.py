@@ -8,65 +8,600 @@ from loguru import logger
 from src.mod import ast_
 from src.mod import analysis
 from src.mod.optimizer.rewrite_collection import RewriteCollection
-from src.mod.optimizer.intermediate_ast import GeneratorSelection
+from src.mod.optimizer.intermediate_ast import (
+    GeneratorSelectionV2,
+    CombinedGeneratorSelectionV2,
+    SingleGeneratorSelectionV2,
+    Loop,
+)
 
 # NOTE: REWRITE RULES MUST ALWAYS USE THE PARENT FORM FOR STRUCTURAL MATCHING (ex. BinaryOp instead of Add)
 
 
-# Rewrite rules written in plain form:
-# predicate_operations:
-#   S ∪ T ~> {x | x ∈ S ∨ x ∈ T}
-#   S ∩ T ~> {x | x ∈ S ∧ x ∈ T}
-#   S \ T ~> {x | x ∈ S ∧ x ∉ T}
-# singleton_membership:
-#   x ∈ {y} ~> x = y
-# membership_collapse:
-#   ⊕_q f(x) | x ∈ {g(y) | y ∈ S} ∧ p(x)                       ~> ⊕_q f(g(y)) | y ∈ S ∧ p(g(y))
-#               x ∈ {g(y) | y ∈ S} ∧ p(x) ∨ x ∈ {h(z) | z ∈ T} ~> ⊕_q f(x) | y ∈ S ∧ x = g(y) ∧ p(x) ∨ z ∈ T ∧ x = h(z)
-# new_membership_collapse: without the context of a quantifier
-#   x ∈ {g(y) | y ∈ S ∧ P ∨ Q} ∧ F ~> x = g(y) ∧ y ∈ S ∧ P ∨ Q ∧ F
-# bubble_up_generators:
-#   (x = g(y) ∧ y ∈ S ∧ A) ∨ (x = h(z) ∧ x ∈ T ∧ B) ∧ C
+@dataclass
+class SyntacticSugarForBags(RewriteCollection):
+    def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
+        return [
+            self.bag_image,
+        ]
+
+    def bag_image(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Image(r, b):
+                if not isinstance(r.get_type, ast_.SetType) or not ast_.SetType.is_relation(r.get_type):
+                    logger.warning(f"First argument to bag image {r} is not a relation")
+                    return None
+                if not isinstance(b.get_type, ast_.SetType) or not ast_.SetType.is_bag(b.get_type):
+                    logger.warning(f"Second argument to bag image {b} is not a bag")
+                    return None
+                return ast_.Composition(ast_.Inverse(r), b)
+        return None
+
+    def bag_predicate_operations(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            # Idea, if we want to add some compilation-time optimizations (like union of two set enums into one set enum),
+            # we can just add those rules here
+            case ast_.BinaryOp(left, right, op_type) if op_type in (
+                ast_.BinaryOperator.UNION,
+                ast_.BinaryOperator.INTERSECTION,
+                ast_.BinaryOperator.ADD,
+                ast_.BinaryOperator.SUBTRACT,
+            ):
+                if not isinstance(left.get_type, ast_.SetType) or not isinstance(right.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: at least one union child is not a set type: {left.get_type}, {right.get_type}")
+                    return None
+
+                if not ast_.SetType.is_bag(left.get_type) or not ast_.SetType.is_bag(right.get_type):
+                    logger.debug(f"FAILED: Both operands must be bags")
+                    return None
+
+                maplet = ast_.MapletIdentifier(
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                )
+
+                match op_type:
+                    case ast_.BinaryOperator.SUBTRACT:
+                        logger.debug("WARNING: Subtracting bags not fully correctly implemented (subtraction doesn't work)")
+                        # TODO see if this method is more efficient?
+                        new_ast = ast_.BagComprehension(
+                            ast_.And(
+                                [
+                                    ast_.In(
+                                        maplet.left,
+                                        ast_.Call(ast_.Identifier("dom"), [left]),
+                                    ),
+                                    ast_.Equal(
+                                        maplet.left,
+                                        ast_.Subtract(
+                                            ast_.Call(
+                                                ast_.Identifier("pop"),
+                                                [
+                                                    ast_.Image(left, maplet.left),
+                                                ],
+                                            ),
+                                            ast_.Call(
+                                                ast_.Identifier("pop_default"),
+                                                [
+                                                    ast_.Image(right, maplet.left),
+                                                    ast_.Int("0"),
+                                                ],
+                                            ),
+                                        ),
+                                    ),
+                                    ast_.GreaterThan(maplet.right, ast_.Int("0")),
+                                ]
+                            ),
+                            maplet,
+                        )
+                        new_ast._bound_identifiers = {maplet.left}
+                        return new_ast
+                    case ast_.BinaryOperator.UNION:
+                        func_name = "max"
+                        generator = ast_.In(
+                            maplet.left,
+                            ast_.Union(
+                                ast_.Call(ast_.Identifier("dom"), [left]),
+                                ast_.Call(ast_.Identifier("dom"), [right]),
+                            ),
+                        )
+                        additional_cond: ast_.ASTNode = ast_.True_()
+                    case ast_.BinaryOperator.ADD:
+                        func_name = "sum"
+                        generator = ast_.In(
+                            maplet.left,
+                            ast_.Union(
+                                ast_.Call(ast_.Identifier("dom"), [left]),
+                                ast_.Call(ast_.Identifier("dom"), [right]),
+                            ),
+                        )
+                        additional_cond = ast_.True_()
+                    case ast_.BinaryOperator.INTERSECTION:
+                        func_name = "min"
+                        generator = ast_.In(
+                            maplet.left,
+                            ast_.Intersection(
+                                ast_.Call(ast_.Identifier("dom"), [left]),
+                                ast_.Call(ast_.Identifier("dom"), [right]),
+                            ),
+                        )
+                        additional_cond = ast_.GreaterThan(maplet.right, ast_.Int("0"))
+
+                new_ast = ast_.BagComprehension(
+                    ast_.And(
+                        [
+                            generator,
+                            ast_.Equal(
+                                maplet.left,
+                                ast_.Call(
+                                    ast_.Identifier(func_name),
+                                    [
+                                        ast_.Union(
+                                            ast_.Image(left, maplet.left),
+                                            ast_.Image(right, maplet.left),
+                                        ),
+                                    ],
+                                ),
+                            ),
+                            additional_cond,
+                        ]
+                    ),
+                    maplet,
+                )
+                new_ast._bound_identifiers = {maplet.left}
+                return new_ast
+        return None
 
 
 @dataclass
-class SetComprehensionConstructionCollection(RewriteCollection):
+class BuiltinFunctions(RewriteCollection):
+    def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
+        return [
+            self.cardinality,
+            self.domain,
+            self.range_,
+            self.override,
+            self.range_restriction,
+            self.range_subtraction,
+            self.domain_restriction,
+            self.domain_subtraction,
+        ]
 
+    def cardinality(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Call(ast_.Identifier("card"), [s]):
+                if not isinstance(s.get_type, ast_.SetType):
+                    logger.warning(f"Argument to cardinality {s} is not a set")
+                    return None
+
+                fresh_variable = ast_.Identifier(self._get_fresh_identifier_name())
+                ast_sum = ast_.Sum(
+                    ast_.And([ast_.In(fresh_variable, s)]),
+                    ast_.Int("1"),
+                )
+                ast_sum._bound_identifiers = {fresh_variable}
+                return ast_sum
+        return None
+
+    def domain(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Call(ast_.Identifier("dom"), [relation]):
+                if not isinstance(relation.get_type, ast_.SetType):
+                    logger.warning(f"Argument to domain {relation} is not a set")
+                    return None
+
+                maplet = ast_.MapletIdentifier(
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                )
+
+                new_ast = ast_.SetComprehension(
+                    ast_.And([ast_.In(maplet, relation)]),
+                    maplet.left,
+                )
+                new_ast._bound_identifiers = {maplet}
+                return new_ast
+        return None
+
+    def range_(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Call(ast_.Identifier("ran"), [relation]):
+                if not isinstance(relation.get_type, ast_.SetType):
+                    logger.warning(f"Argument to range {relation} is not a set")
+                    return None
+
+                maplet = ast_.MapletIdentifier(
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                )
+
+                new_ast = ast_.SetComprehension(
+                    ast_.And([ast_.In(maplet, relation)]),
+                    maplet.right,
+                )
+                new_ast._bound_identifiers = {maplet}
+                return new_ast
+        return None
+
+    def domain_restriction(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.BinaryOp(
+                left,
+                right,
+                ast_.BinaryOperator.DOMAIN_RESTRICTION,
+            ):
+                if not isinstance(left.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: left side of domain restriction is not a set type: {left.get_type}")
+                    return None
+                if not isinstance(right.get_type, ast_.SetType) or not ast_.SetType.is_relation(right.get_type):
+                    logger.debug(f"FAILED: right side of domain restriction is not a relation type: {right.get_type}")
+                    return None
+
+                maplet = ast_.MapletIdentifier(
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                )
+
+                new_ast = ast_.RelationComprehension(
+                    ast_.And(
+                        [
+                            ast_.In(maplet, right),
+                            ast_.In(maplet.left, left),
+                        ],
+                    ),
+                    maplet,
+                )
+
+                new_ast._bound_identifiers = {maplet}
+                return new_ast
+        return None
+
+    def domain_subtraction(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.BinaryOp(
+                left,
+                right,
+                ast_.BinaryOperator.DOMAIN_SUBTRACTION,
+            ):
+                if not isinstance(left.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: left side of domain subtraction is not a set type: {left.get_type}")
+                    return None
+
+                if not isinstance(right.get_type, ast_.SetType) or not ast_.SetType.is_relation(right.get_type):
+                    logger.debug(f"FAILED: right side of domain subtraction is not a relation type: {right.get_type}")
+                    return None
+
+                maplet = ast_.MapletIdentifier(
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                )
+
+                new_ast = ast_.RelationComprehension(
+                    ast_.And(
+                        [
+                            ast_.In(maplet, right),
+                            ast_.NotIn(maplet.left, left),
+                        ],
+                    ),
+                    maplet,
+                )
+                new_ast._bound_identifiers = {maplet}
+                return new_ast
+        return None
+
+    def range_restriction(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.BinaryOp(
+                left,
+                right,
+                ast_.BinaryOperator.RANGE_RESTRICTION,
+            ):
+                if not isinstance(right.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: left side of range restriction is not a set type: {right.get_type}")
+                    return None
+                if not isinstance(left.get_type, ast_.SetType) or not ast_.SetType.is_relation(left.get_type):
+                    logger.debug(f"FAILED: right side of range restriction is not a relation type: {left.get_type}")
+                    return None
+
+                maplet = ast_.MapletIdentifier(
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                )
+
+                new_ast = ast_.RelationComprehension(
+                    ast_.And(
+                        [
+                            ast_.In(maplet, left),
+                            ast_.In(maplet.left, right),
+                        ],
+                    ),
+                    maplet,
+                )
+                new_ast._bound_identifiers = {maplet}
+                return new_ast
+        return None
+
+    def range_subtraction(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.BinaryOp(
+                left,
+                right,
+                ast_.BinaryOperator.RANGE_SUBTRACTION,
+            ):
+                if not isinstance(right.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: left side of range subtraction is not a set type: {right.get_type}")
+                    return None
+                if not isinstance(left.get_type, ast_.SetType) or not ast_.SetType.is_relation(left.get_type):
+                    logger.debug(f"FAILED: right side of range subtraction is not a relation type: {left.get_type}")
+                    return None
+
+                maplet = ast_.MapletIdentifier(
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                )
+
+                new_ast = ast_.RelationComprehension(
+                    ast_.And(
+                        [
+                            ast_.In(maplet, left),
+                            ast_.NotIn(maplet.left, right),
+                        ],
+                    ),
+                    maplet,
+                )
+                new_ast._bound_identifiers = {maplet}
+                return new_ast
+        return None
+
+    def override(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.BinaryOp(
+                left,
+                right,
+                ast_.BinaryOperator.RELATION_OVERRIDING,
+            ):
+                return ast_.Union(
+                    left,
+                    ast_.DomainSubtraction(
+                        ast_.Call(ast_.Identifier("dom"), [left]),
+                        right,
+                    ),
+                )
+        return None
+
+    def sum(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Call(ast_.Identifier("sum"), [arg]):
+                if not isinstance(arg.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: argument of sum is not a set type: {arg.get_type}")
+                    return None
+                if not isinstance(arg.get_type.element_type, ast_.BaseSimileType) or not arg.get_type.element_type.is_numeric():
+                    logger.debug(f"FAILED: element type of sum argument is not a numeric type: {arg.get_type.element_type}")
+                    return None
+
+                iterator = ast_.Identifier(self._get_fresh_identifier_name())
+                new_ast = ast_.Sum(
+                    ast_.And([ast_.In(iterator, arg)]),
+                    iterator,
+                )
+                new_ast._bound_identifiers = {iterator}
+                return new_ast
+        return None
+
+    def bag_size(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Call(ast_.Identifier("size"), [arg]):
+                if not isinstance(arg.get_type, ast_.SetType) or not ast_.SetType.is_bag(arg.get_type):
+                    logger.debug(f"FAILED: argument of size is not a bag type: {arg.get_type}")
+                    return None
+
+                maplet = ast_.MapletIdentifier(
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                )
+                new_ast = ast_.Sum(
+                    ast_.And([ast_.In(maplet, arg)]),
+                    maplet.right,
+                )
+                new_ast._bound_identifiers = {maplet}
+                return new_ast
+        return None
+
+
+@dataclass
+class InsideQuantifierRewriteCollection(RewriteCollection):
     bound_quantifier_variables: set[ast_.Identifier] = field(default_factory=set)
     current_bound_identifiers: list[set[ast_.Identifier | ast_.MapletIdentifier]] = field(default_factory=list)
 
     def apply_all_rules_one_traversal(self, ast):
-        # Before entering a new quantifier, record currently bound variables
-        # (so we can restore them later)
         bound_quantifier_variables_before = deepcopy(self.bound_quantifier_variables)
         if isinstance(ast, ast_.Quantifier):
             logger.debug(f"Quantifier found with bound variables: {ast.bound}")
-            # Add newly accessible (bound) variables, used for generator checks in membership collapse
-            self.bound_quantifier_variables |= ast.bound
+            self.bound_quantifier_variables |= ast.flatten_bound_identifiers()
             self.current_bound_identifiers.append(ast._bound_identifiers)
 
         ast = super().apply_all_rules_one_traversal(ast)
-        logger.debug(f"AST after applying all rules: {ast.pretty_print_algorithmic()}")
 
-        # Restore bound variable record since we have exited the possibly nested quantifier
         self.bound_quantifier_variables = bound_quantifier_variables_before
-
-        if self.current_bound_identifiers and hasattr(ast, "_bound_identifiers") and ast._bound_identifiers != self.current_bound_identifiers:
-            # If the current bound identifiers are set, we need to update the AST's bound identifiers
-            ast._bound_identifiers = self.current_bound_identifiers.pop()
-        logger.debug(f"AST after swapping identifiers: {ast.pretty_print_algorithmic()}")
-
+        if self.current_bound_identifiers and hasattr(ast, "_bound_identifiers"):
+            if ast._bound_identifiers != self.current_bound_identifiers:  # type: ignore
+                # If the current bound identifiers are set, we need to update the AST's bound identifiers
+                ast._bound_identifiers = self.current_bound_identifiers.pop()  # type: ignore
+            else:
+                self.current_bound_identifiers.pop()
         return ast
 
-    # Collection setTypes should have no "demoted" predicates yet
+    def inside_quantifier(self) -> bool:
+        if self.bound_quantifier_variables:
+            return True
+        return False
+
+
+@dataclass
+class ComprehensionConstructionCollection(InsideQuantifierRewriteCollection):
     def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
         return [
-            self.predicate_operations,
+            self.image,
+            self.set_predicate_operations,
+            self.product,
+            self.inverse,
+            self.composition,
             # self.singleton_membership,
             self.membership_collapse,
         ]
 
-    def predicate_operations(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+    def product(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.BinaryOp(
+                ast_.MapletIdentifier(_, _) as maplet,
+                ast_.BinaryOp(left, right, ast_.BinaryOperator.CARTESIAN_PRODUCT),
+                ast_.BinaryOperator.IN,
+            ) if self.inside_quantifier():
+                # Inside quantifier predicate check, similar to membership collapse
+                if not maplet.flatten().issubset(self.bound_quantifier_variables):
+                    logger.debug(f"FAILED: {maplet} appears as a generator variable but is not bound by a quantifier")
+                    return None
+
+                if not isinstance(left.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: left side of product is not a set type: {left.get_type}")
+                    return None
+                if not isinstance(right.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: right side of product is not a set type: {right.get_type}")
+                    return None
+
+                # TODO is this really the correct move? nested quantifiers may cause trouble...
+                self.current_bound_identifiers[-1].remove(maplet)
+                self.current_bound_identifiers[-1].update({maplet.left, maplet.right})
+
+                return ast_.And(
+                    [
+                        ast_.In(maplet.left, left),
+                        ast_.In(maplet.right, right),
+                    ]
+                )
+        return None
+
+    def inverse(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.BinaryOp(
+                ast_.MapletIdentifier(_, _) as maplet,
+                ast_.UnaryOp(
+                    inner,
+                    ast_.UnaryOperator.INVERSE,
+                ),
+                ast_.BinaryOperator.IN,
+            ) if self.inside_quantifier():
+                if not maplet.flatten().issubset(self.bound_quantifier_variables):
+                    logger.debug(f"FAILED: {maplet} appears as a generator variable but is not bound by a quantifier")
+                    return None
+
+                if not isinstance(inner.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: inner side of inverse is not a set/relation type: {inner.get_type}")
+                    return None
+                if not ast_.SetType.is_relation(inner.get_type):
+                    logger.debug(f"FAILED: inner side of inverse is not a relation type: {inner.get_type}")
+                    return None
+
+                rev_maplet = ast_.MapletIdentifier(maplet.right, maplet.left)
+                self.current_bound_identifiers[-1].remove(maplet)
+                self.current_bound_identifiers[-1].update({rev_maplet})
+
+                return ast_.In(rev_maplet, inner)
+        return None
+
+    def composition(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.BinaryOp(
+                ast_.MapletIdentifier(_, _) as maplet,
+                ast_.BinaryOp(
+                    left,
+                    right,
+                    ast_.BinaryOperator.COMPOSITION,
+                ),
+                ast_.BinaryOperator.IN,
+            ) if self.inside_quantifier():
+                if not maplet.flatten().issubset(self.bound_quantifier_variables):
+                    logger.debug(f"FAILED: {maplet} appears as a generator variable but is not bound by a quantifier")
+                    return None
+
+                if not isinstance(left.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: left side of composition is not a set type: {left.get_type}")
+                    return None
+                if not isinstance(right.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: right side of composition is not a set type: {right.get_type}")
+                    return None
+
+                fresh_var_left = ast_.Identifier(self._get_fresh_identifier_name())
+                fresh_var_right = ast_.Identifier(self._get_fresh_identifier_name())
+
+                maplet_left = ast_.MapletIdentifier(maplet.left, fresh_var_left)
+                maplet_right = ast_.MapletIdentifier(fresh_var_right, maplet.right)
+
+                self.current_bound_identifiers[-1].remove(maplet)
+                self.current_bound_identifiers[-1].update({maplet_left, maplet_right})
+
+                return ast_.And(
+                    [
+                        ast_.In(maplet_left, left),
+                        ast_.In(maplet_right, right),
+                        ast_.Equal(fresh_var_left, fresh_var_right),
+                    ]
+                )
+        return None
+
+    def image(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Image(left, right):
+                if not isinstance(left.get_type, ast_.SetType) or not ast_.SetType.is_relation(left.get_type):
+                    logger.debug(f"FAILED: left side of image is not a relation type: {left.get_type}")
+                    return None
+                if not isinstance(right.get_type, ast_.SetType):
+                    logger.debug(f"FAILED: right side of image is not a set type: {right.get_type}")
+                    return None
+
+                maplet = ast_.MapletIdentifier(
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                )
+
+                set_comprehension = ast_.SetComprehension(
+                    ast_.And(
+                        [
+                            ast_.In(maplet, left),
+                            ast_.In(maplet.left, right),
+                        ]
+                    ),
+                    maplet.right,
+                )
+                set_comprehension._bound_identifiers = {maplet}
+
+                return set_comprehension
+
+        return None
+
+    def functional_image(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Call(
+                rel,
+                [arg],
+            ) if isinstance(
+                rel.get_type, ast_.SetType
+            ) and ast_.SetType.is_relation(rel.get_type):
+                if rel.get_type.relation_subtype is None:
+                    logger.debug(f"FAILED: relation {rel} does not have a functional subtype - functional image may be undefined (disabled for now)")
+                    return None
+                if not rel.get_type.relation_subtype.total:
+                    logger.debug(f"FAILED: relation {rel} is not total - functional image may return nothing (disabled for now)")
+                    return None
+                if not rel.get_type.relation_subtype.one_to_many:
+                    logger.debug(f"FAILED: relation {rel} is not one-to-many - functional image may return multiple values (disabled for now)")
+                    return None
+
+                return ast_.Call(ast_.Identifier("pop"), [ast_.Image(rel, arg)])
+
+        return None
+
+    def set_predicate_operations(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
             # Idea, if we want to add some compilation-time optimizations (like union of two set enums into one set enum),
             # we can just add those rules here
@@ -75,84 +610,64 @@ class SetComprehensionConstructionCollection(RewriteCollection):
                 ast_.BinaryOperator.INTERSECTION,
                 ast_.BinaryOperator.DIFFERENCE,
             ):
-                if any(
-                    [
-                        not isinstance(left.get_type, ast_.SetType),
-                        not isinstance(right.get_type, ast_.SetType),
-                    ]
-                ):
+                if not isinstance(left.get_type, ast_.SetType) or not isinstance(right.get_type, ast_.SetType):
                     logger.debug(f"FAILED: at least one union child is not a set type: {left.get_type}, {right.get_type}")
+                    return None
+
+                if ast_.SetType.is_bag(left.get_type) and ast_.SetType.is_bag(right.get_type):
+                    logger.debug(f"FAILED: Union/Intersection/Difference operations must use bag_predicate_operations rule (both operands are bags)")
                     return None
                 fresh_name = self._get_fresh_identifier_name()
 
                 match op_type:
                     case ast_.BinaryOperator.UNION:
-                        list_op_type = ast_.ListOperator.OR
-                        right = ast_.In(ast_.Identifier(fresh_name), right)
+                        list_op: type[ast_.And | ast_.Or] = ast_.Or
+                        right_join_op: type[ast_.In | ast_.NotIn] = ast_.In
                     case ast_.BinaryOperator.INTERSECTION:
-                        list_op_type = ast_.ListOperator.AND
-                        right = ast_.In(ast_.Identifier(fresh_name), right)
+                        list_op = ast_.And
+                        right_join_op = ast_.In
                     case ast_.BinaryOperator.DIFFERENCE:
-                        list_op_type = ast_.ListOperator.AND
-                        right = ast_.NotIn(ast_.Identifier(fresh_name), right)
+                        list_op = ast_.And
+                        right_join_op = ast_.NotIn
 
                 new_ast = ast_.SetComprehension(
-                    ast_.ListOp(
+                    list_op(
                         [
                             ast_.In(ast_.Identifier(fresh_name), left),
-                            right,
+                            right_join_op(ast_.Identifier(fresh_name), right),
                         ],
-                        list_op_type,
                     ),
                     ast_.Identifier(fresh_name),
                 )
                 new_ast._bound_identifiers = {ast_.Identifier(fresh_name)}
-                self.current_bound_identifiers.append(new_ast._bound_identifiers)
+                # self.current_bound_identifiers.append(new_ast._bound_identifiers)
                 return new_ast
 
         return None
-
-    # def singleton_membership(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
-    #     match ast:
-    #         case ast_.BinaryOp(ast_.Identifier(_) as x, ast_.Enumeration([elem], _), ast_.BinaryOperator.IN):
-    #             new_ast = ast_.Equal(x, elem)
-    #             return new_ast, ast._env)
-
-    #     return None
 
     def membership_collapse(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
             case ast_.BinaryOp(
                 ast_.Identifier(_) as x,
-                ast_.Quantifier(
-                    predicate,
-                    expression,
-                    op_type,
-                ) as inner_quantifier,
+                ast_.Quantifier(predicate, expression, op_type),
             ) if op_type.is_collection_operator():
 
-                # If x is not bound by a quantifier, this expression may just be an equality check (ie, is 1 in {1,2,3}?)
+                # If x is not bound by a quantifier, this expression may just be an equality check (ie, is x in {1,2,3}?)
                 # rather than a generator
-                if x not in self.bound_quantifier_variables:
+                if self.inside_quantifier() and x not in self.bound_quantifier_variables:
                     logger.debug(f"FAILED: {x} appears as a generator variable but is not bound by a quantifier")
                     return None
 
-                # Trying to leave inner pred bound vars as free
-                # if inner_quantifier._bound_identifiers is not None:
-                # logger.debug(f"DEBUG: AST {ast.pretty_print_algorithmic()}")
-                # self.current_hidden_bound_identifiers[-1].update(inner_quantifier._bound_identifiers)
-
-                return ast_.ListOp(
+                return ast_.And(
                     [
                         ast_.Equal(x, expression),
                         predicate,
                     ],
-                    ast_.ListOperator.AND,
                 )
         return None
 
 
-class DisjunctiveNormalFormQuantifierPredicateCollection(RewriteCollection):
+class DisjunctiveNormalFormCollection(RewriteCollection):
     def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
         return [
             self.double_negation,
@@ -167,7 +682,7 @@ class DisjunctiveNormalFormQuantifierPredicateCollection(RewriteCollection):
             case ast_.ListOp(elems, ast_.ListOperator.AND):
                 if not any(map(lambda x: isinstance(x, ast_.ListOp) and x.op_type == ast_.ListOperator.AND, elems)):
                     return None
-                return ast_.ListOp(elems, ast_.ListOperator.AND)
+                return ast_.And(elems)
 
         return None
 
@@ -176,7 +691,7 @@ class DisjunctiveNormalFormQuantifierPredicateCollection(RewriteCollection):
             case ast_.ListOp(elems, ast_.ListOperator.OR):
                 if not any(map(lambda x: isinstance(x, ast_.ListOp) and x.op_type == ast_.ListOperator.OR, elems)):
                     return None
-                return ast_.ListOp(elems, ast_.ListOperator.OR)
+                return ast_.Or(elems)
 
         return None
 
@@ -198,17 +713,15 @@ class DisjunctiveNormalFormQuantifierPredicateCollection(RewriteCollection):
                 ast_.ListOp(elems, ast_.ListOperator.OR),
                 ast_.UnaryOperator.NOT,
             ):
-                return ast_.ListOp(
+                return ast_.And(
                     [ast_.UnaryOp(elem, ast_.UnaryOperator.NOT) for elem in elems],
-                    ast_.ListOperator.AND,
                 )
             case ast_.UnaryOp(
                 ast_.ListOp(elems, ast_.ListOperator.AND),
                 ast_.UnaryOperator.NOT,
             ):
-                return ast_.ListOp(
+                return ast_.Or(
                     [ast_.UnaryOp(elem, ast_.UnaryOperator.NOT) for elem in elems],
-                    ast_.ListOperator.OR,
                 )
         return None
 
@@ -238,61 +751,35 @@ class DisjunctiveNormalFormQuantifierPredicateCollection(RewriteCollection):
                 # Calling rewrite rules repeatedly will handle the rest
                 non_or_elems = non_or_elems + or_elems[1:]  # type: ignore
                 for item in or_elem_to_distribute.items:
-                    new_elems.append(
-                        ast_.And(
-                            [item] + non_or_elems,
-                        )
-                    )
+                    new_elems.append(ast_.And([item] + non_or_elems))
 
                 return ast_.Or(new_elems)
 
         return None
 
 
-class PredicateSimplificationCollection(RewriteCollection):
+@dataclass
+class OrWrappingCollection(RewriteCollection):
     def _rewrite_collection(self):
         return [
-            self.nesting,
             self.or_wrapping,
         ]
-
-    def nesting(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
-        match ast:
-            case ast_.Quantifier(ast_.ListOp(elems, ast_.ListOperator.AND), expression, op_type):
-                if not ast._bound_identifiers:
-                    logger.debug(f"FAILED: no bound identifiers found in quantifier")
-                    return None
-                if len(ast._bound_identifiers) <= 1:
-                    logger.debug(f"FAILED: not enough bound identifiers to nest quantifier (found {len(ast._bound_identifiers)})")
-                    return None
-
-                bound_identifiers = list(ast._bound_identifiers)
-                outer_bound_identifier = bound_identifiers[0]
-                outer_predicate = list(filter(lambda x: x.contains_item(outer_bound_identifier), elems))
-                inner_predicate = list(filter(lambda x: not x.contains_item(outer_bound_identifier), elems))
-
-                inner_quantifier = ast_.Quantifier(
-                    ast_.And(inner_predicate),
-                    expression,
-                    op_type,
-                )
-                inner_quantifier._bound_identifiers = set(bound_identifiers[1:])
-
-                outer_quantifier = ast_.Quantifier(
-                    ast_.And(outer_predicate),
-                    inner_quantifier,
-                    op_type,
-                )
-                outer_quantifier._bound_identifiers = set(bound_identifiers[:1])
-
-                return outer_quantifier
-        return None
 
     def or_wrapping(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
             case ast_.Quantifier(ast_.ListOp(_, ast_.ListOperator.AND) as elem, expression, op_type):
                 new_quantifier = ast_.Quantifier(
-                    ast_.ListOp([elem], ast_.ListOperator.OR),
+                    ast_.Or([elem]),
+                    expression,
+                    op_type,
+                )
+                new_quantifier._bound_identifiers = ast._bound_identifiers
+                return new_quantifier
+            case ast_.Quantifier(ast_.ListOp(_, ast_.ListOperator.OR) as elem, expression, op_type):
+                return None
+            case ast_.Quantifier(elem, expression, op_type):
+                new_quantifier = ast_.Quantifier(
+                    ast_.And([elem]),
                     expression,
                     op_type,
                 )
@@ -302,16 +789,12 @@ class PredicateSimplificationCollection(RewriteCollection):
         return None
 
 
+@dataclass
 class GeneratorSelectionCollection(RewriteCollection):
     def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
         return [
-            # self.select_generator_predicates_or,
-            # self.select_generator_predicates_and,
-            # self.set_generation,
-            # self.generator_selection_and_dummy_reassignment,
-            # self.reduce_duplicate_generators,
             self.generator_selection,
-            self.equality_separation_and_substitution,
+            self.reduce_duplicate_generators,
         ]
 
     def generator_selection(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
@@ -321,393 +804,201 @@ class GeneratorSelectionCollection(RewriteCollection):
                 expression,
                 op_type,
             ):
+
                 if ast._env is None:
                     logger.debug(f"FAILED: no environment found in quantifier (cannot choose generators)")
                     return None
 
-                if all(map(lambda x: isinstance(x, GeneratorSelection), elems)):
+                if all(map(lambda x: isinstance(x, GeneratorSelectionV2) or isinstance(x, CombinedGeneratorSelectionV2), elems)):
                     logger.debug(f"FAILED: all elements in OR quantifier are already GeneratorSelections, no need to select generators")
                     return None
 
-                predicates: list[ast_.ASTNode] = []
+                gsps: list[GeneratorSelectionV2] = []
                 for elem in elems:
-                    if (
-                        isinstance(elem, ast_.BinaryOp)
-                        and elem.op_type == ast_.BinaryOperator.IN
-                        and isinstance(elem.right.get_type, ast_.SetType)
-                        and isinstance(elem.left, ast_.Identifier)
-                        and (not ast.bound or elem.left in ast.bound or ast._env.get(elem.left.name) is None)
-                    ):
-                        predicates.append(
-                            GeneratorSelection(
-                                elem,
-                                ast_.And([]),
-                            )
-                        )
-                        continue
-
                     if not isinstance(elem, ast_.ListOp) or elem.op_type != ast_.ListOperator.AND:
-                        logger.debug(
-                            f"FAILED: element {elem} is not a ListOp with AND operator (and not a generator itself). Expected predicates to be in disjunctive normal form (an OR of ANDs)"
-                        )
+                        logger.debug(f"FAILED: element in OR quantifier is not an And operation (got {elem})")
                         return None
 
-                    candidate_generators = []
-                    other_predicates = []
-                    for item in elem.items:
-                        if (
-                            isinstance(item, ast_.BinaryOp)
-                            and item.op_type == ast_.BinaryOperator.IN
-                            and isinstance(item.right.get_type, ast_.SetType)
-                            and isinstance(item.left, ast_.Identifier)
-                            and (not ast.bound or item.left in ast.bound or ast._env.get(item.left.name) is None)
-                        ):
-                            candidate_generators.append(item)
-                        else:
-                            other_predicates.append(item)
-
-                    if not candidate_generators:
-                        logger.debug(
-                            f"FAILED: no candidate generators found in AND predicate (bound variables are {ast.bound}, hidden bound variables are {ast._hidden_bound_identifiers}, free are {ast.free})"
-                        )
+                    gsp = self._make_gsp_from_and_clause(elem.items, ast._bound_identifiers)
+                    if gsp is None:
+                        logger.debug(f"FAILED: could not make GSP from and clause {elem} with bound identifiers {ast._bound_identifiers}")
                         return None
 
-                    selected_generator = candidate_generators[0]
-                    other_predicates += candidate_generators[1:]
+                    gsps.append(gsp)
 
-                    predicates.append(
-                        GeneratorSelection(
-                            selected_generator,
-                            ast_.And(
-                                other_predicates,
-                                ast_.ListOperator.AND,
-                            ),
-                        )
-                    )
+                if not gsps:
+                    logger.debug(f"FAILED: no valid generator selections found in OR quantifier (got {elems})")
+                    return None
 
-                return ast_.Quantifier(
-                    ast_.Or(predicates),
+                # No _bound_identifiers from this point on?
+                ret = ast_.Quantifier(
+                    ast_.Or(elems),
                     expression,
                     op_type,
                 )
+                ret._bound_identifiers = ast._bound_identifiers
+                return ret
+                # predicates: list[ast_.ASTNode] = []
+                # generators_with_alternatives: list[list[ast_.In]] = []
+                # for elem in elems:
+
+            # This should only match once per quantifier
+            # For each And inside the Or:
+            # - Only match if valid generator selection:
+            #   - Generator structure exists with LHS in _bound_identifiers
+            # - Then:
+            #   - Only one generator per bound identifier - need to find all alternatives and then restrict from there
+            #   - Try to order in list as a composition chain
         return None
 
-    def equality_separation_and_substitution(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
-        match ast:
-            case ast_.Quantifier(
-                ast_.ListOp(elems, ast_.ListOperator.OR),
-                expression,
-                op_type,
-            ) if all(map(lambda x: isinstance(x, GeneratorSelection), elems)):
-                if ast._env is None:
-                    logger.debug(f"FAILED: no environment found in quantifier (cannot perform substitutions)")
-                    return None
+    def _make_gsp_from_and_clause(
+        self,
+        and_clause: list[ast_.ASTNode],
+        bound_identifiers: set[ast_.Identifier | ast_.MapletIdentifier],
+    ) -> GeneratorSelectionV2 | None:
+        candidate_generators_per_identifier: dict[ast_.Identifier | ast_.MapletIdentifier, set[ast_.In]] = {identifier: set() for identifier in bound_identifiers}
+        other_predicates: list[ast_.ASTNode] = []
+        for elem in and_clause:
+            if not isinstance(elem, ast_.BinaryOp):
+                other_predicates.append(elem)
+                continue
+            if any(
+                [
+                    elem.op_type != ast_.BinaryOperator.IN,
+                    not isinstance(elem.left, ast_.Identifier | ast_.MapletIdentifier),
+                    elem.left not in candidate_generators_per_identifier,
+                    isinstance(elem.right.get_type, ast_.SetType),
+                ]
+            ):
+                other_predicates.append(elem)
+                continue
 
-                substitution_found = False
-                predicates: list[ast_.ASTNode] = []
-                for elem in elems:
-                    assert isinstance(elem, GeneratorSelection)
-                    logger.debug(f"Checking for substitutions in clause with generator {elem.generator}")
+            assert isinstance(elem.left, ast_.Identifier | ast_.MapletIdentifier)
+            casted_elem = ast_.In(elem.left, elem.right)
+            candidate_generators_per_identifier[elem.left].add(casted_elem)
 
-                    substitution = None
-                    for and_clause in elem.predicates.items:
-                        if not isinstance(and_clause, ast_.BinaryOp) or and_clause.op_type != ast_.BinaryOperator.EQUAL:
-                            continue
-                        logger.debug(f"Checking for substitution in {and_clause}, {and_clause.free}, {and_clause.bound}")
-                        if isinstance(and_clause.left, ast_.Identifier) and and_clause.left != elem.generator.left and ast._env.get(and_clause.left.name) is None:
-                            substitution = and_clause
-                            substitution_found = True
-                            break
-                        if isinstance(and_clause.right, ast_.Identifier) and and_clause.right != elem.generator.left and ast._env.get(and_clause.right.name) is None:
-                            substitution = ast_.Equal(
-                                and_clause.right,
-                                and_clause.left,
-                            )
-                            substitution_found = True
-                            break
+        # Ensure every identifier has at least one suitable generator
+        for identifier, candidate_generators in candidate_generators_per_identifier.items():
+            if len(candidate_generators) == 0:
+                logger.debug(f"Failed to find a suitable generator for identifier {identifier}. Dict of generators: {candidate_generators_per_identifier}")
+                return None
 
-                    if substitution is None:
-                        predicates.append(elem)
-                        continue
+        identifiers: set[ast_.Identifier] = set(filter(lambda x: isinstance(x, ast_.Identifier), bound_identifiers))  # type: ignore
+        # There may be more than one chain, chains will contain a sequence of MapletIdentifiers
+        maplets: set[ast_.MapletIdentifier] = set(filter(lambda x: isinstance(x, ast_.MapletIdentifier), bound_identifiers))  # type: ignore
+        maplet_chains: list[list[ast_.MapletIdentifier]] = []
 
-                    predicates.append(
-                        elem.find_and_replace(
-                            substitution.left,
-                            substitution.right,
-                        )
-                    )
+        while maplets:
+            maplet = maplets.pop()
+            # Each maplet should only occur once, and only be added to a chain once (variable names are guaranteed to be unique)
 
-                if not substitution_found:
-                    logger.debug(f"FAILED: no substitutions found in OR quantifier (current environment is {ast._env}), free variables are {ast.free}")
-                    return None
+            for i in range(len(maplet_chains)):
+                if any(
+                    [
+                        maplet.left == maplet_chains[i][-1].right,
+                        ast_.Equal(maplet.left, maplet_chains[i][-1].right) in other_predicates,
+                        ast_.Equal(maplet_chains[i][-1].right, maplet.left) in other_predicates,
+                    ]
+                ):
+                    maplet_chains[i].append(maplet)
+                    break
 
-                return ast_.Quantifier(
-                    ast_.Or(predicates),
-                    expression,
-                    op_type,
-                )
-        return None
+                if any(
+                    [
+                        maplet.right == maplet_chains[i][0].left,
+                        ast_.Equal(maplet.right, maplet_chains[i][0].left) in other_predicates,
+                        ast_.Equal(maplet_chains[i][0].left, maplet.right) in other_predicates,
+                    ]
+                ):
+                    maplet_chains[i].insert(0, maplet)
+                    break
+            else:
+                maplet_chains.append([maplet])
 
-    # def generator_selection_and_dummy_reassignment(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
-    #     match ast:
-    #         case ast_.Quantifier(
-    #             ast_.ListOp(elems, ast_.ListOperator.OR),
-    #             expression,
-    #             op_type,
-    #         ):
-    #             if all(map(lambda x: isinstance(x, GeneratorSelectionAST), elems)):
-    #                 logger.debug(f"FAILED: all elements in OR quantifier are already GeneratorSelectionASTs, no need to select generators")
-    #                 return None
+        # TODO make a proper ordering for this, base on size, relation subtype, etc.
+        generators = []
+        # For now, take the longest chain first
+        sorted_maplet_chains = sorted(maplet_chains, key=lambda chain: len(chain), reverse=True)
+        for maplet_chain in sorted_maplet_chains:
+            for maplet in maplet_chain:
+                generators.append(candidate_generators_per_identifier[maplet].pop())
+        for identifier in identifiers:
+            generators.append(candidate_generators_per_identifier[identifier].pop())
 
-    #             predicates: list[ast_.ASTNode] = []
-    #             for elem in elems:
-    #                 if isinstance(elem, ast_.BinaryOp) and elem.op_type == ast_.BinaryOperator.IN:
-    #                     predicates.append(
-    #                         GeneratorSelectionAST(
-    #                             generator=elem,
-    #                             assignments=[],
-    #                             condition=ast_.And([]),
-    #                         )
-    #                     )
-    #                     continue
+        for unselected_candidate_generators in candidate_generators_per_identifier.values():
+            other_predicates.extend(list(unselected_candidate_generators))
 
-    #                 if not isinstance(elem, ast_.ListOp) or elem.op_type != ast_.ListOperator.AND:
-    #                     logger.debug(
-    #                         f"FAILED: element {elem} is not a ListOp with AND operator (and not a generator itself). Expected predicates to be in disjunctive normal form (an OR of ANDs)"
-    #                     )
-    #                     return None
-
-    #                 candidate_generators = []
-    #                 equality_assignments = []
-    #                 other_predicates = []
-    #                 for item in elem.items:
-    #                     match item:
-    #                         case ast_.BinaryOp(
-    #                             ast_.Identifier(_) as x,
-    #                             set_type,
-    #                             ast_.BinaryOperator.IN,
-    #                         ) if isinstance(
-    #                             set_type.get_type, ast_.SetType
-    #                         ) and (ast.bound is None or x in ast.bound):
-    #                             candidate_generators.append(item)
-    #                         case ast_.BinaryOp(
-    #                             ast_.Identifier(_) as left,
-    #                             right,
-    #                             eq_type,
-    #                         ) if all(
-    #                             [
-    #                                 eq_type == ast_.BinaryOperator.EQUAL,
-    #                                 left in ast.bound,
-    #                             ]
-    #                         ):
-    #                             equality_assignments.append(ast_.Assignment(left, right))
-    #                         case ast_.BinaryOp(
-    #                             left,
-    #                             ast_.Identifier(_) as right,
-    #                             eq_type,
-    #                         ) if all(
-    #                             [
-    #                                 eq_type == ast_.BinaryOperator.EQUAL,
-    #                                 left in ast.bound,
-    #                             ]
-    #                         ):
-    #                             equality_assignments.append(ast_.Assignment(right, left))
-    #                         case _:
-    #                             other_predicates.append(item)
-    #                 if not candidate_generators:
-    #                     logger.debug(f"FAILED: no candidate generators found in AND predicate (bound variables are {ast.bound}, free are {ast.free})")
-    #                     return None
-
-    #                 selected_generator = candidate_generators[0]
-    #                 other_predicates += candidate_generators[1:]
-
-    #                 predicates.append(
-    #                     GeneratorSelectionAST(
-    #                         generator=selected_generator,
-    #                         assignments=equality_assignments,
-    #                         condition=ast_.And(other_predicates, ast_.ListOperator.AND),
-    #                     )
-    #                 )
-
-    #             return
-    #                 ast_.Quantifier(
-    #                     ast_.Or(predicates),
-    #                     expression,
-    #                     op_type,
-    #                 ),
-    #                 ast._env,
-    #             )
-    #     return None
-
-    # def reduce_duplicate_generators(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
-    #     match ast:
-    #         case ast_.Quantifier(
-    #             ast_.ListOp(elems, ast_.ListOperator.OR),
-    #             expression,
-    #             op_type,
-    #         ) if all(map(lambda x: isinstance(x, GeneratorSelectionAST), elems)):
-
-    #             reduced_elem = False
-    #             condensed_elems: list[ast_.ASTNode] = []
-    #             for i in range(len(elems)):
-    #                 elem = elems[i]
-    #                 assert isinstance(elem, GeneratorSelectionAST)
-    #                 for j in range(i + 1, len(elems)):
-    #                     other_elem = elems[j]
-    #                     assert isinstance(other_elem, GeneratorSelectionAST)
-
-    #                     if elem.generator == other_elem.generator:
-    #                         new_elem = GeneratorSelectionAST(
-    #                             generator=elem.generator,
-    #                             assignments=elem.assignments + other_elem.assignments,
-    #                             condition=ast_.And([elem.condition, other_elem.condition], ast_.ListOperator.AND),
-    #                         )
-    #                         condensed_elems.append(new_elem)
-    #                         reduced_elem = True
-    #                         break
-    #                 else:
-    #                     condensed_elems.append(elem)
-
-    #             if not reduced_elem:
-    #                 logger.debug(f"FAILED: no duplicate generators found in OR quantifier (bound variables are {ast.bound}, free are {ast.free})")
-    #                 return None
-
-    #             return
-    #                 ast_.Quantifier(
-    #                     ast_.ListOp(condensed_elems, ast_.ListOperator.OR),
-    #                     expression,
-    #                     op_type,
-    #                 ),
-    #                 ast._env,
-    #             )
-    #     return None
-
-
-class PredicateSimplificationDNFCollection(RewriteCollection):
-    def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
-        return [
-            self.simplify_equality,
-            self.simplify_and,
-            self.reduce_duplicate_generators,
-        ]
-
-    def simplify_equality(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
-        match ast:
-            case ast_.BinaryOp(x, y, ast_.BinaryOperator.EQUAL):
-                if x == y:
-                    return ast_.True_()
-        return None
-
-    def simplify_and(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
-        match ast:
-            case ast_.ListOp(elems, ast_.ListOperator.AND):
-                new_elems = []
-                for elem in elems:
-                    if isinstance(elem, ast_.True_):
-                        continue
-                    if isinstance(elem, ast_.False_):
-                        return ast_.False_()
-                    new_elems.append(elem)
-
-                if elems == new_elems:
-                    logger.debug("FAILED: no simplification applied to AND list operation (no clauses were removed)")
-                    return None
-
-                if not new_elems:
-                    return ast_.And([])
-
-                return ast_.ListOp(new_elems, ast_.ListOperator.AND)
-        return None
+        return GeneratorSelectionV2(generators, ast_.And(other_predicates))
 
     def reduce_duplicate_generators(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
-            case ast_.Quantifier(
-                ast_.ListOp(elems, ast_.ListOperator.OR),
-                expression,
-                op_type,
-            ) if all(map(lambda x: isinstance(x, GeneratorSelection), elems)):
-
-                reduced_elem = False
-                condensed_elems: list[ast_.ASTNode] = []
-                visited_elem_indices = []
-                for i in range(len(elems)):
-                    if i in visited_elem_indices:
-                        continue
-
-                    elem = elems[i]
-                    assert isinstance(elem, GeneratorSelection)
-
-                    for j in range(i + 1, len(elems)):
-                        other_elem = elems[j]
-                        assert isinstance(other_elem, GeneratorSelection)
-
-                        if elem.generator == other_elem.generator:
-                            new_elem = GeneratorSelection(
-                                generator=elem.generator,
-                                predicates=ast_.And(
-                                    [
-                                        ast_.Or(
-                                            [elem.predicates, other_elem.predicates],
-                                            ast_.ListOperator.OR,
-                                        )
-                                    ]
-                                ),
-                            )
-                            # elem.copy_and_concat_predicates(other_elem.predicates)
-                            condensed_elems.append(new_elem)
-                            reduced_elem = True
-                            visited_elem_indices.append(j)
-                            break
-                    else:
-                        condensed_elems.append(elem)
-
-                if not reduced_elem:
-                    logger.debug(f"FAILED: no duplicate generators found in OR quantifier (bound variables are {ast.bound}, free are {ast.free})")
+            case ast_.ListOp(elems, ast_.ListOperator.OR):
+                if all(map(lambda x: isinstance(x, GeneratorSelectionV2) or isinstance(x, CombinedGeneratorSelectionV2), elems)):
+                    logger.debug(f"FAILED: all elements in OR quantifier are already GeneratorSelections, no need to select generators")
                     return None
 
-                return ast_.Quantifier(
-                    ast_.ListOp(condensed_elems, ast_.ListOperator.OR),
-                    expression,
-                    op_type,
-                )
+                combination_dict: dict[ast_.In, list[GeneratorSelectionV2 | CombinedGeneratorSelectionV2]] = {}
+                for elem in elems:
+                    match elem:
+                        case GeneratorSelectionV2(generators, predicates):
+                            if not combination_dict.get(generators[0]):
+                                combination_dict[generators[0]] = []
+                            combination_dict[generators[0]].append(
+                                GeneratorSelectionV2(
+                                    generators[1:],
+                                    predicates,
+                                )
+                            )
+                        case CombinedGeneratorSelectionV2(generator, child_generators):
+                            if not combination_dict.get(generator):
+                                combination_dict[generator] = []
+                            combination_dict[generator].extend(child_generators.items)  # type: ignore
+                        case _:
+                            logger.debug(f"FAILED: element is not a valid GeneratorSelection or CombinedGeneratorSelection (got {elem})")
+                            return None
+
+                if len(elems) != len([y for x in combination_dict.values() for y in x]):
+                    logger.debug("FAILED: some elements were not added to combination dict - this should not happen")
+                    return None
+
+                combined_generators: list[ast_.ASTNode] = []
+                for combined_generator, generator_list in combination_dict.items():
+                    assert isinstance(combined_generator.left, ast_.Identifier | ast_.MapletIdentifier), "Combined generator should have an identifier on the left side"
+
+                    # If the generator list only has one entry, we didn't combine anything - recreate the original GeneratorSelectionV2
+                    if len(generator_list) == 1:
+                        combined_generators.append(
+                            GeneratorSelectionV2(
+                                [combined_generator],
+                                generator_list[0].predicates,
+                            )
+                        )
+                        continue
+
+                    # Actually combine generators that need to be combined. Note that this may end up
+                    # creating GeneratorSelections without a generator.
+                    combined_generators.append(
+                        CombinedGeneratorSelectionV2(
+                            combined_generator,
+                            ast_.Or(generator_list),  # type: ignore
+                        )
+                    )
+
+                return ast_.Or(combined_generators)
+
+            # Only match if all elems are either GeneratorSelectionV2 or CombinedGeneratorSelection
+            # Check all elements for matches:
+            # - elements that share a generator are placed in a combinedgeneratorselection
+            # - predicates set to True/None
         return None
 
 
-class SetCodeGenerationCollection(RewriteCollection):
-
+@dataclass
+class GSPToLoopsCollection(RewriteCollection):
     def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
         return [
             self.summation,
-            self.flatten_nested_statements,
-            self.disjunct_conditional,
-            self.conjunct_conditional,
-            # self.set_generation,
         ]
-
-    def flatten_nested_statements(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
-        match ast:
-            case ast_.Statements(items):
-
-                if not any(map(lambda x: isinstance(x, ast_.Statements), items)):
-                    return None
-
-                # new_env =
-                # assert isinstance(new_env, ast_.Environment), f"Environment should not be None (in ast {ast})"
-
-                new_statements: list[ast_.ASTNode] = []
-                for item in items:
-                    if not isinstance(item, ast_.Statements):
-                        new_statements.append(item)
-                        continue
-
-                    new_statements.extend(item.items)
-                    # assert isinstance(item._env, ast_.Environment), f"Environment should not be None (in item {item})"
-                    # for key, value in item._env.table.items():
-                    #     if key not in new_env.table:
-                    #         new_env.put(key, value)
-
-                return ast_.Statements(new_statements)
-        return None
 
     def quantifier_generation(
         self,
@@ -719,7 +1010,7 @@ class SetCodeGenerationCollection(RewriteCollection):
     ) -> ast_.ASTNode | None:
         match ast:
             case ast_.Quantifier(
-                predicate,  # Should be an OR[GeneratorSelectionAST]s
+                predicate,  # Should be an OR[GeneratorSelection | CombinedGeneratorSelection]
                 expression,
                 op_type_,
             ) if (
@@ -728,15 +1019,20 @@ class SetCodeGenerationCollection(RewriteCollection):
                 if not isinstance(predicate, ast_.ListOp) or predicate.op_type != ast_.ListOperator.OR:
                     logger.debug(f"FAILED: predicate is not a ListOp with OR operator (got {predicate}). This should be in DNF")
                     return None
-                if not all(map(lambda x: isinstance(x, GeneratorSelection), predicate.items)):
+                if not all(map(lambda x: isinstance(x, GeneratorSelectionV2) or isinstance(x, CombinedGeneratorSelectionV2), predicate.items)):
                     logger.debug(f"FAILED: not all items in predicate are GeneratorSelections (got {predicate.items}). Elements of predicates should be GeneratorSelectionASTs")
                     return None
 
-                assert ast._env is not None, f"Environment should not be None (in quantifier_generation, ast {ast})"
+                if ast._env is None:
+                    logger.debug(f"FAILED: no environment found in quantifier (cannot perform optimizations)")
+                    return None
+
                 accumulator_var = ast_.Identifier(self._get_fresh_identifier_name())
                 ast._env.put(accumulator_var.name, accumulator_type)
 
-                if_statement = ast_.If(
+                predicate = ast_.Or(predicate.items)
+
+                if_statement = Loop(
                     predicate,
                     ast_.Assignment(
                         accumulator_var,
@@ -763,91 +1059,153 @@ class SetCodeGenerationCollection(RewriteCollection):
             ast_.BaseSimileType.Int,
         )
 
-    def disjunct_conditional(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+    def top_level_or_loop(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
-            case ast_.If(
-                ast_.ListOp(predicates, ast_.ListOperator.OR),
+            case Loop(
+                ast_.ListOp(generators, ast_.ListOperator.OR),
                 body,
             ):
+                if not all(map(lambda x: isinstance(x, GeneratorSelectionV2) or isinstance(x, CombinedGeneratorSelectionV2), generators)):
+                    logger.debug(f"FAILED: all elements in top level OR predicate expected to be GeneratorSelections (got {generators}).")
+                    return None
+
                 statements: list[ast_.ASTNode] = []
-                past_predicates: list[ast_.ASTNode] = []
+                used_generators: list[ast_.ASTNode] = []
+                for generator in generators:
+                    assert isinstance(generator, GeneratorSelectionV2 | CombinedGeneratorSelectionV2)
+                    generator.predicates = ast_.And([generator.predicates, ast_.Not(ast_.Or(used_generators))])
 
-                # Every predicate should have a generator matching 1-1 from the GeneratorSelectionCollection
-                for i, predicate in enumerate(predicates):
-                    if not isinstance(predicate, GeneratorSelection):
-                        logger.debug(f"FAILED: predicate {predicate} is not a GeneratorSelectionAST but should be")
-                        return None
+                    statements.append(Loop(generator, deepcopy(body)))
+                    used_generators.append(generator.flatten())
 
-                    past_predicate_inverse: ast_.Not | None = None
-                    if past_predicates:
-                        past_predicate_inverse = ast_.Not(
-                            ast_.ListOp(
-                                past_predicates,
-                                ast_.ListOperator.AND,
-                            ),
-                        )
-
-                    if_statement = ast_.If(
-                        predicate.copy_and_concat_predicates(past_predicate_inverse),
-                        body,
-                    )
-                    # if_statement._rewrite_generators = [ast._rewrite_generators[i]]
-                    # if_statement._bound_by_quantifier_rewrite = ast._bound_by_quantifier_rewrite
-                    statements.append(if_statement)
-                    past_predicates.append(predicate.flatten())
-
-                return ast_.Statements(
-                    statements,
-                )
+                return ast_.Statements(statements)
 
         return None
 
-    def conjunct_conditional(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+    def chained_gsp_loop(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
-            case ast_.If(
-                GeneratorSelection(generator, predicate),
+            # Inline empty_gsp_loop rule
+            case Loop(
+                GeneratorSelectionV2([], predicates),
                 body,
             ):
-                if not isinstance(generator, ast_.BinaryOp) or generator.op_type != ast_.BinaryOperator.IN or not isinstance(generator.left, ast_.Identifier):
-                    logger.debug(f"FAILED: generator is not a valid IN operation (got {generator})")
+                return ast_.If(predicates, body)
+            case Loop(
+                GeneratorSelectionV2(generators, predicates),
+                body,
+            ):
+                if ast._env is None:
+                    logger.debug(f"FAILED: no environment found in loop (cannot perform optimizations)")
                     return None
 
                 free_predicates = []
                 bound_predicates = []
-                for condition_item in predicate.items:
-                    if condition_item.contains_item(generator.left):
-                        bound_predicates.append(condition_item)
-                        continue
-                    for bound_var in ast.bound:
-                        if bound_var in condition_item.free:
-                            bound_predicates.append(condition_item)
+                identifiers_within_child_generators: list[ast_.Identifier] = ast_.flatten(map(lambda x: x.left.find_all_instances(ast_.Identifier), generators[1:]))
+                for predicate in predicates.items:
+                    identifiers_within_predicate = predicate.find_all_instances(ast_.Identifier)
+
+                    for identifier in identifiers_within_predicate:
+                        if (
+                            # If the identifier is not bound outside of the quantifier (and is not the current bound quantifier var)
+                            ast._env.get(identifier.name) is None
+                            and identifier not in generators[0].left.find_all_instances(ast_.Identifier)
+                            # or if it is used within a child generator
+                        ) or identifier in identifiers_within_child_generators:
+                            # propagate predicate to child
+                            bound_predicates.append(predicate)
                             break
                     else:
-                        # If no bound variable is found in the condition item, it is a free predicate
-                        free_predicates.append(condition_item)
+                        free_predicates.append(predicate)
 
-                # free_predicates = list(filter(lambda x: not x.contains_item(generator.left), condition.items))
-                # bound_predicates = list(filter(lambda x: x.contains_item(generator.left), condition.items))
+                assert isinstance(generators[0].left, ast_.Identifier | ast_.MapletIdentifier), "Generators should have an identifier on the left side"
+                return Loop(
+                    SingleGeneratorSelectionV2(
+                        generators[0],
+                        ast_.And(
+                            free_predicates,
+                        ),
+                    ),
+                    Loop(
+                        GeneratorSelectionV2(
+                            generators[1:],
+                            ast_.And(bound_predicates),
+                        ),
+                        body,
+                    ),
+                )
+
+        return None
+
+    def combined_gsp_loop(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case Loop(
+                CombinedGeneratorSelectionV2(
+                    generator,
+                    gsp_predicates,
+                    predicates,
+                ),
+                body,
+            ):
+                child_loops: list[ast_.ASTNode] = []
+                for gsp_predicate in gsp_predicates.items:
+                    if not isinstance(gsp_predicate, GeneratorSelectionV2 | CombinedGeneratorSelectionV2 | SingleGeneratorSelectionV2):
+                        logger.debug(f"FAILED: gsp predicate is not a valid GeneratorSelection (got {gsp_predicate})")
+                        return None
+
+                    child_loops.append(Loop(gsp_predicate, body))
+
+                return Loop(
+                    SingleGeneratorSelectionV2(generator, predicates),
+                    ast_.Statements(child_loops),
+                )
+        return None
+
+
+class LoopsCodeGenerationCollection(RewriteCollection):
+
+    def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
+        return [
+            self.conjunct_conditional,
+        ]
+
+    def conjunct_conditional(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case Loop(
+                SingleGeneratorSelectionV2(
+                    generator,
+                    predicates,
+                ),
+                body,
+            ):
+                if ast._env is None:
+                    logger.debug(f"FAILED: no environment found in loop (cannot perform optimizations)")
+                    return None
+
+                free_predicates = []
+                bound_predicates = []
+                for predicate in predicates.items:
+                    identifiers_within_predicate = predicate.find_all_instances(ast_.Identifier)
+
+                    for identifier in identifiers_within_predicate:
+                        # If the identifier is not bound outside of the quantifier or if it is used within the generator
+                        if ast._env.get(identifier.name) is None or generator.contains_item(identifier):
+                            bound_predicates.append(predicate)
+                            break
+                    else:
+                        free_predicates.append(predicate)
 
                 statement: ast_.ASTNode = body
                 if bound_predicates:
                     statement = ast_.Statements(
                         [
                             ast_.If(
-                                ast_.ListOp(
-                                    bound_predicates,
-                                    ast_.ListOperator.AND,
-                                ),
+                                ast_.And(bound_predicates),
                                 statement,
                             )
                         ]
                     )
 
-                # if assignments:
-                #     statement = ast_.Statements(
-                #         assignments + [statement],
-                #     )
-
+                assert isinstance(generator.left, ast_.Identifier | ast_.MapletIdentifier), f"Generator should have an identifier on the left side (got {generator.left})"
                 statement = ast_.For(
                     ast_.IdentList([generator.left]),
                     generator.right,
@@ -856,10 +1214,7 @@ class SetCodeGenerationCollection(RewriteCollection):
 
                 if free_predicates:
                     statement = ast_.If(
-                        ast_.ListOp(
-                            free_predicates,
-                            ast_.ListOperator.AND,
-                        ),
+                        ast_.And(free_predicates),
                         body=ast_.Statements([statement]),
                     )
 
@@ -868,391 +1223,160 @@ class SetCodeGenerationCollection(RewriteCollection):
         return None
 
 
-SET_REWRITE_COLLECTION: list[type[RewriteCollection]] = [
-    SetComprehensionConstructionCollection,
-    DisjunctiveNormalFormQuantifierPredicateCollection,
-    PredicateSimplificationCollection,
-    GeneratorSelectionCollection,
-    PredicateSimplificationDNFCollection,
-    SetCodeGenerationCollection,
-]
-
-
-class RelationOperatorCollection(RewriteCollection):
-    # Todo there should be special rules depending on surjective/injective/totality of relations...
-    # Would probably be best to figure them out at this level
-
-    bound_quantifier_variables: set[ast_.Identifier] = field(default_factory=set)
+class ReplaceAndSimplifyCollection(RewriteCollection):
+    bound_generator_variables: set[ast_.Identifier] = field(default_factory=set)
 
     def apply_all_rules_one_traversal(self, ast):
-        bound_quantifier_variables_before = deepcopy(self.bound_quantifier_variables)
-        if isinstance(ast, ast_.Quantifier):
-            logger.debug(f"Quantifier found with bound variables: {ast.bound}")
-            self.bound_quantifier_variables |= ast.bound
+        # Before entering a new quantifier, record currently bound variables
+        # (so we can restore them later)
+        bound_generator_variables_before = deepcopy(self.bound_generator_variables)
+        if isinstance(ast, ast_.For):
+            logger.debug(f"For loop found with bound variables: {ast.iterable_names.flatten()}")
+            # Add newly accessible (bound) loop variables, used for equality elimination
+            self.bound_generator_variables |= ast.iterable_names.flatten()
 
         ast = super().apply_all_rules_one_traversal(ast)
+        logger.debug(f"AST after applying all rules: {ast.pretty_print_algorithmic()}")
 
-        self.bound_quantifier_variables = bound_quantifier_variables_before
+        # Restore bound variable record since we have exited the possibly nested quantifier
+        self.bound_generator_variables = bound_generator_variables_before
+
         return ast
-
-    def inside_quantifier(self, ast: ast_.ASTNode) -> bool:
-        if isinstance(ast, ast_.Quantifier):
-            return True
-        if self.bound_quantifier_variables:
-            return True
-        return False
 
     def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
         return [
-            self.image,
-            self.product,
-            self.inverse,
-            self.composition,
-            self.override,
-            self.domain_restriction,
-            self.range_restriction,
-            self.domain_subtraction,
-            self.range_subtraction,
-            self.domain,
-            self.range,
+            self.equality_elimination,
+            self.simplify_equalities,
+            self.simplify_and,
+            self.simplify_or,
+            self.flatten_nested_statements,
         ]
 
-    def image(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+    def equality_elimination(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
-            case ast_.Image(left, right):
-                if not isinstance(left.get_type, ast_.SetType):
-                    logger.debug(f"FAILED: left side of image is not a set type: {left.get_type}")
-                    return None
-                if not ast_.SetType.is_relation(left.get_type):
-                    logger.debug(f"FAILED: left side of image is not a relation type: {left.get_type}")
-                    return None
-                if not isinstance(right.get_type, ast_.SetType):
-                    logger.debug(f"FAILED: right side of image is not a set type: {right.get_type}")
-                    return None
-
-                maplet_left = ast_.Identifier(self._get_fresh_identifier_name())
-                maplet = ast_.Maplet(
-                    maplet_left,
-                    ast_.Identifier(self._get_fresh_identifier_name()),
-                )
-
-                set_comprehension = ast_.SetComprehension(
-                    ast_.And(
-                        [
-                            ast_.In(maplet, left),
-                            ast_.In(maplet.left, right),
-                        ]
-                    ),
-                    maplet.right,
-                )
-                set_comprehension._bound_identifiers = {maplet_left}
-
-                return set_comprehension
-
-        return None
-
-    def product(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
-        match ast:
-            case ast_.BinaryOp(
-                ast_.BinaryOp(
-                    maplet_left,
-                    maplet_right,
-                    ast_.BinaryOperator.MAPLET,
-                ),
-                ast_.BinaryOp(
-                    left,
-                    right,
-                    ast_.BinaryOperator.CARTESIAN_PRODUCT,
-                ),
-                ast_.BinaryOperator.IN,
+            case ast_.If(
+                ast_.ListOp(elems, ast_.ListOperator.AND) as predicate,
+                body,
             ):
-                if not isinstance(left.get_type, ast_.SetType):
-                    logger.debug(f"FAILED: left side of product is not a set type: {left.get_type}")
-                    return None
-                if not isinstance(right.get_type, ast_.SetType):
-                    logger.debug(f"FAILED: right side of product is not a set type: {right.get_type}")
+                if ast._env is None:
+                    logger.debug(f"FAILED: no environment found in if (cannot perform optimizations)")
                     return None
 
-                # Inside quantifier predicate check, similar to membership collapse
-                if maplet_left not in self.bound_quantifier_variables:
-                    logger.debug(f"FAILED: {maplet_left} appears as a generator variable but is not bound by a quantifier")
-                    return None
-                if maplet_right not in self.bound_quantifier_variables:
-                    logger.debug(f"FAILED: {maplet_right} appears as a generator variable but is not bound by a quantifier")
-                    return None
+                new_predicate_items = predicate.items
+                substitution = None
+                for and_clause in elems:
+                    if not isinstance(and_clause, ast_.BinaryOp) or and_clause.op_type != ast_.BinaryOperator.EQUAL:
+                        continue
 
-                return ast_.And(
-                    [
-                        ast_.In(maplet_left, left),
-                        ast_.In(maplet_right, right),
-                    ]
+                    if isinstance(and_clause.left, ast_.Identifier) and and_clause.left not in self.bound_generator_variables and ast._env.get(and_clause.left.name) is None:
+                        substitution = and_clause
+                        new_predicate_items.remove(and_clause)
+                        break
+                    if isinstance(and_clause.right, ast_.Identifier) and and_clause.right not in self.bound_generator_variables and ast._env.get(and_clause.right.name) is None:
+                        substitution = ast_.Equal(
+                            and_clause.right,
+                            and_clause.left,
+                        )
+                        new_predicate_items.remove(and_clause)
+                        break
+
+                if not substitution:
+                    logger.debug(f"FAILED: no substitutions found in OR quantifier (current environment is {ast._env}), free variables are {ast.free}")
+                    return None
+                logger.debug(f"Running substitution {substitution} in {elems}")
+
+                new_predicate = ast_.And(new_predicate_items)
+                new_predicate.find_and_replace(
+                    substitution.left,
+                    substitution.right,
                 )
+                body.find_and_replace(
+                    substitution.left,
+                    substitution.right,
+                )
+                return ast_.If(
+                    new_predicate,
+                    body,
+                )
+
         return None
 
-    def inverse(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+    def simplify_equalities(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
-            case ast_.BinaryOp(
-                ast_.BinaryOp(
-                    maplet_left,
-                    maplet_right,
-                    ast_.BinaryOperator.MAPLET,
-                ),
-                ast_.UnaryOp(
-                    inner,
-                    ast_.UnaryOperator.INVERSE,
-                ),
-                ast_.BinaryOperator.IN,
-            ):
-                if not isinstance(inner.get_type, ast_.SetType):
-                    logger.debug(f"FAILED: inner side of inverse is not a set/relation type: {inner.get_type}")
-                    return None
-                if not ast_.SetType.is_relation(inner.get_type):
-                    logger.debug(f"FAILED: inner side of inverse is not a relation type: {inner.get_type}")
-                    return None
-
-                if maplet_left not in self.bound_quantifier_variables:
-                    logger.debug(f"FAILED: {maplet_left} appears as a generator variable but is not bound by a quantifier")
-                    return None
-                if maplet_right not in self.bound_quantifier_variables:
-                    logger.debug(f"FAILED: {maplet_right} appears as a generator variable but is not bound by a quantifier")
-                    return None
-
-                return ast_.In(
-                    ast_.Maplet(
-                        maplet_right,
-                        maplet_left,
-                    ),
-                    inner,
-                )
+            case ast_.BinaryOp(x, y, ast_.BinaryOperator.EQUAL):
+                if x == y:
+                    return ast_.True_()
         return None
 
-    def composition(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+    def simplify_and(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
-            case ast_.BinaryOp(
-                ast_.BinaryOp(
-                    maplet_left,
-                    maplet_right,
-                    ast_.BinaryOperator.MAPLET,
-                ),
-                ast_.BinaryOp(
-                    left,
-                    right,
-                    ast_.BinaryOperator.COMPOSITION,
-                ),
-                ast_.BinaryOperator.IN,
-            ):
-                if not isinstance(left.get_type, ast_.SetType):
-                    logger.debug(f"FAILED: left side of composition is not a set type: {left.get_type}")
-                    return None
-                if not isinstance(right.get_type, ast_.SetType):
-                    logger.debug(f"FAILED: right side of composition is not a set type: {right.get_type}")
+            case ast_.ListOp(elems, ast_.ListOperator.AND):
+                new_elems = []
+                for elem in elems:
+                    if isinstance(elem, ast_.True_):
+                        continue
+                    if isinstance(elem, ast_.False_):
+                        return ast_.False_()
+                    new_elems.append(elem)
+
+                if elems == new_elems:
+                    logger.debug("FAILED: no simplification applied to AND list operation (no clauses were removed)")
                     return None
 
-                # Inside quantifier predicate check, similar to membership collapse
-                if maplet_left not in self.bound_quantifier_variables:
-                    logger.debug(f"FAILED: {maplet_left} appears as a generator variable but is not bound by a quantifier")
-                    return None
-                if maplet_right not in self.bound_quantifier_variables:
-                    logger.debug(f"FAILED: {maplet_right} appears as a generator variable but is not bound by a quantifier")
-                    return None
+                if not new_elems:
+                    return ast_.And([])
 
-                fresh_var_left = ast_.Identifier(self._get_fresh_identifier_name())
-                fresh_var_right = ast_.Identifier(self._get_fresh_identifier_name())
-
-                return ast_.And(
-                    [
-                        ast_.In(ast_.Maplet(maplet_left, fresh_var_left), left),
-                        ast_.In(ast_.Maplet(fresh_var_right, maplet_right), right),
-                        ast_.Equal(fresh_var_left, fresh_var_right),
-                    ]
-                )
+                return ast_.And(new_elems)
         return None
 
-    def override(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+    def simplify_or(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
-            case ast_.BinaryOp(
-                left,
-                right,
-                ast_.BinaryOperator.RELATION_OVERRIDING,
-            ):
-                return ast_.Union(
-                    left,
-                    ast_.DomainSubtraction(
-                        ast_.Call(ast_.Identifier("dom"), [left]),
-                        right,
-                    ),
-                )
+            case ast_.ListOp(elems, ast_.ListOperator.OR):
+                new_elems = []
+                for elem in elems:
+                    if isinstance(elem, ast_.True_):
+                        return ast_.True_()
+                    if isinstance(elem, ast_.False_):
+                        continue
+                    new_elems.append(elem)
+
+                if elems == new_elems:
+                    logger.debug("FAILED: no simplification applied to OR list operation (no clauses were removed)")
+                    return None
+
+                if not new_elems:
+                    return ast_.Or([])
+
+                return ast_.Or(new_elems)
         return None
 
-    def domain(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+    def flatten_nested_statements(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
-            case ast_.Call(ast_.Identifier("dom"), [relation]) if isinstance(relation.get_type, ast_.SetType):
-                if not ast_.SetType.is_relation(relation.get_type):
-                    logger.debug(f"FAILED: {relation} is not a relation type")
+            case ast_.Statements(items):
+
+                if not any(map(lambda x: isinstance(x, ast_.Statements), items)):
                     return None
 
-                maplet = ast_.Maplet(
-                    ast_.Identifier(self._get_fresh_identifier_name()),
-                    ast_.Identifier(self._get_fresh_identifier_name()),
-                )
+                new_statements: list[ast_.ASTNode] = []
+                for item in items:
+                    if not isinstance(item, ast_.Statements):
+                        new_statements.append(item)
+                        continue
 
-                set_comprehension = ast_.SetComprehension(
-                    ast_.And(
-                        [ast_.In(maplet, relation)],
-                    ),
-                    maplet.left,
-                )
+                    new_statements.extend(item.items)
 
-                return set_comprehension
-
-        return None
-
-    def range(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
-        match ast:
-            case ast_.Call(ast_.Identifier("ran"), [relation]) if isinstance(relation.get_type, ast_.SetType):
-                if not ast_.SetType.is_relation(relation.get_type):
-                    logger.debug(f"FAILED: {relation} is not a relation type")
-                    return None
-
-                maplet = ast_.Maplet(
-                    ast_.Identifier(self._get_fresh_identifier_name()),
-                    ast_.Identifier(self._get_fresh_identifier_name()),
-                )
-
-                set_comprehension = ast_.SetComprehension(
-                    ast_.And(
-                        [ast_.In(maplet, relation)],
-                    ),
-                    maplet.right,
-                )
-
-                return set_comprehension
-        return None
-
-    def domain_restriction(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
-        match ast:
-            case ast_.BinaryOp(
-                left,
-                right,
-                ast_.BinaryOperator.DOMAIN_RESTRICTION,
-            ):
-                if not isinstance(left.get_type, ast_.SetType):
-                    logger.debug(f"FAILED: left side of domain restriction is not a set type: {left.get_type}")
-                    return None
-                if not isinstance(right.get_type, ast_.SetType) or not ast_.SetType.is_relation(right.get_type):
-                    logger.debug(f"FAILED: right side of domain restriction is not a relation type: {right.get_type}")
-                    return None
-
-                maplet = ast_.Maplet(
-                    ast_.Identifier(self._get_fresh_identifier_name()),
-                    ast_.Identifier(self._get_fresh_identifier_name()),
-                )
-
-                return ast_.RelationComprehension(
-                    ast_.And(
-                        [
-                            ast_.In(maplet, right),
-                            ast_.In(maplet.left, left),
-                        ],
-                    ),
-                    maplet,
-                )
-        return None
-
-    def domain_subtraction(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
-        match ast:
-            case ast_.BinaryOp(
-                left,
-                right,
-                ast_.BinaryOperator.DOMAIN_SUBTRACTION,
-            ):
-                if not isinstance(left.get_type, ast_.SetType):
-                    logger.debug(f"FAILED: left side of domain subtraction is not a set type: {left.get_type}")
-                    return None
-
-                if not isinstance(right.get_type, ast_.SetType) or not ast_.SetType.is_relation(right.get_type):
-                    logger.debug(f"FAILED: right side of domain subtraction is not a relation type: {right.get_type}")
-                    return None
-
-                maplet = ast_.Maplet(
-                    ast_.Identifier(self._get_fresh_identifier_name()),
-                    ast_.Identifier(self._get_fresh_identifier_name()),
-                )
-
-                return ast_.RelationComprehension(
-                    ast_.And(
-                        [
-                            ast_.In(maplet, right),
-                            ast_.NotIn(maplet.left, left),
-                        ],
-                    ),
-                    maplet,
-                )
-        return None
-
-    def range_restriction(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
-        match ast:
-            case ast_.BinaryOp(
-                left,
-                right,
-                ast_.BinaryOperator.RANGE_RESTRICTION,
-            ):
-                if not isinstance(right.get_type, ast_.SetType):
-                    logger.debug(f"FAILED: left side of range restriction is not a set type: {right.get_type}")
-                    return None
-                if not isinstance(left.get_type, ast_.SetType) or not ast_.SetType.is_relation(left.get_type):
-                    logger.debug(f"FAILED: right side of range restriction is not a relation type: {left.get_type}")
-                    return None
-
-                maplet = ast_.Maplet(
-                    ast_.Identifier(self._get_fresh_identifier_name()),
-                    ast_.Identifier(self._get_fresh_identifier_name()),
-                )
-
-                return ast_.RelationComprehension(
-                    ast_.And(
-                        [
-                            ast_.In(maplet, left),
-                            ast_.In(maplet.left, right),
-                        ],
-                    ),
-                    maplet,
-                )
-        return None
-
-    def range_subtraction(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
-        match ast:
-            case ast_.BinaryOp(
-                left,
-                right,
-                ast_.BinaryOperator.RANGE_SUBTRACTION,
-            ):
-                if not isinstance(right.get_type, ast_.SetType):
-                    logger.debug(f"FAILED: left side of range subtraction is not a set type: {right.get_type}")
-                    return None
-                if not isinstance(left.get_type, ast_.SetType) or not ast_.SetType.is_relation(left.get_type):
-                    logger.debug(f"FAILED: right side of range subtraction is not a relation type: {left.get_type}")
-                    return None
-
-                maplet = ast_.Maplet(
-                    ast_.Identifier(self._get_fresh_identifier_name()),
-                    ast_.Identifier(self._get_fresh_identifier_name()),
-                )
-
-                return ast_.RelationComprehension(
-                    ast_.And(
-                        [
-                            ast_.In(maplet, left),
-                            ast_.NotIn(maplet.left, right),
-                        ],
-                    ),
-                    maplet,
-                )
+                return ast_.Statements(new_statements)
         return None
 
 
-# Other rewrite rules:
-# {x | x \subset S} ~> {x | x in POWERSET(S)}
-# ... and other subset operations translated to powerset elements similarly
-# POWERSET(S) ~> ?
-# {| a, a, a, b, b, c|}
+REWRITE_COLLECTION: list[type[RewriteCollection]] = [
+    SyntacticSugarForBags,
+    BuiltinFunctions,
+    ComprehensionConstructionCollection,
+    DisjunctiveNormalFormCollection,
+    OrWrappingCollection,
+    GeneratorSelectionCollection,
+    GSPToLoopsCollection,
+    LoopsCodeGenerationCollection,
+    ReplaceAndSimplifyCollection,
+]
