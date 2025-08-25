@@ -109,5 +109,5 @@ for (example,) in EXAMPLES:
     print("Analyzed AST: ", ast.pretty_print(print_env=True))
     ast = semantic_analysis(ast)
     print("Analyzed AST: ", ast.pretty_print(print_env=True))
-    # ast = collection_optimizer(ast, REWRITE_COLLECTION)
-    # print("Post optimization AST: ", ast.pretty_print())
+    ast = collection_optimizer(ast, REWRITE_COLLECTION)
+    print("Post optimization AST: ", ast.pretty_print())

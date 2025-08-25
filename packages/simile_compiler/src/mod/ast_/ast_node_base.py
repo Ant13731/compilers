@@ -20,6 +20,7 @@ class ASTNode:
         self._env: SymbolTableEnvironment | None = None
         self._start_location: Location | None = None
         self._end_location: Location | None = None
+        self._file_location: str | None = None
 
     def well_formed(self) -> bool:
         """Check if the variables in expressions are well-formed (i.e., no clashes between :attr:`bound` and :attr:`free` variables)."""
@@ -188,12 +189,13 @@ class ASTNode:
     def _pretty_print_algorithmic(self, indent: int) -> str:
         raise NotImplementedError
 
-    def add_location(self, start: Location, end: Location) -> None:
+    def add_location(self, start: Location, end: Location, file: str) -> None:
         self._start_location = start
         self._end_location = end
+        self._file_location = file
 
     def get_location(self) -> str:
-        return f"({self._start_location}, {self._end_location})"
+        return f"({self._file_location}:{self._start_location}:{self._end_location})"
 
 
 @dataclass
