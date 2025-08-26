@@ -419,7 +419,8 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
 \begin{align}
   \tag{Functional Image \footnote{May fail if R is not total.}}
   R(x) &\leadsto pop(R[x])
-  \\
+  \\ % dont use pop - random choice but pop(S) == pop(S). Python op is completely nondeterministic so it may not return the same one R(x) = small epsilon y . y in R[{x}]
+  % if R[{x}] is empty, you return "an arbitrary element of range of R", not None
   \tag{Image}
   R[S] &\leadsto \bSet{x \mapsto y}{x \mapsto y \in R \land x \in S}{y}
   \\
