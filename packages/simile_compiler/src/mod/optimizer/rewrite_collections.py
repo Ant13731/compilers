@@ -23,6 +23,7 @@ class SyntacticSugarForBags(RewriteCollection):
     def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
         return [
             self.bag_image,
+            self.bag_predicate_operations,
         ]
 
     def bag_image(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:

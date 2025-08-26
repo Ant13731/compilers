@@ -27,16 +27,21 @@ mkdir build
 cd build
 
 # USING BACKSLASHES IN FILE PATHS WILL CAUSE AN ERROR
-cmake ..\llvm -G "Visual Studio 17 2022" -DLLVM_ENABLE_PROJECTS=mlir -DLLVM_TARGETS_TO_BUILD="Native" -DCMAKE_BUILD_TYPE=Release -Thost=x64 -DLLVM_ENABLE_ASSERTIONS=ON -DMLIR_ENABLE_BINDINGS_PYTHON=ON -DPython3_EXECUTABLE="C:/Users/hunta/AppData/Local/Programs/Python/Python312/python.EXE"
+cmake ..\llvm -G "Visual Studio 17 2022" -DLLVM_ENABLE_PROJECTS="mlir" -DLLVM_TARGETS_TO_BUILD="Native" -DCMAKE_BUILD_TYPE=Release -Thost=x64 -DLLVM_ENABLE_ASSERTIONS=ON -DMLIR_ENABLE_BINDINGS_PYTHON=ON -DPython3_EXECUTABLE="C:/Users/hunta/AppData/Local/Programs/Python/Python312/python.EXE"
 
+# -- Alternative for WSL2
 cmake -G Ninja ../llvm -DLLVM_ENABLE_PROJECTS=mlir -DLLVM_BUILD_EXAMPLES=ON -DLLVM_TARGETS_TO_BUILD="Native;NVPTX;AMDGPU" -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_ASSERTIONS=ON -DMLIR_ENABLE_BINDINGS_PYTHON=ON -DPython3_EXECUTABLE="/home/ant13731-wsl/GitHub/llvm-project/.venv/bin/python"
 
 cmake --build . --target check-mlir -j 28
 cmake --build . -j 28
 
+# Need to build with release to get binaries (warning: takes a very long time). Then add the Release/bin folder to PATH
+cmake --build . -j 28 --config Release
+
 # Run mlir tests. For example, to run python bindings tests only using ninja:
 ninja check-mlir-python
 
-export PYTHONPATH=$(cd build && pwd)/tools/mlir/python_packages/mlir_core
+# export PYTHONPATH=$(cd build && pwd)/tools/mlir/python_packages/mlir_core
+export PYTHONPATH=$(pwd)/tools/mlir/python_packages/mlir_core
 export PYTHONPATH=$PYTHONPATH:~/GitHub/llvm-project/build/tools/mlir/python_packages/mlir_core
 ```

@@ -345,12 +345,24 @@ Range One-to-manyness:
 \section{Rules}
 Below is a list of rewrite rules for key abstract data types, syntactic sugar, and some builtin functions. Phases are intended to be executed in order; the post-condition of one phase serves as the pre-condition for the next.
 
-\subsection{Syntactic Sugar - Bag Image}
+\subsection{Syntactic Sugar for Bags}
 \begin{align}
   \tag{Bag Image}
   R[B]
   &\leadsto
   R^{-1} \circ B
+  \\
+  \tag{Bag Predicates - Union}
+  S \cup T &\leadsto \bag{x}{x \in dom(S) \cup dom(T) \land n = max(S[x] \cup T[x])}{x \mapsto n}
+  \\
+  \tag{Bag Predicates - Intersection}
+  S \cap T &\leadsto \bag{x}{x \in dom(S) \cap dom(T) \land n = min(S[x] \cup T[x]) \land n > 0}{x \mapsto n}
+  \\
+  \tag{Bag Predicates - Sum}
+  S + T &\leadsto \bag{x}{x \in dom(S) \cup dom(T) \land n = sum(S[x] \cup T[x])}{x \mapsto n}
+  \\
+  \tag{Bag Predicates - Difference}
+  S - T &\leadsto \bag{x}{x \in dom(S) \land pop(S[x]) - popDefault(T[x], 0) \land n > 0}{x \mapsto n}
 \end{align}
 \subsection{Builtin Functions}
 
@@ -385,6 +397,9 @@ Below is a list of rewrite rules for key abstract data types, syntactic sugar, a
   \\
   \tag{Range Subtraction}
   R \ransub S &\leadsto \bSet{x\mapsto y}{x \mapsto y \in R \land y \notin S}{x \mapsto y}
+  \\
+  \tag{Bag Size}
+  size(S) &\leadsto \sum x \mapsto n \in S \cdot n
 \end{align}
 \end{minipage}
 \subsection{Sets}
@@ -402,8 +417,11 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
 
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
+  \tag{Functional Image \footnote{May fail if R is not total.}}
+  R(x) &\leadsto pop(R[x])
+  \\
   \tag{Image}
-  R[S] &\leadsto \bSet{x \mapsto y \in R}{x \in S}{y}
+  R[S] &\leadsto \bSet{x \mapsto y}{x \mapsto y \in R \land x \in S}{y}
   \\
   \tag{Product}
   x \mapsto y \in S \times T &\leadsto x \in S \land y \in T
@@ -417,6 +435,10 @@ Let $S,T$ be sets, $P, E$ expressions, and $x, e$ any type.
   % \tag{Exists Elimination}
   % \exists z \cdot x \mapsto z \in Q \land z \mapsto y \in R &\leadsto x \mapsto z \in Q \land z' \mapsto y \in R \land z=z'
   % \\
+  \end{align}
+\end{minipage}
+\noindent\begin{minipage}{\linewidth}
+\begin{align}
   \tag{Predicate Operations - Union}
   S \cup T
   &\leadsto
@@ -764,6 +786,97 @@ Conditions to consider:
 % \end{align}
 % \end{minipage}
 
+\subsubsection{Relational Subtyping Loop Simplification}
+
+\paragraph{Intuition} Simplify unnecessary iteration structures into direct accesses.
+
+\paragraph{Post-condition}
+\begin{itemize}
+  \item All quantifiers are transformed into $loop$ structures.
+  \item $loop$ predicates are of the form $x \in S \land \bigwedge P_i$.
+  \item All $loop$ predicates have an assigned generator of the form $x \in S$.
+\end{itemize}
+No change from previous, but the number of loop structures should not increase.
+
+\noindent\begin{minipage}{\linewidth}
+\begin{align}
+  \tag{Total membership elimination \footnote{$R$ is total and $x$ satisfies the type of $R$'s domain}}
+  x \in dom(R)
+  &\leadsto
+  True
+  \\
+  \tag{Surjective membership elimination \footnote{$R$ is surjective and $x$ satisfies the type of $R$'s range}}
+  x \in ran(R)
+  &\leadsto
+  True
+\end{align}
+\end{minipage}
+\noindent\begin{minipage}{\linewidth}
+\begin{align}
+  \tag{Concrete Domain Image}
+  \begin{minipage}[]{0.55\textwidth}
+  \begin{algorithmic}
+    \Loop\ $SingleGSP(x \mapsto y \in R, x = a \land P)$
+      \State body
+    \EndLoop
+  \end{algorithmic}
+  \end{minipage}
+  &\leadsto
+  \begin{minipage}[]{0.6\textwidth}
+  \begin{algorithmic}
+    \If{$a \in dom(R)$}
+      \Loop\ $SingleGSP(y \in R[a], P[x := a])$
+        \State body
+      \EndLoop
+    \EndIf
+  \end{algorithmic}
+  \end{minipage}
+\end{align}
+\end{minipage}
+\noindent\begin{minipage}{\linewidth}
+\begin{align}
+  \tag{Concrete Range Image \footnote{Requires efficient lookups for $ran$, inverse, and image}}
+  \begin{minipage}[]{0.55\textwidth}
+  \begin{algorithmic}
+    \Loop\ $SingleGSP(x \mapsto y \in R, y = a \land P)$
+      \State body
+    \EndLoop
+  \end{algorithmic}
+  \end{minipage}
+  &\leadsto
+  \begin{minipage}[]{0.6\textwidth}
+  \begin{algorithmic}
+    \If{$a \in ran(R)$}
+      \Loop\ $SingleGSP(x \in R^{-1}[a], P[y := a])$
+        \State body
+      \EndLoop
+    \EndIf
+  \end{algorithmic}
+  \end{minipage}
+\end{align}
+\end{minipage}
+\noindent\begin{minipage}{\linewidth}
+\begin{align}
+  \tag{Single Element Loop}
+  \begin{minipage}[]{0.5\textwidth}
+  \begin{algorithmic}
+    \Loop\ $SingleGSP(y \in R[x], P)$
+      \State body
+    \EndLoop
+  \end{algorithmic}
+  \text{where $free(x)$ and $R$ is many-to-one}
+  \end{minipage}
+  &\leadsto
+  \begin{minipage}[]{0.5\textwidth}
+  \begin{algorithmic}
+    \If{$P[y:=R(a)]$}
+      \State $body[y:=R(a)]$
+    \EndIf
+  \end{algorithmic}
+  \end{minipage}
+\end{align}
+\end{minipage}
+
 \subsubsection{Loop Code Generation}
 
 \paragraph{Intuition} Eliminate all intermediate loop structures.
@@ -873,32 +986,6 @@ Conditions to consider:
 \end{align}
 \end{minipage}
 
-\subsection{Bags}
-Since bags can be interpreted as a set of tuples $(element, repetitions)$, all set operations apply, except for the overriding operations below.
-\begin{align}
-  \tag{Union}
-  S \cup T &\leadsto \bag{x}{x \in dom(S) \cup dom(T) \land n = max(S[x] \cup T[x])}{x \mapsto n}
-  \\
-  \tag{Intersection}
-  S \cap T &\leadsto \bag{x}{x \in dom(S) \cap dom(T) \land n = min(S[x] \cup T[x]) \land n > 0}{x \mapsto n}
-  \\
-  \tag{Sum}
-  S + T &\leadsto \bag{x}{x \in dom(S) \cup dom(T) \land n = sum(S[x] \cup T[x])}{x \mapsto n}
-  \\
-  \tag{Difference}
-  S - T &\leadsto \bag{x}{x \in dom(S) \land pop(S[x]) - popDefault(T[x], 0) \land n > 0}{x \mapsto n}
-  \\
-  \tag{Size}
-  size(S) &\leadsto \sum x \mapsto n \in S \cdot n
-\end{align}
-
-Additional notes and extended context:
-\begin{description}
-  \item[The $\#$ Operator] Defined as the number of occurrences of an element in a bag. If bags are represented by a relation, this corresponds to a direct lookup $\#(x, S) = S[x]$.
-  \item[Intersection, Difference] Since the intersection and difference operators are always decreasing (ex. $S \cap T \subseteq S \land S \cap T \subseteq T$ and $S - T \subseteq S$), we can short-circuit operations that would require looping over both sets instead of just $S$. \textit{But how do we define this short-circuiting behaviour?} Intersections can make use of this property for both operands, but difference will always iterate over the first operand.
-  \item[Difference] $a-b > 0 \implies a > 0$.
-  \item[Sum, Union] The cast to set of $set(S)$ can be implemented by taking the domain of the bag-representing relations.
-\end{description}
 % TODO:
 % \subsection{Lists}
 
