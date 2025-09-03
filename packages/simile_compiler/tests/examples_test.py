@@ -102,7 +102,7 @@ next_step := {c Â· c in Living and card(neigh[{c}] /\\ Living) = 2 | c} \\/ {c Â
 for (example,) in EXAMPLES:
     print("Running Example: ", example[1])
     ast = parse(example)
-    print("Parsed AST: ", ast.pretty_print())
+    # print("Parsed AST: ", ast.pretty_print())
     print("Parsed AST (algorithmic):")
     print(ast.pretty_print_algorithmic())
     ast = populate_ast_environments(ast)
@@ -110,4 +110,5 @@ for (example,) in EXAMPLES:
     ast = semantic_analysis(ast)
     print("Analyzed AST: ", ast.pretty_print(print_env=True))
     ast = collection_optimizer(ast, REWRITE_COLLECTION)
-    print("Post optimization AST: ", ast.pretty_print())
+    # print("Post optimization AST: ", ast.pretty_print())
+    print("Post optimization AST:\n\n", ast.pretty_print_algorithmic())

@@ -1,4 +1,5 @@
 from __future__ import annotations
+import ast
 from typing import Callable
 from dataclasses import dataclass, field
 from copy import deepcopy
@@ -668,6 +669,7 @@ class ComprehensionConstructionCollection(InsideQuantifierRewriteCollection):
         return None
 
 
+@dataclass
 class DisjunctiveNormalFormCollection(RewriteCollection):
     def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
         return [
@@ -1162,6 +1164,7 @@ class GSPToLoopsCollection(RewriteCollection):
         return None
 
 
+@dataclass
 class LoopsCodeGenerationCollection(RewriteCollection):
 
     def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
@@ -1224,6 +1227,7 @@ class LoopsCodeGenerationCollection(RewriteCollection):
         return None
 
 
+@dataclass
 class ReplaceAndSimplifyCollection(RewriteCollection):
     bound_generator_variables: set[ast_.Identifier] = field(default_factory=set)
 

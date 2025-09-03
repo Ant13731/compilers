@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Callable
 from functools import wraps
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, field
 
 from loguru import logger
 
@@ -52,7 +52,8 @@ class RewriteCollection:
 
             new_ast = rewrite_rule(ast)
             if new_ast is not None:
-                ast = analysis.populate_ast_environments(new_ast)
+                # TODO see if this addition of environments is always true...
+                ast = analysis.populate_ast_environments(new_ast, ast._env)
                 logger.success(f"SUCCESS: matched {rewrite_rule.__name__}. New ast: {ast}\nPretty print: {ast.pretty_print_algorithmic()}")
                 continue
 

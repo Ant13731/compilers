@@ -26,9 +26,9 @@ class ParseImportError(Exception):
     pass
 
 
-def populate_ast_environments(ast: T) -> T:
+def populate_ast_environments(ast: T, current_env: ast_.SymbolTableEnvironment | None = None) -> T:
     """Attach a symbol table to the AST."""
-    ast = add_environments_to_ast(ast)
+    ast = add_environments_to_ast(ast, current_env)
     _populate_ast_environments_aux(ast)
     return ast
 

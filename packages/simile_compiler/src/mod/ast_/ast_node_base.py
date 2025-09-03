@@ -157,7 +157,13 @@ class ASTNode:
 
         if print_env:
 
-            ret += f"{indent_}_env={self._env.table if self._env else self._env}\n"
+            if self._env is None:
+                ret += f"{indent_}_env=None\n"
+            else:
+                ret += f"{indent_}_env={{\n"
+                for k, v in self._env.table.items():
+                    ret += f"{indent_ + "  "}{k}: {v},\n"
+                ret += f"{indent_}}}\n"
 
         for f in fields(self):
             field_value = getattr(self, f.name)
