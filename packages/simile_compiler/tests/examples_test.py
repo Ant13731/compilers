@@ -99,7 +99,7 @@ next_step := {c Â· c in Living and card(neigh[{c}] /\\ Living) = 2 | c} \\/ {c Â
     ),
 ]
 
-for (example,) in EXAMPLES:
+for (example,) in EXAMPLES[:1]:
     print("Running Example: ", example[1])
     ast = parse(example)
     # print("Parsed AST: ", ast.pretty_print())

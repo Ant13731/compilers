@@ -381,6 +381,7 @@ class SyntacticSugarForSequences(RewriteCollection):
 class BuiltinFunctions(RewriteCollection):
     def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
         return [
+            self.functional_override,
             self.cardinality,
             self.domain,
             self.range_,
@@ -390,6 +391,26 @@ class BuiltinFunctions(RewriteCollection):
             self.domain_restriction,
             self.domain_subtraction,
         ]
+
+    def functional_override(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Assignment(ast_.Call(f, [x]), value) if ast_.SetType.is_relation(f.get_type):
+                if f.get_type.element_type.left != x.get_type:
+                    logger.warning(f"Argument to functional override {x} does not match type of relation element")
+                    return None
+
+                return ast_.Assignment(
+                    f,
+                    ast_.RelationOverriding(
+                        f,
+                        ast_.RelationEnumeration(
+                            [
+                                ast_.Maplet(x, value),
+                            ],
+                        ),
+                    ),
+                )
+        return None
 
     def cardinality(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
@@ -1389,18 +1410,34 @@ class GSPToLoopsCollection(RewriteCollection):
         return None
 
 
-# TODO
 # @dataclass
 # class RelationalSubtypingLoopSimplification(RewriteCollection):
 #     def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
 #         return [
-#             self.total_membership_elimination,
-#             self.surjective_membership_elimination,
+#             # self.total_membership_elimination,
+#             # self.surjective_membership_elimination,
 #             self.concrete_domain_image,
 #             self.concrete_range_image,
 #             self.single_element_elimination,
 #             self.singleton_membership_elimination,
 #         ]
+
+#     def concrete_domain_image(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+#         match ast:
+#             case Loop(
+#                 SingleGeneratorSelection(
+#                     ast_.In(ast_.MapletIdentifier(left, right), rel),
+#                     ast_.And(predicates),
+#                 ),
+#                 body,
+#             ) if ast_.SetType.is_relation(rel.get_type):
+#                 concrete_domain_access = None
+#                 for predicate in predicates:
+#                     match predicate:
+#                         case ast_.Equal(eq_to_left, const) if eq_to_left == left and not const.contains_item(left):
+#                             concrete_domain_access = const
+
+#         return None
 
 
 @dataclass
@@ -1615,12 +1652,14 @@ class ReplaceAndSimplifyCollection(RewriteCollection):
 
 REWRITE_COLLECTION: list[type[RewriteCollection]] = [
     SyntacticSugarForBags,
+    SyntacticSugarForSequences,
     BuiltinFunctions,
     ComprehensionConstructionCollection,
     DisjunctiveNormalFormCollection,
     OrWrappingCollection,
     GeneratorSelectionCollection,
     GSPToLoopsCollection,
+    RelationalSubtypingLoopSimplification,
     LoopsCodeGenerationCollection,
     ReplaceAndSimplifyCollection,
 ]
