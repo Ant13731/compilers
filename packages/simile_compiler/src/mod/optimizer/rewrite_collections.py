@@ -30,10 +30,10 @@ class SyntacticSugarForBags(RewriteCollection):
     def bag_image(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
             case ast_.Image(r, b):
-                if not isinstance(r.get_type, ast_.SetType) or not ast_.SetType.is_relation(r.get_type):
+                if not ast_.SetType.is_relation(r.get_type):
                     logger.warning(f"First argument to bag image {r} is not a relation")
                     return None
-                if not isinstance(b.get_type, ast_.SetType) or not ast_.SetType.is_bag(b.get_type):
+                if not ast_.SetType.is_bag(b.get_type):
                     logger.warning(f"Second argument to bag image {b} is not a bag")
                     return None
                 return ast_.Composition(ast_.Inverse(r), b)
@@ -49,9 +49,9 @@ class SyntacticSugarForBags(RewriteCollection):
                 ast_.BinaryOperator.ADD,
                 ast_.BinaryOperator.SUBTRACT,
             ):
-                if not isinstance(left.get_type, ast_.SetType) or not isinstance(right.get_type, ast_.SetType):
-                    logger.debug(f"FAILED: at least one union child is not a set type: {left.get_type}, {right.get_type}")
-                    return None
+                # if not ast_.SetType.is_set(left.get_type) or not ast_.SetType.is_set(right.get_type):
+                #     logger.debug(f"FAILED: at least one union child is not a set type: {left.get_type}, {right.get_type}")
+                #     return None
 
                 if not ast_.SetType.is_bag(left.get_type) or not ast_.SetType.is_bag(right.get_type):
                     logger.debug(f"FAILED: Both operands must be bags")
@@ -156,6 +156,228 @@ class SyntacticSugarForBags(RewriteCollection):
 
 
 @dataclass
+class SyntacticSugarForSequences(RewriteCollection):
+    def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
+        return [
+            self.concat,
+            self.flatten,
+            self.foldL,
+            self.first,
+            self.tail,
+            self.append,
+            self.prepend,
+        ]
+
+    def concat(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Call(ast_.Identifier("concat"), [seq1, seq2]):
+                if not ast_.SetType.is_sequence(seq1.get_type) or not ast_.SetType.is_sequence(seq2.get_type):
+                    logger.warning(f"Arguments to concat {seq1}, {seq2} are not sequences")
+                    return None
+
+                maplet = ast_.MapletIdentifier(
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                )
+                updated_index_seq2 = ast_.Identifier(self._get_fresh_identifier_name())
+
+                seq2_with_updated_indices = ast_.SequenceComprehension(
+                    ast_.And(
+                        [
+                            ast_.In(maplet, seq2),
+                            ast_.Equal(
+                                updated_index_seq2,
+                                ast_.Add(
+                                    maplet.left,
+                                    ast_.Call(
+                                        ast_.Identifier("max"),
+                                        [
+                                            ast_.Call(
+                                                ast_.Identifier("dom"),
+                                                [seq1],
+                                            )
+                                        ],
+                                    ),
+                                ),
+                            ),
+                        ]
+                    ),
+                    ast_.MapletIdentifier(
+                        updated_index_seq2,
+                        maplet.right,
+                    ),
+                )
+                seq2_with_updated_indices._bound_identifiers = {maplet}
+
+                return ast_.Union(
+                    seq1,
+                    seq2_with_updated_indices,
+                )
+        return None
+
+    def flatten(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Call(ast_.Identifier("flatten"), [seq]):
+                if not ast_.SetType.is_sequence(seq.get_type) or not ast_.SetType.is_sequence(seq.get_type.element_type):
+                    logger.warning(f"Argument to flatten {seq} is not a sequence of sequences")
+                    return None
+
+                return ast_.Call(
+                    ast_.Identifier("foldL"),
+                    [ast_.Identifier("concat"), ast_.SequenceEnumeration([]), seq],
+                )
+
+        return None
+
+    def foldL(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Call(ast_.Identifier("foldL"), [func, initial, []]):
+                return initial
+            case ast_.Call(ast_.Identifier("foldL"), [func, initial, seq]):
+                if not ast_.SetType.is_sequence(seq.get_type):
+                    logger.warning(f"Argument to foldL {seq} is not a sequence")
+                    return None
+
+                return ast_.Call(
+                    ast_.Identifier("foldL"),
+                    [
+                        func,
+                        ast_.Call(func, [initial, ast_.Call(ast_.Identifier("first"), [seq])]),
+                        ast_.Call(ast_.Identifier("tail"), [seq]),
+                    ],
+                )
+
+        return None
+
+    def first(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Call(ast_.Identifier("first"), [seq]):
+                if not ast_.SetType.is_sequence(seq.get_type):
+                    logger.warning(f"Argument to first {seq} is not a sequence")
+                    return None
+
+                return ast_.Call(seq, [ast_.Int("0")])
+
+        return None
+
+    def tail(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Call(ast_.Identifier("tail"), [seq]):
+                if not ast_.SetType.is_sequence(seq.get_type):
+                    logger.warning(f"Argument to tail {seq} is not a sequence")
+                    return None
+
+                maplet = ast_.MapletIdentifier(
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                )
+                decreased_left_side = ast_.Identifier(self._get_fresh_identifier_name())
+
+                tail_comprehension = ast_.SetComprehension(
+                    ast_.And(
+                        [
+                            ast_.In(maplet, seq),
+                            ast_.NotEqual(
+                                maplet.left,
+                                ast_.Int("0"),
+                            ),
+                            ast_.Equal(
+                                decreased_left_side,
+                                ast_.Subtract(maplet.left, ast_.Int("1")),
+                            ),
+                        ]
+                    ),
+                    ast_.MapletIdentifier(
+                        decreased_left_side,
+                        maplet.right,
+                    ),
+                )
+                tail_comprehension._bound_identifiers = {maplet}
+
+                return tail_comprehension
+
+        return None
+
+    def append(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Call(ast_.Identifier("append"), [seq, element]):
+                if not ast_.SetType.is_sequence(seq.get_type):
+                    logger.warning(f"First argument to append {seq} is not a sequence")
+                    return None
+
+                if seq.get_type.element_type.right != element.get_type:
+                    logger.warning(f"Second argument to append {element} does not match type of list element")
+                    return None
+
+                return ast_.Union(
+                    seq,
+                    ast_.SequenceEnumeration(
+                        [
+                            ast_.Maplet(
+                                ast_.Call(
+                                    ast_.Identifier("max"),
+                                    [
+                                        ast_.Call(
+                                            ast_.Identifier("dom"),
+                                            [seq],
+                                        )
+                                    ],
+                                ),
+                                element,
+                            ),
+                        ]
+                    ),
+                )
+
+        return None
+
+    def prepend(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        match ast:
+            case ast_.Call(ast_.Identifier("prepend"), [seq, element]):
+                if not ast_.SetType.is_sequence(seq.get_type):
+                    logger.warning(f"First argument to prepend {seq} is not a sequence")
+                    return None
+
+                if seq.get_type.element_type.right != element.get_type:
+                    logger.warning(f"Second argument to prepend {element} does not match type of list element")
+                    return None
+
+                maplet = ast_.MapletIdentifier(
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                    ast_.Identifier(self._get_fresh_identifier_name()),
+                )
+                increased_left_side = ast_.Identifier(self._get_fresh_identifier_name())
+
+                return ast_.Union(
+                    ast_.SequenceEnumeration(
+                        [
+                            ast_.Maplet(
+                                ast_.Int("0"),
+                                element,
+                            ),
+                        ]
+                    ),
+                    ast_.SequenceComprehension(
+                        ast_.And(
+                            [
+                                ast_.In(maplet, seq),
+                                ast_.Equal(
+                                    increased_left_side,
+                                    ast_.Add(maplet.left, ast_.Int("1")),
+                                ),
+                            ]
+                        ),
+                        ast_.MapletIdentifier(
+                            increased_left_side,
+                            maplet.right,
+                        ),
+                    ),
+                )
+
+        return None
+
+
+@dataclass
 class BuiltinFunctions(RewriteCollection):
     def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
         return [
@@ -172,7 +394,7 @@ class BuiltinFunctions(RewriteCollection):
     def cardinality(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
             case ast_.Call(ast_.Identifier("card"), [s]):
-                if not isinstance(s.get_type, ast_.SetType):
+                if not ast_.SetType.is_set(s.get_type):
                     logger.warning(f"Argument to cardinality {s} is not a set")
                     return None
 
@@ -188,7 +410,7 @@ class BuiltinFunctions(RewriteCollection):
     def domain(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
             case ast_.Call(ast_.Identifier("dom"), [relation]):
-                if not isinstance(relation.get_type, ast_.SetType):
+                if not ast_.SetType.is_set(relation.get_type):
                     logger.warning(f"Argument to domain {relation} is not a set")
                     return None
 
@@ -208,7 +430,7 @@ class BuiltinFunctions(RewriteCollection):
     def range_(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
             case ast_.Call(ast_.Identifier("ran"), [relation]):
-                if not isinstance(relation.get_type, ast_.SetType):
+                if not ast_.SetType.is_set(relation.get_type):
                     logger.warning(f"Argument to range {relation} is not a set")
                     return None
 
@@ -232,10 +454,10 @@ class BuiltinFunctions(RewriteCollection):
                 right,
                 ast_.BinaryOperator.DOMAIN_RESTRICTION,
             ):
-                if not isinstance(left.get_type, ast_.SetType):
+                if not ast_.SetType.is_set(left.get_type):
                     logger.debug(f"FAILED: left side of domain restriction is not a set type: {left.get_type}")
                     return None
-                if not isinstance(right.get_type, ast_.SetType) or not ast_.SetType.is_relation(right.get_type):
+                if not ast_.SetType.is_relation(right.get_type):
                     logger.debug(f"FAILED: right side of domain restriction is not a relation type: {right.get_type}")
                     return None
 
@@ -265,11 +487,11 @@ class BuiltinFunctions(RewriteCollection):
                 right,
                 ast_.BinaryOperator.DOMAIN_SUBTRACTION,
             ):
-                if not isinstance(left.get_type, ast_.SetType):
+                if not ast_.SetType.is_set(left.get_type):
                     logger.debug(f"FAILED: left side of domain subtraction is not a set type: {left.get_type}")
                     return None
 
-                if not isinstance(right.get_type, ast_.SetType) or not ast_.SetType.is_relation(right.get_type):
+                if not ast_.SetType.is_relation(right.get_type):
                     logger.debug(f"FAILED: right side of domain subtraction is not a relation type: {right.get_type}")
                     return None
 
@@ -298,10 +520,10 @@ class BuiltinFunctions(RewriteCollection):
                 right,
                 ast_.BinaryOperator.RANGE_RESTRICTION,
             ):
-                if not isinstance(right.get_type, ast_.SetType):
+                if not ast_.SetType.is_set(right.get_type):
                     logger.debug(f"FAILED: left side of range restriction is not a set type: {right.get_type}")
                     return None
-                if not isinstance(left.get_type, ast_.SetType) or not ast_.SetType.is_relation(left.get_type):
+                if not ast_.SetType.is_relation(left.get_type):
                     logger.debug(f"FAILED: right side of range restriction is not a relation type: {left.get_type}")
                     return None
 
@@ -330,10 +552,10 @@ class BuiltinFunctions(RewriteCollection):
                 right,
                 ast_.BinaryOperator.RANGE_SUBTRACTION,
             ):
-                if not isinstance(right.get_type, ast_.SetType):
+                if not ast_.SetType.is_set(right.get_type):
                     logger.debug(f"FAILED: left side of range subtraction is not a set type: {right.get_type}")
                     return None
-                if not isinstance(left.get_type, ast_.SetType) or not ast_.SetType.is_relation(left.get_type):
+                if not ast_.SetType.is_relation(left.get_type):
                     logger.debug(f"FAILED: right side of range subtraction is not a relation type: {left.get_type}")
                     return None
 
@@ -374,7 +596,7 @@ class BuiltinFunctions(RewriteCollection):
     def sum(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
             case ast_.Call(ast_.Identifier("sum"), [arg]):
-                if not isinstance(arg.get_type, ast_.SetType):
+                if not ast_.SetType.is_set(arg.get_type):
                     logger.debug(f"FAILED: argument of sum is not a set type: {arg.get_type}")
                     return None
                 if not isinstance(arg.get_type.element_type, ast_.BaseSimileType) or not arg.get_type.element_type.is_numeric():
@@ -393,7 +615,7 @@ class BuiltinFunctions(RewriteCollection):
     def bag_size(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
             case ast_.Call(ast_.Identifier("size"), [arg]):
-                if not isinstance(arg.get_type, ast_.SetType) or not ast_.SetType.is_bag(arg.get_type):
+                if not ast_.SetType.is_bag(arg.get_type):
                     logger.debug(f"FAILED: argument of size is not a bag type: {arg.get_type}")
                     return None
 
@@ -443,12 +665,12 @@ class InsideQuantifierRewriteCollection(RewriteCollection):
 class ComprehensionConstructionCollection(InsideQuantifierRewriteCollection):
     def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
         return [
+            self.functional_image,
             self.image,
-            self.set_predicate_operations,
             self.product,
             self.inverse,
             self.composition,
-            # self.singleton_membership,
+            self.set_predicate_operations,
             self.membership_collapse,
         ]
 
@@ -464,10 +686,10 @@ class ComprehensionConstructionCollection(InsideQuantifierRewriteCollection):
                     logger.debug(f"FAILED: {maplet} appears as a generator variable but is not bound by a quantifier")
                     return None
 
-                if not isinstance(left.get_type, ast_.SetType):
+                if not ast_.SetType.is_set(left.get_type):
                     logger.debug(f"FAILED: left side of product is not a set type: {left.get_type}")
                     return None
-                if not isinstance(right.get_type, ast_.SetType):
+                if not ast_.SetType.is_set(right.get_type):
                     logger.debug(f"FAILED: right side of product is not a set type: {right.get_type}")
                     return None
 
@@ -497,9 +719,6 @@ class ComprehensionConstructionCollection(InsideQuantifierRewriteCollection):
                     logger.debug(f"FAILED: {maplet} appears as a generator variable but is not bound by a quantifier")
                     return None
 
-                if not isinstance(inner.get_type, ast_.SetType):
-                    logger.debug(f"FAILED: inner side of inverse is not a set/relation type: {inner.get_type}")
-                    return None
                 if not ast_.SetType.is_relation(inner.get_type):
                     logger.debug(f"FAILED: inner side of inverse is not a relation type: {inner.get_type}")
                     return None
@@ -526,10 +745,10 @@ class ComprehensionConstructionCollection(InsideQuantifierRewriteCollection):
                     logger.debug(f"FAILED: {maplet} appears as a generator variable but is not bound by a quantifier")
                     return None
 
-                if not isinstance(left.get_type, ast_.SetType):
+                if not ast_.SetType.is_set(left.get_type):
                     logger.debug(f"FAILED: left side of composition is not a set type: {left.get_type}")
                     return None
-                if not isinstance(right.get_type, ast_.SetType):
+                if not ast_.SetType.is_set(right.get_type):
                     logger.debug(f"FAILED: right side of composition is not a set type: {right.get_type}")
                     return None
 
@@ -554,10 +773,10 @@ class ComprehensionConstructionCollection(InsideQuantifierRewriteCollection):
     def image(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
             case ast_.Image(left, right):
-                if not isinstance(left.get_type, ast_.SetType) or not ast_.SetType.is_relation(left.get_type):
+                if not ast_.SetType.is_relation(left.get_type):
                     logger.debug(f"FAILED: left side of image is not a relation type: {left.get_type}")
                     return None
-                if not isinstance(right.get_type, ast_.SetType):
+                if not ast_.SetType.is_set(right.get_type):
                     logger.debug(f"FAILED: right side of image is not a set type: {right.get_type}")
                     return None
 
@@ -612,13 +831,14 @@ class ComprehensionConstructionCollection(InsideQuantifierRewriteCollection):
                 ast_.BinaryOperator.INTERSECTION,
                 ast_.BinaryOperator.DIFFERENCE,
             ):
-                if not isinstance(left.get_type, ast_.SetType) or not isinstance(right.get_type, ast_.SetType):
+                if not ast_.SetType.is_set(left.get_type) or not ast_.SetType.is_set(right.get_type):
                     logger.debug(f"FAILED: at least one union child is not a set type: {left.get_type}, {right.get_type}")
                     return None
 
                 if ast_.SetType.is_bag(left.get_type) and ast_.SetType.is_bag(right.get_type):
                     logger.debug(f"FAILED: Union/Intersection/Difference operations must use bag_predicate_operations rule (both operands are bags)")
                     return None
+
                 fresh_name = self._get_fresh_identifier_name()
 
                 match op_type:
@@ -796,11 +1016,11 @@ class OrWrappingCollection(RewriteCollection):
 class GeneratorSelectionCollection(RewriteCollection):
     def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
         return [
-            self.generator_selection,
-            self.reduce_duplicate_generators,
+            self.gsp_wrapping,
+            self.nested_generator_selection,
         ]
 
-    def generator_selection(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+    def gsp_wrapping(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
             case ast_.Quantifier(
                 ast_.ListOp(elems, ast_.ListOperator.OR),
@@ -870,7 +1090,7 @@ class GeneratorSelectionCollection(RewriteCollection):
                     elem.op_type != ast_.BinaryOperator.IN,
                     not isinstance(elem.left, ast_.Identifier | ast_.MapletIdentifier),
                     elem.left not in candidate_generators_per_identifier,
-                    isinstance(elem.right.get_type, ast_.SetType),
+                    not ast_.SetType.is_set(elem.right.get_type),
                 ]
             ):
                 other_predicates.append(elem)
@@ -933,7 +1153,7 @@ class GeneratorSelectionCollection(RewriteCollection):
 
         return GeneratorSelection(generators, ast_.And(other_predicates))
 
-    def reduce_duplicate_generators(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+    def nested_generator_selection(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
         match ast:
             case ast_.ListOp(elems, ast_.ListOperator.OR):
                 if all(map(lambda x: isinstance(x, GeneratorSelection) or isinstance(x, CombinedGeneratorSelection), elems)):
@@ -1000,7 +1220,12 @@ class GeneratorSelectionCollection(RewriteCollection):
 class GSPToLoopsCollection(RewriteCollection):
     def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
         return [
+            # self.quantifier_generation,
             self.summation,
+            self.top_level_or_loop,
+            self.chained_gsp_loop,
+            # self.empty_gsp_loop, # inlined with chained_gsp_loop
+            self.combined_gsp_loop,
         ]
 
     def quantifier_generation(
@@ -1162,6 +1387,20 @@ class GSPToLoopsCollection(RewriteCollection):
                     ast_.Statements(child_loops),
                 )
         return None
+
+
+# TODO
+# @dataclass
+# class RelationalSubtypingLoopSimplification(RewriteCollection):
+#     def _rewrite_collection(self) -> list[Callable[[ast_.ASTNode], ast_.ASTNode | None]]:
+#         return [
+#             self.total_membership_elimination,
+#             self.surjective_membership_elimination,
+#             self.concrete_domain_image,
+#             self.concrete_range_image,
+#             self.single_element_elimination,
+#             self.singleton_membership_elimination,
+#         ]
 
 
 @dataclass

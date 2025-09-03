@@ -126,7 +126,7 @@ class SymbolTableEnvironment(Environment[SimileType]):
             )
 
 
-PRIMITIVE_TYPES = {
+PRIMITIVE_TYPES: dict[str, SimileType] = {
     "int": BaseSimileType.Int,
     "str": BaseSimileType.String,
     "float": BaseSimileType.Float,
@@ -150,7 +150,7 @@ PRIMITIVE_TYPES = {
     ),
 }
 
-BUILTIN_FUNCTIONS = {
+BUILTIN_FUNCTIONS: dict[str, SimileType] = {
     # These aren't actually procedures - they are processed as rewrites of relational functions later on,
     # but their types can be better expressed using the procedure notation
     "dom": ProcedureTypeDef(

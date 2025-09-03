@@ -201,19 +201,21 @@ class SetType(Generic[T], SubstituteSimileTypeAddon):
     relation_subtype: RelationSubTypeMask | None = None
 
     @staticmethod
-    def is_set(self_: SetType) -> bool:
-        return not isinstance(self_.element_type, PairType)
+    def is_set(self_: SimileType) -> TypeGuard[SetType]:
+        if isinstance(self_, SetType):
+            return True
+        return False
 
     @staticmethod
-    def is_relation(self_: SetType) -> TypeGuard[SetType[PairType]]:
-        return isinstance(self_.element_type, PairType)
+    def is_relation(self_: SimileType) -> TypeGuard[SetType[PairType]]:
+        return SetType.is_set(self_) and isinstance(self_.element_type, PairType)
 
     @staticmethod
-    def is_sequence(self_: SetType) -> TypeGuard[SetType[PairType[Literal[BaseSimileType.Int], SimileType]]]:
+    def is_sequence(self_: SimileType) -> TypeGuard[SetType[PairType[Literal[BaseSimileType.Int], SimileType]]]:
         return SetType.is_relation(self_) and self_.element_type.left == BaseSimileType.Int
 
     @staticmethod
-    def is_bag(self_: SetType) -> TypeGuard[SetType[PairType[SimileType, Literal[BaseSimileType.Int]]]]:
+    def is_bag(self_: SimileType) -> TypeGuard[SetType[PairType[SimileType, Literal[BaseSimileType.Int]]]]:
         return SetType.is_relation(self_) and self_.element_type.right == BaseSimileType.Int
 
     def _substitute_eq(self, other: SimileType, mapping: dict[str, SimileType]) -> bool:
