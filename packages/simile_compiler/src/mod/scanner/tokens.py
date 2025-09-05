@@ -108,7 +108,7 @@ class TokenType(Enum):
     POWERSET = auto()
     NONEMPTY_POWERSET = auto()
     # CARDINALITY = auto()
-    TILDE = auto()  # set complement
+    # TILDE = auto()  # set complement
 
     SUBSET = auto()
     SUBSET_EQ = auto()
@@ -199,18 +199,22 @@ OPERATOR_TOKEN_TABLE = {
     "<==>": TokenType.EQUIVALENT,
     "≡": TokenType.EQUIVALENT,
     "≢": TokenType.NOT_EQUIVALENT,
+    "<=!=>": TokenType.NOT_EQUIVALENT,
     "∀": TokenType.FORALL,
     "∃": TokenType.EXISTS,
     "+": TokenType.PLUS,
     "-": TokenType.MINUS,
     "*": TokenType.STAR,
+    "÷": TokenType.SLASH,
     "/": TokenType.SLASH,
     "%": TokenType.PERCENT,
     "**": TokenType.DOUBLE_STAR,
     "^": TokenType.DOUBLE_STAR,
     "<": TokenType.LT,
+    "≤": TokenType.LE,
     "<=": TokenType.LE,
     ">": TokenType.GT,
+    "≥": TokenType.GE,
     ">=": TokenType.GE,
     "∈": TokenType.IN,
     "∉": TokenType.NOT_IN,
@@ -222,7 +226,6 @@ OPERATOR_TOKEN_TABLE = {
     "\\": TokenType.BACKSLASH,
     "×": TokenType.CARTESIAN_PRODUCT,
     "><": TokenType.CARTESIAN_PRODUCT,
-    "~": TokenType.TILDE,
     "⊆": TokenType.SUBSET_EQ,
     "<:": TokenType.SUBSET_EQ,
     "⊂": TokenType.SUBSET,
@@ -239,15 +242,15 @@ OPERATOR_TOKEN_TABLE = {
     "/<<:": TokenType.SUBSET,
     "/:>": TokenType.SUPERSET_EQ,
     "/:>>": TokenType.SUPERSET,
-    "ℙ": TokenType.POWERSET,
-    "ℙ₁": TokenType.NONEMPTY_POWERSET,
-    "⋂": TokenType.INTERSECTION_ALL,
     "⋃": TokenType.UNION_ALL,
+    "⋂": TokenType.INTERSECTION_ALL,
     "↦": TokenType.MAPLET,
     "|->": TokenType.MAPLET,
+    "": TokenType.RELATION_OVERRIDING,
     "<+": TokenType.RELATION_OVERRIDING,  # TODO unicode version
     "∘": TokenType.COMPOSITION,
     "⁻¹": TokenType.INVERSE,
+    "~": TokenType.INVERSE,
     "◁": TokenType.DOMAIN_RESTRICTION,
     "<|": TokenType.DOMAIN_RESTRICTION,
     "⩤": TokenType.DOMAIN_SUBTRACTION,
@@ -279,15 +282,19 @@ OPERATOR_TOKEN_TABLE = {
     "⤖": TokenType.BIJECTION,
     ">->>": TokenType.BIJECTION,
     "..": TokenType.UPTO,
+    "ℙ": TokenType.POWERSET,
+    "ℙ₁": TokenType.NONEMPTY_POWERSET,
     "ℤ": TokenType.IDENTIFIER,
     "ℕ": TokenType.IDENTIFIER,
     "ℕ₁": TokenType.IDENTIFIER,
 }
 
 KEYWORD_TABLE = {
+    # Primitive objects
     "True": TokenType.TRUE,
     "False": TokenType.FALSE,
     "None": TokenType.NONE,
+    # Programming constructs
     "if": TokenType.IF,
     "elif": TokenType.ELIF,
     "else": TokenType.ELSE,
@@ -298,14 +305,6 @@ KEYWORD_TABLE = {
     "def": TokenType.DEF,
     "is": TokenType.IS,
     "is not": TokenType.IS_NOT,
-    "in": TokenType.IN,
-    "not in": TokenType.NOT_IN,
-    "and": TokenType.AND,
-    "or": TokenType.OR,
-    "not": TokenType.NOT,
-    "forall": TokenType.FORALL,
-    "exists": TokenType.EXISTS,
-    "powerset": TokenType.POWERSET,
     "return": TokenType.RETURN,
     "break": TokenType.BREAK,
     "continue": TokenType.CONTINUE,
@@ -313,7 +312,19 @@ KEYWORD_TABLE = {
     "from": TokenType.FROM,
     "import": TokenType.IMPORT,
     "pass": TokenType.PASS,
+    # Aliases for above symbols
+    "forall": TokenType.FORALL,
+    "exists": TokenType.EXISTS,
+    "in": TokenType.IN,
+    "not in": TokenType.NOT_IN,
+    "and": TokenType.AND,
+    "or": TokenType.OR,
+    "not": TokenType.NOT,
     "lambda": TokenType.LAMBDA,
+    "union_all": TokenType.UNION_ALL,
+    "intersection_all": TokenType.INTERSECTION_ALL,
+    "powerset": TokenType.POWERSET,
+    "powerset1": TokenType.NONEMPTY_POWERSET,
     # "card": TokenType.CARDINALITY,
     # "fst": TokenType.FIRST,
     # "proj1": TokenType.FIRST,

@@ -325,7 +325,8 @@ class Parser:
             case TokenType.FORALL:
                 self.advance()
                 ident_list = self.ident_list()
-                self.consume(TokenType.CDOT, "Expected FORALL quantification separator")
+                if not self.match(TokenType.DOT):
+                    self.consume(TokenType.CDOT, "Expected FORALL quantification separator")
                 predicate = self.predicate()
                 if not isinstance(predicate, ast_.ListOp):
                     predicate = ast_.And([predicate])
@@ -336,7 +337,8 @@ class Parser:
             case TokenType.EXISTS:
                 self.advance()
                 ident_list = self.ident_list()
-                self.consume(TokenType.CDOT, "Expected EXISTS quantification separator")
+                if not self.match(TokenType.DOT):
+                    self.consume(TokenType.CDOT, "Expected EXISTS quantification separator")
                 predicate = self.predicate()
                 if not isinstance(predicate, ast_.ListOp):
                     predicate = ast_.And([predicate])
@@ -510,7 +512,8 @@ class Parser:
         match t.type_:
             case TokenType.LAMBDA:
                 ident_pattern = self.ident_list()
-                self.consume(TokenType.CDOT, "Expected LAMBDA quantification separator")
+                if not self.match(TokenType.DOT):
+                    self.consume(TokenType.CDOT, "Expected LAMBDA quantification separator")
                 predicate = self.predicate()
                 self.consume(TokenType.VBAR, "Expected LAMBDA quantification predicate separator")
                 return ast_.LambdaDef(ident_pattern, predicate, self.expr())
@@ -534,11 +537,11 @@ class Parser:
         first_part = self.expr()
         # but in the case that we see a comma or single identifier list (via cdot),
         # backtrack and reparse as an identifier
-        if self.peek().type_ in [TokenType.COMMA, TokenType.CDOT]:
+        if self.peek().type_ in [TokenType.COMMA, TokenType.CDOT, TokenType.DOT]:
             self.current_index = starting_index
             first_part = self.ident_list()
 
-        if self.match(TokenType.CDOT):
+        if self.match(TokenType.DOT) or self.match(TokenType.CDOT):
             predicate = self.predicate()
             if not isinstance(predicate, ast_.ListOp):
                 predicate = ast_.And([predicate])
@@ -928,26 +931,26 @@ class Parser:
         else:
             self.error(f"Unexpected token {t}")
 
-    @store_derivation
-    def import_name(self) -> list[ast_.Identifier]:
-        import_path = []
-        if self.match(TokenType.DOT):
-            import_path.append(ast_.Identifier("."))
+    # @store_derivation
+    # def import_name(self) -> list[ast_.Identifier]:
+    #     import_path = []
+    #     if self.match(TokenType.DOT):
+    #         import_path.append(ast_.Identifier("."))
 
-        t = self.advance()
-        if t.type_ == TokenType.IDENTIFIER:
-            import_path.append(ast_.Identifier(t.value))
-        else:
-            self.error("Expected identifier after import dot")
+    #     t = self.advance()
+    #     if t.type_ == TokenType.IDENTIFIER:
+    #         import_path.append(ast_.Identifier(t.value))
+    #     else:
+    #         self.error("Expected identifier after import dot")
 
-        while self.match(TokenType.DOT):
-            t = self.advance()
-            if t.type_ == TokenType.IDENTIFIER:
-                import_path.append(ast_.Identifier(t.value))
-            else:
-                self.error(f"Expected identifier after import dot (parsed up to {import_path})")
+    #     while self.match(TokenType.DOT):
+    #         t = self.advance()
+    #         if t.type_ == TokenType.IDENTIFIER:
+    #             import_path.append(ast_.Identifier(t.value))
+    #         else:
+    #             self.error(f"Expected identifier after import dot (parsed up to {import_path})")
 
-        return import_path
+    #     return import_path
 
     @store_derivation
     def import_list(self) -> ast_.IdentList | ast_.ImportAll:
