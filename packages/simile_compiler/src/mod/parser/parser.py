@@ -1048,6 +1048,7 @@ class Parser:
         self.consume(TokenType.INDENT, "Expected indentation after STRUCT definition")
         if self.match(TokenType.PASS):
             items = []
+            self.consume(TokenType.NEWLINE, "Expected newline after PASS in STRUCT definition")
         else:
             items = [self.typed_name()]
             while self.peek().type_ == TokenType.COMMA or self.peek().type_ == TokenType.NEWLINE:
