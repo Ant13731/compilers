@@ -352,41 +352,47 @@ class Parser:
                 self.error("Predicate token not found")
 
     @store_derivation
-    def ident_list(self) -> ast_.IdentList:
-        ident_patterns = [self.ident_pattern()]
+    def ident_list(self) -> ast_.TupleIdentifier:
+        ident_list_items = [self.ident_list_item()]
         while self.match(TokenType.COMMA):
-            ident_patterns.append(self.ident_pattern())
-        return ast_.IdentList(ident_patterns)  # TODO figure out ident patterns vs ident list,,,
+            ident_list_items.append(self.ident_list_item())
+        return ast_.TupleIdentifier(tuple(ident_list_items))
 
     @store_derivation
-    def ident_pattern(self) -> ast_.Identifier | ast_.MapletIdentifier | ast_.IdentList:
+    def ident_list_item(self) -> ast_.Identifier | ast_.MapletIdentifier | ast_.TupleIdentifier:
         match (t := self.advance()).type_:
             case TokenType.IDENTIFIER:
-                ident_pattern: ast_.Identifier | ast_.MapletIdentifier | ast_.IdentList = ast_.Identifier(t.value)
+                ident_pattern: ast_.Identifier | ast_.MapletIdentifier | ast_.TupleIdentifier = ast_.Identifier(t.value)
             case TokenType.L_PAREN:
                 self.advance()
                 ident_pattern = self.ident_list()
+                # If using tuples as parenthesis around another identifier type, remove superfluous parens
+                if len(ident_pattern.items) == 1:
+                    ident_pattern = ident_pattern.items[0]
+                # If using tuples as a pair, convert to maplet identifier
+                elif len(ident_pattern.items) == 2:
+                    ident_pattern = ast_.MapletIdentifier(ident_pattern.items[0], ident_pattern.items[1])
                 self.consume(TokenType.R_PAREN, "Expected end to identifier sub-pattern")
             case _:
                 self.error("No identifier or sub-pattern found")
         if self.match(TokenType.MAPLET):
-            ident_pattern_r = self.ident_pattern()
+            ident_pattern_r = self.ident_list_item()
 
-            # MapletIdentifier only takes in Identifiers or other MapletIdentifiers
-            # Because we nest an IdentList every time we see an opening parenthesis, we need
-            # to check whether there were superfluous parentheses (resulting in a nested IdentList of len == 1)
-            # or if the IdentList was malformed. This effectively prevents IdentLists of the form (x,y,z) |-> (x,y,z),
-            # which is ambiguous for bound relation identifiers, while allowing nested loops like `forall x,y | ...`
-            if isinstance(ident_pattern, ast_.IdentList):
-                if len(ident_pattern.flatten_until_leaf_node()) == 1:
-                    ident_pattern = ident_pattern.flatten_until_leaf_node()[0]
-                else:
-                    self.error("Identifier lists cannot be nested inside a maplet (suggestion: nest another maplet instead)")
-            if isinstance(ident_pattern_r, ast_.IdentList):
-                if len(ident_pattern_r.flatten_until_leaf_node()) != 1:
-                    ident_pattern_r = ident_pattern_r.flatten_until_leaf_node()[0]
-                else:
-                    self.error("Identifier lists cannot be nested inside a maplet (suggestion: nest another maplet instead)")
+            # # MapletIdentifier only takes in Identifiers or other MapletIdentifiers
+            # # Because we nest an IdentList every time we see an opening parenthesis, we need
+            # # to check whether there were superfluous parentheses (resulting in a nested IdentList of len == 1)
+            # # or if the IdentList was malformed. This effectively prevents IdentLists of the form (x,y,z) |-> (x,y,z),
+            # # which is ambiguous for bound relation identifiers, while allowing nested loops like `forall x,y | ...`
+            # if isinstance(ident_pattern, ast_.IdentList):
+            #     if len(ident_pattern.flatten_until_leaf_node()) == 1:
+            #         ident_pattern = ident_pattern.flatten_until_leaf_node()[0]
+            #     else:
+            #         self.error("Identifier lists cannot be nested inside a maplet (suggestion: nest another maplet instead)")
+            # if isinstance(ident_pattern_r, ast_.IdentList):
+            #     if len(ident_pattern_r.flatten_until_leaf_node()) != 1:
+            #         ident_pattern_r = ident_pattern_r.flatten_until_leaf_node()[0]
+            #     else:
+            #         self.error("Identifier lists cannot be nested inside a maplet (suggestion: nest another maplet instead)")
 
             return ast_.MapletIdentifier(ident_pattern, ident_pattern_r)
         return ident_pattern
@@ -511,12 +517,25 @@ class Parser:
         t = self.advance()
         match t.type_:
             case TokenType.LAMBDA:
-                ident_pattern = self.ident_list()
+                params = []
+                if self.peek().type_ != TokenType.DOT:
+                    t = self.advance()
+                    if t.type_ != TokenType.IDENTIFIER:
+                        self.error("Expected identifier list after LAMBDA")
+                    params.append(ast_.Identifier(t.value))
+
+                    while self.match(TokenType.COMMA):
+                        t = self.advance()
+                        if t.type_ != TokenType.IDENTIFIER:
+                            self.error("Expected identifier list after LAMBDA")
+                        params.append(ast_.Identifier(t.value))
+
+                # ident_pattern = self.ident_list()
                 if not self.match(TokenType.DOT):
                     self.consume(TokenType.CDOT, "Expected LAMBDA quantification separator")
                 predicate = self.predicate()
                 self.consume(TokenType.VBAR, "Expected LAMBDA quantification predicate separator")
-                return ast_.LambdaDef(ident_pattern, predicate, self.expr())
+                return ast_.LambdaDef(params, predicate, self.expr())
             case TokenType.UNION_ALL:
                 ident_list, predicate, expression = self.quantification_body()
                 union_all = ast_.UnionAll(predicate, expression)

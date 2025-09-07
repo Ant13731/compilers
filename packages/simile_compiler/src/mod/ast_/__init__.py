@@ -2,6 +2,7 @@ from src.mod.ast_.ast_node_base import (
     ASTNode,
     Identifier,
     MapletIdentifier,
+    TupleIdentifier,
 )
 from src.mod.ast_.dataclass_helpers import (
     dataclass_traverse,
@@ -176,6 +177,7 @@ from src.mod.ast_.symbol_table_types import (
     ModuleImports,
     GenericType,
     RelationSubTypeMask,
+    TupleType,
     # InstanceOfDef,
 )
 from src.mod.ast_.symbol_table_env import (

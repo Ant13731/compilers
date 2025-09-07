@@ -243,8 +243,8 @@ class Identifier(ASTNode):
 class MapletIdentifier(ASTNode):
     """Special variation of maplet used for binding loop and quantification variables (also hashable)"""
 
-    left: MapletIdentifier | Identifier
-    right: MapletIdentifier | Identifier
+    left: IdentifierListTypes
+    right: IdentifierListTypes
 
     def __hash__(self) -> int:
         return hash((self.left, self.right))
@@ -266,3 +266,56 @@ class MapletIdentifier(ASTNode):
 
     def flatten(self) -> set[Identifier]:
         return self.left.flatten() | self.right.flatten()
+
+
+@dataclass
+class TupleIdentifier(ASTNode):
+    """Special variation of tuple used for binding loop and quantification variables (also hashable)"""
+
+    items: tuple[IdentifierListTypes, ...]
+
+    def __hash__(self) -> int:
+        return hash(self.items)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, TupleIdentifier):
+            return False
+        return self.items == other.items
+
+    @property
+    def free(self) -> set[Identifier]:
+        return self.flatten()
+
+    def well_formed(self) -> bool:
+        identifiers = list(self.flatten())
+        for i in range(len(identifiers)):
+            for j in range(i + 1, len(identifiers)):
+                if identifiers[i] == identifiers[j]:
+                    return False
+        return True
+
+    def _get_type(self) -> SimileType:
+        return TupleType(map(lambda x: x.get_type, self.items))
+
+    def _pretty_print_algorithmic(self, indent: int) -> str:
+        return f"({', '.join(item._pretty_print_algorithmic(indent) for item in self.items)})"
+
+    def flatten(self) -> set[Identifier]:
+        flat_set = set()
+        for item in self.items:
+            flat_set |= item.flatten()
+        return flat_set
+
+    def flatten_until_leaf_node(self) -> list[Identifier | MapletIdentifier]:
+        ret: list[Identifier | MapletIdentifier] = []
+        for item in self.items:
+            if isinstance(item, MapletIdentifier):
+                ret.append(item)
+            elif isinstance(item, TupleIdentifier):
+                ret.extend(item.flatten_until_leaf_node())
+            else:
+                ret.append(item)
+        return ret
+
+
+IdentifierListTypes = Identifier | MapletIdentifier | TupleIdentifier

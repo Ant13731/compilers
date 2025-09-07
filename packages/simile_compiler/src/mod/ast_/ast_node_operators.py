@@ -463,6 +463,7 @@ class CollectionOperator(Enum):
     SET = auto()
     RELATION = auto()
     BAG = auto()
+    TUPLE = auto()
 
     def pretty_print(self) -> str:
         quantifier_op_version = QuantifierOperator.from_collection_operator(self)

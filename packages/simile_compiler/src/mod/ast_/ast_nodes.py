@@ -809,37 +809,35 @@ class Type_(ASTNode):
 
 @dataclass
 class LambdaDef(ASTNode):
-    ident_pattern: IdentList
+    params: list[Identifier]
     predicate: ASTNode
     expression: ASTNode
 
     @property
     def bound(self) -> set[Identifier]:
-        return self.ident_pattern.free | self.predicate.bound | self.expression.bound
+        return set(self.params) | self.predicate.bound | self.expression.bound
 
     @property
     def free(self) -> set[Identifier]:
-        return (self.predicate.free | self.expression.free) - self.ident_pattern.free
+        return (self.predicate.free | self.expression.free) - set(self.params)
 
     def well_formed(self) -> bool:
         return all(
             [
-                self.ident_pattern.well_formed(),
+                all(param.well_formed() for param in self.params),
                 self.predicate.well_formed(),
                 self.expression.well_formed(),
                 self.predicate.bound.isdisjoint(self.expression.free),
                 self.expression.bound.isdisjoint(self.predicate.free),
                 self.predicate.bound.isdisjoint(self.expression.bound),
-                self.predicate.bound.isdisjoint(self.ident_pattern.free),
-                self.expression.bound.isdisjoint(self.ident_pattern.free),
+                self.predicate.bound.isdisjoint(set(self.params)),
+                self.expression.bound.isdisjoint(set(self.params)),
             ]
         )
 
     def _get_type(self) -> SimileType:
         arg_types = {}
-        for arg in self.ident_pattern.items:
-            if not isinstance(arg, Identifier):
-                raise SimileTypeError(f"Invalid lambda argument name (must be an identifier): {arg}", self)
+        for arg in self.params:
             arg_types[arg.name] = arg.get_type
 
         return ProcedureTypeDef(
@@ -848,7 +846,7 @@ class LambdaDef(ASTNode):
         )
 
     def _pretty_print_algorithmic(self, indent: int) -> str:
-        args_str = ", ".join(arg._pretty_print_algorithmic(indent) for arg in self.ident_pattern.items)
+        args_str = ", ".join(arg._pretty_print_algorithmic(indent) for arg in self.params)
         predicate_str = self.predicate._pretty_print_algorithmic(indent)
         expression_str = self.expression._pretty_print_algorithmic(indent)
         return f"λ {args_str} · {predicate_str} | {expression_str}"
