@@ -120,14 +120,14 @@ class Parser:
         "atom_bool": {TokenType.TRUE, TokenType.FALSE, TokenType.L_PAREN, "pair_expr"},
         "expr": {"quantification", "pair_expr", "predicate"},
         "quantification": {"lambdadef", "quantification_op"},
-        "quantification_op": {TokenType.UNION_ALL, TokenType.INTERSECTION_ALL},
+        "quantification_op": {TokenType.GENERAL_UNION, TokenType.GENERAL_INTERSECTION},
         "quantification_body": {"ident_list", "expr"},
         "lambdadef": {TokenType.LAMBDA},
         "pair_expr": {"rel_set_expr"},
         "rel_set_expr": {"set_expr"},
         "set_expr": {"interval_expr", "rel_expr"},
         "rel_expr": {"interval_expr"},
-        "rel_sub_expr": {"range_modifier", TokenType.BACKSLASH},
+        "rel_sub_expr": {"range_modifier", TokenType.SET_DIFFERENCE},
         "range_modifier": {TokenType.RANGE_RESTRICTION, TokenType.RANGE_SUBTRACTION},
         "interval_expr": {"arithmetic_expr"},
         "arithmetic_expr": {"term"},
@@ -154,7 +154,7 @@ class Parser:
         "collections": {"set", "sequence", "bag"},  # handle relation inside the parsing function
         "set": {TokenType.L_BRACE},
         "sequence": {TokenType.L_BRACKET},
-        "bag": {TokenType.L_BRACE_BAR},
+        "bag": {TokenType.L_DOUBLE_BRACKET},
         "builtin_functions": {TokenType.POWERSET, TokenType.NONEMPTY_POWERSET},  # , TokenType.CARDINALITY, TokenType.FIRST, TokenType.SECOND},
         "control_flow_stmt": {TokenType.RETURN, TokenType.BREAK, TokenType.CONTINUE, TokenType.PASS},
         "assignment": {"struct_access"},
@@ -178,7 +178,7 @@ class Parser:
         "block": {"simple_stmt", TokenType.INDENT},
         "import_stmt": {TokenType.IMPORT, TokenType.FROM},
         "import_name": {TokenType.DOT, TokenType.IDENTIFIER},
-        "import_list": {TokenType.STAR, TokenType.IDENTIFIER, TokenType.L_PAREN},
+        "import_list": {TokenType.MULT, TokenType.IDENTIFIER, TokenType.L_PAREN},
     }
 
     @classmethod
@@ -536,12 +536,12 @@ class Parser:
                 predicate = self.predicate()
                 self.consume(TokenType.VBAR, "Expected LAMBDA quantification predicate separator")
                 return ast_.LambdaDef(params, predicate, self.expr())
-            case TokenType.UNION_ALL:
+            case TokenType.GENERAL_UNION:
                 ident_list, predicate, expression = self.quantification_body()
                 union_all = ast_.UnionAll(predicate, expression)
                 union_all._bound_identifiers = set(ident_list.flatten_until_leaf_node())
                 return union_all
-            case TokenType.INTERSECTION_ALL:
+            case TokenType.GENERAL_INTERSECTION:
                 ident_list, predicate, expression = self.quantification_body()
                 intersection_all = ast_.IntersectionAll(predicate, expression)
                 intersection_all._bound_identifiers = set(ident_list.flatten_until_leaf_node())
@@ -672,7 +672,7 @@ class Parser:
     @store_derivation
     def rel_sub_expr(self) -> Callable[[ast_.ASTNode], ast_.ASTNode]:
         match self.advance().type_:
-            case TokenType.BACKSLASH:
+            case TokenType.SET_DIFFERENCE:
                 return lambda n: ast_.BinaryOp(n, self.interval_expr(), ast_.BinaryOperator.DIFFERENCE)
             case TokenType.RANGE_RESTRICTION:
                 return lambda n: ast_.BinaryOp(n, self.interval_expr(), ast_.BinaryOperator.RANGE_RESTRICTION)
@@ -703,9 +703,9 @@ class Parser:
         return self.left_associative_optional_parse(
             self.factor,
             {
-                TokenType.STAR: ast_.Multiply,
-                TokenType.SLASH: ast_.Divide,
-                TokenType.PERCENT: ast_.Modulo,
+                TokenType.MULT: ast_.Multiply,
+                TokenType.DIV: ast_.Divide,
+                TokenType.MOD: ast_.Modulo,
             },
         )
 
@@ -724,7 +724,7 @@ class Parser:
     @store_derivation
     def power(self) -> ast_.ASTNode:
         primary = self.primary()
-        if self.match(TokenType.DOUBLE_STAR):
+        if self.match(TokenType.EXPONENT):
             return ast_.Exponent(primary, self.factor())
         return primary
 
@@ -782,7 +782,7 @@ class Parser:
                 return self.set_()
             case TokenType.L_BRACKET:
                 return self.sequence()
-            case TokenType.L_BRACE_BAR:
+            case TokenType.L_DOUBLE_BRACKET:
                 return self.bag()
             case TokenType.POWERSET:
                 self.consume(TokenType.L_PAREN, "Powerset requires object call notation")
@@ -911,7 +911,7 @@ class Parser:
 
     @store_derivation
     def bag(self) -> ast_.ASTNode:
-        return self.collection_body(ast_.CollectionOperator.BAG, TokenType.R_BRACE_BAR)
+        return self.collection_body(ast_.CollectionOperator.BAG, TokenType.R_DOUBLE_BRACKET)
 
     @store_derivation
     def sequence(self) -> ast_.ASTNode:
@@ -973,7 +973,7 @@ class Parser:
 
     @store_derivation
     def import_list(self) -> ast_.IdentList | ast_.ImportAll:
-        if self.match(TokenType.STAR):
+        if self.match(TokenType.MULT):
             return ast_.ImportAll()
         matched_paren = self.match(TokenType.L_PAREN)
 

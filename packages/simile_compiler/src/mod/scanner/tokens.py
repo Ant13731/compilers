@@ -27,6 +27,7 @@ class TokenType(Enum):
 
     # Notation
     ASSIGN = auto()
+    NONDETERMINISTIC_MEMBERSHIP_ASSIGN = auto()
     CDOT = auto()
     DOT = auto()
     COMMA = auto()
@@ -54,6 +55,7 @@ class TokenType(Enum):
     BREAK = auto()
     CONTINUE = auto()
     PASS = auto()
+    WITH = auto()
 
     # Brackets
     L_PAREN = auto()
@@ -62,8 +64,8 @@ class TokenType(Enum):
     R_BRACKET = auto()
     L_BRACE = auto()
     R_BRACE = auto()
-    L_BRACE_BAR = auto()
-    R_BRACE_BAR = auto()
+    L_DOUBLE_BRACKET = auto()
+    R_DOUBLE_BRACKET = auto()
 
     # Operators
     EQUALS = auto()
@@ -87,10 +89,10 @@ class TokenType(Enum):
     # Numbers
     PLUS = auto()
     MINUS = auto()
-    STAR = auto()  # multiply
-    SLASH = auto()  # divide
-    PERCENT = auto()  # mod
-    DOUBLE_STAR = auto()  # exponentiation
+    MULT = auto()  # multiply
+    DIV = auto()  # divide
+    MOD = auto()  # mod
+    EXPONENT = auto()  # exponentiation
 
     LT = auto()
     GT = auto()
@@ -102,7 +104,7 @@ class TokenType(Enum):
     NOT_IN = auto()  # also used for not in
     UNION = auto()
     INTERSECTION = auto()
-    BACKSLASH = auto()  # set difference
+    SET_DIFFERENCE = auto()  # set difference
 
     CARTESIAN_PRODUCT = auto()
     POWERSET = auto()
@@ -120,8 +122,8 @@ class TokenType(Enum):
     NOT_SUBSET_EQ = auto()
     NOT_SUPERSET_EQ = auto()
 
-    UNION_ALL = auto()
-    INTERSECTION_ALL = auto()
+    GENERAL_UNION = auto()
+    GENERAL_INTERSECTION = auto()
 
     # Relations
     MAPLET = auto()
@@ -180,10 +182,12 @@ OPERATOR_TOKEN_TABLE = {
     "]": TokenType.R_BRACKET,
     "{": TokenType.L_BRACE,
     "}": TokenType.R_BRACE,
-    "⦃": TokenType.L_BRACE_BAR,
-    "⦄": TokenType.R_BRACE_BAR,
-    "{|": TokenType.L_BRACE_BAR,
-    "|}": TokenType.R_BRACE_BAR,
+    "⟦": TokenType.L_DOUBLE_BRACKET,
+    "〚": TokenType.L_DOUBLE_BRACKET,
+    "[[": TokenType.L_DOUBLE_BRACKET,
+    "⟧": TokenType.R_DOUBLE_BRACKET,
+    "〛": TokenType.R_DOUBLE_BRACKET,
+    "]]": TokenType.R_DOUBLE_BRACKET,
     "=": TokenType.EQUALS,
     "≠": TokenType.NOT_EQUALS,
     "!=": TokenType.NOT_EQUALS,
@@ -204,12 +208,12 @@ OPERATOR_TOKEN_TABLE = {
     "∃": TokenType.EXISTS,
     "+": TokenType.PLUS,
     "-": TokenType.MINUS,
-    "*": TokenType.STAR,
-    "÷": TokenType.SLASH,
-    "/": TokenType.SLASH,
-    "%": TokenType.PERCENT,
-    "**": TokenType.DOUBLE_STAR,
-    "^": TokenType.DOUBLE_STAR,
+    "*": TokenType.MULT,
+    "÷": TokenType.DIV,
+    "/": TokenType.DIV,
+    "%": TokenType.MOD,
+    "**": TokenType.EXPONENT,
+    "^": TokenType.EXPONENT,
     "<": TokenType.LT,
     "≤": TokenType.LE,
     "<=": TokenType.LE,
@@ -222,8 +226,8 @@ OPERATOR_TOKEN_TABLE = {
     "\\/": TokenType.UNION,
     "∩": TokenType.INTERSECTION,
     "/\\": TokenType.INTERSECTION,
-    "∖": TokenType.BACKSLASH,
-    "\\": TokenType.BACKSLASH,
+    "∖": TokenType.SET_DIFFERENCE,
+    "\\": TokenType.SET_DIFFERENCE,
     "×": TokenType.CARTESIAN_PRODUCT,
     "><": TokenType.CARTESIAN_PRODUCT,
     "⊆": TokenType.SUBSET_EQ,
@@ -242,8 +246,8 @@ OPERATOR_TOKEN_TABLE = {
     "/<<:": TokenType.SUBSET,
     "/:>": TokenType.SUPERSET_EQ,
     "/:>>": TokenType.SUPERSET,
-    "⋃": TokenType.UNION_ALL,
-    "⋂": TokenType.INTERSECTION_ALL,
+    "⋃": TokenType.GENERAL_UNION,
+    "⋂": TokenType.GENERAL_INTERSECTION,
     "↦": TokenType.MAPLET,
     "|->": TokenType.MAPLET,
     "": TokenType.RELATION_OVERRIDING,
@@ -321,8 +325,8 @@ KEYWORD_TABLE = {
     "or": TokenType.OR,
     "not": TokenType.NOT,
     "lambda": TokenType.LAMBDA,
-    "union_all": TokenType.UNION_ALL,
-    "intersection_all": TokenType.INTERSECTION_ALL,
+    "union_all": TokenType.GENERAL_UNION,
+    "intersection_all": TokenType.GENERAL_INTERSECTION,
     "powerset": TokenType.POWERSET,
     "powerset1": TokenType.NONEMPTY_POWERSET,
     # "card": TokenType.CARDINALITY,
