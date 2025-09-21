@@ -13,36 +13,44 @@
 \usepackage{fontawesome5}
 \usepackage[hidelinks]{hyperref}
 
-% \usepackage[T1]{fontenc}
-% \usepackage{amsmath, amsthm}
-% \usepackage{amssymb}
-% \usepackage{listings}
-% \usepackage[svgnames]{xcolor}
-% \usepackage{tikz}
-% \usepackage{array}
-% \usepackage{graphicx}
-% \usepackage[backend=biber, maxbibnames=9]{biblatex}
-% \usepackage{algpseudocode}
-% \usepackage{algorithm}
-% \usepackage{mathtools}
-% \usepackage{xcolor}
-% \usepackage{subcaption}
-% \usepackage{wrapfig}
-% \usepackage{hyperref}
-
 % \graphicspath{{./images/}}
 
 % NOTE: need to run `biber *.tex` to ensure up-to-date references
-\addbibresource{../references.bib}
+\addbibresource{../reference.bib}
+\addbibresource{resume.bib}
+\DeclareBibliographyCategory{fullcited}
 
+% \newcommand{\makeauthorbold}[1]{%
+%   \DeclareNameFormat{author}{%
+%     \ifthenelse{\value{listcount}=1}
+%     {%
+%       {\expandafter\ifstrequal\expandafter{\namepartfamily}{#1}{\mkbibbold{\namepartfamily\addcomma\addspace \namepartgiven}}{\namepartfamily\addcomma\addspace \namepartgiven}}
+%       %
+%     }{\ifnumless{\value{listcount}}{\value{liststop}}
+%         {\expandafter\ifstrequal\expandafter{\namepartfamily}{#1}{\mkbibbold{\addcomma\addspace \namepartfamily\addcomma\addspace \namepartgiven}}{\addcomma\addspace \namepartfamily\addcomma\addspace \namepartgiven}}
+%         {\expandafter\ifstrequal\expandafter{\namepartfamily}{#1}{\mkbibbold{\addcomma\addspace \namepartfamily\addcomma\addspace \namepartgiven\addcomma\isdot}}{\addcomma\addspace \namepartfamily\addcomma\addspace \namepartgiven\addcomma\isdot}}%
+%       }
+%     \ifthenelse{\value{listcount}<\value{liststop}}
+%     {\addcomma\space}{}
+%   }
+% }
+% \makeauthorbold{Hunt}
 
-\title{High-Level Optimization of Abstract Data Types}
+\title{CGS-D Scholarship Application}
 \author{Anthony Hunt}
 
 \begin{document}
 \maketitle
 
 \section{Thesis In-Progress Summary}
+
+\subsection{Making an Efficient Very High-Level Programming Language: Optimization of Abstract Data Types}
+
+\paragraph{Summary}
+Sets, sequences, and relations are essential structures in formally defining system specifications. Executable modelling languages and high-level programming languages often expose these data types as syntactic sugar over more concrete notation.
+
+Preliminary work on my current Master's thesis focused on prototyping a term rewriting system to generate efficient code from such abstract type operations. Thus far, we have conducted a literature review of abstract data types and term rewriting systems as components of optimizing compilers in the form of brief surveys. Then, to direct our exploration of the problem, we gathered around a dozen examples of formal system definitions and created a set of optimization rules to satisfy each example. Unifying these rules yielded generic optimization patterns especially when converting set operations like union or intersection to boolean-level quantification equivalents. We then implemented and presented a prototype compiler for set theory expressions at a program synthesis workshop (SYNT 2025), receiving excellent feedback incorporated in the complete project proposal.
+
 % In the Thesis information page of your application, provide the full title and summary of your in-progress thesis. Include only work that has already been done; do not repeat the information provided in the Outline of proposed research section.
 
 % For CGRS D, describe your bachelor’s (honours) or master’s thesis in this section. If you did not complete a previous thesis, you may describe one of your major research projects or papers or you may describe the work done to date on your doctoral degree.
@@ -72,7 +80,7 @@ Since the realization of the modern computer, programming languages have fundame
 
 %% Why/Background
 % Spec langs
-System modelling and behaviour specifications commonly draw from set theory to define collections and relationships. Sets, sequences, and relations are pervasive in safety-critical software specifications, since their abstract nature, composed of theory-defined behaviours, lends well to proofs and guarantees of correctness. For example, Abrial's B method \cite{TODO} was used in the 1990's to ensure safe design of the Paris Metro signaling system \cite{TODO}. Further, Hoare logic, adopted by Dafny \cite{TODO}, is used to prove properties of imperative programs. Discrete mathematics and logic systems are essential to specification expressions that consider reliability a primary goal.
+System modelling and behaviour specifications commonly draw from set theory to define collections and relationships. Sets, sequences, and relations are pervasive in safety-critical software specifications, since their abstract nature, composed of theory-defined behaviours, lends well to proofs and guarantees of correctness. For example, Abrial's B method \cite{abrial2010modeling} was used in the 1990's to ensure safe design of the Paris Metro signaling system \cite{gerhart1994ParisMetro}. Further, Hoare logic, adopted by Dafny \cite{leino2023program}, is used to prove properties of imperative programs. Discrete mathematics and logic systems are essential to specification expressions that consider reliability a primary goal.
 
 % Programming langs
 Conversely, many popular programming languages stray from theory and generally force programmers to focus on the executable implementation. Arrays, heap-allocated memory, and classes are all implementation-aware constructs that, while closer to hardware, shifts the responsibility of overall system management onto the programmer. These types of programs, even from high-level languages, can be extremely difficult to prove following standard formal methods.
@@ -90,7 +98,7 @@ The new programming language we propose combines Event-B notation, Python-like c
 % Compiler/TRS
 Because abstract data types serve as the mathematical and programmatic foundation for our language, our term rewriting compiler transforms equational theorems into directed, provably semantic-preserving, high-level optimization passes. Rewrite rules based on abstract type and operation semantics can eliminate all excess intermediate memory allocation in complex expressions, improving upon default imperative language behaviour. Type extensions involving, for example, the injective, surjective, or totality properties of a relation can further reduce superfluous relationship lookups and implicitly direct the actualized structure of variables.
 
-We anticipate a term rewriting system that can refine abstract structures into varying concrete implementations, depending on the situation. For example, generic sets are commonly represented by a hashset, but sets of dense or sparse integer collections may find better performance with a bitset or roaring bitsets respectively. Relations, which default to a single-direction hashmap, may find better performance in bi-directional hashmap for efficient inverse lookup and representation of many-to-many relations. Recent work in tree-based path-map structures \cite{TODO} may offer even more efficient operation execution by precluding the need for an iteration over an entire relation. Once high-level optimization passes are complete, we lower the now-concrete data structures into LLVM assembly \cite{TODO}, conveniently harnessing decades of low level optimization work \cite{TODO}.
+We anticipate a term rewriting system that can refine abstract structures into varying concrete implementations, depending on the situation. For example, generic sets are commonly represented by a hashset, but sets of dense or sparse integer collections may find better performance with a bitset or roaring bitsets respectively. Relations, which default to a single-direction hashmap, may find better performance in bi-directional hashmap for efficient inverse lookup and representation of many-to-many relations. Recent work in tree-based path-map structures \cite{jones2024triemapsmatch} may offer even more efficient operation execution by precluding the need for an iteration over an entire relation. Once high-level optimization passes are complete, we lower the now-concrete data structures into LLVM assembly, conveniently harnessing decades of low level optimization work \cite{lattner2002llvm}.
 
 A successful language should be far more efficient than interpreted high-level languages like Python and JavaScript, with competitive runtime compared to idiomatically-written low-level C or Rust code. Memory usage should be optimal, undercutting any eagerly-evaluated programming language. Programming language benchmarks will be created based on three categories: algorithmically-intense computations, complex simulations, and data-heavy information systems.
 
@@ -99,29 +107,34 @@ A successful language should be far more efficient than interpreted high-level l
 % Why/Anticipated results/what the field gains from finding a positive/negative resolution to the topic
 Providing an efficient high-level language brings software engineering closer to the specification design and simplifies verification of program correctness. Hoare logic program guarantees may now be written directly as part of the program and used in the optimization process, rather than relegating useful semantic information to only exist in documentation form. Additionally, direct usability benefits from borrowing purer mathematical notation may increase adoption of formal methods and accessibility of safety-critical programming to novice programmers, increasing the overall safety and efficiency of software systems.
 
-
-
-
-
-
-
-
 \pagebreak
-
-Recent coursework has continued this trend toward programming language projects. My capstone project, for example, explored visual methods of programming language interaction, using diagrams to gain a deeper understanding of information flow. Simultaneously, a one-on-one directed readings course with Dr. Emil Sekerinski allowed me to explore recent literature on languages, modelling methods \cite{eventBBook}, and rewriting \cite{baader1998term}. I spent several weeks researching formal mathematics in ten diverse languages, making note of strengths, weaknesses, and possible efficiency improvements. Then, I completed a survey on historical and recent rewriting techniques, from strategies \cite{elco1998building} to equational saturation \cite{tate2009equality}. In the final weeks of my undergrad, I built a prototypical optimizing compiler for set-based operations.
-
-Continuing work on the optimizing compiler in the summer months initiates the first phase of my Master's project: generating efficient implementations of abstract data types \cite{hunt2025generating}. Oftentimes, formal specifications for real-world modelling only make use of boolean logic, number theory, and collection types foundational to discrete mathematics (as seen in the birthday book problem \cite{spivey1989birthday}). Sets, sequences, and relations may very well be powerful enough to accomplish a large subset of programming tasks that otherwise demand complex, concrete data types. Further, collection types come with a rich set of universally agreed-upon semantics \cite{griesAndSchneider} that allow extensive compilation time optimizations. Through my research, I seek to answer the following: To what extent can abstract data types be used to model real-world phenomena? Then, using semantics as a foundation for optimization, are abstract data type operations more efficient than similar tasks in conventional languages?
-
-McMaster's depth and breadth in formal methods, programming language theory, and compilation align closely with my goal of building a more usable interface for reasoning and communicating. By continuing my education, I plan to learn about type theory, compiler optimization, and influential approaches to modelling computation. Further, I am excited about advancing the core areas of modern languages, especially data structure optimization, formal computation techniques, and industry-standard code generation. Researching under this program and experimenting with compilation techniques will grant me the skills needed to back my ideals for future language development.
-
-
 \section{Contributions and Statements}
 % Two pages
-\section{Equity, Diversity, and Inclusion Considerations}
+\subsection{Contributions to research and development}
+\addtocategory{fullcited}{hunt2021information}
+\addtocategory{fullcited}{hunt2024memautogui}
+\addtocategory{fullcited}{hunt2025generating}
 
-\section{Bibliography}
+\subsubsection*{I. c.}
+\textbf{Anthony Hunt*} and Emil Sekerinski. (2025) Generating Implementations of Data Type Operations. Workshop on Synthesis (co-located with the International Conference on Computer Aided Verification). Pages: 3 (Master's work, workshop presentation).
+\\\\
+\textbf{Anthony Hunt*}, Jacques Carette, and Spencer Smith. (2021) Information Encoding and Traceability in Software. Annual Undergraduate Student Research Poster Showcase at McMaster University (Undergraduate work, poster).
+
+\subsubsection*{I. d.}
+\textbf{Anthony Hunt} and Hamid Hosseiny. (2024) MemAutoGUI: An Enhanced Automation Approach for Accelerated Validation Focused on Usability. In: \textit{Design and Test Technology Conference}. Pages: 10. Intel (Work done with team lead during an internship, international conference).
+
+
+\subsection{Most significant contributions to research and development}
+\subsection{Applicant's statement}
+
+\pagebreak
+\section{Equity, Diversity, and Inclusion Considerations}
+Although the creation of a mathematics-focused programming language may not present the same equity, diversity, and inclusion concerns as a human-centered experiment, we nonetheless consider accessibility impact in our work. Similar to standard programming languages, the interface language is through text based files. However, we aim to support both unicode and ASCII characters for better symbolic representation of mathematics. This, in turn, may assist text-to-speech programs for the visually impaired by using more concise and relevant symbols. As a simple example, consider the ASCII notation for the expression of a relation \texttt{S <-> T}. Replacing the ``less than, dash, greater than'' character sequence with ($\leftrightarrow$) is more straightforward and understandable in a programming context.
+
+% \section{Bibliography}
 % Five pages maximum
-% \nocite{*} % keeps all references, even those not referred to
-\printbibliography %Prints bibliography
+\pagebreak
+\nocite{*} % keeps all references, even those not referred to
+\printbibliography[notcategory=fullcited] %Prints bibliography
 
 \end{document}
