@@ -1,0 +1,196 @@
+% This is samplepaper.tex, a sample chapter demonstrating the
+% LLNCS macro package for Springer Computer Science proceedings;
+% Version 2.21 of 2022/01/12
+%
+\documentclass[runningheads]{llncs}
+
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{amsmath, amsthm}
+\usepackage{amssymb}
+\usepackage{listings}
+\usepackage[svgnames]{xcolor}
+\usepackage{tikz}
+\usepackage{array}
+% If possible, figure files should be included in EPS format.
+\usepackage{graphicx}
+\usepackage[backend=biber, maxbibnames=9]{biblatex}
+\usepackage[noend]{algpseudocode}
+\usepackage{algorithm}
+\usepackage{mathtools}
+\usepackage{xcolor}
+\usepackage{subcaption}
+\usepackage{wrapfig}
+\usepackage{color}
+\usepackage{hhline}
+\usepackage[utf8]{inputenc}
+\usepackage{ stmaryrd }
+\usepackage{hyperref}
+\usepackage{bsymb}
+
+
+% Display URLs in blue roman font according to Springer's eBook style:
+\renewcommand\UrlFont{\color{blue}\rmfamily}
+\urlstyle{rm}
+
+% Set comprehension notation
+\newcommand{\Set}[2]{%
+  \{\, #1 \mid #2 \, \}%
+}
+
+% B-like Set comprehension notation
+\newcommand{\bSet}[3]{%
+  % \{\, #1 \cdot #2 \mid #3 \, \}%
+  \{\, #1 \mid #2 \cdot #3 \, \}%
+}
+\newcommand{\bSetT}[2]{%
+  \{\, #1 \mid #2 \,\}%
+}
+% List comprehension notation
+% \newcommand{\List}[2]{%
+%   [\, #1 \mid #2 \, ]%
+% }
+% % List concatenation
+% \newcommand{\concat}{%
+%   \mathbin{{+}\mspace{-8mu}{+}}%
+% }
+
+\allowdisplaybreaks
+% \addtolength{\textfloatsep}{-0.5cm}
+
+\addbibresource{citations.bib}
+
+\begin{document}
+%
+\title{High-Level Optimization of Abstract Data Types}
+% \title{Synthesis of Data Type Operations}
+%
+%\titlerunning{Abbreviated paper title}
+% If the paper title is too long for the running head, you can set
+% an abbreviated paper title here
+%
+\author{Anthony Hunt\inst{1}\orcidID{0009-0005-1085-3343} \and
+Emil Sekerinski\inst{2}\orcidID{0000-0001-9788-5842}}
+%
+\footnotetext[1]{Presenter, recent graduate, and current Master's student at McMaster University.}
+\footnotetext[2]{Full professor at McMaster University in the Department of Computing and Software. He received his Ph.D. from the University of Karlsruhe, Germany, and was at Åbo Akademi, Finland, before joining McMaster. \href{https://www.cas.mcmaster.ca/~emil/index.html}{Link to homepage.}}
+%
+\authorrunning{A. Hunt and E. Sekerinski}
+% First names are abbreviated in the running head.
+% If there are more than two authors, 'et al.' is used.
+%
+\institute{Department of Computing and Software, McMaster University, Hamilton, ON L8S4L8, Canada 
+\email{\{hunta12,emil\}@mcmaster.ca}}
+%
+\maketitle              % typeset the header of the contribution
+%
+% \begin{abstract}
+% The abstract should briefly summarize the contents of the paper in
+% 150--250 words.
+% \keywords{Abstract Data Types  \and Rewriting \and Compiler Optimization.}
+% \end{abstract}
+%
+%
+%
+%
+Sets, sequences, and relations are essential to describing system behaviours in formal specification and modelling languages like Event-B, Alloy, and Dafny. Conversely, high-level programming languages (like Python and Haskell) support only a subset of these types and operators, preferring the use of implementation-aware types like arrays and classes. In ongoing work, we use specification language semantics to enhance programming language performance. We propose a language capable of high-level expressions for abstract data types with efficient, guaranteed bounds for runtime and memory consumption. 
+
+Consider a service system that tracks all attendees and workshops within a conference. Each visitor may attend at most one workshop per day, and only one workshop may be held in a particular room. Then, if a workshop organizer needs to order meals for each attendee in a $room$, an appropriate model is:
+\begin{align}
+    &location: Workshop \tinj Room \\
+    &attends: Visitor \pfun Workshop\\
+    &meals \coloneq card((location^{-1} \circ attends^{-1})[\{room\}])
+\end{align}
+We envisage that programmers write such expressions and efficient code is generated. While naive compilation constructs intermediate relations for $location^{-1}$ and $attends^{-1}$, more efficient code computes the result directly, as in Fig.~\ref{fig:visitorImpl}~(a). Semi-automatic data type refinement could then produce code like Fig.~\ref{fig:visitorImpl}~(b). 
+
+% Approach and preliminary results
+In contrast to a conventional language's implementation-aware operations, the semantics of specification expressions closely follow set theory; theorems become provable, high-level term rewriting passes. Our prototype compiler successfully rewrites queries similar to (3) into the efficient loop structures of Fig.~\ref{fig:visitorImpl}. 
+
+% This ending feels empty/abrupt - should we include some of the discussion from the synt? The previous two paragraphs are trimmed down versions of the first two synt sections. I dont think there is any room for the old section 3. We could probably fit one more sentence in?
+% Also, what should we do about citations?
+% High level optimizations of this nature are made available by set theory semantics within specification expressions. The goal of this project is to bring programming languages closer to modelling languages while remaining competitive at runtime.
+% Contrasting a conventional programming language with short circuiting operators and effects, 
+% specification-focused languages tend to follow set theory down to commutative boolean operations.
+
+% statements influenced by specification expressions follow set theory semantics down to commutative boolean operations. In turn, we apply mathematical theorems in a provable rewriting process
+
+% Our mathematical approach makes use of standard set theory and boolean operation commutativity.
+
+\vspace{-2.5ex}
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[]{.49 \textwidth}
+        \centering
+        \begin{algorithmic}
+            \State $meals := 0$
+            \For{$p,r$ {\bf in} $location$}
+                \If{$r = room$} 
+                    \For{$v,p'$ {\bf in} $attends$}
+                        \If{$p = p'$}
+                            \State $meals := meals + 1$
+                        \EndIf
+                    \EndFor
+                \EndIf
+            \EndFor        
+        \end{algorithmic}
+        \caption{Running time is $O(|location||attends|)$.}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[]{.49 \textwidth}
+        \centering
+        \begin{algorithmic}
+            \State $meals := 0$
+            \For{$v,p$ {\bf in} $attends$}
+                \If{$location[{p}] = room$}
+                    \State $meals := meals + 1$
+                \EndIf
+            \EndFor
+        \end{algorithmic}
+    \caption{If $location$ is a hashmap, the running time may be reduced to $O(|attends|)$.}
+    \end{subfigure}
+    \caption{Two implementations of query (3).}
+    \label{fig:visitorImpl}
+\end{figure}
+
+
+
+% \section{Introduction}
+
+% % \paragraph{What is the setting?} 
+% % Problem models (e.g. in UML, Event-B, Alloy) and software specifications (e.g. in Dafny, Frama-C) involve the use of sets, relations, functions, sequences, and bags. Programming languages support some operations on those, while modelling and specification languages may support more operations but are not executable. In this work, we investigate how from programs using the operations of Tables 1, 2, and 3. highly efficient implementations can be synthesized.
+% % Modelling problems, as in UML, Event-B, and Alloy, and specifying software, as in Dafny and Frama-C, involves the use of abstract data types, notably sets, sequences, maps, relations, and bags. 
+% %Software specification languages like UML, Event-B, Alloy, Dafny, and Frama-C often use abstract collection data types (ADTs) as a vehicle for modelling relationships between pieces of information. Sets, sequences, relations, and bags are all essential elements of a formal methods toolkit, with each type accompanied by an expressive set of operators and rich, universally agreed-upon semantics \cite{gries1993logical}. However, specifications are restrictive by nature, focused on proving correctness rather than providing an efficient runtime.
+% % Conversely, modern programming languages like Python, Go, Rust, JavaScript, and Haskell support some operations on some abstract data types, but tend to encourage the use of implementation-aware types like arrays and classes. In ongoing work, we analyze how a programming language can be extended with more operations on data types from which highly efficient implementations can be generated that guarantee bounds for runtime and memory consumption. In this short paper, we focus on the data types and operations of Table
+% System specifications in modelling languages (like UML, Event-B, and Alloy) and specification languages (such as Dafny and Frama-C) rely on abstract collection data types to describe properties and expected behaviour. Sets, sequences, relations, maps, and bags are all indispensable, each accompanied by an expressive set of operators. %and rich, universally agreed-upon semantics \cite{gries1993logical}.
+% Conversely, modern programming languages (like Python and Haskell) support only a subset of the those data types and operators, instead encouraging the use of implementation-aware types like arrays and classes. 
+% % In ongoing work, we investigate how programming languages can be extended with more operations on data types from which efficient implementations with guaranteed bounds for runtime and memory consumption can be generated. 
+% In ongoing work, we investigate how programming languages can be extended with more operations on data types. We seek to synthesize efficient implementations of data type operations with guaranteed bounds for runtime and memory consumption.
+% Our focus is on those of Table~\ref{tab:ADTOps}, which are a subset of Event-B data types~\cite{abrial2010modeling}. Relations are sets of pairs, and functions are functional relations.
+
+
+% \section{Discussion}
+
+% % Term rewrite rules have historically been used for code generation. For example, \cite{elco1998building} devises a tactic language for applying rules and~\cite{peytonjones2001playing} allows programmers to specify rewrite rules for the GHC compiler. In this work, the programmer only specifies the data type implementation; the built in rewrite rules are specifically designed to guarantee runtime and memory consumption. Rewrite rules can also be used for source-to-source transformation like refactoring or transpiling. These have to be specified explicitly, and the result is again human-readable. Here, we apply the rules automatically, without the need for the result to be comprehensible. Specware allows algorithmic and data refinement transformations to be applied to specifications; the user has to make the design decisions. Our goal is more modest, as we only consider operations on data types, but intend to apply the transformations automatically. Relational databases provide query optimizations for the relational data model; here, we support modelling data types with arbitrary combinations of operations on those. The goal of this project is to bring programming languages closer to modelling languages.
+
+% % Should some of this be in the introduction looking at previous work? Ex. relational database info would go well with paragraph 2
+% Term rewriting has been used for optimization and code generation: \cite{elco1998building} devises a tactic language for applying rules, and~\cite{peytonjones2001playing} allows programmers to specify rewrite rules for GHC. In our work, programmers need only specify the data type implementation; a fixed set of rewrite rules guarantees predictable run times and memory consumption. 
+% Rewrite rules have also been used for source-to-source transformation, like refactoring and transpiling. The rules aim to generate human-readable code. Here, the rules aim at efficiency without the need for the result to be comprehensible. 
+
+% In Specware, algorithmic and data refinement transformations can be applied to axiomatic specifications; in~\cite{SmithWestfold20GeneratingTypeRefinements}, this is extended to inductively and co-inductively specified data types. Here, the data types are fixed, and we only consider automatically generating implementations of complex expressions. Relational databases provide query optimizations for the relational data model. Here, we support a wider range of modelling data types with an arbitrary combination of operations. The goal of this project is to bring programming languages closer to modelling languages while remaining competitive at runtime.
+
+
+
+
+
+
+% \begin{credits}
+% \subsubsection{\ackname} We acknowledge the support of the Natural Sciences and Engineering Research Council of Canada (NSERC), [grant RGPIN-2024-06779].
+% \end{credits}
+
+%
+% ---- Bibliography ----
+%
+% BibTeX users should specify bibliography style 'splncs04'.
+% References will then be sorted and formatted in the correct style.
+\printbibliography
+\end{document}
