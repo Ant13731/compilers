@@ -30,7 +30,6 @@ from src.mod.ast_.ast_nodes import (
     False_,
     None_,
     #
-    IdentList,
     BinaryOp,
     RelationOp,
     UnaryOp,
@@ -169,6 +168,7 @@ from src.mod.ast_.symbol_table_types import (
     SimileType,
     SimileTypeError,
     BaseSimileType,
+    TupleType,
     PairType,
     SetType,
     StructTypeDef,
@@ -179,7 +179,6 @@ from src.mod.ast_.symbol_table_types import (
     ModuleImports,
     GenericType,
     RelationSubTypeMask,
-    TupleType,
     # InstanceOfDef,
 )
 from src.mod.ast_.symbol_table_env import (

@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, fields, field
-from typing import Generator, Any, TypeVar, Callable
+from typing import Generator, Any, Generic, TypeVar, Callable
 from functools import wraps
 
 from src.mod.scanner import Location
@@ -240,36 +240,6 @@ class Identifier(ASTNode):
 
 
 @dataclass
-class MapletIdentifier(ASTNode):
-    # TODO remove
-    """Special variation of maplet used for binding loop and quantification variables (also hashable)"""
-
-    left: IdentifierListTypes
-    right: IdentifierListTypes
-
-    def __hash__(self) -> int:
-        return hash((self.left, self.right))
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, MapletIdentifier):
-            return False
-        return self.left == other.left and self.right == other.right
-
-    @property
-    def free(self) -> set[Identifier]:
-        return self.flatten()
-
-    def _get_type(self) -> SimileType:
-        return PairType(self.left.get_type, self.right.get_type)
-
-    def _pretty_print_algorithmic(self, indent: int) -> str:
-        return f"{self.left._pretty_print_algorithmic(indent)} ↦ {self.right._pretty_print_algorithmic(indent)}"
-
-    def flatten(self) -> set[Identifier]:
-        return self.left.flatten() | self.right.flatten()
-
-
-@dataclass
 class TupleIdentifier(ASTNode):
     """Special variation of tuple used for binding loop and quantification variables (also hashable)"""
 
@@ -296,7 +266,7 @@ class TupleIdentifier(ASTNode):
         return True
 
     def _get_type(self) -> SimileType:
-        return TupleType(map(lambda x: x.get_type, self.items))
+        return TupleType(tuple(map(lambda x: x.get_type, self.items)))
 
     def _pretty_print_algorithmic(self, indent: int) -> str:
         return f"({', '.join(item._pretty_print_algorithmic(indent) for item in self.items)})"
@@ -321,6 +291,56 @@ class TupleIdentifier(ASTNode):
     @classmethod
     def from_maplet(cls, left: IdentifierListTypes, right: IdentifierListTypes):
         return cls((left, right))
+
+
+L = TypeVar("L", bound=Identifier | TupleIdentifier | "MapletIdentifier")
+R = TypeVar("R", bound=Identifier | TupleIdentifier | "MapletIdentifier")
+
+
+@dataclass
+class MapletIdentifier(TupleIdentifier, Generic[L, R]):
+    """Special variation of maplet used for binding loop and quantification variables (also hashable)"""
+
+    def __init__(self, left: L, right: R) -> None:
+        super().__init__((left, right))
+
+    @property
+    def left(self) -> L:
+        # python cant handle generic tuples just yet, so just ignore the type checker here
+        return self.items[0]  # type: ignore
+
+    @left.setter
+    def left(self, value: L) -> None:
+        self.items = (value, self.items[1])
+
+    @property
+    def right(self) -> R:
+        return self.items[1]  # type: ignore
+
+    @right.setter
+    def right(self, value: R) -> None:
+        self.items = (self.items[0], value)
+
+    def __hash__(self) -> int:
+        return hash((self.left, self.right))
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, MapletIdentifier):
+            return False
+        return self.left == other.left and self.right == other.right
+
+    @property
+    def free(self) -> set[Identifier]:
+        return self.flatten()
+
+    def _get_type(self) -> SimileType:
+        return PairType(self.left.get_type, self.right.get_type)
+
+    def _pretty_print_algorithmic(self, indent: int) -> str:
+        return f"{self.left._pretty_print_algorithmic(indent)} ↦ {self.right._pretty_print_algorithmic(indent)}"
+
+    def flatten(self) -> set[Identifier]:
+        return self.left.flatten() | self.right.flatten()
 
 
 IdentifierListTypes = Identifier | MapletIdentifier | TupleIdentifier

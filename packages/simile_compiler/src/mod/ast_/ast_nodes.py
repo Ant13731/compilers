@@ -98,49 +98,49 @@ class None_(ASTNode):
         return "None"
 
 
-@dataclass
-class IdentList(ASTNode):
-    items: list[Identifier | IdentList | MapletIdentifier]  # This binaryop can only be a maplet
+# @dataclass
+# class IdentList(ASTNode):
+#     items: list[Identifier | IdentList | MapletIdentifier]  # This binaryop can only be a maplet
 
-    @property
-    def free(self) -> set[Identifier]:
-        return self.flatten()
+#     @property
+#     def free(self) -> set[Identifier]:
+#         return self.flatten()
 
-    def well_formed(self) -> bool:
-        identifiers = self.find_all_instances(Identifier)
-        for i in range(len(identifiers)):
-            for j in range(i + 1, len(identifiers)):
-                if identifiers[i] == identifiers[j]:
-                    return False
-        return True
+#     def well_formed(self) -> bool:
+#         identifiers = self.find_all_instances(Identifier)
+#         for i in range(len(identifiers)):
+#             for j in range(i + 1, len(identifiers)):
+#                 if identifiers[i] == identifiers[j]:
+#                     return False
+#         return True
 
-    def _get_type(self) -> SimileType:
-        return SetType(
-            element_type=PairType(
-                left=BaseSimileType.Int,
-                right=type_union(*map(lambda x: x.get_type, self.items)),
-            ),
-        )
+#     def _get_type(self) -> SimileType:
+#         return SetType(
+#             element_type=PairType(
+#                 left=BaseSimileType.Int,
+#                 right=type_union(*map(lambda x: x.get_type, self.items)),
+#             ),
+#         )
 
-    def _pretty_print_algorithmic(self, indent: int) -> str:
-        return ", ".join(item._pretty_print_algorithmic(indent) for item in self.items)
+#     def _pretty_print_algorithmic(self, indent: int) -> str:
+#         return ", ".join(item._pretty_print_algorithmic(indent) for item in self.items)
 
-    def flatten(self) -> set[Identifier]:
-        ret: set[Identifier] = set()
-        for item in self.items:
-            ret |= item.flatten()
-        return ret
+#     def flatten(self) -> set[Identifier]:
+#         ret: set[Identifier] = set()
+#         for item in self.items:
+#             ret |= item.flatten()
+#         return ret
 
-    def flatten_until_leaf_node(self) -> list[Identifier | MapletIdentifier]:
-        ret: list[Identifier | MapletIdentifier] = []
-        for item in self.items:
-            if isinstance(item, MapletIdentifier):
-                ret.append(item)
-            elif isinstance(item, IdentList):
-                ret.extend(item.flatten_until_leaf_node())
-            else:
-                ret.append(item)
-        return ret
+#     def flatten_until_leaf_node(self) -> list[Identifier | MapletIdentifier]:
+#         ret: list[Identifier | MapletIdentifier] = []
+#         for item in self.items:
+#             if isinstance(item, MapletIdentifier):
+#                 ret.append(item)
+#             elif isinstance(item, IdentList):
+#                 ret.extend(item.flatten_until_leaf_node())
+#             else:
+#                 ret.append(item)
+#         return ret
 
 
 class InheritedEqMixin:
@@ -692,7 +692,7 @@ class Quantifier(ASTNode):
         ]
 
         if self._bound_identifiers:
-            check_list += [IdentList(list(self._bound_identifiers)).well_formed()]
+            check_list += [TupleIdentifier(tuple(self._bound_identifiers)).well_formed()]
 
         if self._bound_identifiers:
             check_list += [

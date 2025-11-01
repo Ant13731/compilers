@@ -89,25 +89,11 @@ class GenericType(SubstituteSimileTypeAddon):
 
 
 @dataclass(frozen=True)
-class PairType(Generic[L, R], SubstituteSimileTypeAddon):
-    """Maplet type"""
-
-    # TODO remove
-
-    left: L
-    right: R
-
-    def _substitute_eq(self, other: SimileType, mapping: dict[str, SimileType]) -> bool:
-        if not isinstance(other, PairType):
-            return False
-        return self.left.substitute_eq(other.left, mapping) and self.right.substitute_eq(other.right, mapping)
-
-
-@dataclass(frozen=True)
-class TupleType[*Ts](SubstituteSimileTypeAddon):
-    items: tuple[*Ts]
+class TupleType(SubstituteSimileTypeAddon):
+    items: tuple[SimileType, ...]
 
     def __post__init__(self):
+        super().__post_init__()
         for item in self.items:
             if not isinstance(item, SimileType):
                 raise TypeError(f"TupleType items must be SimileType instances, got {type(item)}")
@@ -118,10 +104,32 @@ class TupleType[*Ts](SubstituteSimileTypeAddon):
         if len(self.items) != len(other.items):
             return False
 
-        for f, o in zip(cast(list[SimileType], self.items), cast(list[SimileType], other.items)):
+        for f, o in zip(self.items, other.items):
             if not f.substitute_eq(o, mapping):
                 return False
         return True
+
+
+@dataclass(frozen=True)
+class PairType(Generic[L, R], TupleType):
+    """Maplet type"""
+
+    def __init__(self, left: L, right: R) -> None:
+        super().__init__((left, right))
+
+    @property
+    def left(self) -> L:
+        # python cant handle generic tuples just yet, so just ignore the type checker here
+        return self.items[0]  # type: ignore
+
+    @property
+    def right(self) -> R:
+        return self.items[1]  # type: ignore
+
+    def _substitute_eq(self, other: SimileType, mapping: dict[str, SimileType]) -> bool:
+        if not isinstance(other, PairType):
+            return False
+        return self.left.substitute_eq(other.left, mapping) and self.right.substitute_eq(other.right, mapping)
 
 
 @dataclass(frozen=True)
@@ -356,4 +364,6 @@ class DeferToSymbolTable(SubstituteSimileTypeAddon):
     """Identifier to look up in table"""
 
 
-SimileType = BaseSimileType | PairType | StructTypeDef | EnumTypeDef | ProcedureTypeDef | TypeUnion | ModuleImports | DeferToSymbolTable | SetType | GenericType  # | InstanceOfDef
+SimileType = (
+    BaseSimileType | PairType | StructTypeDef | EnumTypeDef | ProcedureTypeDef | TypeUnion | ModuleImports | DeferToSymbolTable | SetType | GenericType | TupleType
+)  # | InstanceOfDef
