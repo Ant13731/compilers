@@ -332,7 +332,7 @@ class RustCodeGenerator(CodeGenerator):
         return f"if {self._generate_code(ast.condition)} {{{self._generate_code(ast.body)}}} {self._generate_code(ast.else_body)}"
 
     @_generate_code.register
-    def _(self, ast: ast_.Elif) -> str:
+    def _(self, ast: ast_.Else) -> str:
         if isinstance(ast.else_body, ast_.None_):
             return f"else if {self._generate_code(ast.condition)} {{{self._generate_code(ast.body)}}}"
         return f"else if {self._generate_code(ast.condition)} {{{self._generate_code(ast.body)}}} {self._generate_code(ast.else_body)}"
@@ -358,7 +358,7 @@ class RustCodeGenerator(CodeGenerator):
         return f"while {self._generate_code(ast.condition)} {{{self._generate_code(ast.body)}}}"
 
     @_generate_code.register
-    def _(self, ast: ast_.StructDef) -> str:
+    def _(self, ast: ast_.RecordDef) -> str:
         self.new_symbol_table.put(self._generate_code(ast.name), "struct_definition")
 
         fields = "; ".join(f"{self._generate_code(field.type_)} {field.name}" for field in ast.items)

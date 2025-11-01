@@ -35,7 +35,7 @@ TEST_ASTS = [
     ),
     ast_.Statements(
         [
-            ast_.StructDef(
+            ast_.RecordDef(
                 ast_.Identifier("TestStruct"),
                 [
                     ast_.TypedName(ast_.Identifier("a"), ast_.Type_(ast_.Identifier("int"))),
@@ -56,14 +56,14 @@ TEST_ASTS = [
     ),
     ast_.Statements(
         [
-            ast_.StructDef(
+            ast_.RecordDef(
                 ast_.Identifier("TestStruct"),
                 [
                     ast_.TypedName(ast_.Identifier("a"), ast_.Type_(ast_.Identifier("int"))),
                     ast_.TypedName(ast_.Identifier("b"), ast_.Type_(ast_.Identifier("str"))),
                 ],
             ),
-            ast_.StructDef(
+            ast_.RecordDef(
                 ast_.Identifier("TestStructTwo"),
                 [
                     ast_.TypedName(ast_.Identifier("c"), ast_.Type_(ast_.Identifier("TestStruct"))),

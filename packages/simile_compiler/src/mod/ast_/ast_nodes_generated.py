@@ -30,11 +30,6 @@ class Implies(BinaryOp):
 
 
 @dataclass
-class RevImplies(BinaryOp):
-    op_type: BinaryOperator = BinaryOperator.REV_IMPLIES
-
-
-@dataclass
 class Equivalent(BinaryOp):
     op_type: BinaryOperator = BinaryOperator.EQUIVALENT
 
@@ -225,6 +220,16 @@ class RangeRestriction(BinaryOp):
 
 
 @dataclass
+class Concat(BinaryOp):
+    op_type: BinaryOperator = BinaryOperator.CONCAT
+
+
+@dataclass
+class IntDivide(BinaryOp):
+    op_type: BinaryOperator = BinaryOperator.INT_DIVIDE
+
+
+@dataclass
 class Relation(RelationOp):
     op_type: RelationOperator = RelationOperator.RELATION
 
@@ -325,8 +330,8 @@ class Continue(ControlFlowStmt):
 
 
 @dataclass
-class Pass(ControlFlowStmt):
-    op_type: ControlFlowOperator = ControlFlowOperator.PASS
+class Skip(ControlFlowStmt):
+    op_type: ControlFlowOperator = ControlFlowOperator.SKIP
 
 
 @dataclass

@@ -3,7 +3,13 @@ from dataclasses import dataclass, field, Field, fields, is_dataclass
 from typing import Callable, ClassVar, Any, Self, Container
 
 
-from src.mod.ast_.ast_node_base import ASTNode, Identifier, MapletIdentifier
+from src.mod.ast_.ast_node_base import (
+    ASTNode,
+    Identifier,
+    MapletIdentifier,
+    TupleIdentifier,
+    IdentifierListTypes,
+)
 from src.mod.ast_.ast_node_operators import (
     BinaryOperator,
     RelationOperator,
@@ -211,7 +217,7 @@ class BinaryOp(InheritedEqMixin, ASTNode):
         l_type = self.left.get_type
         r_type = self.right.get_type
         match self.op_type:
-            case BinaryOperator.IMPLIES | BinaryOperator.REV_IMPLIES | BinaryOperator.EQUIVALENT | BinaryOperator.NOT_EQUIVALENT:
+            case BinaryOperator.IMPLIES | BinaryOperator.EQUIVALENT | BinaryOperator.NOT_EQUIVALENT:
                 if not (l_type == BaseSimileType.Bool and r_type == BaseSimileType.Bool):
                     raise SimileTypeError(f"Invalid types for logical binary operation: {l_type}, {r_type}", self)
                 return BaseSimileType.Bool
@@ -809,35 +815,36 @@ class Type_(ASTNode):
 
 @dataclass
 class LambdaDef(ASTNode):
-    params: list[Identifier]
+    params: TupleIdentifier
     predicate: ASTNode
     expression: ASTNode
 
     @property
     def bound(self) -> set[Identifier]:
-        return set(self.params) | self.predicate.bound | self.expression.bound
+        return set(self.params.free) | self.predicate.bound | self.expression.bound
 
     @property
     def free(self) -> set[Identifier]:
-        return (self.predicate.free | self.expression.free) - set(self.params)
+        return (self.predicate.free | self.expression.free) - set(self.params.free)
 
     def well_formed(self) -> bool:
         return all(
             [
-                all(param.well_formed() for param in self.params),
+                all(param.well_formed() for param in self.params.free),
                 self.predicate.well_formed(),
                 self.expression.well_formed(),
                 self.predicate.bound.isdisjoint(self.expression.free),
                 self.expression.bound.isdisjoint(self.predicate.free),
                 self.predicate.bound.isdisjoint(self.expression.bound),
-                self.predicate.bound.isdisjoint(set(self.params)),
-                self.expression.bound.isdisjoint(set(self.params)),
+                self.predicate.bound.isdisjoint(set(self.params.free)),
+                self.expression.bound.isdisjoint(set(self.params.free)),
             ]
         )
 
     def _get_type(self) -> SimileType:
         arg_types = {}
-        for arg in self.params:
+        for arg in self.params.items:
+            assert isinstance(arg, Identifier), "LambdaDef parameters must be Identifiers"
             arg_types[arg.name] = arg.get_type
 
         return ProcedureTypeDef(
@@ -846,7 +853,7 @@ class LambdaDef(ASTNode):
         )
 
     def _pretty_print_algorithmic(self, indent: int) -> str:
-        args_str = ", ".join(arg._pretty_print_algorithmic(indent) for arg in self.params)
+        args_str = self.params._pretty_print_algorithmic(indent)
         predicate_str = self.predicate._pretty_print_algorithmic(indent)
         expression_str = self.expression._pretty_print_algorithmic(indent)
         return f"λ {args_str} · {predicate_str} | {expression_str}"
@@ -974,12 +981,20 @@ class TypedName(ASTNode):
 class Assignment(ASTNode):
     target: ASTNode
     value: ASTNode
+    with_clauses: list[ASTNode]
+    choice_assignment: bool
 
     def _get_type(self) -> SimileType:
         return BaseSimileType.None_
 
     def _pretty_print_algorithmic(self, indent):
-        return f"{self.target._pretty_print_algorithmic(indent)} := {self.value._pretty_print_algorithmic(indent)}"
+        with_clause_str = ""
+        if self.with_clauses:
+            with_clause_str = "\n    with" + "\n    with".join(clause._pretty_print_algorithmic(indent) for clause in self.with_clauses)
+
+        if self.choice_assignment:
+            return f"{self.target._pretty_print_algorithmic(indent)} :∈ {self.value._pretty_print_algorithmic(indent)}{with_clause_str}"
+        return f"{self.target._pretty_print_algorithmic(indent)} := {self.value._pretty_print_algorithmic(indent)}{with_clause_str}"
 
 
 @dataclass
@@ -1032,7 +1047,7 @@ class Else(ASTNode):
 class If(ASTNode):
     condition: ASTNode
     body: ASTNode | Statements
-    else_body: Elif | Else | None_ = field(default_factory=None_)
+    else_body: ElseIf | Else | None_ = field(default_factory=None_)
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -1053,16 +1068,16 @@ class If(ASTNode):
 
 
 @dataclass
-class Elif(ASTNode):
+class ElseIf(ASTNode):
     condition: ASTNode
     body: ASTNode | Statements
-    else_body: Elif | Else | None_ = field(default_factory=None_)
+    else_body: ElseIf | Else | None_ = field(default_factory=None_)
 
     def _get_type(self) -> SimileType:
         return BaseSimileType.None_
 
     def _pretty_print_algorithmic(self, indent: int) -> str:
-        ret = f"elif {self.condition._pretty_print_algorithmic(indent)}:\n"
+        ret = f"else if {self.condition._pretty_print_algorithmic(indent)}:\n"
         ret += f"{'\t' * (indent + 1)}{self.body._pretty_print_algorithmic(indent + 1)}"
         ret += "\n"
         if isinstance(self.else_body, None_):
@@ -1073,7 +1088,7 @@ class Elif(ASTNode):
 
 @dataclass
 class For(ASTNode):
-    iterable_names: IdentList
+    iterable_names: TupleIdentifier
     iterable: ASTNode
     body: ASTNode | Statements
 
@@ -1106,7 +1121,7 @@ class While(ASTNode):
 
 
 @dataclass
-class StructDef(ASTNode):
+class RecordDef(ASTNode):
     name: Identifier
     items: list[TypedName]
 
@@ -1159,7 +1174,7 @@ class ImportAll(ASTNode):
 @dataclass
 class Import(ASTNode):
     module_file_path: str
-    import_objects: IdentList | None_ | ImportAll
+    import_objects: TupleIdentifier | None_ | ImportAll
 
     def _get_type(self) -> SimileType:
         return BaseSimileType.None_
@@ -1188,4 +1203,4 @@ Predicate = Quantifier | BinaryOp | UnaryOp | True_ | False_
 Primary = StructAccess | Call | Image | Literal | Enumeration | Quantifier | Identifier
 Expr = LambdaDef | Quantifier | Predicate | BinaryOp | UnaryOp | ListOp | Primary | Identifier
 SimpleStmt = Expr | Assignment | ControlFlowStmt | Import
-CompoundStmt = If | For | StructDef | ProcedureDef
+CompoundStmt = If | For | RecordDef | ProcedureDef

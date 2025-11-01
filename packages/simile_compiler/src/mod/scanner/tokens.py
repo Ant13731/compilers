@@ -27,7 +27,7 @@ class TokenType(Enum):
 
     # Notation
     ASSIGN = auto()
-    NONDETERMINISTIC_MEMBERSHIP_ASSIGN = auto()
+    CHOICE_ASSIGN = auto()  # nondeterministic choice assignment - hilbert's choice
     CDOT = auto()
     DOT = auto()
     COMMA = auto()
@@ -39,22 +39,22 @@ class TokenType(Enum):
 
     # Keywords
     IF = auto()
-    ELIF = auto()
+    # ELIF = auto()
     ELSE = auto()
     FOR = auto()  # purposefully no while loop?
     WHILE = auto()
 
-    STRUCT = auto()
+    RECORD = auto()
     ENUM = auto()
 
-    DEF = auto()
+    PROCEDURE = auto()
     RIGHTARROW = auto()
     LAMBDA = auto()
 
     RETURN = auto()
     BREAK = auto()
     CONTINUE = auto()
-    PASS = auto()
+    SKIP = auto()
     WITH = auto()
 
     # Brackets
@@ -77,9 +77,7 @@ class TokenType(Enum):
     AND = auto()
     OR = auto()
     NOT = auto()
-    BANG = auto()
     IMPLIES = auto()
-    REV_IMPLIES = auto()
     EQUIVALENT = auto()
     NOT_EQUIVALENT = auto()
 
@@ -91,6 +89,7 @@ class TokenType(Enum):
     MINUS = auto()
     MULT = auto()  # multiply
     DIV = auto()  # divide
+    INT_DIV = auto()
     MOD = auto()  # mod
     EXPONENT = auto()  # exponentiation
 
@@ -109,8 +108,6 @@ class TokenType(Enum):
     CARTESIAN_PRODUCT = auto()
     POWERSET = auto()
     NONEMPTY_POWERSET = auto()
-    # CARDINALITY = auto()
-    # TILDE = auto()  # set complement
 
     SUBSET = auto()
     SUBSET_EQ = auto()
@@ -149,15 +146,8 @@ class TokenType(Enum):
     TOTAL_SURJECTION = auto()
     BIJECTION = auto()
 
-    # direct/parallel product??
-
-    # Sequences
     UPTO = auto()
-
-    # Common sets
-    # NATURAL_NUMBERS = auto()
-    # POSITIVE_INTEGERS = auto()
-    # INTEGERS = auto()
+    CONCAT = auto()
 
     def __repr__(self) -> str:
         return f"TokenType.{self.name}"
@@ -167,7 +157,6 @@ class TokenType(Enum):
 
 
 OPERATOR_TOKEN_TABLE = {
-    ":=": TokenType.ASSIGN,
     "·": TokenType.CDOT,
     ".": TokenType.DOT,
     ",": TokenType.COMMA,
@@ -175,11 +164,14 @@ OPERATOR_TOKEN_TABLE = {
     ";": TokenType.SEMICOLON,
     "|": TokenType.VBAR,
     "λ": TokenType.LAMBDA,
-    "->": TokenType.RIGHTARROW,
     "(": TokenType.L_PAREN,
     ")": TokenType.R_PAREN,
+    "⟨": TokenType.L_BRACKET,
     "[": TokenType.L_BRACKET,
+    "<<": TokenType.L_BRACKET,
+    "⟩": TokenType.R_BRACKET,
     "]": TokenType.R_BRACKET,
+    ">>": TokenType.R_BRACKET,
     "{": TokenType.L_BRACE,
     "}": TokenType.R_BRACE,
     "⟦": TokenType.L_DOUBLE_BRACKET,
@@ -191,29 +183,28 @@ OPERATOR_TOKEN_TABLE = {
     "=": TokenType.EQUALS,
     "≠": TokenType.NOT_EQUALS,
     "!=": TokenType.NOT_EQUALS,
-    "!": TokenType.BANG,
+    "¬": TokenType.NOT,
+    "!": TokenType.NOT,
     "∧": TokenType.AND,
     "∨": TokenType.OR,
-    "¬": TokenType.NOT,
     "⇒": TokenType.IMPLIES,
     "==>": TokenType.IMPLIES,
-    "⇐": TokenType.REV_IMPLIES,
-    "<==": TokenType.REV_IMPLIES,
-    "⇔": TokenType.EQUIVALENT,
-    "<==>": TokenType.EQUIVALENT,
+    # "⇐": TokenType.REV_IMPLIES,
+    # "<==": TokenType.REV_IMPLIES,
+    # "⇔": TokenType.EQUIVALENT,
+    # "<==>": TokenType.EQUIVALENT,
     "≡": TokenType.EQUIVALENT,
+    "==": TokenType.EQUIVALENT,
     "≢": TokenType.NOT_EQUIVALENT,
-    "<=!=>": TokenType.NOT_EQUIVALENT,
+    "!==": TokenType.NOT_EQUIVALENT,
     "∀": TokenType.FORALL,
     "∃": TokenType.EXISTS,
     "+": TokenType.PLUS,
     "-": TokenType.MINUS,
     "*": TokenType.MULT,
-    "÷": TokenType.DIV,
     "/": TokenType.DIV,
-    "%": TokenType.MOD,
-    "**": TokenType.EXPONENT,
     "^": TokenType.EXPONENT,
+    # "**": TokenType.EXPONENT,
     "<": TokenType.LT,
     "≤": TokenType.LE,
     "<=": TokenType.LE,
@@ -230,29 +221,31 @@ OPERATOR_TOKEN_TABLE = {
     "\\": TokenType.SET_DIFFERENCE,
     "×": TokenType.CARTESIAN_PRODUCT,
     "><": TokenType.CARTESIAN_PRODUCT,
-    "⊆": TokenType.SUBSET_EQ,
-    "<:": TokenType.SUBSET_EQ,
     "⊂": TokenType.SUBSET,
     "<<:": TokenType.SUBSET,
-    "⊇": TokenType.SUPERSET_EQ,
-    ":>": TokenType.SUPERSET_EQ,
+    "⊆": TokenType.SUBSET_EQ,
+    "<:": TokenType.SUBSET_EQ,
     "⊃": TokenType.SUPERSET,
     ":>>": TokenType.SUPERSET,
-    "⊈": TokenType.NOT_SUBSET_EQ,
+    "⊇": TokenType.SUPERSET_EQ,
+    ":>": TokenType.SUPERSET_EQ,
     "⊄": TokenType.NOT_SUBSET,
-    "⊉": TokenType.NOT_SUPERSET_EQ,
-    "⊅": TokenType.NOT_SUPERSET,
-    "!<:": TokenType.NOT_SUBSET_EQ,
     "!<<:": TokenType.NOT_SUBSET,
-    "!:>": TokenType.NOT_SUPERSET_EQ,
+    "⊈": TokenType.NOT_SUBSET_EQ,
+    "!<:": TokenType.NOT_SUBSET_EQ,
+    "⊅": TokenType.NOT_SUPERSET,
     "!:>>": TokenType.NOT_SUPERSET,
+    "⊉": TokenType.NOT_SUPERSET_EQ,
+    "!:>": TokenType.NOT_SUPERSET_EQ,
     "⋃": TokenType.GENERAL_UNION,
     "⋂": TokenType.GENERAL_INTERSECTION,
     "↦": TokenType.MAPLET,
     "|->": TokenType.MAPLET,
-    "": TokenType.RELATION_OVERRIDING,
-    "<+": TokenType.RELATION_OVERRIDING,  # TODO unicode version
+    "⊕": TokenType.RELATION_OVERRIDING,
+    "<+>": TokenType.RELATION_OVERRIDING,
     "∘": TokenType.COMPOSITION,
+    "⧺": TokenType.CONCAT,
+    "++": TokenType.CONCAT,
     "⁻¹": TokenType.INVERSE,
     "~": TokenType.INVERSE,
     "◁": TokenType.DOMAIN_RESTRICTION,
@@ -265,12 +258,12 @@ OPERATOR_TOKEN_TABLE = {
     "|>>": TokenType.RANGE_SUBTRACTION,
     "↔": TokenType.RELATION,
     "<->": TokenType.RELATION,
-    "": TokenType.TOTAL_RELATION,
     "<<->": TokenType.TOTAL_RELATION,  # TODO unicode version
-    "": TokenType.SURJECTIVE_RELATION,
+    "": TokenType.TOTAL_RELATION,
     "<->>": TokenType.SURJECTIVE_RELATION,  # TODO unicode version
-    "": TokenType.TOTAL_SURJECTIVE_RELATION,
+    "": TokenType.SURJECTIVE_RELATION,
     "<<->>": TokenType.TOTAL_SURJECTIVE_RELATION,  # TODO unicode version
+    "": TokenType.TOTAL_SURJECTIVE_RELATION,
     "⇸": TokenType.PARTIAL_FUNCTION,
     "+->": TokenType.PARTIAL_FUNCTION,
     "→": TokenType.TOTAL_FUNCTION,
@@ -291,47 +284,50 @@ OPERATOR_TOKEN_TABLE = {
     "ℤ": TokenType.IDENTIFIER,
     "ℕ": TokenType.IDENTIFIER,
     "ℕ₁": TokenType.IDENTIFIER,
+    "≔": TokenType.ASSIGN,
+    ":=": TokenType.ASSIGN,
+    ":∈": TokenType.CHOICE_ASSIGN,
+    "::": TokenType.CHOICE_ASSIGN,
+    "→": TokenType.RIGHTARROW,
+    "->": TokenType.RIGHTARROW,
 }
 
 KEYWORD_TABLE = {
     # Primitive objects
     "True": TokenType.TRUE,
     "False": TokenType.FALSE,
-    "None": TokenType.NONE,
+    # "None": TokenType.NONE,
     # Programming constructs
     "if": TokenType.IF,
-    "elif": TokenType.ELIF,
     "else": TokenType.ELSE,
     "for": TokenType.FOR,
     "while": TokenType.WHILE,
-    "struct": TokenType.STRUCT,
+    "record": TokenType.RECORD,
     "enum": TokenType.ENUM,
-    "def": TokenType.DEF,
+    "procedure": TokenType.PROCEDURE,
     "is": TokenType.IS,
     "is not": TokenType.IS_NOT,
     "return": TokenType.RETURN,
     "break": TokenType.BREAK,
     "continue": TokenType.CONTINUE,
-    "circ": TokenType.COMPOSITION,
     "from": TokenType.FROM,
     "import": TokenType.IMPORT,
-    "pass": TokenType.PASS,
+    "skip": TokenType.SKIP,
+    "with": TokenType.WITH,
     # Aliases for above symbols
-    "forall": TokenType.FORALL,
-    "exists": TokenType.EXISTS,
-    "in": TokenType.IN,
-    "not in": TokenType.NOT_IN,
+    "lambda": TokenType.LAMBDA,
+    "not": TokenType.NOT,
     "and": TokenType.AND,
     "or": TokenType.OR,
-    "not": TokenType.NOT,
-    "lambda": TokenType.LAMBDA,
-    "union_all": TokenType.GENERAL_UNION,
-    "intersection_all": TokenType.GENERAL_INTERSECTION,
+    "forall": TokenType.FORALL,
+    "exists": TokenType.EXISTS,
+    "div": TokenType.INT_DIV,
+    "mod": TokenType.MOD,
+    "in": TokenType.IN,
+    "not in": TokenType.NOT_IN,
+    "union": TokenType.GENERAL_UNION,
+    "intersection": TokenType.GENERAL_INTERSECTION,
+    "circ": TokenType.COMPOSITION,
     "powerset": TokenType.POWERSET,
     "powerset1": TokenType.NONEMPTY_POWERSET,
-    # "card": TokenType.CARDINALITY,
-    # "fst": TokenType.FIRST,
-    # "proj1": TokenType.FIRST,
-    # "snd": TokenType.SECOND,
-    # "proj2": TokenType.SECOND,
 }

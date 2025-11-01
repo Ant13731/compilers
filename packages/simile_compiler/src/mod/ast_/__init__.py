@@ -3,6 +3,7 @@ from src.mod.ast_.ast_node_base import (
     Identifier,
     MapletIdentifier,
     TupleIdentifier,
+    IdentifierListTypes,
 )
 from src.mod.ast_.dataclass_helpers import (
     dataclass_traverse,
@@ -48,10 +49,10 @@ from src.mod.ast_.ast_nodes import (
     Statements,
     Else,
     If,
-    Elif,
+    ElseIf,
     For,
     While,
-    StructDef,
+    RecordDef,
     ProcedureDef,
     ImportAll,
     Import,
@@ -65,7 +66,6 @@ from src.mod.ast_.ast_nodes import (
 )
 from src.mod.ast_.ast_nodes_generated import (
     Implies,
-    RevImplies,
     Equivalent,
     NotEquivalent,
     #
@@ -73,6 +73,7 @@ from src.mod.ast_.ast_nodes_generated import (
     Subtract,
     Multiply,
     Divide,
+    IntDivide,
     Modulo,
     Exponent,
     #
@@ -106,6 +107,7 @@ from src.mod.ast_.ast_nodes_generated import (
     Composition,
     CartesianProduct,
     Upto,
+    Concat,
     #
     DomainSubtraction,
     DomainRestriction,
@@ -149,7 +151,7 @@ from src.mod.ast_.ast_nodes_generated import (
     #
     Break,
     Continue,
-    Pass,
+    Skip,
     #
     #
     SequenceEnumeration,

@@ -114,7 +114,7 @@ struct A:
     a: int,
     b: str, d: int
     c: float
-""": StructDef(
+""": RecordDef(
                 Identifier("A"),
                 [
                     TypedName(Identifier("a"), Type_(Identifier("int"))),
@@ -192,7 +192,7 @@ else:
                         Call(Identifier("print"), [String("a is greater")]),
                     ]
                 ),
-                else_body=Elif(
+                else_body=Else(
                     condition=LessThan(Identifier("a"), Identifier("b"), op_type=BinaryOperator.LESS_THAN),
                     body=Statements(
                         [

@@ -116,7 +116,7 @@ def _populate_ast_environments_aux(node: ast_.ASTNode) -> None:
             for child in body.children(True):
                 _populate_ast_environments_aux(child)
 
-        case ast_.StructDef(ast_.Identifier(name), items):
+        case ast_.RecordDef(ast_.Identifier(name), items):
             fields: dict[str, SimileType] = {}
             for item in items:
                 if not isinstance(item.name, ast_.Identifier):

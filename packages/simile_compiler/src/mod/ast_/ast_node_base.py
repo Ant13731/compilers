@@ -6,7 +6,7 @@ from functools import wraps
 from src.mod.scanner import Location
 from src.mod.ast_.ast_node_operators import Operators
 from src.mod.ast_.dataclass_helpers import dataclass_traverse, dataclass_find_and_replace
-from src.mod.ast_.symbol_table_types import SimileType, DeferToSymbolTable, SimileTypeError, PairType
+from src.mod.ast_.symbol_table_types import SimileType, DeferToSymbolTable, SimileTypeError, PairType, TupleType
 from src.mod.ast_.symbol_table_env import SymbolTableEnvironment
 
 T = TypeVar("T")
@@ -241,6 +241,7 @@ class Identifier(ASTNode):
 
 @dataclass
 class MapletIdentifier(ASTNode):
+    # TODO remove
     """Special variation of maplet used for binding loop and quantification variables (also hashable)"""
 
     left: IdentifierListTypes
@@ -316,6 +317,10 @@ class TupleIdentifier(ASTNode):
             else:
                 ret.append(item)
         return ret
+
+    @classmethod
+    def from_maplet(cls, left: IdentifierListTypes, right: IdentifierListTypes):
+        return cls((left, right))
 
 
 IdentifierListTypes = Identifier | MapletIdentifier | TupleIdentifier

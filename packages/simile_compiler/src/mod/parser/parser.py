@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Callable, ClassVar, Any, NoReturn, TypeVar
+from typing import Callable, ClassVar, Any, NoReturn, TypeVar, Mapping
 import inspect
 from functools import wraps
 
@@ -12,6 +12,8 @@ from src.mod.scanner import Token, TokenType, scan
 from src.mod import ast_
 
 T = TypeVar("T")
+A = TypeVar("A")
+B = TypeVar("B")
 just_fix_windows_console()
 
 
@@ -116,7 +118,7 @@ class Parser:
         "rev_impl": {"disjunction"},
         "disjunction": {"conjunction"},
         "conjunction": {"negation"},
-        "negation": {TokenType.NOT, TokenType.BANG, "atom_bool"},
+        "negation": {TokenType.NOT, "atom_bool"},
         "atom_bool": {TokenType.TRUE, TokenType.FALSE, TokenType.L_PAREN, "pair_expr"},
         "expr": {"quantification", "pair_expr", "predicate"},
         "quantification": {"lambdadef", "quantification_op"},
@@ -134,8 +136,8 @@ class Parser:
         "term": {"factor"},
         "factor": {TokenType.PLUS, TokenType.MINUS, "power"},
         "power": {"primary"},
-        "primary": {"struct_access", "call", "image", "inversable_atom"},
-        "inversable_atom": {"atom"},
+        "primary": {"struct_access", "call", "image"},
+        # "inversable_atom": {"atom"},
         "struct_access": {"atom"},
         "call": {"atom"},
         "image": {"atom"},
@@ -156,25 +158,24 @@ class Parser:
         "sequence": {TokenType.L_BRACKET},
         "bag": {TokenType.L_DOUBLE_BRACKET},
         "builtin_functions": {TokenType.POWERSET, TokenType.NONEMPTY_POWERSET},  # , TokenType.CARDINALITY, TokenType.FIRST, TokenType.SECOND},
-        "control_flow_stmt": {TokenType.RETURN, TokenType.BREAK, TokenType.CONTINUE, TokenType.PASS},
+        "control_flow_stmt": {TokenType.RETURN, TokenType.BREAK, TokenType.CONTINUE, TokenType.SKIP},
         "assignment": {"struct_access"},
         "typed_name": {TokenType.IDENTIFIER},
         "compound_stmt": {
             "if_stmt",
             "for_stmt",
             "while_stmt",
-            "struct_stmt",
+            "record_stmt",
             # "enum_stmt",
             "procedure_stmt",
         },
         "if_stmt": {TokenType.IF},
-        "elif_stmt": {TokenType.ELIF},
         "else_stmt": {TokenType.ELSE},
         "for_stmt": {TokenType.FOR},
         "while_stmt": {TokenType.WHILE},
-        "struct_stmt": {TokenType.STRUCT},
+        "record_stmt": {TokenType.RECORD},
         # "enum_stmt": {TokenType.ENUM},
-        "procedure_stmt": {TokenType.DEF},
+        "procedure_stmt": {TokenType.PROCEDURE},
         "block": {"simple_stmt", TokenType.INDENT},
         "import_stmt": {TokenType.IMPORT, TokenType.FROM},
         "import_name": {TokenType.DOT, TokenType.IDENTIFIER},
@@ -244,11 +245,11 @@ class Parser:
 
     def left_associative_optional_parse(
         self,
-        func: Callable[[], ast_.ASTNode],
-        tokens_and_types: dict[TokenType, Callable[[ast_.ASTNode, ast_.ASTNode], ast_.BinaryOp]],
-        default_left: ast_.ASTNode | None = None,
-    ) -> ast_.ASTNode:
-        left = default_left
+        func: Callable[[], A],
+        tokens_and_types: Mapping[TokenType, Callable[[A | B, A], B]],
+        default_left: A | None = None,
+    ) -> A | B:
+        left: A | B | None = default_left
         if left is None:
             left = func()
 
@@ -257,7 +258,7 @@ class Parser:
             left = tokens_and_types[t.type_](left, func())
         return left
 
-    # Parsing based (loosely) on the grammar in grammar.lark
+    # Parsing based (loosely) on the grammar in the specification
     @store_derivation
     def start(self) -> ast_.Start:
         if not self.tokens or self.eof:
@@ -295,8 +296,8 @@ class Parser:
         t = self.peek()
         if t.type_ in self.get_first_set("expr"):
             expr = self.expr()
-            if self.peek().type_ not in [TokenType.COLON, TokenType.ASSIGN]:
-                self.consume(TokenType.NEWLINE, "Expected end of simple statement after expression")
+            if self.peek().type_ not in [TokenType.COLON, TokenType.ASSIGN, TokenType.CHOICE_ASSIGN]:
+                self.consume(TokenType.NEWLINE, "Expected end of simple statement or assignment after parsing expression")
                 return expr
 
             # now in assignment rule - could either see a type annotation or not
@@ -304,11 +305,26 @@ class Parser:
                 type_ = self.expr()
                 expr = ast_.TypedName(expr, ast_.Type_(type_))
 
-            self.consume(TokenType.ASSIGN, "Expected assignment after an expression not ending with a newline")
+            if self.match(TokenType.CHOICE_ASSIGN):
+                choice_assignment = True
+            else:
+                choice_assignment = False
+                self.consume(TokenType.ASSIGN, "Expected assignment after an expression not ending with a newline")
+
             # Since first of assignment and expr are shared, check if next token is an assignment
             value = self.expr()
             self.consume(TokenType.NEWLINE, "Expected end of simple statement after assignment")
-            return ast_.Assignment(target=expr, value=value)
+
+            # handle type restrictions, datatype refinements, etc.
+            with_clauses = []
+            if self.peek().type_ == TokenType.INDENT:
+                self.advance()
+                self.consume(TokenType.WITH, "Indentation after assignment expects a 'with' clause")
+                while not self.match(TokenType.DEDENT):
+                    with_clauses.append(self.expr())
+                    self.consume(TokenType.NEWLINE, "Expected newline after with clause expression")
+
+            return ast_.Assignment(target=expr, value=value, with_clauses=with_clauses, choice_assignment=choice_assignment)
         if t.type_ in self.get_first_set("control_flow_stmt"):
             stmt = self.control_flow_stmt()
             self.consume(TokenType.NEWLINE, "Expected end of simple statement after control flow statement")
@@ -359,43 +375,26 @@ class Parser:
         return ast_.TupleIdentifier(tuple(ident_list_items))
 
     @store_derivation
-    def ident_list_item(self) -> ast_.Identifier | ast_.MapletIdentifier | ast_.TupleIdentifier:
+    def ident_list_item(self) -> ast_.IdentifierListTypes:
+        return self.left_associative_optional_parse(
+            self.ident_list_item_non_maplet,
+            {
+                TokenType.MAPLET: ast_.TupleIdentifier.from_maplet,
+            },
+        )
+
+    @store_derivation
+    def ident_list_item_non_maplet(self) -> ast_.IdentifierListTypes:
         match (t := self.advance()).type_:
             case TokenType.IDENTIFIER:
-                ident_pattern: ast_.Identifier | ast_.MapletIdentifier | ast_.TupleIdentifier = ast_.Identifier(t.value)
+                item: ast_.IdentifierListTypes = ast_.Identifier(t.value)
             case TokenType.L_PAREN:
                 self.advance()
-                ident_pattern = self.ident_list()
-                # If using tuples as parenthesis around another identifier type, remove superfluous parens
-                if len(ident_pattern.items) == 1:
-                    ident_pattern = ident_pattern.items[0]
-                # If using tuples as a pair, convert to maplet identifier
-                elif len(ident_pattern.items) == 2:
-                    ident_pattern = ast_.MapletIdentifier(ident_pattern.items[0], ident_pattern.items[1])
-                self.consume(TokenType.R_PAREN, "Expected end to identifier sub-pattern")
+                item = self.ident_list()
+                self.consume(TokenType.R_PAREN, "Expected end to identifier item sub-list")
             case _:
                 self.error("No identifier or sub-pattern found")
-        if self.match(TokenType.MAPLET):
-            ident_pattern_r = self.ident_list_item()
-
-            # # MapletIdentifier only takes in Identifiers or other MapletIdentifiers
-            # # Because we nest an IdentList every time we see an opening parenthesis, we need
-            # # to check whether there were superfluous parentheses (resulting in a nested IdentList of len == 1)
-            # # or if the IdentList was malformed. This effectively prevents IdentLists of the form (x,y,z) |-> (x,y,z),
-            # # which is ambiguous for bound relation identifiers, while allowing nested loops like `forall x,y | ...`
-            # if isinstance(ident_pattern, ast_.IdentList):
-            #     if len(ident_pattern.flatten_until_leaf_node()) == 1:
-            #         ident_pattern = ident_pattern.flatten_until_leaf_node()[0]
-            #     else:
-            #         self.error("Identifier lists cannot be nested inside a maplet (suggestion: nest another maplet instead)")
-            # if isinstance(ident_pattern_r, ast_.IdentList):
-            #     if len(ident_pattern_r.flatten_until_leaf_node()) != 1:
-            #         ident_pattern_r = ident_pattern_r.flatten_until_leaf_node()[0]
-            #     else:
-            #         self.error("Identifier lists cannot be nested inside a maplet (suggestion: nest another maplet instead)")
-
-            return ast_.MapletIdentifier(ident_pattern, ident_pattern_r)
-        return ident_pattern
+        return item
 
     @store_derivation
     def unquantified_predicate(self) -> ast_.ASTNode:
@@ -410,13 +409,13 @@ class Parser:
     @store_derivation
     def implication(self) -> ast_.ASTNode:
         disjunction = self.disjunction()
-        while (t := self.peek()).type_ in [TokenType.IMPLIES, TokenType.REV_IMPLIES]:
+        while (t := self.peek()).type_ in [TokenType.IMPLIES]:
             self.advance()
             match t.type_:
                 case TokenType.IMPLIES:
                     disjunction = ast_.Implies(disjunction, self.disjunction())
-                case TokenType.REV_IMPLIES:
-                    disjunction = ast_.RevImplies(disjunction, self.implication())
+                # case TokenType.REV_IMPLIES:
+                #     disjunction = ast_.RevImplies(disjunction, self.implication())
                 case _:
                     self.error("Unreachable state")
         return disjunction
@@ -442,8 +441,6 @@ class Parser:
     @store_derivation
     def negation(self) -> ast_.ASTNode:
         if self.match(TokenType.NOT):
-            return ast_.Not(self.negation())
-        if self.match(TokenType.BANG):
             return ast_.Not(self.negation())
         return self.atom_bool()
 
@@ -517,20 +514,10 @@ class Parser:
         t = self.advance()
         match t.type_:
             case TokenType.LAMBDA:
-                params = []
-                if self.peek().type_ != TokenType.DOT:
-                    t = self.advance()
-                    if t.type_ != TokenType.IDENTIFIER:
-                        self.error("Expected identifier list after LAMBDA")
-                    params.append(ast_.Identifier(t.value))
+                params = ast_.TupleIdentifier(())
+                if self.peek().type_ not in (TokenType.DOT, TokenType.CDOT):
+                    params = self.flat_tuple_identifier()
 
-                    while self.match(TokenType.COMMA):
-                        t = self.advance()
-                        if t.type_ != TokenType.IDENTIFIER:
-                            self.error("Expected identifier list after LAMBDA")
-                        params.append(ast_.Identifier(t.value))
-
-                # ident_pattern = self.ident_list()
                 if not self.match(TokenType.DOT):
                     self.consume(TokenType.CDOT, "Expected LAMBDA quantification separator")
                 predicate = self.predicate()
@@ -634,6 +621,9 @@ class Parser:
             case TokenType.INTERSECTION:
                 bin_op = ast_.Intersection
                 bin_token = TokenType.INTERSECTION
+            case TokenType.CONCAT:
+                bin_op = ast_.Concat
+                bin_token = TokenType.CONCAT
             case TokenType.DOMAIN_SUBTRACTION:
                 self.advance()
                 right = self.left_associative_optional_parse(
@@ -726,18 +716,20 @@ class Parser:
         primary = self.primary()
         if self.match(TokenType.EXPONENT):
             return ast_.Exponent(primary, self.factor())
+        elif self.match(TokenType.INVERSE):
+            return ast_.Inverse(primary)
         return primary
 
     @store_derivation
     def primary(self) -> ast_.ASTNode:
-        inversable_atom = self.inversable_atom()
+        atom = self.atom()
         while self.peek().type_ in [TokenType.DOT, TokenType.L_PAREN, TokenType.L_BRACKET]:
             match self.peek().type_:
                 case TokenType.DOT:
                     self.advance()
                     t = self.peek()
                     self.consume(TokenType.IDENTIFIER, "Access only allowed through an identifier")
-                    inversable_atom = ast_.StructAccess(inversable_atom, ast_.Identifier(t.value))
+                    atom = ast_.StructAccess(atom, ast_.Identifier(t.value))
                 case TokenType.L_PAREN:
                     self.advance()
                     args = []
@@ -746,22 +738,22 @@ class Parser:
                         while self.match(TokenType.COMMA):
                             args.append(self.expr())
                     self.consume(TokenType.R_PAREN, "Expected closing parenthesis")
-                    inversable_atom = ast_.Call(inversable_atom, args)
+                    atom = ast_.Call(atom, args)
                 case TokenType.L_BRACKET:
                     self.advance()
                     expr = self.expr()
                     self.consume(TokenType.R_BRACKET, "Expected closing bracket")
-                    inversable_atom = ast_.Image(inversable_atom, expr)
+                    atom = ast_.Image(atom, expr)
                 case _:
                     self.error("Unreachable state")
-        return inversable_atom
-
-    @store_derivation
-    def inversable_atom(self) -> ast_.ASTNode:
-        atom = self.atom()
-        while self.match(TokenType.INVERSE):
-            atom = ast_.Inverse(atom)
         return atom
+
+    # @store_derivation
+    # def inversable_atom(self) -> ast_.ASTNode:
+    #     atom = self.atom()
+    #     while self.match(TokenType.INVERSE):
+    #         atom = ast_.Inverse(atom)
+    #     return atom
 
     @store_derivation
     def atom(self) -> ast_.ASTNode:
@@ -776,8 +768,8 @@ class Parser:
                 return ast_.True_()
             case TokenType.FALSE:
                 return ast_.False_()
-            case TokenType.NONE:
-                return ast_.None_()
+            # case TokenType.NONE:
+            #     return ast_.None_()
             case TokenType.L_BRACE:
                 return self.set_()
             case TokenType.L_BRACKET:
@@ -929,8 +921,8 @@ class Parser:
                 return ast_.Break()
             case TokenType.CONTINUE:
                 return ast_.Continue()
-            case TokenType.PASS:
-                return ast_.Pass()
+            case TokenType.SKIP:
+                return ast_.Skip()
             case _:
                 self.error("Invalid start to control flow statement")
 
@@ -972,24 +964,28 @@ class Parser:
     #     return import_path
 
     @store_derivation
-    def import_list(self) -> ast_.IdentList | ast_.ImportAll:
+    def import_list(self) -> ast_.TupleIdentifier | ast_.ImportAll:
         if self.match(TokenType.MULT):
             return ast_.ImportAll()
+        return self.flat_tuple_identifier()
+
+    @store_derivation
+    def flat_tuple_identifier(self) -> ast_.TupleIdentifier:
         matched_paren = self.match(TokenType.L_PAREN)
 
         t = self.peek()
-        self.consume(TokenType.IDENTIFIER, "Expected identifier in import list")
-        import_list: list[ast_.Identifier | ast_.IdentList | ast_.MapletIdentifier] = [ast_.Identifier(t.value)]
+        self.consume(TokenType.IDENTIFIER, "Expected identifier tuple identifier")
+        items = [ast_.Identifier(t.value)]
 
         while self.match(TokenType.COMMA):
             t = self.advance()
             if t.type_ != TokenType.IDENTIFIER:
-                self.error(f"Expected identifier in import list (parsed up to {import_list})")
-            import_list.append(ast_.Identifier(t.value))
+                self.error(f"Expected identifier in tuple identifier (parsed up to {items})")
+            items.append(ast_.Identifier(t.value))
 
         if matched_paren:
-            self.consume(TokenType.R_PAREN, "Expected closing parenthesis for import list")
-        return ast_.IdentList(import_list)
+            self.consume(TokenType.R_PAREN, "Expected closing parenthesis for tuple identifier")
+        return ast_.TupleIdentifier(tuple(items))
 
     @store_derivation
     def compound_stmt(self) -> ast_.ASTNode:
@@ -1000,11 +996,11 @@ class Parser:
                 return self.for_stmt()
             case TokenType.WHILE:
                 return self.while_stmt()
-            case TokenType.STRUCT:
-                return self.struct_stmt()
+            case TokenType.RECORD:
+                return self.record_stmt()
             # case TokenType.ENUM:
             #     return self.enum_stmt()
-            case TokenType.DEF:
+            case TokenType.PROCEDURE:
                 return self.procedure_stmt()
             case _:
                 self.error("Invalid start to compound statement")
@@ -1014,24 +1010,26 @@ class Parser:
         condition = self.predicate()
         self.consume(TokenType.COLON, "Expected colon after IF condition")
         block = self.block()
-        if self.match(TokenType.ELIF):
-            return ast_.If(condition, block, self.elif_stmt())
-        elif self.match(TokenType.ELSE):
-            return ast_.If(condition, block, self.else_stmt())
+        if self.match(TokenType.ELSE):
+            if self.match(TokenType.IF):
+                return ast_.If(condition, block, self.elif_stmt())
+            else:
+                return ast_.If(condition, block, self.else_stmt())
         else:
             return ast_.If(condition, block, ast_.None_())
 
     @store_derivation
-    def elif_stmt(self) -> ast_.Elif:
+    def elif_stmt(self) -> ast_.ElseIf:
         condition = self.predicate()
         self.consume(TokenType.COLON, "Expected colon after ELIF condition")
         block = self.block()
-        if self.match(TokenType.ELIF):
-            return ast_.Elif(condition, block, self.elif_stmt())
-        elif self.match(TokenType.ELSE):
-            return ast_.Elif(condition, block, self.else_stmt())
+        if self.match(TokenType.ELSE):
+            if self.match(TokenType.IF):
+                return ast_.ElseIf(condition, block, self.elif_stmt())
+            else:
+                return ast_.ElseIf(condition, block, self.else_stmt())
         else:
-            return ast_.Elif(condition, block, ast_.None_())
+            return ast_.ElseIf(condition, block, ast_.None_())
 
     @store_derivation
     def else_stmt(self) -> ast_.Else:
@@ -1056,31 +1054,31 @@ class Parser:
         return ast_.While(condition, block)
 
     @store_derivation
-    def struct_stmt(self) -> ast_.StructDef:
+    def record_stmt(self) -> ast_.RecordDef:
         t = self.advance()
         if t.type_ != TokenType.IDENTIFIER:
-            self.error("Expected identifier after STRUCT keyword")
+            self.error("Expected identifier after RECORD keyword")
         name = ast_.Identifier(t.value)
 
-        self.consume(TokenType.COLON, "Expected colon after STRUCT name")
-        self.consume(TokenType.NEWLINE, "Expected newline after STRUCT definition")
-        self.consume(TokenType.INDENT, "Expected indentation after STRUCT definition")
-        if self.match(TokenType.PASS):
+        self.consume(TokenType.COLON, "Expected colon after RECORD name")
+        self.consume(TokenType.NEWLINE, "Expected newline after RECORD definition")
+        self.consume(TokenType.INDENT, "Expected indentation after RECORD definition")
+        if self.match(TokenType.SKIP):
             items = []
-            self.consume(TokenType.NEWLINE, "Expected newline after PASS in STRUCT definition")
+            self.consume(TokenType.NEWLINE, "Expected newline after PASS in RECORD definition")
         else:
             items = [self.typed_name()]
             while self.peek().type_ == TokenType.COMMA or self.peek().type_ == TokenType.NEWLINE:
                 if self.peek(1).type_ == TokenType.DEDENT:
-                    self.consume(TokenType.NEWLINE, "Expected newline after last STRUCT item")
+                    self.consume(TokenType.NEWLINE, "Expected newline after last RECORD item")
                     break
                 if self.match(TokenType.COMMA):
                     self.match(TokenType.NEWLINE)
                 else:
-                    self.consume(TokenType.NEWLINE, "Expected newline or comma after STRUCT item")
+                    self.consume(TokenType.NEWLINE, "Expected newline or comma after RECORD item")
                 items.append(self.typed_name())
-        self.consume(TokenType.DEDENT, "Expected dedent after STRUCT definition")
-        return ast_.StructDef(name, items)
+        self.consume(TokenType.DEDENT, "Expected dedent after RECORD definition")
+        return ast_.RecordDef(name, items)
 
     # @store_derivation
     # def enum_stmt(self) -> ast_.EnumDef:

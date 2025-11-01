@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Callable, TypeVar, Generic, TypeGuard, Literal, ClassVar
+from typing import Callable, TypeVar, Generic, TypeGuard, Literal, ClassVar, ParamSpec, cast
 
 from src.mod.ast_.ast_node_operators import (
     CollectionOperator,
@@ -92,6 +92,8 @@ class GenericType(SubstituteSimileTypeAddon):
 class PairType(Generic[L, R], SubstituteSimileTypeAddon):
     """Maplet type"""
 
+    # TODO remove
+
     left: L
     right: R
 
@@ -99,6 +101,27 @@ class PairType(Generic[L, R], SubstituteSimileTypeAddon):
         if not isinstance(other, PairType):
             return False
         return self.left.substitute_eq(other.left, mapping) and self.right.substitute_eq(other.right, mapping)
+
+
+@dataclass(frozen=True)
+class TupleType[*Ts](SubstituteSimileTypeAddon):
+    items: tuple[*Ts]
+
+    def __post__init__(self):
+        for item in self.items:
+            if not isinstance(item, SimileType):
+                raise TypeError(f"TupleType items must be SimileType instances, got {type(item)}")
+
+    def _substitute_eq(self, other: SimileType, mapping: dict[str, SimileType]) -> bool:
+        if not isinstance(other, TupleType):
+            return False
+        if len(self.items) != len(other.items):
+            return False
+
+        for f, o in zip(cast(list[SimileType], self.items), cast(list[SimileType], other.items)):
+            if not f.substitute_eq(o, mapping):
+                return False
+        return True
 
 
 @dataclass(frozen=True)

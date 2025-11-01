@@ -63,7 +63,7 @@ def reserved_keywords_check(ast: T) -> T:
                     if (ret := check_clash(node, ident.name)) is not None:
                         return ret
 
-            case ast_.StructDef(ast_.Identifier(name), _):
+            case ast_.RecordDef(ast_.Identifier(name), _):
                 return check_clash(node, name)
             case ast_.ProcedureDef(ast_.Identifier(name), args, _, _):
                 if (ret := check_clash(node, name)) is not None:

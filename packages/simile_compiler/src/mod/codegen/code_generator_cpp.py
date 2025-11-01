@@ -274,7 +274,7 @@ bool is_subset_of(const std::unordered_set<T>& a, const std::unordered_set<T>& b
         return f"if ({self._generate_code(ast.condition)}) {{\n{self._generate_code(ast.body)};\n}} {self._generate_code(ast.else_body)}"
 
     @_generate_code.register
-    def _(self, ast: ast_.Elif) -> str:
+    def _(self, ast: ast_.Else) -> str:
         return f"else if ({self._generate_code(ast.condition)}) {{\n{self._generate_code(ast.body)};\n}} {self._generate_code(ast.else_body)}"
 
     @_generate_code.register
@@ -286,7 +286,7 @@ bool is_subset_of(const std::unordered_set<T>& a, const std::unordered_set<T>& b
         return f"while ({self._generate_code(ast.condition)}) {{\n{self._generate_code(ast.body)};\n}}"
 
     @_generate_code.register
-    def _(self, ast: ast_.StructDef) -> str:
+    def _(self, ast: ast_.RecordDef) -> str:
         fields = "; ".join(f"{self._generate_code(field.type_)} {field.name}" for field in ast.items)
         return f"struct {ast.name} {{ {fields}; }};"
 

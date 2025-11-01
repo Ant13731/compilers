@@ -8,7 +8,6 @@ class BinaryOperator(Enum):
 
     # Bools
     IMPLIES = auto()
-    REV_IMPLIES = auto()
     EQUIVALENT = auto()
     NOT_EQUIVALENT = auto()
     # Numbers
@@ -16,6 +15,7 @@ class BinaryOperator(Enum):
     SUBTRACT = auto()
     MULTIPLY = auto()
     DIVIDE = auto()
+    INT_DIVIDE = auto()
     MODULO = auto()
     EXPONENT = auto()
     # Num-to-bool operators
@@ -54,11 +54,11 @@ class BinaryOperator(Enum):
     DOMAIN_RESTRICTION = auto()
     RANGE_SUBTRACTION = auto()
     RANGE_RESTRICTION = auto()
+    CONCAT = auto()
 
     def pretty_print(self) -> str:
         pretty_print_lookup = {
             BinaryOperator.IMPLIES: "⇒",
-            BinaryOperator.REV_IMPLIES: "⇐",
             BinaryOperator.EQUIVALENT: "≡",
             BinaryOperator.NOT_EQUIVALENT: "≢",
             #: ,
@@ -66,13 +66,14 @@ class BinaryOperator(Enum):
             BinaryOperator.SUBTRACT: "-",
             BinaryOperator.MULTIPLY: "*",
             BinaryOperator.DIVIDE: "/",
-            BinaryOperator.MODULO: "%",
+            BinaryOperator.INT_DIVIDE: "div",
+            BinaryOperator.MODULO: "mod",
             BinaryOperator.EXPONENT: "^",
             #: ,
             BinaryOperator.LESS_THAN: "<",
-            BinaryOperator.LESS_THAN_OR_EQUAL: "<=",
+            BinaryOperator.LESS_THAN_OR_EQUAL: "≤",
             BinaryOperator.GREATER_THAN: ">",
-            BinaryOperator.GREATER_THAN_OR_EQUAL: ">=",
+            BinaryOperator.GREATER_THAN_OR_EQUAL: "≥",
             #: ,
             BinaryOperator.EQUAL: "=",
             BinaryOperator.NOT_EQUAL: "≠",
@@ -85,17 +86,17 @@ class BinaryOperator(Enum):
             BinaryOperator.INTERSECTION: "∩",
             BinaryOperator.DIFFERENCE: "∖",
             #: ,
-            BinaryOperator.SUBSET: "⊆",
+            BinaryOperator.SUBSET: "⊂",
             BinaryOperator.SUBSET_EQ: "⊆",
-            BinaryOperator.SUPERSET: "⊇",
+            BinaryOperator.SUPERSET: "⊃",
             BinaryOperator.SUPERSET_EQ: "⊇",
-            BinaryOperator.NOT_SUBSET: "⊈",
+            BinaryOperator.NOT_SUBSET: "⊄",
             BinaryOperator.NOT_SUBSET_EQ: "⊈",
-            BinaryOperator.NOT_SUPERSET: "⊉",
+            BinaryOperator.NOT_SUPERSET: "⊅",
             BinaryOperator.NOT_SUPERSET_EQ: "⊉",
             #: ,
             BinaryOperator.MAPLET: "↦",
-            BinaryOperator.RELATION_OVERRIDING: "<+",
+            BinaryOperator.RELATION_OVERRIDING: "⊕",
             BinaryOperator.COMPOSITION: "∘",
             BinaryOperator.CARTESIAN_PRODUCT: "×",
             BinaryOperator.UPTO: "..",
@@ -104,6 +105,8 @@ class BinaryOperator(Enum):
             BinaryOperator.DOMAIN_RESTRICTION: "⩤",
             BinaryOperator.RANGE_SUBTRACTION: "▷",
             BinaryOperator.RANGE_RESTRICTION: "⩥",
+            #: ,
+            BinaryOperator.CONCAT: "⧺",
         }
         return pretty_print_lookup.get(self, self.name)
 
@@ -432,10 +435,10 @@ class QuantifierOperator(Enum):
             QuantifierOperator.INTERSECTION_ALL: "⋂",
             QuantifierOperator.SUM: "Σ",
             QuantifierOperator.PRODUCT: "Π",
-            QuantifierOperator.SEQUENCE: "[]",
+            QuantifierOperator.SEQUENCE: "⟨⟩",
             QuantifierOperator.SET: "{}",
             QuantifierOperator.RELATION: "{}",
-            QuantifierOperator.BAG: "⦃⦄",
+            QuantifierOperator.BAG: "⟦⟧",
         }
         return pretty_print_lookup.get(self, self.name)
 
@@ -445,13 +448,13 @@ class ControlFlowOperator(Enum):
 
     BREAK = auto()
     CONTINUE = auto()
-    PASS = auto()
+    SKIP = auto()
 
     def pretty_print(self) -> str:
         pretty_print_lookup = {
             ControlFlowOperator.BREAK: "break",
             ControlFlowOperator.CONTINUE: "continue",
-            ControlFlowOperator.PASS: "pass",
+            ControlFlowOperator.SKIP: "skip",
         }
         return pretty_print_lookup.get(self, self.name)
 

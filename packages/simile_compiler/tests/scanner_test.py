@@ -201,7 +201,7 @@ struct A:
     c: float
 """,
                 [
-                    TokenType.STRUCT,
+                    TokenType.RECORD,
                     TokenType.IDENTIFIER,
                     TokenType.COLON,
                     TokenType.NEWLINE,
