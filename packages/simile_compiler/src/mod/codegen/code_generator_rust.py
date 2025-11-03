@@ -3,6 +3,7 @@ import shutil
 from functools import singledispatchmethod
 from dataclasses import dataclass, field
 from typing import ClassVar, Any
+from loguru import logger
 
 from src.mod import ast_
 from src.mod.codegen.code_generator_base import CodeGenerator, CodeGeneratorError
@@ -36,22 +37,24 @@ class RustCodeGenerator(CodeGenerator):
             case ast_.BaseSimileType.Float:
                 return "Float"
             case ast_.BaseSimileType.String:
-                return "String"
+                return "&str"
             case ast_.BaseSimileType.Bool:
                 return "bool"
             case ast_.BaseSimileType.None_:
                 return "None"
-            case ast_.PairType(left, right):
+            case ast_.PairType((left, right)):
                 return f"Pair<{cls.type_translator(left)}, {cls.type_translator(right)}>"
-            case ast_.SetType(ast_.PairType(left, right), _):
+            case ast_.SetType(ast_.PairType((left, right)), _):
                 return f"Relation<{cls.type_translator(left)}, {cls.type_translator(right)}>"
             case ast_.SetType(element_type, _):
                 return f"HashSet<{cls.type_translator(element_type)}>"
             case ast_.StructTypeDef(fields):
                 return f"struct {def_name} {{ {' '.join(f'{field[0]}: {cls.type_translator(field[1])},' for field in fields.items())} }}"
-            case ast_.EnumTypeDef(members):
+            case ast_.EnumTypeDef(element_type, _, members):
                 return f"enum {def_name} {{ {', '.join(members)} }};"
             case ast_.ProcedureTypeDef(arg_types, return_type):
+                logger.warning(f"Procedure types are not supported in Rust code generation (no need for type declarations). Got: {simile_type}")
+                return ""
                 raise ValueError(f"Procedure types are not supported in Rust code generation (no need for type declarations). Got: {simile_type}")
                 # return f" {def_name}({', '.join(f'{name}: {cls.type_translator(arg)}' for name, arg in arg_types.items())}) -> {cls.type_translator(return_type)} {{}}"
             case ast_.ModuleImports(import_objects):
@@ -65,8 +68,8 @@ class RustCodeGenerator(CodeGenerator):
                 raise ValueError(f"Most union types are not supported in Rust code generation. Got: {simile_type}")
             case ast_.DeferToSymbolTable(lookup_type):
                 raise ValueError(f"DeferToSymbolTable types are not supported in Rust code generation (they should be resolved). Got: {simile_type} for field {def_name}")
-            case ast_.BaseSimileType.Any:
-                return "INVALID_TYPE"  # Placeholder for any type, should not be used in code generation.
+            # case ast_.BaseSimileType.Any:
+            #     return "INVALID_TYPE"  # Placeholder for any type, should not be used in code generation.
         raise ValueError(f"Unsupported Simile type for Rust translation: {simile_type}")
 
     def generate(self) -> str:
@@ -79,6 +82,7 @@ class RustCodeGenerator(CodeGenerator):
         ret += "\n//Generated code:\n\n"
         ret += "fn main() {\n"
         ret += self._generate_code(self.ast)
+
         ret += "\n}"
 
         return ret
@@ -135,8 +139,8 @@ class RustCodeGenerator(CodeGenerator):
         match ast.op_type:
             case ast_.BinaryOperator.IMPLIES:
                 return wrap_parens(f"if {self._generate_code(ast.left)} {{ {self._generate_code(ast.right)} }} else {{true}}")
-            case ast_.BinaryOperator.REV_IMPLIES:
-                return wrap_parens(f"if {self._generate_code(ast.right)} {{ {self._generate_code(ast.left)} }} else {{true}}")
+            # case ast_.BinaryOperator.REV_IMPLIES:
+            #     return wrap_parens(f"if {self._generate_code(ast.right)} {{ {self._generate_code(ast.left)} }} else {{true}}")
             case ast_.BinaryOperator.EQUIVALENT | ast_.BinaryOperator.EQUAL:
                 return wrap_parens(f"{self._generate_code(ast.left)} == {self._generate_code(ast.right)}")
             case ast_.BinaryOperator.NOT_EQUIVALENT | ast_.BinaryOperator.NOT_EQUAL:
@@ -267,7 +271,9 @@ class RustCodeGenerator(CodeGenerator):
                 return f"HashSet::from([{', '.join(self._generate_code(item) for item in ast.items)}])"
             case ast_.CollectionOperator.RELATION | ast_.CollectionOperator.BAG | ast_.CollectionOperator.SEQUENCE:
                 pair_lambda = lambda item: f"({self._generate_code(item.left)}, {self._generate_code(item.right)})"
-                return f"HashMap::from([{', '.join(pair_lambda(item) for item in ast.items)}])"
+                return f"Relation::from_hash_map(HashMap::from([{', '.join(pair_lambda(item) for item in ast.items)}]))"
+                # TODO optimize based on relational subtypes (ex. functions only need one direction?)
+                # return f"HashMap::from([{', '.join(pair_lambda(item) for item in ast.items)}])"
         raise CodeGeneratorError(f"Enumeration operator {ast.op_type} is not supported in Rust code generation.")
 
     @_generate_code.register
@@ -282,6 +288,11 @@ class RustCodeGenerator(CodeGenerator):
 
     @_generate_code.register
     def _(self, ast: ast_.Call) -> str:
+        if ast_.SetType.is_relation(ast.target.get_type):
+            return f"*{self._generate_code(ast.target)}.get_fwd({', '.join(self._generate_code(arg) for arg in ast.args)}).unwrap()"
+
+        if isinstance(ast.target, ast_.Identifier) and ast.target.name == "print":
+            return f'println!("{{:?}}", {", ".join(self._generate_code(arg) for arg in ast.args)});'
         return f"{self._generate_code(ast.target)}({', '.join(self._generate_code(arg) for arg in ast.args)})"
 
     @_generate_code.register
@@ -332,7 +343,7 @@ class RustCodeGenerator(CodeGenerator):
         return f"if {self._generate_code(ast.condition)} {{{self._generate_code(ast.body)}}} {self._generate_code(ast.else_body)}"
 
     @_generate_code.register
-    def _(self, ast: ast_.Else) -> str:
+    def _(self, ast: ast_.ElseIf) -> str:
         if isinstance(ast.else_body, ast_.None_):
             return f"else if {self._generate_code(ast.condition)} {{{self._generate_code(ast.body)}}}"
         return f"else if {self._generate_code(ast.condition)} {{{self._generate_code(ast.body)}}} {self._generate_code(ast.else_body)}"
@@ -345,7 +356,7 @@ class RustCodeGenerator(CodeGenerator):
         for name in iterable_names.split(","):
             self.new_symbol_table.put(name, "loop_identifier_variable")
 
-        res = f"for {iterable_names} in {self._generate_code(ast.iterable)}.iter() {{{self._generate_code(ast.body)}}}"
+        res = f"for ({iterable_names}) in {self._generate_code(ast.iterable)}.iter() {{{self._generate_code(ast.body)}}}"
 
         if self.new_symbol_table.previous is None:
             raise CodeGeneratorError("Symbol table should always have a previous environment (the global one). This is a bug in the code generator.")

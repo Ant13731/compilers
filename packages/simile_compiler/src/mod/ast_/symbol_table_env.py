@@ -215,6 +215,12 @@ BUILTIN_FUNCTIONS: dict[str, SimileType] = {
         },
         GenericType("T"),
     ),
+    "print": ProcedureTypeDef(
+        {
+            "value": GenericType("T"),
+        },
+        BaseSimileType.None_,
+    ),
 }
 
 STARTING_ENVIRONMENT: SymbolTableEnvironment = SymbolTableEnvironment(

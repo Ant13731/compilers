@@ -150,9 +150,10 @@ TEST_STR = """
 location: str >-> int := {"SYNT" |-> 100, "ABC" |-> 200, "CDP" |-> 300}
 attends: str +-> str := {"Alice" |-> "SYNT", "Bob" |-> "ABC", "Charlie" |-> "SYNT"}
 
-room := "SYNT"
+room := 100
 
 num_meals := card((location~ circ attends~)[{room}])
+print(num_meals)
 """
 
 ast: ast_.ASTNode = parse(TEST_STR)
@@ -175,3 +176,5 @@ ast = LoopsCodeGenerationCollection().normalize(ast)
 ast = ReplaceAndSimplifyCollection().normalize(ast)
 print("OPTIMIZED TEST_STR:", ast.pretty_print(print_env=False))
 print("OPTIMIZED TEST_STR:", ast.pretty_print_algorithmic())
+
+RustCodeGenerator(ast).build()

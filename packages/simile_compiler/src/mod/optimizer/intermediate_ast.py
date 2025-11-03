@@ -30,8 +30,8 @@ class GeneratorSelection(ast_.ASTNode):
         return self.flatten()._get_type()
 
     def _pretty_print_algorithmic(self, indent: int) -> str:
-        return f"(\033[1m{ast_.And(self.generators).pretty_print_algorithmic(indent)}\033[0m ∧ {self.predicates.pretty_print_algorithmic(indent)})"
-        # return self.flatten()._pretty_print_algorithmic(indent)
+        # return f"(\033[1m{ast_.And(self.generators).pretty_print_algorithmic(indent)}\033[0m ∧ {self.predicates.pretty_print_algorithmic(indent)})"
+        return self.flatten()._pretty_print_algorithmic(indent)
 
 
 @dataclass
@@ -55,7 +55,7 @@ class CombinedGeneratorSelection(ast_.ASTNode):
         return self.flatten()._get_type()
 
     def _pretty_print_algorithmic(self, indent: int) -> str:
-        return f"(\033[1m{self.generator.pretty_print_algorithmic(indent)}\033[0m ∧ ({self.gsp_predicates.pretty_print_algorithmic(indent)}) ∧ {self.predicates.pretty_print_algorithmic(indent)})"
+        # return f"(\033[1m{self.generator.pretty_print_algorithmic(indent)}\033[0m ∧ ({self.gsp_predicates.pretty_print_algorithmic(indent)}) ∧ {self.predicates.pretty_print_algorithmic(indent)})"
         return self.flatten()._pretty_print_algorithmic(indent)
 
 
