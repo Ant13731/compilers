@@ -713,6 +713,7 @@ class Parser:
 
     @store_derivation
     def power(self) -> ast_.ASTNode:
+        # TODO add alternative, unicode exponents according to the grammar
         primary = self.primary()
         if self.match(TokenType.EXPONENT):
             return ast_.Exponent(primary, self.factor())

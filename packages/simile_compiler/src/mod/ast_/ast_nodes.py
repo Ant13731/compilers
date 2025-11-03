@@ -213,6 +213,9 @@ class BinaryOp(InheritedEqMixin, ASTNode):
             ]
         )
 
+    def temporary_freeze_hash(self) -> int:
+        return hash((self.left, self.right, self.op_type))
+
     def _get_type(self) -> SimileType:
         l_type = self.left.get_type
         r_type = self.right.get_type
@@ -476,15 +479,20 @@ class RelationOp(InheritedEqMixin, ASTNode):
     def _get_type(self) -> SimileType:
         l_type = self.left.get_type
         r_type = self.right.get_type
-        if not isinstance(l_type, SetType) or not isinstance(r_type, SetType):
-            raise SimileTypeError(f"Invalid types for relation operation: {l_type}, {r_type}", self)
-        # Even if the left/right side of the relation is a set or relation, we just make a new pairtype
-        return SetType(element_type=PairType(l_type.element_type, r_type.element_type))
+        relation_subtype = RelationSubTypeMask.from_relation_operator(self.op_type)
+        # if not isinstance(l_type, SetType) or not isinstance(r_type, SetType):
+        #     raise SimileTypeError(f"Invalid types for relation operation: {l_type}, {r_type}", self)
+        # # Even if the left/right side of the relation is a set or relation, we just make a new pairtype
+        # return SetType(element_type=PairType(l_type.element_type, r_type.element_type))
+        return SetType(
+            element_type=PairType(l_type, r_type),
+            relation_subtype=relation_subtype,
+        )
 
     def _pretty_print_algorithmic(self, indent: int) -> str:
         left_str = self.left._pretty_print_algorithmic(indent)
         right_str = self.right._pretty_print_algorithmic(indent)
-        return f"{left_str} {self.op_type.name} {right_str}"
+        return f"{left_str} {self.op_type.pretty_print()} {right_str}"
 
 
 @dataclass(eq=False)

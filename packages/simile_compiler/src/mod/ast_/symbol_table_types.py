@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Callable, TypeVar, Generic, TypeGuard, Literal, ClassVar, ParamSpec, cast
+from typing import Any, Callable, TypeVar, Generic, TypeGuard, Literal, ClassVar, ParamSpec, cast
 
 from src.mod.ast_.ast_node_operators import (
     CollectionOperator,
@@ -36,6 +36,11 @@ class SubstituteSimileTypeAddon:
     def _substitute_eq(self, other: SimileType, mapping: dict[str, SimileType]) -> bool:
         raise NotImplementedError
 
+    def is_sub_type(self, other: SimileType | Any) -> bool:
+        """Check if self is a sub-type of other."""
+        # FIXME in every subclass. For now, just use substitute_eq as a placeholder
+        return self == other
+
 
 class BaseSimileType(Enum):
     """Primitive/Atomic Simile types.
@@ -67,6 +72,9 @@ class BaseSimileType(Enum):
     def substitute_eq(self, other: SimileType, mapping: dict[str, SimileType] | None = None) -> bool:
         return self == other
 
+    def is_sub_type(self, other: SimileType | Any) -> bool:
+        return self == other
+
 
 L = TypeVar("L", bound="SimileType")
 R = TypeVar("R", bound="SimileType")
@@ -93,7 +101,6 @@ class TupleType(SubstituteSimileTypeAddon):
     items: tuple[SimileType, ...]
 
     def __post__init__(self):
-        super().__post_init__()
         for item in self.items:
             if not isinstance(item, SimileType):
                 raise TypeError(f"TupleType items must be SimileType instances, got {type(item)}")
@@ -115,7 +122,7 @@ class PairType(Generic[L, R], TupleType):
     """Maplet type"""
 
     def __init__(self, left: L, right: R) -> None:
-        super().__init__((left, right))
+        super().__init__((left, right))  # type: ignore
 
     @property
     def left(self) -> L:
@@ -253,6 +260,12 @@ class SetType(Generic[T], SubstituteSimileTypeAddon):
         if not isinstance(other, SetType):
             return False
         return self.element_type.substitute_eq(other.element_type, mapping) and self.relation_subtype == other.relation_subtype
+
+    def is_sub_type(self, other: SimileType) -> bool:
+        """Check if self is a sub-type of other."""
+        if not isinstance(other, SetType):
+            return False
+        return self.element_type == other.element_type and (self.relation_subtype == other.relation_subtype or other.relation_subtype is None)
 
 
 # TODO:

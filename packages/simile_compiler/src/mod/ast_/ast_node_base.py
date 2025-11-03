@@ -102,10 +102,7 @@ class ASTNode:
                     yield field_value
 
     def find_and_replace(self, find: ASTNode | Any, replace: ASTNode | Any) -> ASTNode:
-        """Find and replace AST nodes using a rewrite function.
-
-        The rewrite function should return the new AST node or None if no replacement is needed.
-        """
+        """Find and replace AST nodes using a syntactic substitution."""
 
         def rewrite_func(node: ASTNode | Any) -> ASTNode | None:
             if node == find:
@@ -293,16 +290,21 @@ class TupleIdentifier(ASTNode):
         return cls((left, right))
 
 
-L = TypeVar("L", bound=Identifier | TupleIdentifier | "MapletIdentifier")
-R = TypeVar("R", bound=Identifier | TupleIdentifier | "MapletIdentifier")
+L = TypeVar("L", bound="Identifier | TupleIdentifier | MapletIdentifier")
+R = TypeVar("R", bound="Identifier | TupleIdentifier | MapletIdentifier")
 
 
 @dataclass
 class MapletIdentifier(TupleIdentifier, Generic[L, R]):
     """Special variation of maplet used for binding loop and quantification variables (also hashable)"""
 
-    def __init__(self, left: L, right: R) -> None:
-        super().__init__((left, right))
+    def __init__(self, left: L | tuple[IdentifierListTypes], right: R | None = None) -> None:
+        if isinstance(left, tuple):
+            assert right is None, "If left is a tuple, right must be None"
+            super().__init__(left)
+        else:
+            assert right is not None, "If left is not a tuple, right must be provided"
+            super().__init__((left, right))
 
     @property
     def left(self) -> L:

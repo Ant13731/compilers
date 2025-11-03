@@ -126,7 +126,7 @@ class RustCodeGenerator(CodeGenerator):
         raise CodeGeneratorError(f"Unsupported literal type for Rust code generation: {type(ast)} with value {ast}")
 
     @_generate_code.register
-    def _(self, ast: ast_.IdentList) -> str:
+    def _(self, ast: ast_.TupleIdentifier) -> str:
         return ", ".join(self._generate_code(ident) for ident in ast.items)
 
     @_generate_code.register

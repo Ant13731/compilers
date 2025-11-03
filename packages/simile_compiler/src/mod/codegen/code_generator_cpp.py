@@ -126,7 +126,7 @@ bool is_subset_of(const std::unordered_set<T>& a, const std::unordered_set<T>& b
         raise CodeGeneratorError(f"Unsupported literal type for C++ code generation: {type(ast)} with value {ast}")
 
     @_generate_code.register
-    def _(self, ast: ast_.IdentList) -> str:
+    def _(self, ast: ast_.TupleIdentifier) -> str:
         return ", ".join(self._generate_code(ident) for ident in ast.items)
 
     @_generate_code.register
@@ -134,8 +134,8 @@ bool is_subset_of(const std::unordered_set<T>& a, const std::unordered_set<T>& b
         match ast.op_type:
             case ast_.BinaryOperator.IMPLIES:
                 return f"({self._generate_code(ast.left)} ? {self._generate_code(ast.right)} : true)"
-            case ast_.BinaryOperator.REV_IMPLIES:
-                return f"({self._generate_code(ast.right)} ? {self._generate_code(ast.left)} : true)"
+            # case ast_.BinaryOperator.REV_IMPLIES:
+            #     return f"({self._generate_code(ast.right)} ? {self._generate_code(ast.left)} : true)"
             case ast_.BinaryOperator.EQUIVALENT | ast_.BinaryOperator.EQUAL:
                 return f"({self._generate_code(ast.left)} == {self._generate_code(ast.right)})"
             case ast_.BinaryOperator.NOT_EQUIVALENT | ast_.BinaryOperator.NOT_EQUAL:

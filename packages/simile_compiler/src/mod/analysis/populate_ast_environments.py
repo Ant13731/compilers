@@ -83,9 +83,9 @@ def _populate_ast_environments_aux(node: ast_.ASTNode) -> None:
                 )
             # Iterable names need to match the type structure of the iterable
             type_of_iterable_name = iterable_names.items[0]
-            if isinstance(type_of_iterable_name, ast_.IdentList):
+            if not isinstance(type_of_iterable_name, ast_.Identifier | ast_.MapletIdentifier):
                 raise SimileTypeError(
-                    f"Expected iterable name to be a single identifier, got nested IdentList: {type_of_iterable_name} (in For loop - only maplets and single identifiers supported)",
+                    f"Expected iterable name to be a single identifier, got nested TupleIdentifier: {type_of_iterable_name} (in For loop - only maplets and single identifiers supported)",
                     type_of_iterable_name,
                 )
 
@@ -203,7 +203,7 @@ def _populate_from_assignment(node: ast_.ASTNode, target: ast_.ASTNode, value: a
             if not added_enum:
                 node._env.put(target.name, value.get_type)
         case ast_.TypedName(ast_.Identifier(name), explicit_type):
-            if node._env.get(name) is not None and node._env.get(name) != explicit_type:
+            if node._env.get(name) is not None and not explicit_type.get_type.is_sub_type(node._env.get(name)):
                 raise SimileTypeError(f"Type mismatch: cannot assign explicit type {explicit_type} to {node._env.get(name)} (type clashes with a previous definition)", node)
             # if value.get_type != explicit_type.get_type:
             #     raise SimileTypeError(f"Type mismatch: cannot assign value of type {value.get_type} to explicit type {explicit_type}", value)
@@ -245,7 +245,7 @@ def _populate_from_assignment(node: ast_.ASTNode, target: ast_.ASTNode, value: a
 
 def _populate_from_import(
     node: ast_.ASTNode,
-    import_objects: ast_.IdentList | ast_.None_ | ast_.ImportAll,
+    import_objects: ast_.TupleIdentifier | ast_.None_ | ast_.ImportAll,
     module_file_path: str,
 ) -> None:
     assert node._env is not None, "Import node should have an environment - ensure add_empty_environments_to_ast was called before populating environments"
@@ -285,7 +285,7 @@ def _populate_from_import(
                 full_module_path.stem,
                 ModuleImports(module_ast_with_types.body._env.table),
             )
-        case ast_.IdentList(identifiers):
+        case ast_.TupleIdentifier(identifiers):
             identifier_names = []
             for identifier in identifiers:
                 if not isinstance(identifier, ast_.Identifier):
