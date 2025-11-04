@@ -155,7 +155,9 @@ def _populate_ast_environments_aux(node: ast_.ASTNode) -> None:
             # FIXME actually check for types between predicate and bound identifiers - right now we just use a generic type
             # idea - look for occurrence of generator within the predicate. If none or conflicting generators exist, then we know the expression is not well-formed
             for identifier in node.flatten_bound_identifiers():
+                # print("Adding bound identifier to environment:", identifier.name)
                 node._env.put(identifier.name, GenericType("T"))
+
             _populate_ast_environments_aux(predicate)
             _populate_ast_environments_aux(expression)
 

@@ -47,7 +47,7 @@ class SyntacticSugarForBags(RewriteCollection):
                 ast_.BinaryOperator.UNION,
                 ast_.BinaryOperator.INTERSECTION,
                 ast_.BinaryOperator.ADD,
-                ast_.BinaryOperator.SUBTRACT,
+                ast_.BinaryOperator.DIFFERENCE,  # TODO fix, see below
             ):
                 # if not ast_.SetType.is_set(left.get_type) or not ast_.SetType.is_set(right.get_type):
                 #     logger.debug(f"FAILED: at least one union child is not a set type: {left.get_type}, {right.get_type}")
@@ -63,7 +63,9 @@ class SyntacticSugarForBags(RewriteCollection):
                 )
 
                 match op_type:
-                    case ast_.BinaryOperator.SUBTRACT:
+                    case (
+                        ast_.BinaryOperator.DIFFERENCE
+                    ):  # TODO this should really be subtract - different from set difference. this is just to get the warehouse example working with the existing type system - type system should be revised first
                         logger.debug("WARNING: Subtracting bags not fully correctly implemented (subtraction doesn't work)")
                         # TODO see if this method is more efficient?
                         new_ast = ast_.BagComprehension(

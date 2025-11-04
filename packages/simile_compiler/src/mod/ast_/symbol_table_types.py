@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum, auto
+import copy
 from typing import Any, Callable, TypeVar, Generic, TypeGuard, Literal, ClassVar, ParamSpec, cast
 
 from src.mod.ast_.ast_node_operators import (
@@ -19,8 +20,10 @@ if TYPE_CHECKING:
 class SimileTypeError(Exception):
     """Custom exception for Simile type errors."""
 
-    def __init__(self, message: str, node: ASTNode) -> None:
-        message = f"Error {node.get_location()} (at node {node}): {message}"
+    def __init__(self, message: str, node: ASTNode | None = None) -> None:
+        message = f"SimileTypeError: {message}"
+        if node is not None:
+            message = f"Error {node.get_location()} (at node {node}): {message}"
 
         super().__init__(message)
         self.node = node
@@ -40,6 +43,14 @@ class SubstituteSimileTypeAddon:
         """Check if self is a sub-type of other."""
         # FIXME in every subclass. For now, just use substitute_eq as a placeholder
         return self == other
+
+    def replace_generic_types(self, lst: list[SimileType]) -> SimileType:
+        """Structurally replace generic types in self according to the provided list of types."""
+        new_lst = copy.deepcopy(lst)
+        return self._replace_generic_types(lst)
+
+    def _replace_generic_types(self, lst: list[SimileType]) -> SimileType:
+        return self  # type: ignore
 
 
 class BaseSimileType(Enum):
@@ -75,6 +86,12 @@ class BaseSimileType(Enum):
     def is_sub_type(self, other: SimileType | Any) -> bool:
         return self == other
 
+    def _replace_generic_types(self, lst: list[SimileType]) -> SimileType:
+        return self
+
+    def replace_generic_types(self, lst: list[SimileType]) -> SimileType:
+        return self
+
 
 L = TypeVar("L", bound="SimileType")
 R = TypeVar("R", bound="SimileType")
@@ -94,6 +111,12 @@ class GenericType(SubstituteSimileTypeAddon):
         if self.id_ not in mapping:
             mapping[self.id_] = other
         return mapping[self.id_] == other
+
+    def _replace_generic_types(self, lst: list[SimileType]) -> SimileType:
+        try:
+            return lst.pop(0)
+        except IndexError:
+            raise SimileTypeError("Failed to replace generic type value: not enough types provided") from None
 
 
 @dataclass(frozen=True)
@@ -116,6 +139,9 @@ class TupleType(SubstituteSimileTypeAddon):
                 return False
         return True
 
+    def _replace_generic_types(self, lst: list[SimileType]) -> SimileType:
+        return TupleType(tuple(item._replace_generic_types(lst) for item in self.items))
+
 
 @dataclass(frozen=True)
 class PairType(Generic[L, R], TupleType):
@@ -137,6 +163,9 @@ class PairType(Generic[L, R], TupleType):
         if not isinstance(other, PairType):
             return False
         return self.left.substitute_eq(other.left, mapping) and self.right.substitute_eq(other.right, mapping)
+
+    def _replace_generic_types(self, lst: list[SimileType]) -> SimileType:
+        return PairType(self.left._replace_generic_types(lst), self.right._replace_generic_types(lst))
 
 
 @dataclass(frozen=True)
@@ -259,13 +288,18 @@ class SetType(Generic[T], SubstituteSimileTypeAddon):
     def _substitute_eq(self, other: SimileType, mapping: dict[str, SimileType]) -> bool:
         if not isinstance(other, SetType):
             return False
-        return self.element_type.substitute_eq(other.element_type, mapping) and self.relation_subtype == other.relation_subtype
+        return self.element_type.substitute_eq(other.element_type, mapping)  # and self.relation_subtype == other.relation_subtype # TODO add the subtype check back in
 
     def is_sub_type(self, other: SimileType) -> bool:
         """Check if self is a sub-type of other."""
         if not isinstance(other, SetType):
             return False
         return self.element_type == other.element_type and (self.relation_subtype == other.relation_subtype or other.relation_subtype is None)
+
+    def _replace_generic_types(self, lst: list[SimileType]) -> SimileType:
+        # return SetType(self.element_type._replace_generic_types(lst), self.relation_subtype)
+        ret = SetType(self.element_type._replace_generic_types(lst), self.relation_subtype)
+        return ret
 
 
 # TODO:
@@ -304,6 +338,9 @@ class StructTypeDef(SubstituteSimileTypeAddon):
             return False
         return all(f.substitute_eq(o, mapping) for f, o in zip(self.fields.values(), other.fields.values()))
 
+    def _replace_generic_types(self, lst: list[SimileType]) -> SimileType:
+        return StructTypeDef({name: field._replace_generic_types(lst) for name, field in self.fields.items()})
+
 
 @dataclass(frozen=True)
 class EnumTypeDef(SetType[Literal[BaseSimileType.String]]):
@@ -322,6 +359,12 @@ class ProcedureTypeDef(SubstituteSimileTypeAddon):
             return False
         return all(f.substitute_eq(o, mapping) for f, o in zip(self.arg_types.values(), other.arg_types.values())) and self.return_type.substitute_eq(other.return_type, mapping)
 
+    def _replace_generic_types(self, lst: list[SimileType]) -> SimileType:
+        return ProcedureTypeDef(
+            {name: arg_type._replace_generic_types(lst) for name, arg_type in self.arg_types.items()},
+            self.return_type._replace_generic_types(lst),
+        )
+
 
 # @dataclass
 # class InstanceOfDef:
@@ -337,9 +380,12 @@ class ProcedureTypeDef(SubstituteSimileTypeAddon):
 
 def type_union(*types: SimileType) -> SimileType:
     """Create a single type or TypeUnion from multiple SimileTypes."""
-    types_set = set()
+    types_set: set[SimileType] = set()
     for t in types:
         if isinstance(t, GenericType):
+            if t in types_set:
+                continue
+            types_set.add(t)
             continue
 
         if isinstance(t, TypeUnion):

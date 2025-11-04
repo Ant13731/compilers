@@ -156,6 +156,21 @@ num_meals := card((location~ circ attends~)[{room}])
 print(num_meals)
 """
 
+# Optimizer doesnt work - type system not strong enough for generics...
+# TEST_STR = """
+# catalogue: str --> float := {"2by4Plank" |-> 3.50, "HexBolt" |-> 0.25, "Nails" |-> 0.10}
+# inventory: bag[str] := {"2by4Plank" |-> 50, "HexBolt" |-> 200, "Nails" |-> 1000}
+# recipes: str --> bag[str] := {
+#     "Cabinet" |-> {"2by4Plank" |-> 7, "HexBolt" |-> 10, "Nails" |-> 10},
+#     "Bookshelf" |-> {"2by4Plank" |-> 1, "HexBolt" |-> 0, "Nails" |-> 4},
+#     "Desk" |-> {"2by4Plank" |-> 10, "HexBolt" |-> 40, "Nails" |-> 100}
+# }
+
+# target_inventory: bag[str] := {"2by4Plank" |-> 100, "HexBolt" |-> 500, "Nails" |-> 5000}
+
+# restocking_price := sum({p |-> n · p |-> n in catalogue~ circ (inventory \\ target_inventory) | p * n})
+# """
+
 ast: ast_.ASTNode = parse(TEST_STR)
 ast = analysis.semantic_analysis(ast)
 

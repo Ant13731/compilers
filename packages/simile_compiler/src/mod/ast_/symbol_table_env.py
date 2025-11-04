@@ -135,18 +135,25 @@ PRIMITIVE_TYPES: dict[str, SimileType] = {
     "ℤ": SetType(BaseSimileType.Int),
     "ℕ": SetType(BaseSimileType.Nat),
     "ℕ₁": SetType(BaseSimileType.PosInt),
-    "set": ProcedureTypeDef(
-        {"s": GenericType("T")},
-        SetType(
-            GenericType("T"),
-        ),
+    # "set": ProcedureTypeDef(
+    #     {"s": GenericType("T")},
+    #     SetType(
+    #         GenericType("T"),
+    #     ),
+    # ),
+    "set": SetType(
+        GenericType("T"),
     ),
-    "bag": ProcedureTypeDef(
-        {"s": GenericType("T")},
-        SetType(
-            PairType(GenericType("T"), BaseSimileType.Int),
-            relation_subtype=RelationSubTypeMask.bag_type(),
-        ),
+    # "bag": ProcedureTypeDef(
+    #     {"s": GenericType("T")},
+    #     SetType(
+    #         PairType(GenericType("T"), BaseSimileType.Int),
+    #         relation_subtype=RelationSubTypeMask.bag_type(),
+    #     ),
+    # ),
+    "bag": SetType(
+        PairType(GenericType("T"), BaseSimileType.Int),
+        relation_subtype=RelationSubTypeMask.bag_type(),
     ),
 }
 

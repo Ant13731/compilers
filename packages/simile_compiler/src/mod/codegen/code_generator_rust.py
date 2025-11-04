@@ -68,6 +68,9 @@ class RustCodeGenerator(CodeGenerator):
                 raise ValueError(f"Most union types are not supported in Rust code generation. Got: {simile_type}")
             case ast_.DeferToSymbolTable(lookup_type):
                 raise ValueError(f"DeferToSymbolTable types are not supported in Rust code generation (they should be resolved). Got: {simile_type} for field {def_name}")
+            case ast_.GenericType(_):
+                logger.warning("Skipping generic type translation for Rust code generation (should be resolved before code generation).")
+                return ""
             # case ast_.BaseSimileType.Any:
             #     return "INVALID_TYPE"  # Placeholder for any type, should not be used in code generation.
         raise ValueError(f"Unsupported Simile type for Rust translation: {simile_type}")

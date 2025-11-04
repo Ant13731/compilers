@@ -303,7 +303,15 @@ class Parser:
             # now in assignment rule - could either see a type annotation or not
             if self.match(TokenType.COLON):
                 type_ = self.expr()
-                expr = ast_.TypedName(expr, ast_.Type_(type_))
+
+                def replace_image_with_generic_type_(node: ast_.ASTNode | Any) -> ast_.ASTNode | None:
+                    match node:
+                        case ast_.Image(ast_.Identifier(_) as target, index):
+                            return ast_.Type_(target, [index])
+                    return None
+
+                rewritten_type_ = ast_.Type_(type_.find_and_replace_with_func(replace_image_with_generic_type_))
+                expr = ast_.TypedName(expr, rewritten_type_)
 
             if self.match(TokenType.CHOICE_ASSIGN):
                 choice_assignment = True

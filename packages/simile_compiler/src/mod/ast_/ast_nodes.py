@@ -23,6 +23,7 @@ from src.mod.ast_.ast_node_operators import (
 from src.mod.ast_.symbol_table_types import (
     SimileType,
     BaseSimileType,
+    GenericType,
     PairType,
     SetType,
     StructTypeDef,
@@ -262,6 +263,10 @@ class BinaryOp(InheritedEqMixin, ASTNode):
                         return BaseSimileType.Int
                     case _ if union_type == TypeUnion({BaseSimileType.Int, BaseSimileType.Float}):
                         return BaseSimileType.Float
+                    case GenericType(
+                        id
+                    ):  # TODO FIXME REMOVE HACK for generics, needed this to get warehouse info system to work. the problem stems from finding the types of bound quantifier vars
+                        return GenericType(id)
                 raise SimileTypeError(f"Invalid types for arithmetic binary operation: {l_type}, {r_type}", self)
             case BinaryOperator.MODULO:
                 if type_union(l_type, r_type) == BaseSimileType.Int:
@@ -283,6 +288,7 @@ class BinaryOp(InheritedEqMixin, ASTNode):
                 if not isinstance(r_type, SetType):
                     raise SimileTypeError(f"Invalid types for set operation (right operand is not a set): {l_type}, {r_type}", self)
 
+                print("Set operation DIFFERENCE between:", l_type, r_type)
                 if SetType.is_bag(l_type):
                     if SetType.is_bag(r_type):
                         return SetType(
@@ -759,7 +765,7 @@ class Quantifier(ASTNode):
     def flatten_bound_identifiers(self) -> set[Identifier]:
         identifiers = set()
         for i in self._bound_identifiers:
-            identifiers.update(i.flatten())
+            identifiers |= i.flatten()
         return identifiers
 
 
@@ -802,6 +808,7 @@ class Enumeration(InheritedEqMixin, ASTNode):
 @dataclass
 class Type_(ASTNode):
     type_: ASTNode
+    generics: list[ASTNode] = field(default_factory=list)
 
     @property
     def free(self) -> set[Identifier]:
@@ -815,6 +822,8 @@ class Type_(ASTNode):
         return self.type_.well_formed()
 
     def _get_type(self) -> SimileType:
+        if self.generics:
+            return self.type_.get_type.replace_generic_types([generic.get_type for generic in self.generics])
         return self.type_.get_type
 
     def _pretty_print_algorithmic(self, indent: int) -> str:
