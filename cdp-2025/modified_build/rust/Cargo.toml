@@ -5,3 +5,5 @@ edition = "2024"
 
 [dependencies]
 bidirectional-map = "0.1.4"
+rand = "0.8"
+csv = "1.1"
