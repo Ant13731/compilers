@@ -5,8 +5,8 @@ RUNTIME_BENCHMARKS = {
     "benchmark_runtime_python_bihashmap.csv": "Python (bihashmap)",
     "benchmark_runtime_python_bimap_tuple.csv": "Python (bimap set tuple)",
     "benchmark_runtime_python_optimized_dict.csv": "Python (optimized dict)",
-    "benchmark_runtime_rust_release.csv": "Compiled Rust (release)",
-    "benchmark_runtime_rust_debug.csv": "Compiled Rust (debug)",
+    # "benchmark_runtime_rust_release.csv": "Compiled Rust (release)",
+    # "benchmark_runtime_rust_debug.csv": "Compiled Rust (debug)",
 }
 
 MEMORY_BENCHMARKS = {
