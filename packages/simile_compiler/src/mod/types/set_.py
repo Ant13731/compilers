@@ -20,50 +20,37 @@ class SetEngine:
 
     The actual change must be handled by the Set class."""
 
-    # Atomic operations
     def add(self, element):
-        """Add an element to the set."""
         raise NotImplementedError
 
     def remove(self, element):
-        """Remove an element from the set."""
         raise NotImplementedError
 
-    # Binary operations
     def union(self, other: "SetEngine") -> "SetEngine":
-        """Return the union of this set and another set."""
         raise NotImplementedError
 
     def intersection(self, other: "SetEngine") -> "SetEngine":
-        """Return the intersection of this set and another set."""
         raise NotImplementedError
 
     def difference(self, other: "SetEngine") -> "SetEngine":
-        """Return the difference of this set and another set."""
         raise NotImplementedError
 
     def symmetric_difference(self, other: "SetEngine") -> "SetEngine":
-        """Return the symmetric difference of this set and another set."""
         raise NotImplementedError
 
     def cartesian_product(self, other: "SetEngine") -> "SetEngine":
-        """Return the cartesian product of this set and another set."""
         raise NotImplementedError
 
     def is_subset(self, other: "SetEngine") -> bool:
-        """Check if this set is a subset of another set."""
         raise NotImplementedError
 
     def is_disjoint(self, other: "SetEngine") -> bool:
-        """Check if this set and another set are disjoint."""
         raise NotImplementedError
 
     def is_superset(self, other: "SetEngine") -> bool:
-        """Check if this set is a superset of another set."""
         raise NotImplementedError
 
     def equal(self, other: "SetEngine") -> bool:
-        """Check if this set is equal to another set."""
         raise NotImplementedError
 
 
