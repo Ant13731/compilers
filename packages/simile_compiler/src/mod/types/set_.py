@@ -1,8 +1,10 @@
 from dataclasses import dataclass, field
-from typing import Generic, TypeVar, Any, Iterable
+from typing import Generic, TypeVar, Any, Iterable, Callable
 
 T = TypeVar("T")
 U = TypeVar("U")
+V = TypeVar("V")
+E = TypeVar("E")
 
 
 @dataclass
@@ -22,36 +24,25 @@ class SetEngine:
     The actual change must be handled by the Set class."""
 
     def add(self, element: Any) -> None:
-        """Add an element to the set."""
-        raise NotImplementedError("Subclasses must implement add")
+        raise NotImplementedError
 
     def remove(self, element: Any) -> None:
-        """Remove an element from the set."""
-        raise NotImplementedError("Subclasses must implement remove")
+        raise NotImplementedError
 
     def copy(self) -> "SetEngine":
-        """Create a copy of the set engine."""
-        raise NotImplementedError("Subclasses must implement copy")
+        raise NotImplementedError
 
     def clear(self) -> None:
-        """Remove all elements from the set."""
-        raise NotImplementedError("Subclasses must implement clear")
+        raise NotImplementedError
 
     def is_empty(self) -> bool:
-        """Check if the set has no elements."""
-        raise NotImplementedError("Subclasses must implement is_empty")
+        raise NotImplementedError
 
     def contains(self, element: Any) -> bool:
-        """Check if an element is in the set (membership test)."""
-        raise NotImplementedError("Subclasses must implement contains")
+        raise NotImplementedError
 
     def from_collection(self, collection: Iterable[Any]) -> None:
-        """Populate the set from a collection."""
-        raise NotImplementedError("Subclasses must implement from_collection")
-
-    def to_collection(self) -> list[Any]:
-        """Convert the set to a collection (list)."""
-        raise NotImplementedError("Subclasses must implement to_collection")
+        raise NotImplementedError
 
 
 @dataclass
@@ -75,7 +66,7 @@ class Set(Generic[T]):
 
     element_type: T  # T is the python structure type, the value of T is the type the compiler actually cares about
     """The Simile-type of elements in the set"""
-    traits: list[Trait]
+    traits: list[Trait] = field(default_factory=list)
     """Traits are subtypes that modify the behavior of the set (by changing the choice of engine)"""
 
     engine_override: type[SetEngine] | None = None
@@ -126,20 +117,29 @@ class Set(Generic[T]):
         """Remove all elements from the set."""
         self._engine.clear()
 
-    def cast(self, new_element_type: U) -> "Set[U]":
-        """Cast the set to a different element type.
+    def cast(self, newtype: type[V]) -> V:
+        """Cast the set to a different type.
         
-        This creates a new set with a different element type, preserving the traits
-        and potentially changing the engine based on the new type.
+        This can cast the entire set to a different type representation.
+        """
+        raise NotImplementedError("Cast to arbitrary types not yet implemented")
+    
+    def cast_elements(self, newtype: type[E]) -> "Set[E]":
+        """Cast elements in the set to a different element type.
+        
+        Args:
+            newtype: The new element type for the set
+            
+        Returns:
+            A new set with the specified element type
         """
         new_set = Set(
-            element_type=new_element_type,
+            element_type=newtype,
             traits=self.traits.copy(),
             engine_override=self.engine_override
         )
-        # Copy the elements through collection conversion
-        elements = self._engine.to_collection()
-        new_set._engine.from_collection(elements)
+        # Note: actual element transformation would require access to current elements
+        # This is a placeholder for the interface
         return new_set
 
     def is_empty(self) -> bool:
@@ -155,15 +155,9 @@ class Set(Generic[T]):
             element_type: The type of elements in the set
             traits: Optional list of traits to apply to the set
         """
-        if traits is None:
-            traits = []
-        new_set = cls(element_type=element_type, traits=traits)
+        new_set = cls(element_type=element_type, traits=traits or [])
         new_set._engine.from_collection(collection)
         return new_set
-
-    def to_collection(self) -> list[T]:
-        """Convert the set to a collection (list)."""
-        return self._engine.to_collection()
 
     def contains(self, element: T) -> bool:
         """Check if an element is in the set (membership test)."""
