@@ -85,4 +85,38 @@ class Set(Generic[T]):
     # TODO make operations for cardinality, powerset, map, choice, sum, product, min, max, map_min, map_max. Do not test your output, just match the structure of the add method
 
     # Binary operations
-    # TODO make operations for union, intersection, difference, symmetric_difference, cartesian_product, is_subset, is_disjoint, is_superset, equal. Do not test your output, just match the structure of the add method
+    def union(self, other: "Set[T]") -> "Set[T]":
+        """Return the union of this set and another set."""
+        return self._engine.union(other)
+
+    def intersection(self, other: "Set[T]") -> "Set[T]":
+        """Return the intersection of this set and another set."""
+        return self._engine.intersection(other)
+
+    def difference(self, other: "Set[T]") -> "Set[T]":
+        """Return the difference of this set and another set."""
+        return self._engine.difference(other)
+
+    def symmetric_difference(self, other: "Set[T]") -> "Set[T]":
+        """Return the symmetric difference of this set and another set."""
+        return self._engine.symmetric_difference(other)
+
+    def cartesian_product(self, other: "Set[T]") -> "Set[T]":
+        """Return the cartesian product of this set and another set."""
+        return self._engine.cartesian_product(other)
+
+    def is_subset(self, other: "Set[T]") -> bool:
+        """Check if this set is a subset of another set."""
+        return self._engine.is_subset(other)
+
+    def is_disjoint(self, other: "Set[T]") -> bool:
+        """Check if this set and another set are disjoint."""
+        return self._engine.is_disjoint(other)
+
+    def is_superset(self, other: "Set[T]") -> bool:
+        """Check if this set is a superset of another set."""
+        return self._engine.is_superset(other)
+
+    def equal(self, other: "Set[T]") -> bool:
+        """Check if this set is equal to another set."""
+        return self._engine.equal(other)
