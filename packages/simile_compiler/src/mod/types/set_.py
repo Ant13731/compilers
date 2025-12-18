@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, Any, Iterable
 
 T = TypeVar("T")
+U = TypeVar("U")
 
 
 @dataclass
@@ -19,6 +20,38 @@ class SetEngine:
     """If the engine determines that a different engine type would be more efficient, it can propose a change to the set interface.
 
     The actual change must be handled by the Set class."""
+
+    def add(self, element: Any) -> None:
+        """Add an element to the set."""
+        raise NotImplementedError("Subclasses must implement add")
+
+    def remove(self, element: Any) -> None:
+        """Remove an element from the set."""
+        raise NotImplementedError("Subclasses must implement remove")
+
+    def copy(self) -> "SetEngine":
+        """Create a copy of the set engine."""
+        raise NotImplementedError("Subclasses must implement copy")
+
+    def clear(self) -> None:
+        """Remove all elements from the set."""
+        raise NotImplementedError("Subclasses must implement clear")
+
+    def is_empty(self) -> bool:
+        """Check if the set has no elements."""
+        raise NotImplementedError("Subclasses must implement is_empty")
+
+    def contains(self, element: Any) -> bool:
+        """Check if an element is in the set (membership test)."""
+        raise NotImplementedError("Subclasses must implement contains")
+
+    def from_collection(self, collection: Iterable[Any]) -> None:
+        """Populate the set from a collection."""
+        raise NotImplementedError("Subclasses must implement from_collection")
+
+    def to_collection(self) -> list[Any]:
+        """Convert the set to a collection (list)."""
+        raise NotImplementedError("Subclasses must implement to_collection")
 
 
 @dataclass
@@ -79,7 +112,66 @@ class Set(Generic[T]):
         """Remove an element from the set."""
         self._engine.remove(element)
 
-    # TODO make operations for copy, clear, cast, is_empty, from_collection, to_collection, membership
+    def copy(self) -> "Set[T]":
+        """Create a copy of the set."""
+        new_set = Set(
+            element_type=self.element_type,
+            traits=self.traits.copy(),
+            engine_override=self.engine_override
+        )
+        new_set._engine = self._engine.copy()
+        return new_set
+
+    def clear(self) -> None:
+        """Remove all elements from the set."""
+        self._engine.clear()
+
+    def cast(self, new_element_type: U) -> "Set[U]":
+        """Cast the set to a different element type.
+        
+        This creates a new set with a different element type, preserving the traits
+        and potentially changing the engine based on the new type.
+        """
+        new_set = Set(
+            element_type=new_element_type,
+            traits=self.traits.copy(),
+            engine_override=self.engine_override
+        )
+        # Copy the elements through collection conversion
+        elements = self._engine.to_collection()
+        new_set._engine.from_collection(elements)
+        return new_set
+
+    def is_empty(self) -> bool:
+        """Check if the set has no elements."""
+        return self._engine.is_empty()
+
+    @classmethod
+    def from_collection(cls, collection: Iterable[T], element_type: T, traits: list[Trait] | None = None) -> "Set[T]":
+        """Create a set from a collection (e.g., list, tuple).
+        
+        Args:
+            collection: An iterable containing elements to populate the set
+            element_type: The type of elements in the set
+            traits: Optional list of traits to apply to the set
+        """
+        if traits is None:
+            traits = []
+        new_set = cls(element_type=element_type, traits=traits)
+        new_set._engine.from_collection(collection)
+        return new_set
+
+    def to_collection(self) -> list[T]:
+        """Convert the set to a collection (list)."""
+        return self._engine.to_collection()
+
+    def contains(self, element: T) -> bool:
+        """Check if an element is in the set (membership test)."""
+        return self._engine.contains(element)
+
+    def __contains__(self, element: T) -> bool:
+        """Support the 'in' operator for membership testing."""
+        return self.contains(element)
 
     # Single operations
     # TODO make operations for cardinality, powerset, map, choice, sum, product, min, max, map_min, map_max
