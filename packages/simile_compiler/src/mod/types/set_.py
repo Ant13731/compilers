@@ -1,8 +1,7 @@
 from dataclasses import dataclass, field
-from typing import Generic, TypeVar, Any, Iterable, Callable
+from typing import Generic, TypeVar, Any, Iterable
 
 T = TypeVar("T")
-U = TypeVar("U")
 V = TypeVar("V")
 E = TypeVar("E")
 
