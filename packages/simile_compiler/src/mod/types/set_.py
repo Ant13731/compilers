@@ -82,7 +82,7 @@ class Set(Generic[T]):
     # TODO make operations for copy, clear, cast, is_empty, from_collection, to_collection, membership
 
     # Single operations
-    # TODO make operations for cardinality, powerset, map, choice, sum, product, min, max, map_min, map_max
+    # TODO make operations for cardinality, powerset, map, choice, sum, product, min, max, map_min, map_max. Do not test your output, just match the structure of the add method
 
     # Binary operations
-    # TODO make operations for union, intersection, difference, symmetric_difference, cartesian_product, is_subset, is_disjoint, is_superset, equal
+    # TODO make operations for union, intersection, difference, symmetric_difference, cartesian_product, is_subset, is_disjoint, is_superset, equal. Do not test your output, just match the structure of the add method
