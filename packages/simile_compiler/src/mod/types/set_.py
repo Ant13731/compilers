@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
-from typing import Generic, TypeVar
+from typing import Callable, Generic, TypeVar
 
 T = TypeVar("T")
+V = TypeVar("V")
 
 
 @dataclass
@@ -90,7 +91,7 @@ class Set(Generic[T]):
         """Return the powerset of the set."""
         return self._engine.powerset()
 
-    def map(self, func):
+    def map(self, func: Callable[[T], V]) -> "Set[V]":
         """Apply a function to each element in the set."""
         return self._engine.map(func)
 
@@ -114,11 +115,11 @@ class Set(Generic[T]):
         """Return the maximum element in the set."""
         return self._engine.max()
 
-    def map_min(self, func):
+    def map_min(self, func: Callable[[T], int]) -> T:
         """Apply a function to each element and return the minimum."""
         return self._engine.map_min(func)
 
-    def map_max(self, func):
+    def map_max(self, func: Callable[[T], int]) -> T:
         """Apply a function to each element and return the maximum."""
         return self._engine.map_max(func)
 
