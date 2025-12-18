@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Generic, TypeVar, Any, Iterable
+from typing import Callable, Generic, TypeVar, Any, Iterable
 
 T = TypeVar("T")
 V = TypeVar("V")
@@ -21,7 +21,7 @@ class SetEngine:
     """If the engine determines that a different engine type would be more efficient, it can propose a change to the set interface.
 
     The actual change must be handled by the Set class."""
-
+   
     def add(self, element: Any) -> None:
         raise NotImplementedError
 
@@ -41,6 +41,36 @@ class SetEngine:
         raise NotImplementedError
 
     def from_collection(self, collection: Iterable[Any]) -> None:
+        raise NotImplementedError
+        
+    def cardinality(self) -> int:
+        raise NotImplementedError
+
+    def powerset(self):
+        raise NotImplementedError
+
+    def map(self, func):
+        raise NotImplementedError
+
+    def choice(self):
+        raise NotImplementedError
+
+    def sum(self):
+        raise NotImplementedError
+
+    def product(self):
+        raise NotImplementedError
+
+    def min(self):
+        raise NotImplementedError
+
+    def max(self):
+        raise NotImplementedError
+
+    def map_min(self, func):
+        raise NotImplementedError
+
+    def map_max(self, func):
         raise NotImplementedError
 
 
@@ -167,7 +197,45 @@ class Set(Generic[T]):
         return self.contains(element)
 
     # Single operations
-    # TODO make operations for cardinality, powerset, map, choice, sum, product, min, max, map_min, map_max
+    def cardinality(self) -> int:
+        """Return the number of elements in the set."""
+        return self._engine.cardinality()
+
+    def powerset(self) -> "Set[Set[T]]":
+        """Return the powerset of the set."""
+        return self._engine.powerset()
+
+    def map(self, func: Callable[[T], V]) -> "Set[V]":
+        """Apply a function to each element in the set."""
+        return self._engine.map(func)
+
+    def choice(self) -> T:
+        """Select an arbitrary element from the set."""
+        return self._engine.choice()
+
+    def sum(self):
+        """Return the sum of all elements in the set."""
+        return self._engine.sum()
+
+    def product(self):
+        """Return the product of all elements in the set."""
+        return self._engine.product()
+
+    def min(self) -> T:
+        """Return the minimum element in the set."""
+        return self._engine.min()
+
+    def max(self) -> T:
+        """Return the maximum element in the set."""
+        return self._engine.max()
+
+    def map_min(self, func: Callable[[T], int]) -> T:
+        """Apply a function to each element and return the minimum."""
+        return self._engine.map_min(func)
+
+    def map_max(self, func: Callable[[T], int]) -> T:
+        """Apply a function to each element and return the maximum."""
+        return self._engine.map_max(func)
 
     # Binary operations
-    # TODO make operations for union, intersection, difference, symmetric_difference, cartesian_product, is_subset, is_disjoint, is_superset, equal
+    # TODO make operations for union, intersection, difference, symmetric_difference, cartesian_product, is_subset, is_disjoint, is_superset, equal. Do not test your output, just match the structure of the add method
