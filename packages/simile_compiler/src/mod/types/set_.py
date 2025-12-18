@@ -82,7 +82,45 @@ class Set(Generic[T]):
     # TODO make operations for copy, clear, cast, is_empty, from_collection, to_collection, membership
 
     # Single operations
-    # TODO make operations for cardinality, powerset, map, choice, sum, product, min, max, map_min, map_max. Do not test your output, just match the structure of the add method
+    def cardinality(self) -> int:
+        """Return the number of elements in the set."""
+        return self._engine.cardinality()
+
+    def powerset(self) -> "Set[Set[T]]":
+        """Return the powerset of the set."""
+        return self._engine.powerset()
+
+    def map(self, func):
+        """Apply a function to each element in the set."""
+        return self._engine.map(func)
+
+    def choice(self) -> T:
+        """Select an arbitrary element from the set."""
+        return self._engine.choice()
+
+    def sum(self):
+        """Return the sum of all elements in the set."""
+        return self._engine.sum()
+
+    def product(self):
+        """Return the product of all elements in the set."""
+        return self._engine.product()
+
+    def min(self) -> T:
+        """Return the minimum element in the set."""
+        return self._engine.min()
+
+    def max(self) -> T:
+        """Return the maximum element in the set."""
+        return self._engine.max()
+
+    def map_min(self, func):
+        """Apply a function to each element and return the minimum."""
+        return self._engine.map_min(func)
+
+    def map_max(self, func):
+        """Apply a function to each element and return the maximum."""
+        return self._engine.map_max(func)
 
     # Binary operations
     # TODO make operations for union, intersection, difference, symmetric_difference, cartesian_product, is_subset, is_disjoint, is_superset, equal. Do not test your output, just match the structure of the add method
