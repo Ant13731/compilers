@@ -21,6 +21,56 @@ class SetEngine:
 
     The actual change must be handled by the Set class."""
 
+    # Atomic operations
+    def add(self, element):
+        """Add an element to the set."""
+        raise NotImplementedError
+
+    def remove(self, element):
+        """Remove an element from the set."""
+        raise NotImplementedError
+
+    # Single operations
+    def cardinality(self) -> int:
+        """Return the number of elements in the set."""
+        raise NotImplementedError
+
+    def powerset(self):
+        """Return the powerset of the set."""
+        raise NotImplementedError
+
+    def map(self, func):
+        """Apply a function to each element in the set."""
+        raise NotImplementedError
+
+    def choice(self):
+        """Select an arbitrary element from the set."""
+        raise NotImplementedError
+
+    def sum(self):
+        """Return the sum of all elements in the set."""
+        raise NotImplementedError
+
+    def product(self):
+        """Return the product of all elements in the set."""
+        raise NotImplementedError
+
+    def min(self):
+        """Return the minimum element in the set."""
+        raise NotImplementedError
+
+    def max(self):
+        """Return the maximum element in the set."""
+        raise NotImplementedError
+
+    def map_min(self, func):
+        """Apply a function to each element and return the minimum."""
+        raise NotImplementedError
+
+    def map_max(self, func):
+        """Apply a function to each element and return the maximum."""
+        raise NotImplementedError
+
 
 @dataclass
 class Trait:
