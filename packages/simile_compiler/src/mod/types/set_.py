@@ -20,6 +20,37 @@ class SetEngine:
 
     The actual change must be handled by the Set class."""
 
+    # Dunder methods for binary operations
+    def __or__(self, other: "SetEngine") -> "SetEngine":
+        """Dunder method for union operation (|)."""
+        return self.union(other)
+
+    def __and__(self, other: "SetEngine") -> "SetEngine":
+        """Dunder method for intersection operation (&)."""
+        return self.intersection(other)
+
+    def __sub__(self, other: "SetEngine") -> "SetEngine":
+        """Dunder method for difference operation (-)."""
+        return self.difference(other)
+
+    def __xor__(self, other: "SetEngine") -> "SetEngine":
+        """Dunder method for symmetric difference operation (^)."""
+        return self.symmetric_difference(other)
+
+    def __le__(self, other: "SetEngine") -> bool:
+        """Dunder method for subset comparison (<=)."""
+        return self.is_subset(other)
+
+    def __ge__(self, other: "SetEngine") -> bool:
+        """Dunder method for superset comparison (>=)."""
+        return self.is_superset(other)
+
+    def __eq__(self, other: object) -> bool:
+        """Dunder method for equality comparison (==)."""
+        if not isinstance(other, SetEngine):
+            return NotImplemented
+        return self.equal(other)
+
 
 @dataclass
 class Trait:
@@ -120,3 +151,34 @@ class Set(Generic[T]):
     def equal(self, other: "Set[T]") -> bool:
         """Check if this set is equal to another set."""
         return self._engine.equal(other)
+
+    # Dunder methods for binary operations
+    def __or__(self, other: "Set[T]") -> "Set[T]":
+        """Dunder method for union operation (|)."""
+        return self.union(other)
+
+    def __and__(self, other: "Set[T]") -> "Set[T]":
+        """Dunder method for intersection operation (&)."""
+        return self.intersection(other)
+
+    def __sub__(self, other: "Set[T]") -> "Set[T]":
+        """Dunder method for difference operation (-)."""
+        return self.difference(other)
+
+    def __xor__(self, other: "Set[T]") -> "Set[T]":
+        """Dunder method for symmetric difference operation (^)."""
+        return self.symmetric_difference(other)
+
+    def __le__(self, other: "Set[T]") -> bool:
+        """Dunder method for subset comparison (<=)."""
+        return self.is_subset(other)
+
+    def __ge__(self, other: "Set[T]") -> bool:
+        """Dunder method for superset comparison (>=)."""
+        return self.is_superset(other)
+
+    def __eq__(self, other: object) -> bool:
+        """Dunder method for equality comparison (==)."""
+        if not isinstance(other, Set):
+            return NotImplemented
+        return self.equal(other)
