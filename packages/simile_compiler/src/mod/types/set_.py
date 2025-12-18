@@ -20,36 +20,51 @@ class SetEngine:
 
     The actual change must be handled by the Set class."""
 
-    # Dunder methods for binary operations
-    def __or__(self, other: "SetEngine") -> "SetEngine":
-        """Dunder method for union operation (|)."""
-        return self.union(other)
+    # Atomic operations
+    def add(self, element):
+        """Add an element to the set."""
+        raise NotImplementedError
 
-    def __and__(self, other: "SetEngine") -> "SetEngine":
-        """Dunder method for intersection operation (&)."""
-        return self.intersection(other)
+    def remove(self, element):
+        """Remove an element from the set."""
+        raise NotImplementedError
 
-    def __sub__(self, other: "SetEngine") -> "SetEngine":
-        """Dunder method for difference operation (-)."""
-        return self.difference(other)
+    # Binary operations
+    def union(self, other: "SetEngine") -> "SetEngine":
+        """Return the union of this set and another set."""
+        raise NotImplementedError
 
-    def __xor__(self, other: "SetEngine") -> "SetEngine":
-        """Dunder method for symmetric difference operation (^)."""
-        return self.symmetric_difference(other)
+    def intersection(self, other: "SetEngine") -> "SetEngine":
+        """Return the intersection of this set and another set."""
+        raise NotImplementedError
 
-    def __le__(self, other: "SetEngine") -> bool:
-        """Dunder method for subset comparison (<=)."""
-        return self.is_subset(other)
+    def difference(self, other: "SetEngine") -> "SetEngine":
+        """Return the difference of this set and another set."""
+        raise NotImplementedError
 
-    def __ge__(self, other: "SetEngine") -> bool:
-        """Dunder method for superset comparison (>=)."""
-        return self.is_superset(other)
+    def symmetric_difference(self, other: "SetEngine") -> "SetEngine":
+        """Return the symmetric difference of this set and another set."""
+        raise NotImplementedError
 
-    def __eq__(self, other: object) -> bool:
-        """Dunder method for equality comparison (==)."""
-        if not isinstance(other, SetEngine):
-            return NotImplemented
-        return self.equal(other)
+    def cartesian_product(self, other: "SetEngine") -> "SetEngine":
+        """Return the cartesian product of this set and another set."""
+        raise NotImplementedError
+
+    def is_subset(self, other: "SetEngine") -> bool:
+        """Check if this set is a subset of another set."""
+        raise NotImplementedError
+
+    def is_disjoint(self, other: "SetEngine") -> bool:
+        """Check if this set and another set are disjoint."""
+        raise NotImplementedError
+
+    def is_superset(self, other: "SetEngine") -> bool:
+        """Check if this set is a superset of another set."""
+        raise NotImplementedError
+
+    def equal(self, other: "SetEngine") -> bool:
+        """Check if this set is equal to another set."""
+        raise NotImplementedError
 
 
 @dataclass
@@ -151,34 +166,3 @@ class Set(Generic[T]):
     def equal(self, other: "Set[T]") -> bool:
         """Check if this set is equal to another set."""
         return self._engine.equal(other)
-
-    # Dunder methods for binary operations
-    def __or__(self, other: "Set[T]") -> "Set[T]":
-        """Dunder method for union operation (|)."""
-        return self.union(other)
-
-    def __and__(self, other: "Set[T]") -> "Set[T]":
-        """Dunder method for intersection operation (&)."""
-        return self.intersection(other)
-
-    def __sub__(self, other: "Set[T]") -> "Set[T]":
-        """Dunder method for difference operation (-)."""
-        return self.difference(other)
-
-    def __xor__(self, other: "Set[T]") -> "Set[T]":
-        """Dunder method for symmetric difference operation (^)."""
-        return self.symmetric_difference(other)
-
-    def __le__(self, other: "Set[T]") -> bool:
-        """Dunder method for subset comparison (<=)."""
-        return self.is_subset(other)
-
-    def __ge__(self, other: "Set[T]") -> bool:
-        """Dunder method for superset comparison (>=)."""
-        return self.is_superset(other)
-
-    def __eq__(self, other: object) -> bool:
-        """Dunder method for equality comparison (==)."""
-        if not isinstance(other, Set):
-            return NotImplemented
-        return self.equal(other)
