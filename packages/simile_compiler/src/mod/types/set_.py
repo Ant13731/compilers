@@ -21,7 +21,8 @@ class SetEngine:
     """If the engine determines that a different engine type would be more efficient, it can propose a change to the set interface.
 
     The actual change must be handled by the Set class."""
-   
+
+    # Atomic operations
     def add(self, element: Any) -> None:
         raise NotImplementedError
 
@@ -42,7 +43,7 @@ class SetEngine:
 
     def from_collection(self, collection: Iterable[Any]) -> None:
         raise NotImplementedError
-        
+
     def cardinality(self) -> int:
         raise NotImplementedError
 
@@ -137,7 +138,7 @@ class Set(Generic[T]):
         new_set = Set(
             element_type=self.element_type,
             traits=self.traits.copy(),
-            engine_override=self.engine_override
+            engine_override=self.engine_override,
         )
         new_set._engine = self._engine.copy()
         return new_set
@@ -146,44 +147,22 @@ class Set(Generic[T]):
         """Remove all elements from the set."""
         self._engine.clear()
 
-    def cast(self, newtype: type[V]) -> V:
-        """Cast the set to a different type.
-        
-        This can cast the entire set to a different type representation.
-        """
-        raise NotImplementedError("Cast to arbitrary types not yet implemented")
-    
-    def cast_elements(self, newtype: type[E]) -> "Set[E]":
-        """Cast elements in the set to a different element type.
-        
-        Args:
-            newtype: The new element type for the set
-            
-        Returns:
-            A new set with the specified element type
-        """
-        new_set = Set(
-            element_type=newtype,
-            traits=self.traits.copy(),
-            engine_override=self.engine_override
-        )
-        # Note: actual element transformation would require access to current elements
-        # This is a placeholder for the interface
-        return new_set
+    def cast(self, caster: "Callable[[Set[T]], V]") -> V:
+        """Cast the entire set to a different type."""
+        raise NotImplementedError
 
     def is_empty(self) -> bool:
         """Check if the set has no elements."""
         return self._engine.is_empty()
 
     @classmethod
-    def from_collection(cls, collection: Iterable[T], element_type: T, traits: list[Trait] | None = None) -> "Set[T]":
-        """Create a set from a collection (e.g., list, tuple).
-        
-        Args:
-            collection: An iterable containing elements to populate the set
-            element_type: The type of elements in the set
-            traits: Optional list of traits to apply to the set
-        """
+    def from_collection(
+        cls,
+        collection: Iterable[T],
+        element_type: T,
+        traits: list[Trait] | None = None,
+    ) -> "Set[T]":
+        """Create a set from a collection (e.g., list, tuple)."""
         new_set = cls(element_type=element_type, traits=traits or [])
         new_set._engine.from_collection(collection)
         return new_set
@@ -191,10 +170,6 @@ class Set(Generic[T]):
     def contains(self, element: T) -> bool:
         """Check if an element is in the set (membership test)."""
         return self._engine.contains(element)
-
-    def __contains__(self, element: T) -> bool:
-        """Support the 'in' operator for membership testing."""
-        return self.contains(element)
 
     # Single operations
     def cardinality(self) -> int:
@@ -213,11 +188,11 @@ class Set(Generic[T]):
         """Select an arbitrary element from the set."""
         return self._engine.choice()
 
-    def sum(self):
+    def sum(self) -> int | float:
         """Return the sum of all elements in the set."""
         return self._engine.sum()
 
-    def product(self):
+    def product(self) -> int | float:
         """Return the product of all elements in the set."""
         return self._engine.product()
 
