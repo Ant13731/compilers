@@ -1,107 +1,14 @@
+from __future__ import annotations
 from dataclasses import dataclass, field
+from copy import deepcopy
 from typing import Callable, Generic, TypeVar, Any, Iterable
 
-from src.mod.ast_.symbol_table_types import BaseSimileType, PairType
 
-T = TypeVar("T")
-V = TypeVar("V")
-E = TypeVar("E")
-
-
-@dataclass
-class SetImplementationCodeGenerator:
-    """The engine that implements the set operations.
-
-    This is a placeholder for the actual implementation of set operations.
-    The engine can be expanded to include various data structures and algorithms
-    for different set behaviors (e.g., ordered sets, unordered sets, etc.)."""
-
-    _name: str = field(init=False)
-    """Name of the engine implementation"""
-
-    _propose_change_to_engine_type: type["SetImplementationCodeGenerator"] | None = None
-    """If the engine determines that a different engine type would be more efficient, it can propose a change to the set interface.
-
-    The actual change must be handled by the Set class."""
-
-    # Each of these returns implementation code in the form of a string
-    def add(self, element: Any) -> str:
-        raise NotImplementedError
-
-    def remove(self, element: Any) -> str:
-        raise NotImplementedError
-
-    def copy(self) -> str:
-        raise NotImplementedError
-
-    def clear(self) -> str:
-        raise NotImplementedError
-
-    def is_empty(self) -> str:
-        raise NotImplementedError
-
-    def contains(self, element: Any) -> str:
-        raise NotImplementedError
-
-    def from_collection(self, collection: Iterable[Any]) -> str:
-        raise NotImplementedError
-
-    def cardinality(self) -> str:
-        raise NotImplementedError
-
-    def powerset(self) -> str:
-        raise NotImplementedError
-
-    def map(self, func) -> str:
-        raise NotImplementedError
-
-    def choice(self) -> str:
-        raise NotImplementedError
-
-    def sum(self) -> str:
-        raise NotImplementedError
-
-    def product(self) -> str:
-        raise NotImplementedError
-
-    def min(self) -> str:
-        raise NotImplementedError
-
-    def max(self) -> str:
-        raise NotImplementedError
-
-    def map_min(self, func) -> str:
-        raise NotImplementedError
-
-    def map_max(self, func) -> str:
-        raise NotImplementedError
-
-    def union(self, other: "SetImplementationCodeGenerator") -> str:
-        raise NotImplementedError
-
-    def intersection(self, other: "SetImplementationCodeGenerator") -> str:
-        raise NotImplementedError
-
-    def difference(self, other: "SetImplementationCodeGenerator") -> str:
-        raise NotImplementedError
-
-    def symmetric_difference(self, other: "SetImplementationCodeGenerator") -> str:
-        raise NotImplementedError
-
-    def cartesian_product(self, other: "SetImplementationCodeGenerator") -> str:
-        raise NotImplementedError
-
-    def is_subset(self, other: "SetImplementationCodeGenerator") -> str:
-        raise NotImplementedError
-
-    def is_disjoint(self, other: "SetImplementationCodeGenerator") -> str:
-        raise NotImplementedError
-
-    def is_superset(self, other: "SetImplementationCodeGenerator") -> str:
-        raise NotImplementedError
-
-    def equal(self, other: "SetImplementationCodeGenerator") -> str:
-        raise NotImplementedError
+T = TypeVar("T", bound="BaseType")
+V = TypeVar("V", bound="BaseType")
+E = TypeVar("E", bound="BaseType")
+L = TypeVar("L", bound="BaseType")
+R = TypeVar("R", bound="BaseType")
 
 
 @dataclass
@@ -116,6 +23,132 @@ class Trait:
     """Name of the trait"""
 
 
+# Primitive types
+@dataclass(kw_only=True, frozen=True)
+class BaseType:
+    """Base type for all Simile types."""
+
+    traits: list[Trait] = field(default_factory=list)
+
+    # Actual type methods
+    def cast(self, caster: Callable[[BaseType], T]) -> T:
+        """Cast the type to a different type."""
+        raise NotImplementedError
+
+    def equals(self, other: BaseType) -> BoolType:
+        """Check if this type is equal to another type."""
+        raise NotImplementedError
+
+    # Helper methods
+    def eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType] | None = None) -> bool:
+        if substitution_mapping is None:
+            substitution_mapping = {}
+        return self._eq_type(other, substitution_mapping)
+
+    def _eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+        raise NotImplementedError
+
+    def is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType] | None = None) -> bool:
+        """Check if self is a sub-type of other."""
+        if substitution_mapping is None:
+            substitution_mapping = {}
+        return self._is_sub_type(other, substitution_mapping)
+
+    def _is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+        raise NotImplementedError
+
+    def replace_generic_types(self, lst: list[BaseType]) -> BaseType:
+        """Structurally replace generic types in self according to the provided list of types."""
+        new_lst = deepcopy(lst)
+        return self._replace_generic_types(new_lst)
+
+    def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
+        raise NotImplementedError
+
+
+@dataclass(kw_only=True, frozen=True)
+class NoneType_(BaseType):
+    """Intended for statements without a type, not expressions. For example, a while loop node doesn't have a type."""
+
+
+@dataclass(kw_only=True, frozen=True)
+class BoolType(BaseType):
+    pass
+
+
+@dataclass(kw_only=True, frozen=True)
+class StringType(BaseType):
+    pass
+
+
+@dataclass(kw_only=True, frozen=True)
+class IntType(BaseType):
+    pass
+
+
+@dataclass(kw_only=True, frozen=True)
+class FloatType(BaseType):
+    pass
+
+
+@dataclass(kw_only=True, frozen=True)
+class Literal(BaseType):
+    """A literal value of a specific type T."""
+
+    value: BaseType
+
+
+@dataclass(kw_only=True, frozen=True)
+class GenericType(BaseType):
+    """Generic types are used primarily for resolving generic procedures/functions into a specific type based on context.
+
+    IDs are only locally valid (i.e., introduced by a procedure argument and used by a procedure's return value).
+    """
+
+    id_: str
+
+
+@dataclass(kw_only=True, frozen=True)
+class DeferToSymbolTable(BaseType):
+    """Types dependent on this will not be resolved until the analysis phase"""
+
+    lookup_type: str
+    """Identifier to look up in table"""
+
+
+@dataclass(kw_only=True, frozen=True)
+class ModuleImports(BaseType):
+    # import these objects into the module namespace
+    import_objects: dict[str, BaseType]
+
+
+@dataclass(kw_only=True, frozen=True)
+class TupleType(BaseType):
+    items: tuple[BaseType, ...]
+
+    def __post__init__(self):
+        for item in self.items:
+            if not isinstance(item, BaseType):
+                raise TypeError(f"TupleType items must be BaseType instances, got {type(item)}")
+
+
+@dataclass(kw_only=True, frozen=True)
+class PairType(TupleType):
+    """Maplet type"""
+
+    def __init__(self, left: BaseType, right: BaseType) -> None:
+        super().__init__((left, right))  # type: ignore
+
+    @property
+    def left(self) -> BaseType:
+        # python cant handle generic tuples just yet, so just ignore the type checker here
+        return self.items[0]  # type: ignore
+
+    @property
+    def right(self) -> BaseType:
+        return self.items[1]  # type: ignore
+
+
 # TODO we basically need a SetSimulator that will return the expected type, element type, and traits when executing a set operation
 # Then we need a code generator that will follow through on the simulator's typed promise - maybe make a mirror class that outputs generated code instead of types?
 # Whats the cleanest way to do this?
@@ -123,167 +156,136 @@ class Trait:
 # At codegen time, we would like to basically cast this set type into a concrete implementation
 
 
-@dataclass
-class Set(Generic[T]):
+@dataclass(kw_only=True, frozen=True)
+class SetType(BaseType):
     """Representation of the Simile Set type. Also intended to serve as a library of sorts for when codegen time rolls around.
 
     This class contains the interface of sets, but can be expanded.
     The engine contains the actual executable implementation of the set operations."""
 
-    element_type: T  # T is the python structure type, the value of T is the type the compiler actually cares about
+    element_type: BaseType  # T is the python structure type, the value of T is the type the compiler actually cares about
     """The Simile-type of elements in the set"""
     traits: list[Trait] = field(default_factory=list)
     """Traits are subtypes that modify the behavior of the set (by changing the choice of engine)"""
 
-    implementation_codegen_override: type[SetImplementationCodeGenerator] | None = None
-    """If provided, this engine type will be used instead of the one chosen by the traits and element type."""
-
-    _implementation_code_generator: SetImplementationCodeGenerator = field(init=False)
-    """The underlying data structure and operation implementations"""
-
-    def __post_init__(self):
-        if self.implementation_codegen_override is not None:
-            self._implementation_code_generator = self.implementation_codegen_override()
-        else:
-            self._implementation_code_generator = self._choose_engine(self.element_type, self.traits)
-
-    @staticmethod
-    def _choose_engine(element_type: T, traits: list[Trait]) -> SetImplementationCodeGenerator:
-        """One function determines the engine based on element type and traits - this should be the only
-        function making decisions based on trait and element type information.
-
-        Such decisions are made every time the engine is formed (when an engine changes, the underlying data structure changes)
-        """
-        # if Trait.Ordered in traits:
-        #     return SetEngine.OrderedSet
-        # else:
-        #     return SetEngine.UnorderedSet
-        raise NotImplementedError
-
     # These functions control the return types and trait-trait interactions (where applicable)
     # I suppose this kind-of simulates the program execution just looking at traits and element types
 
-    # Atomic operations
-    def add(self, element: T) -> BaseSimileType.None_:
-        """Add an element to the set."""
-        self._implementation_code_generator.add(element)
-
-    def remove(self, element: T) -> BaseSimileType.None_:
-        """Remove an element from the set."""
-        self._implementation_code_generator.remove(element)
-
-    def copy(self) -> "Set[T]":
+    # Programming-oriented operations
+    def copy(self) -> SetType:
         """Create a copy of the set."""
-        new_set = Set(
-            element_type=self.element_type,
-            traits=self.traits.copy(),
-            implementation_codegen_override=self.implementation_codegen_override,
-        )
-        new_set._implementation_code_generator = self._implementation_code_generator.copy()
-        return new_set
+        return deepcopy(self)
 
-    def clear(self) -> BaseSimileType.None_:
+    def clear(self) -> NoneType_:
         """Remove all elements from the set."""
-        self._implementation_code_generator.clear()
+        return NoneType_()
 
-    def cast(self, caster: "Callable[[Set[T]], V]") -> V:
-        """Cast the entire set to a different type."""
-        raise NotImplementedError
-
-    def is_empty(self) -> BaseSimileType.Bool:
+    def is_empty(self) -> BoolType:
         """Check if the set has no elements."""
-        return self._implementation_code_generator.is_empty()
+        return BoolType()
 
-    @classmethod
-    def from_collection(
-        cls,
-        collection: Iterable[T],
-        element_type: T,
-        traits: list[Trait] | None = None,
-    ) -> "Set[T]":
-        """Create a set from a collection (e.g., list, tuple)."""
-        new_set = cls(element_type=element_type, traits=traits or [])
-        new_set._implementation_code_generator.from_collection(collection)
-        return new_set
+    # Atomic operations
+    def add(self, element: T) -> NoneType_:
+        """Add an element to the set."""
+        return NoneType_()
 
-    def contains(self, element: T) -> BaseSimileType.Bool:
+    def remove(self, element: T) -> NoneType_:
+        """Remove an element from the set."""
+        return NoneType_()
+
+    def contains(self, element: T) -> BoolType:
         """Check if an element is in the set (membership test)."""
-        return self._implementation_code_generator.contains(element)
+        return BoolType()
 
     # Single operations
-    def cardinality(self) -> BaseSimileType.Int:
+    def cardinality(self) -> IntType:
         """Return the number of elements in the set."""
-        return self._implementation_code_generator.cardinality()
+        return IntType()
 
-    def powerset(self) -> "Set[Set[T]]":
+    def powerset(self) -> SetType:
         """Return the powerset of the set."""
-        return self._implementation_code_generator.powerset()
+        return SetType(element_type=self)
 
-    def map(self, func: Callable[[T], V]) -> "Set[V]":
+    def map(self, func: Callable[[BaseType], BaseType]) -> SetType:
         """Apply a function to each element in the set."""
-        return self._implementation_code_generator.map(func)
+        return SetType(element_type=func(self.element_type))
 
-    def choice(self) -> T:
+    def choice(self) -> BaseType:
         """Select an arbitrary element from the set."""
-        return self._implementation_code_generator.choice()
+        return self.element_type
 
-    def sum(self) -> T:
+    def sum(self) -> BaseType:
         """Return the sum of all elements in the set."""
-        return self._implementation_code_generator.sum()
+        return self.element_type
 
-    def product(self) -> T:
+    def product(self) -> BaseType:
         """Return the product of all elements in the set."""
-        return self._implementation_code_generator.product()
+        return self.element_type
 
-    def min(self) -> T:
+    def min(self) -> BaseType:
         """Return the minimum element in the set."""
-        return self._implementation_code_generator.min()
+        return self.element_type
 
-    def max(self) -> T:
+    def max(self) -> BaseType:
         """Return the maximum element in the set."""
-        return self._implementation_code_generator.max()
+        return self.element_type
 
-    def map_min(self, func: Callable[[T], BaseSimileType.Int]) -> T:
+    def map_min(self, func: Callable[[BaseType], IntType]) -> BaseType:
         """Apply a weighting function to each element and return the minimum."""
-        return self._implementation_code_generator.map_min(func)
+        return self.element_type
 
-    def map_max(self, func: Callable[[T], BaseSimileType.Int]) -> T:
+    def map_max(self, func: Callable[[BaseType], IntType]) -> BaseType:
         """Apply a weighting function to each element and return the maximum."""
-        return self._implementation_code_generator.map_max(func)
+        return self.element_type
 
     # Binary operations
-    def union(self, other: "Set[T]") -> "Set[T]":
+    def union(self, other: SetType) -> SetType:
         """Return the union of this set and another set."""
-        return self._implementation_code_generator.union(other)
+        return self
 
-    def intersection(self, other: "Set[T]") -> "Set[T]":
+    def intersection(self, other: SetType) -> SetType:
         """Return the intersection of this set and another set."""
-        return self._implementation_code_generator.intersection(other)
+        return self
 
-    def difference(self, other: "Set[T]") -> "Set[T]":
+    def difference(self, other: SetType) -> SetType:
         """Return the difference of this set and another set."""
-        return self._implementation_code_generator.difference(other)
+        return self
 
-    def symmetric_difference(self, other: "Set[T]") -> "Set[T]":
+    def symmetric_difference(self, other: SetType) -> SetType:
         """Return the symmetric difference of this set and another set."""
-        return self._implementation_code_generator.symmetric_difference(other)
+        return self
 
-    def cartesian_product(self, other: "Set[V]") -> "Set[PairType[T, V]]":
+    def cartesian_product(self, other: SetType) -> SetType:
         """Return the cartesian product of this set and another set."""
-        return self._implementation_code_generator.cartesian_product(other)
+        return SetType(element_type=PairType(self.element_type, other.element_type))
 
-    def is_subset(self, other: "Set[T]") -> BaseSimileType.Bool:
+    def is_subset(self, other: SetType) -> BoolType:
         """Check if this set is a subset of another set."""
-        return self._implementation_code_generator.is_subset(other)
+        return BoolType()
 
-    def is_disjoint(self, other: "Set[T]") -> BaseSimileType.Bool:
+    def is_disjoint(self, other: SetType) -> BoolType:
         """Check if this set and another set are disjoint."""
-        return self._implementation_code_generator.is_disjoint(other)
+        return BoolType()
 
-    def is_superset(self, other: "Set[T]") -> BaseSimileType.Bool:
+    def is_superset(self, other: SetType) -> BoolType:
         """Check if this set is a superset of another set."""
-        return self._implementation_code_generator.is_superset(other)
+        return BoolType()
 
-    def equal(self, other: "Set[T]") -> BaseSimileType.Bool:
-        """Check if this set is equal to another set."""
-        return self._implementation_code_generator.equal(other)
+
+@dataclass(kw_only=True, frozen=True)
+class StructTypeDef(BaseType):
+    # Internally a (many-to-one) (total on defined fields) function
+    fields: dict[str, BaseType]
+
+
+@dataclass(kw_only=True, frozen=True)
+class EnumTypeDef(SetType):
+    # Internally a set of identifiers
+    element_type = StringType()  # TODO add trait domain
+    members: set[str] = field(default_factory=set)
+
+
+@dataclass(kw_only=True, frozen=True)
+class ProcedureTypeDef(BaseType):
+    arg_types: dict[str, BaseType]
+    return_type: BaseType
