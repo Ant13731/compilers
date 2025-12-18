@@ -116,9 +116,16 @@ class Trait:
     """Name of the trait"""
 
 
+# TODO we basically need a SetSimulator that will return the expected type, element type, and traits when executing a set operation
+# Then we need a code generator that will follow through on the simulator's typed promise - maybe make a mirror class that outputs generated code instead of types?
+# Whats the cleanest way to do this?
+#
+# At codegen time, we would like to basically cast this set type into a concrete implementation
+
+
 @dataclass
 class Set(Generic[T]):
-    """Library for Simile Set types.
+    """Representation of the Simile Set type. Also intended to serve as a library of sorts for when codegen time rolls around.
 
     This class contains the interface of sets, but can be expanded.
     The engine contains the actual executable implementation of the set operations."""
