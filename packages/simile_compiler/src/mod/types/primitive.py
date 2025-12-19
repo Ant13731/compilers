@@ -9,17 +9,47 @@ from src.mod.types.base import BaseType
 class NoneType_(BaseType):
     """Intended for statements without a type, not expressions. For example, a while loop node doesn't have a type."""
 
+    def _eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+        return isinstance(other, NoneType_)
+
+    def _is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+        return isinstance(other, NoneType_)
+
+    def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
+        return self
+
 
 @dataclass(kw_only=True, frozen=True)
 class StringType(BaseType):
-    pass
+    def _eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+        return isinstance(other, StringType)
+
+    def _is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+        return isinstance(other, StringType)
+
+    def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
+        return self
 
 
 @dataclass(kw_only=True, frozen=True)
 class IntType(BaseType):
-    pass
+    def _eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+        return isinstance(other, IntType)
+
+    def _is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+        return isinstance(other, IntType) or isinstance(other, FloatType)
+
+    def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
+        return self
 
 
 @dataclass(kw_only=True, frozen=True)
 class FloatType(BaseType):
-    pass
+    def _eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+        return isinstance(other, FloatType)
+
+    def _is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+        return isinstance(other, FloatType)
+
+    def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
+        return self

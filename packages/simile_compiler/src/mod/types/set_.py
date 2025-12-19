@@ -27,6 +27,30 @@ class SetType(BaseType):
     # These functions control the return types and trait-trait interactions (where applicable)
     # I suppose this kind-of simulates the program execution just looking at traits and element types
 
+    # Type checking methods
+    # TODO add classmethods like bag(), sequence(), relation() to create specific set subtypes easily, without needing to fiddle with traits
+    def is_relation(self) -> bool:
+        return isinstance(self.element_type, PairType)
+
+    def is_sequence(self) -> bool:
+        return isinstance(self.element_type, PairType) and self.element_type.left.eq_type(IntType())
+
+    def is_bag(self) -> bool:
+        return isinstance(self.element_type, PairType) and self.element_type.right.eq_type(IntType())
+
+    def _eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+        if not isinstance(other, SetType):
+            return False
+        return self.element_type.eq_type(other.element_type, substitution_mapping)  # and self.relation_subtype == other.relation_subtype # TODO add the subtype check back in
+
+    def _is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+        if not isinstance(other, SetType):
+            return False
+        return self.element_type.is_sub_type(other.element_type, substitution_mapping)
+
+    def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
+        return SetType(element_type=self.element_type._replace_generic_types(lst), traits=self.traits)
+
     # Programming-oriented operations
     def copy(self) -> SetType:
         """Create a copy of the set."""
@@ -113,7 +137,12 @@ class SetType(BaseType):
 
     def cartesian_product(self, other: SetType) -> SetType:
         """Return the cartesian product of this set and another set."""
-        return SetType(element_type=PairType(self.element_type, other.element_type))
+        return SetType(
+            element_type=PairType(
+                left=self.element_type,
+                right=other.element_type,
+            )
+        )
 
     def is_subset(self, other: SetType) -> BoolType:
         """Check if this set is a subset of another set."""
