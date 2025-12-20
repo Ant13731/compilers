@@ -5,11 +5,11 @@ from src.mod.types.traits import Trait
 from src.mod.types.base import BaseType
 
 
-@dataclass(kw_only=True, frozen=True)
+@dataclass(kw_only=True)
 class NoneType_(BaseType):
     """Intended for statements without a type, not expressions. For example, a while loop node doesn't have a type."""
 
-    def _eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+    def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
         return isinstance(other, NoneType_)
 
     def _is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
@@ -19,9 +19,9 @@ class NoneType_(BaseType):
         return self
 
 
-@dataclass(kw_only=True, frozen=True)
+@dataclass(kw_only=True)
 class StringType(BaseType):
-    def _eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+    def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
         return isinstance(other, StringType)
 
     def _is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
@@ -31,9 +31,9 @@ class StringType(BaseType):
         return self
 
 
-@dataclass(kw_only=True, frozen=True)
+@dataclass(kw_only=True)
 class IntType(BaseType):
-    def _eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+    def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
         return isinstance(other, IntType)
 
     def _is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
@@ -43,9 +43,9 @@ class IntType(BaseType):
         return self
 
 
-@dataclass(kw_only=True, frozen=True)
+@dataclass(kw_only=True)
 class FloatType(BaseType):
-    def _eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+    def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
         return isinstance(other, FloatType)
 
     def _is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:

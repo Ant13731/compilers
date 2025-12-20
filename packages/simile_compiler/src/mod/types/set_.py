@@ -1,10 +1,10 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from copy import deepcopy
-from typing import Callable
+from typing import Callable, TypeVar, Type
 
 from src.mod.types.traits import Trait
-from src.mod.types.base import BaseType, BoolType
+from src.mod.types.base import BaseType, BoolType, AnyType_, SimileTypeError
 from src.mod.types.primitive import NoneType_, IntType
 from src.mod.types.tuple_ import PairType
 
@@ -15,14 +15,27 @@ from src.mod.types.tuple_ import PairType
 #
 # At codegen time, we would like to basically cast this set type into a concrete implementation
 
+T = TypeVar("T", bound="SetType")
 
-@dataclass(kw_only=True, frozen=True)
+
+@dataclass(kw_only=True)
 class SetType(BaseType):
     """Representation of the Simile Set type.
     This class contains the interface of sets, but can be expanded."""
 
-    element_type: BaseType  # We opt not for generic types since we dont want to hijack python's type system - we want to make our own
+    # We opt not for generic types since we dont want to hijack python's type system - we want to make our own
+    _element_type: BaseType = field(init=False)
     """The Simile-type of elements in the set"""
+
+    def __init__(self, *, element_type: BaseType, traits: list[Trait] | None = None) -> None:
+        if traits is None:
+            traits = []
+        super().__init__(traits=traits)
+        self._element_type = element_type
+
+    @property
+    def element_type(self) -> BaseType:
+        return self._element_type
 
     # These functions control the return types and trait-trait interactions (where applicable)
     # I suppose this kind-of simulates the program execution just looking at traits and element types
@@ -33,15 +46,15 @@ class SetType(BaseType):
         return isinstance(self.element_type, PairType)
 
     def is_sequence(self) -> bool:
-        return isinstance(self.element_type, PairType) and self.element_type.left.eq_type(IntType())
+        return isinstance(self.element_type, PairType) and self.element_type.left.is_eq_type(IntType())
 
     def is_bag(self) -> bool:
-        return isinstance(self.element_type, PairType) and self.element_type.right.eq_type(IntType())
+        return isinstance(self.element_type, PairType) and self.element_type.right.is_eq_type(IntType())
 
-    def _eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+    def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
         if not isinstance(other, SetType):
             return False
-        return self.element_type.eq_type(other.element_type, substitution_mapping)  # and self.relation_subtype == other.relation_subtype # TODO add the subtype check back in
+        return self.element_type.is_eq_type(other.element_type, substitution_mapping)
 
     def _is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
         if not isinstance(other, SetType):
@@ -76,6 +89,14 @@ class SetType(BaseType):
     def contains(self, element: BaseType) -> BoolType:
         """Check if an element is in the set (membership test)."""
         return BoolType()
+
+    @classmethod
+    def enumeration(cls: Type[T], element_types: list[BaseType]) -> T:
+        """Create a set from an enumeration of elements of a specific type."""
+        if element_types == []:
+            return cls(element_type=AnyType_())
+
+        return cls(element_type=BaseType.max_type(element_types))
 
     # Single operations
     def cardinality(self) -> IntType:
@@ -155,3 +176,50 @@ class SetType(BaseType):
     def is_superset(self, other: SetType) -> BoolType:
         """Check if this set is a superset of another set."""
         return BoolType()
+
+    # N-ary operations
+
+
+@dataclass(kw_only=True)
+class RelationType(SetType):
+
+    def __init__(self, *, left: BaseType, right: BaseType, traits: list[Trait] | None = None) -> None:
+        if traits is None:
+            traits = []
+        super().__init__(element_type=PairType(left=left, right=right), traits=traits)
+
+    @property
+    def left(self) -> BaseType:
+        assert isinstance(self.element_type, PairType)
+        return self.element_type.left
+
+    @property
+    def right(self) -> BaseType:
+        assert isinstance(self.element_type, PairType)
+        return self.element_type.right
+
+
+@dataclass(kw_only=True)
+class BagType(RelationType):
+
+    def __init__(self, *, element_type: BaseType, traits: list[Trait] | None = None) -> None:
+        if traits is None:
+            traits = []
+        super().__init__(left=element_type, right=IntType(), traits=traits)
+
+    @property
+    def element_type(self) -> BaseType:
+        return self.left
+
+
+@dataclass(kw_only=True)
+class SequenceType(RelationType):
+
+    def __init__(self, *, element_type: BaseType, traits: list[Trait] | None = None) -> None:
+        if traits is None:
+            traits = []
+        super().__init__(left=IntType(), right=element_type, traits=traits)
+
+    @property
+    def element_type(self) -> BaseType:
+        return self.right

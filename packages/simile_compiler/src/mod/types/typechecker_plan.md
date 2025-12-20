@@ -1,0 +1,213 @@
+# List of typechecking rules
+
+- [x] Env $\emptyset$
+    - implicit
+- [ ] Env $I$
+    - symb table
+- [x] Fetch Identifier
+    - implicit (just lookup in the environment)
+- [x] Reflexive Subtype
+    - eq_type is checked for truthiness within is_sub_type
+- [ ] Transitive Subtype
+    - will need to write tests for, equivalent for finding any B that works for types A and C
+- [ ] Subsumption
+    - need to check for subtyping when arguments are passed
+- [x] Top Type
+    - Use AnyType
+- [x] Sub Top Type
+- [x] Sub Function
+    - Implement in Procedure subtyping
+- [x] Sub Set
+    - Implement in set
+- [x] Sub Product
+    - Implement in tuple
+- [x] Sub Record
+    - Implement in record
+- [ ] Type Refinement
+    - Traits should have their own type rules (value rules?) ex. T[with min=4] < T[with min=1]
+    - This is implicitly true since we check for type equality, but what about when both types have traits?
+        - In some cases this wouldnt be true: ex. T[with min=1] != T[with max=1]. T's are subtypes of each other but not with traits on both. When check types is invoked, we check the subtyping rules for each Trait. We further assume that if one type has a trait that the other does not, the one with the extra trait is smaller
+    - note some traits imply others - set of literal ints implicitly imposes a min/max bound
+- [x] Powerset
+    - Implicit, sets are generic
+- [ ] Emptyset
+    - Need to add trait Empty
+- [ ] Emptyset Bottom
+    - implement this in the set comparison
+- [x] Set Enumeration
+    - add function to Set - enumeration(element_type: T) -> Set (with element type T, add in literal trait (trait will disappear once we cant be sure of the literals))
+- [x] Primitives - bool
+    - implicit type
+- [x] Primitives - int
+    - implicit type
+- [x] Primitives - float
+    - implicit type
+- [x] Primitives - str
+    - implicit type
+- [ ] Nat from int
+    - implement with traits
+- [x] Int from float
+    - implement in subtype function
+- [x] Tuples
+    - type
+- [ ] Empty Tuple
+    - needs Empty trait
+- [ ] Empty Tuple Bottom
+    - implement in subtype considering trait
+- [x] Tuple Enumeration
+    - add enumeration function like set
+- [x] Relation Type
+    - make Relation type inherit from Set, force element type to be a TupleType[BaseType, BaseType]
+- [x] Bag Type
+    - inherit from Relation type
+- [x] Bag Enumeration
+    - same as Set enumeration function
+- [x] Sequence Type
+    - inherit from Relation type
+- [x] Sequence Enumeration
+    - same as Set enumeration function
+- [ ] Enum from static set
+    - needs Immutable trait
+    - EnumTypeDef -> EnumType, make sure all enumtypes have the immutable trait
+- [ ] Relation Subtype - Total Relation
+    - add traits for Total, Surjective, OneToMany, ManyToOne, follow table, maybe implement it as the mask? see how much of a hassle separate types would be
+- [ ] Relation Subtype - Surjective Relation
+- [ ] Relation Subtype - Total Surjective Relation
+- [ ] Relation Subtype - Partial Function
+- [ ] Relation Subtype - Total Function
+- [ ] Relation Subtype - Partial Injection
+- [ ] Relation Subtype - Total Injection
+- [ ] Relation Subtype - Partial Surjection
+- [ ] Relation Subtype - Total Surjection
+- [ ] Relation Subtype - Bijection
+- [ ] Variable Assignment
+    - symb table responsibility
+- [ ] Type Alias Assignment
+    - symb table responsibility
+- [ ] Type Alias
+    - Make an AliasType(underlying_type: BaseType), make it equal to the underlying_type
+- [ ] Refined Variable Assignment
+    - symb table resp
+- [ ] Refined Type Alias
+    - symb table resp
+- [ ] Command - break
+    - change nonetype to CommandType?
+- [ ] Command - continue
+- [ ] Command - skip
+- [ ] Command - return
+- [ ] Lambda Expression
+    - use ProcedureType
+- [ ] Quantification Body
+    - may be worth making this a type actually, help organize the generators/move code out of the optimizer...
+    - symb table impl too
+    - following n-ary functions can be a part of the QuantificationBody
+    - in the type hierarchy, QuantificationBody's should be dependent on the operation
+- [ ] General Union
+- [ ] General Intersection
+- [ ] Forall
+- [ ] Exists
+- [ ] Set Comprehension
+- [ ] Bag Comprehension
+- [ ] Sequence Comprehension
+- [ ] Binary Boolean Operations
+    - implement in BoolType
+- [ ] Boolean Operations - Negation
+    - implement in BoolType
+- [x] Equals
+    - implement in BaseType
+- [ ] Ordering Operators
+    - implement in Int, Float
+- [ ] Set Membership
+    - implement in Set
+- [ ] Set Operations
+    - implement in Set
+- [ ] Set Operations
+    - implement in Set
+- [ ] Cartesian Product
+    - implement in Set
+- [ ] Maplet
+    - maplets should be PairType - make a function for this within PairType
+- [ ] Numerical Range
+    - implement in Int
+- [ ] Set Operations - Powerset
+    - implement in Set
+- [ ] Bag Operations - (Max) Union
+    - implement in Bag
+- [ ] Bag Operations - Image
+    - implement in Bag
+- [ ] Relation Operations - Function Call
+    - implement in Relation
+- [ ] Relation Operations - Image
+- [ ] Relation Operations - Overriding
+- [ ] Relation Operations - Composition
+- [ ] Relation Operations - Domain Restriction
+- [ ] Relation Operations - Domain Subtraction
+- [ ] Relation Operations - Range Restriction
+- [ ] Relation Operations - Range Subtraction
+- [ ] Relational Subtype - Domain Restriction
+- [ ] Relational Subtype - Domain Subtraction
+- [ ] Relational Subtype - Range Restriction
+- [ ] Relational Subtype - Range Subtraction
+- [ ] Relational Subtype - Inverse
+- [ ] Relational Subtype - Overriding
+- [ ] Relational Subtype - Composition
+- [ ] Sequence Operations - Concatenation
+    - implement in Sequence
+- [ ] Integer Operations - Division
+    - implement in Int
+    - make a max type global function that considers all types
+- [ ] Integer Operations - Modulo
+- [ ] Numerical Operations - Addition
+    - implement in Int, Float
+- [ ] Numerical Operations - Subtraction
+- [ ] Numerical Operations - Floating Division
+- [ ] Numerical Operations - Multiplication
+- [ ] Numerical Operations - Negation
+- [ ] Numerical Operations - Exponentiation
+- [ ] Records - Access
+    - impl in Record
+- [ ] Records - Type Definition
+- [ ] Records - Initialization
+- [ ] Command - Composition
+    - no types
+- [ ] Command - Valid Import Module
+- [ ] Command - Valid Import Names
+- [ ] Command - Import Module
+    - symb table
+- [ ] Command - Import Names
+    - symb table
+- [ ] Command - Procedure Definition
+    - symb table
+- [ ] Command - Procedure Call
+    - impl in Procedure
+- [ ] Command - If
+    - no types
+- [ ] Command - If Else
+- [ ] Command - While
+- [ ] Command - For
+- [ ] Command - Block
+- [ ] Built-in - Minimum
+    - impl in Set
+- [ ] Built-in - Mapped Minimum
+    - impl in Set
+- [ ] Built-in - Maximum
+    - impl in Set
+- [ ] Built-in - Mapped Maximum
+    - impl in Set
+- [ ] Built-in - Choice
+    - impl in Set
+- [ ] Built-in - Domain
+    - impl in Relation
+- [ ] Built-in - Range
+    - impl in Relation
+- [ ] Built-in - Cardinality
+    - impl in Set
+- [ ] Built-in - Bag Size
+    - impl in Bag
+- [ ] Built-in - Sum (and Product)
+    - impl in Set
+    - impl a bag variant in Bag - technically types are the same but impl are dif
+- [x] Built-in - Cast
+    - parameters swapped: T_1 x type[T_2] -> T_2
+- [x] Built-in - Cast With
+    - parameters swapped: T_1 x type[T_2] x list[Trait] -> T_2

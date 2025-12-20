@@ -2,6 +2,7 @@ from src.mod.types.base import (
     BaseType,
     BoolType,
     SimileTypeError,
+    AnyType_,
 )
 from src.mod.types.composite import (
     StructTypeDef,
