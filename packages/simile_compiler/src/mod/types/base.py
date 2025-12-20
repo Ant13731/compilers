@@ -49,6 +49,9 @@ class BaseType:
         """Check if this type is equal to another type."""
         raise NotImplementedError
 
+    def not_equals(self, other: BaseType) -> BoolType:
+        raise NotImplementedError
+
     # Helper methods
     # TODO GO THROUGH EACH CHILD METHOD AND CHECK THE TYPECHECKING FUNCTION AGAINST THE FORMAL TYPE SYSTEM IN THE SPEC
     def is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType] | None = None, check_traits: bool = False) -> bool:
@@ -140,6 +143,24 @@ class BoolType(BaseType):
 
     def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
         return self
+
+    def not_(self) -> BoolType:
+        return BoolType()
+
+    def equivalent(self, other: BaseType) -> BoolType:
+        return BoolType()
+
+    def not_equivalent(self, other: BaseType) -> BoolType:
+        return BoolType()
+
+    def implies(self, other: BaseType) -> BoolType:
+        return BoolType()
+
+    def and_(self, other: BaseType) -> BoolType:
+        return BoolType()
+
+    def or_(self, other: BaseType) -> BoolType:
+        return BoolType()
 
 
 @dataclass(kw_only=True)

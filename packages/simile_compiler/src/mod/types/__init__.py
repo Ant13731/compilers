@@ -5,9 +5,9 @@ from src.mod.types.base import (
     AnyType_,
 )
 from src.mod.types.composite import (
-    StructTypeDef,
-    EnumTypeDef,
-    ProcedureTypeDef,
+    RecordType,
+    EnumType,
+    ProcedureType,
 )
 from src.mod.types.meta import (
     LiteralType,

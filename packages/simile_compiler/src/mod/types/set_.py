@@ -16,6 +16,7 @@ from src.mod.types.tuple_ import PairType
 # At codegen time, we would like to basically cast this set type into a concrete implementation
 
 T = TypeVar("T", bound="SetType")
+V = TypeVar("V", bound="BaseType")
 
 
 @dataclass(kw_only=True)
@@ -86,9 +87,13 @@ class SetType(BaseType):
         """Remove an element from the set."""
         return NoneType_()
 
-    def contains(self, element: BaseType) -> BoolType:
+    def in_(self, element: BaseType) -> BoolType:
         """Check if an element is in the set (membership test)."""
         return BoolType()
+
+    def not_in(self, element: BaseType) -> BoolType:
+        """Check if an element is in the set (membership test)."""
+        return self.in_(element).not_()
 
     @classmethod
     def enumeration(cls: Type[T], element_types: list[BaseType]) -> T:
@@ -113,6 +118,7 @@ class SetType(BaseType):
 
     def choice(self) -> BaseType:
         """Select an arbitrary element from the set."""
+        # TODO Fail if empty trait is present
         return self.element_type
 
     def sum(self) -> BaseType:
@@ -133,49 +139,93 @@ class SetType(BaseType):
 
     def map_min(self, func: Callable[[BaseType], IntType]) -> BaseType:
         """Apply a weighting function to each element and return the minimum."""
+        # Need to call function to type check the function with the input type
+        func(self.element_type)
         return self.element_type
 
     def map_max(self, func: Callable[[BaseType], IntType]) -> BaseType:
         """Apply a weighting function to each element and return the maximum."""
+        func(self.element_type)
         return self.element_type
 
     # Binary operations
     def union(self, other: SetType) -> SetType:
         """Return the union of this set and another set."""
+        if not self.element_type.is_eq_type(other.element_type):
+            raise SimileTypeError(f"Cannot perform union on sets with different element types: {self.element_type} and {other.element_type}")
+
+        if not self.is_eq_type(other):
+            # TODO this should check for subtypes?
+            raise SimileTypeError(f"Cannot perform union on sets with different types: {self} and {other}")
+
         return self
 
     def intersection(self, other: SetType) -> SetType:
         """Return the intersection of this set and another set."""
+        if not self.element_type.is_eq_type(other.element_type):
+            raise SimileTypeError(f"Cannot perform intersection on sets with different element types: {self.element_type} and {other.element_type}")
+
+        if not self.is_eq_type(other):
+            # TODO this should check for subtypes?
+            raise SimileTypeError(f"Cannot perform intersection on sets with different types: {self} and {other}")
         return self
 
     def difference(self, other: SetType) -> SetType:
         """Return the difference of this set and another set."""
+        if not self.element_type.is_eq_type(other.element_type):
+            raise SimileTypeError(f"Cannot perform difference on sets with different element types: {self.element_type} and {other.element_type}")
+
+        if not self.is_eq_type(other):
+            # TODO this should check for subtypes?
+            raise SimileTypeError(f"Cannot perform difference on sets with different types: {self} and {other}")
         return self
 
     def symmetric_difference(self, other: SetType) -> SetType:
         """Return the symmetric difference of this set and another set."""
+        if not self.element_type.is_eq_type(other.element_type):
+            raise SimileTypeError(f"Cannot perform symmetric difference on sets with different element types: {self.element_type} and {other.element_type}")
+
+        if not self.is_eq_type(other):
+            # TODO this should check for subtypes?
+            raise SimileTypeError(f"Cannot perform symmetric difference on sets with different types: {self} and {other}")
         return self
 
-    def cartesian_product(self, other: SetType) -> SetType:
+    def cartesian_product(self, other: SetType) -> RelationType:
         """Return the cartesian product of this set and another set."""
-        return SetType(
-            element_type=PairType(
-                left=self.element_type,
-                right=other.element_type,
-            )
+        return RelationType(
+            left=self.element_type,
+            right=other.element_type,
         )
-
-    def is_subset(self, other: SetType) -> BoolType:
-        """Check if this set is a subset of another set."""
-        return BoolType()
 
     def is_disjoint(self, other: SetType) -> BoolType:
         """Check if this set and another set are disjoint."""
         return BoolType()
 
+    def is_subset(self, other: SetType) -> BoolType:
+        """Check if this set is a subset of another set."""
+        return BoolType()
+
+    def is_subset_equals(self, other: SetType) -> BoolType:
+        return BoolType()
+
     def is_superset(self, other: SetType) -> BoolType:
         """Check if this set is a superset of another set."""
         return BoolType()
+
+    def is_superset_equals(self, other: SetType) -> BoolType:
+        return BoolType()
+
+    def not_is_subset(self, other: SetType) -> BoolType:
+        return self.is_subset(other).not_()
+
+    def not_is_subset_equals(self, other: SetType) -> BoolType:
+        return self.is_subset_equals(other).not_()
+
+    def not_is_superset(self, other: SetType) -> BoolType:
+        return self.is_superset(other).not_()
+
+    def not_is_superset_equals(self, other: SetType) -> BoolType:
+        return self.is_superset_equals(other).not_()
 
     # N-ary operations
 
@@ -198,6 +248,61 @@ class RelationType(SetType):
         assert isinstance(self.element_type, PairType)
         return self.element_type.right
 
+    def inverse(self) -> RelationType:
+        return RelationType(left=self.right, right=self.left)
+
+    def composition(self, other: RelationType) -> RelationType:
+        if not self.right.is_eq_type(other.left):
+            raise SimileTypeError(f"Cannot compose relations with incompatible types: {self} and {other}")
+        return RelationType(left=self.left, right=other.right)
+
+    def function_call(self, argument: BaseType) -> BaseType:
+        if not argument.is_eq_type(self.left):
+            raise SimileTypeError(f"Cannot call relation as function with incompatible argument type: {argument} for relation {self}")
+        return self.right
+
+    def image(self, argument: BaseType) -> SetType:
+        if not argument.is_eq_type(self.left):
+            raise SimileTypeError(f"Cannot call relation as function with incompatible argument type: {argument} for relation {self}")
+        return SetType(element_type=self.right)
+
+    def overriding(self, other: RelationType) -> RelationType:
+        if not self.left.is_eq_type(other.left) or not self.right.is_eq_type(other.right):
+            raise SimileTypeError(f"Cannot override relations with incompatible types: {self} and {other}")
+        return self
+
+    def domain(self) -> SetType:
+        return SetType(element_type=self.left)
+
+    def range_(self) -> SetType:
+        return SetType(element_type=self.right)
+
+    def domain_restriction(self, domain_set: SetType) -> RelationType:
+        if not self.domain().is_eq_type(domain_set):
+            raise SimileTypeError(f"Cannot perform domain restriction with incompatible set element type: {domain_set.element_type} for relation {self}")
+        return self
+
+    def domain_subtraction(self, domain_set: SetType) -> RelationType:
+        if not self.domain().is_eq_type(domain_set):
+            raise SimileTypeError(f"Cannot perform domain subtraction with incompatible set element type: {domain_set.element_type} for relation {self}")
+        return self
+
+    def range_restriction(self, range_set: SetType) -> RelationType:
+        if not self.range_().is_eq_type(range_set):
+            raise SimileTypeError(f"Cannot perform range restriction with incompatible set element type: {range_set.element_type} for relation {self}")
+        return self
+
+    def range_subtraction(self, range_set: SetType) -> RelationType:
+        if not self.range_().is_eq_type(range_set):
+            raise SimileTypeError(f"Cannot perform range subtraction with incompatible set element type: {range_set.element_type} for relation {self}")
+        return self
+
+    def bag_image(self, bag: BagType) -> BagType:
+        # Get traits from here. This also needs to be run to check for type errors from dependent operations
+        self.inverse().composition(bag)
+
+        return BagType(element_type=self.right)
+
 
 @dataclass(kw_only=True)
 class BagType(RelationType):
@@ -211,6 +316,42 @@ class BagType(RelationType):
     def element_type(self) -> BaseType:
         return self.left
 
+    def bag_union(self, other: BagType) -> BagType:
+        if not self.element_type.is_eq_type(other.element_type):
+            raise SimileTypeError(f"Cannot perform union on bags with different element types: {self.element_type} and {other.element_type}")
+
+        if not self.is_eq_type(other):
+            raise SimileTypeError(f"Cannot perform union on bags with different types: {self} and {other}")
+        return self
+
+    def bag_intersection(self, other: BagType) -> BagType:
+        if not self.element_type.is_eq_type(other.element_type):
+            raise SimileTypeError(f"Cannot perform intersection on bags with different element types: {self.element_type} and {other.element_type}")
+
+        if not self.is_eq_type(other):
+            raise SimileTypeError(f"Cannot perform intersection on bags with different types: {self} and {other}")
+        return self
+
+    def bag_add(self, other: BagType) -> BagType:
+        if not self.element_type.is_eq_type(other.element_type):
+            raise SimileTypeError(f"Cannot perform addition on bags with different element types: {self.element_type} and {other.element_type}")
+
+        if not self.is_eq_type(other):
+            raise SimileTypeError(f"Cannot perform addition on bags with different types: {self} and {other}")
+        return self
+
+    def bag_difference(self, other: BagType) -> BagType:
+        if not self.element_type.is_eq_type(other.element_type):
+            raise SimileTypeError(f"Cannot perform difference on bags with different element types: {self.element_type} and {other.element_type}")
+
+        if not self.is_eq_type(other):
+            raise SimileTypeError(f"Cannot perform difference on bags with different types: {self} and {other}")
+        return self
+
+    def size(self) -> IntType:
+        """Return the total number of elements in the bag, counting multiplicities."""
+        return IntType()
+
 
 @dataclass(kw_only=True)
 class SequenceType(RelationType):
@@ -223,3 +364,12 @@ class SequenceType(RelationType):
     @property
     def element_type(self) -> BaseType:
         return self.right
+
+    def concat(self, other: SequenceType) -> SequenceType:
+        if not self.element_type.is_eq_type(other.element_type):
+            raise SimileTypeError(f"Cannot concatenate sequences with different element types: {self.element_type} and {other.element_type}")
+
+        if not self.is_eq_type(other):
+            # TODO this should check for subtypes?
+            raise SimileTypeError(f"Cannot concatenate sequences with different types: {self} and {other}")
+        return self

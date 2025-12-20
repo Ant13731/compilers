@@ -102,6 +102,10 @@
     - symb table impl too
     - following n-ary functions can be a part of the QuantificationBody
     - in the type hierarchy, QuantificationBody's should be dependent on the operation
+    - or should this just be an additional check function in the symb table
+        - Requires ASTNode as input... better to make this on the fly since it depends on the ASTNode
+        - maybe just make this a method in the Quantifier ASTNode since the information fetched will be useful in the optimizer
+            - this would prevent types from knowing about the quantifier construction - maybe they only need to know trait variants of this tho (ex. max/min inferred based on generator values? is this possible without pre-computation?)
 - [ ] General Union
 - [ ] General Intersection
 - [ ] Forall
@@ -109,41 +113,42 @@
 - [ ] Set Comprehension
 - [ ] Bag Comprehension
 - [ ] Sequence Comprehension
-- [ ] Binary Boolean Operations
+- [x] Binary Boolean Operations
     - implement in BoolType
-- [ ] Boolean Operations - Negation
+- [x] Boolean Operations - Negation
     - implement in BoolType
 - [x] Equals
     - implement in BaseType
-- [ ] Ordering Operators
+- [x] Ordering Operators
     - implement in Int, Float
-- [ ] Set Membership
+- [x] Set Membership
     - implement in Set
-- [ ] Set Operations
+- [x] Set Operations
     - implement in Set
-- [ ] Set Operations
+- [-] Set Operations
+    - needs subsetting rules?
     - implement in Set
-- [ ] Cartesian Product
+- [x] Cartesian Product
     - implement in Set
-- [ ] Maplet
+- [x] Maplet
     - maplets should be PairType - make a function for this within PairType
-- [ ] Numerical Range
+- [x] Numerical Range
     - implement in Int
-- [ ] Set Operations - Powerset
+- [x] Set Operations - Powerset
     - implement in Set
-- [ ] Bag Operations - (Max) Union
+- [x] Bag Operations - (Max) Union
     - implement in Bag
-- [ ] Bag Operations - Image
+- [x] Bag Operations - Image
     - implement in Bag
-- [ ] Relation Operations - Function Call
+- [x] Relation Operations - Function Call
     - implement in Relation
-- [ ] Relation Operations - Image
-- [ ] Relation Operations - Overriding
-- [ ] Relation Operations - Composition
-- [ ] Relation Operations - Domain Restriction
-- [ ] Relation Operations - Domain Subtraction
-- [ ] Relation Operations - Range Restriction
-- [ ] Relation Operations - Range Subtraction
+- [x] Relation Operations - Image
+- [x] Relation Operations - Overriding
+- [x] Relation Operations - Composition
+- [x] Relation Operations - Domain Restriction
+- [x] Relation Operations - Domain Subtraction
+- [x] Relation Operations - Range Restriction
+- [x] Relation Operations - Range Subtraction
 - [ ] Relational Subtype - Domain Restriction
 - [ ] Relational Subtype - Domain Subtraction
 - [ ] Relational Subtype - Range Restriction
@@ -151,27 +156,29 @@
 - [ ] Relational Subtype - Inverse
 - [ ] Relational Subtype - Overriding
 - [ ] Relational Subtype - Composition
-- [ ] Sequence Operations - Concatenation
+- [x] Sequence Operations - Concatenation
     - implement in Sequence
-- [ ] Integer Operations - Division
+- [x] Integer Operations - Division
     - implement in Int
     - make a max type global function that considers all types
-- [ ] Integer Operations - Modulo
-- [ ] Numerical Operations - Addition
+- [x] Integer Operations - Modulo
+- [x] Numerical Operations - Addition
     - implement in Int, Float
-- [ ] Numerical Operations - Subtraction
-- [ ] Numerical Operations - Floating Division
-- [ ] Numerical Operations - Multiplication
-- [ ] Numerical Operations - Negation
-- [ ] Numerical Operations - Exponentiation
-- [ ] Records - Access
+- [x] Numerical Operations - Subtraction
+- [x] Numerical Operations - Floating Division
+- [x] Numerical Operations - Multiplication
+- [x] Numerical Operations - Negation
+- [x] Numerical Operations - Exponentiation
+- [x] Records - Access
     - impl in Record
-- [ ] Records - Type Definition
+- [x] Records - Type Definition
+    - unique names implicit due to dict representation
 - [ ] Records - Initialization
+    - symb table
 - [ ] Command - Composition
     - no types
-- [ ] Command - Valid Import Module
-- [ ] Command - Valid Import Names
+- [x] Command - Valid Import Module
+- [x] Command - Valid Import Names
 - [ ] Command - Import Module
     - symb table
 - [ ] Command - Import Names
@@ -180,33 +187,32 @@
     - symb table
 - [ ] Command - Procedure Call
     - impl in Procedure
-- [ ] Command - If
+- [-] Command - If
     - no types
-- [ ] Command - If Else
-- [ ] Command - While
-- [ ] Command - For
-- [ ] Command - Block
+- [-] Command - If Else
+- [-] Command - While
+- [-] Command - For
+- [-] Command - Block
 - [ ] Built-in - Minimum
     - impl in Set
-- [ ] Built-in - Mapped Minimum
+- [x] Built-in - Mapped Minimum
     - impl in Set
 - [ ] Built-in - Maximum
     - impl in Set
-- [ ] Built-in - Mapped Maximum
+- [x] Built-in - Mapped Maximum
     - impl in Set
 - [ ] Built-in - Choice
     - impl in Set
-- [ ] Built-in - Domain
+- [x] Built-in - Domain
     - impl in Relation
-- [ ] Built-in - Range
+- [x] Built-in - Range
     - impl in Relation
-- [ ] Built-in - Cardinality
+- [x] Built-in - Cardinality
     - impl in Set
-- [ ] Built-in - Bag Size
+- [x] Built-in - Bag Size
     - impl in Bag
-- [ ] Built-in - Sum (and Product)
+- [x] Built-in - Sum (and Product)
     - impl in Set
-    - impl a bag variant in Bag - technically types are the same but impl are dif
 - [x] Built-in - Cast
     - parameters swapped: T_1 x type[T_2] -> T_2
 - [x] Built-in - Cast With

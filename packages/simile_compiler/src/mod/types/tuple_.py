@@ -76,3 +76,8 @@ class PairType(TupleType):
             right=self.right._replace_generic_types(lst),
             traits=self.traits,
         )
+
+    @classmethod
+    def maplet(cls, key_type: BaseType, value_type: BaseType) -> PairType:
+        """Create a PairType representing a maplet from key_type to value_type."""
+        return cls(left=key_type, right=value_type)
