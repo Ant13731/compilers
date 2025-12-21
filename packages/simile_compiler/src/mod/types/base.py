@@ -15,7 +15,6 @@ T = TypeVar("T", bound="BaseType")
 class BaseType:
     """Base type for all Simile types."""
 
-    # TODO should traits be a set? we really shouldn't care about order or duplicates...
     trait_collection: TraitCollection = field(default_factory=TraitCollection)
 
     # Actual type methods
@@ -41,7 +40,6 @@ class BaseType:
         raise NotImplementedError
 
     # Helper methods
-    # TODO GO THROUGH EACH CHILD METHOD AND CHECK THE TYPECHECKING FUNCTION AGAINST THE FORMAL TYPE SYSTEM IN THE SPEC
     def is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType] | None = None, check_traits: bool = False) -> bool:
         if substitution_mapping is None:
             substitution_mapping = {}
@@ -120,7 +118,6 @@ class BaseType:
         return narrowest_type
 
 
-# BoolType needs to be here to avoid circular imports
 @dataclass
 class BoolType(BaseType):
     def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:

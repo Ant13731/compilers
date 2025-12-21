@@ -69,30 +69,48 @@ class IntType(BaseType):
         return IntType()
 
     def int_division(self, other: BaseType) -> IntType:
+        if not isinstance(other, (IntType, FloatType)):
+            raise SimileTypeError(f"Cannot integer-divide IntType with incompatible type: {other}")
         return IntType()
 
     def modulo(self, other: BaseType) -> IntType:
+        if not isinstance(other, (IntType, FloatType)):
+            raise SimileTypeError(f"Cannot modulo IntType with incompatible type: {other}")
         return IntType()
 
     def add(self, other: BaseType) -> IntType | FloatType:
+        if not isinstance(other, (IntType, FloatType)):
+            raise SimileTypeError(f"Cannot add IntType with incompatible type: {other}")
+
         if isinstance(other, FloatType):
             return other.add(self)
         return IntType()
 
     def subtract(self, other: BaseType) -> IntType | FloatType:
+        if not isinstance(other, (IntType, FloatType)):
+            raise SimileTypeError(f"Cannot subtract IntType with incompatible type: {other}")
+
         if isinstance(other, FloatType):
             return other.subtract(self)
         return IntType()
 
     def division(self, other: BaseType) -> FloatType:
+        if not isinstance(other, (IntType, FloatType)):
+            raise SimileTypeError(f"Cannot divide IntType with incompatible type: {other}")
         return FloatType()
 
     def multiply(self, other: BaseType) -> IntType | FloatType:
+        if not isinstance(other, (IntType, FloatType)):
+            raise SimileTypeError(f"Cannot multiply IntType with incompatible type: {other}")
+
         if isinstance(other, FloatType):
             return other.multiply(self)
         return IntType()
 
     def power(self, other: BaseType) -> IntType | FloatType:
+        if not isinstance(other, (IntType, FloatType)):
+            raise SimileTypeError(f"Cannot power IntType with incompatible type: {other}")
+
         if isinstance(other, FloatType):
             return other.power(self)
         return IntType()
@@ -100,6 +118,9 @@ class IntType(BaseType):
     # Sets
     def upto(self, other: IntType) -> SetType:
         from src.mod.types.set_ import SetType
+
+        if not isinstance(other, IntType):
+            raise SimileTypeError(f"Cannot divide IntType with incompatible type: {other}")
 
         """Return a set representing the range from this IntType to another IntType."""
         return SetType(element_type=IntType())

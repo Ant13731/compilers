@@ -1,3 +1,16 @@
+# Other TODOs
+- [ ] Add input type validation to all functions (look at previous type checking in ASTNodes)
+    - even if functions have a specific type hint, they still need to check for that specific type at runtime
+    - cant rely on python's type checker
+- [ ] restrict the allowed traits per type - eg. boolType cannot have a total_trait
+    - validate this on type creation, within post_init?
+- [ ] subsumption - operations should accept subtypes of input types as well
+- [ ] ASTNode -> Trait (when specified with `with`)
+- [ ] ASTNode -> Type
+- [ ] Implement symbol table for new types
+- [ ] Type implementation library
+
+
 # List of typechecking rules
 
 - [x] Env $\emptyset$
@@ -10,8 +23,8 @@
     - eq_type is checked for truthiness within is_sub_type
 - [-] Transitive Subtype
     - will need to write tests for, equivalent for finding any B that works for types A and C
-- [ ] Subsumption
-    - need to check for subtyping when arguments are passed
+- [ ] Subsumption - TODO tomorrow!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    - need to check for subtyping when arguments are passed to functions - not just equality
 - [x] Top Type
     - Use AnyType
 - [x] Sub Top Type
