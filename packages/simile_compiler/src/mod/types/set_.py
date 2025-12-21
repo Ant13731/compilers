@@ -10,10 +10,11 @@ from src.mod.ast_.ast_node_operators import (
     UnaryOperator,
 )
 from src.mod.types.error import SimileTypeError
-from src.mod.types.traits import Trait, TraitCollection, ManyToOneTrait, OneToManyTrait, TotalOnDomainTrait, TotalOnRangeTrait
-from src.mod.types.base import BaseType, BoolType, AnyType_
+from src.mod.types.traits import SizeTrait, Trait, TraitCollection, ManyToOneTrait, OneToManyTrait, TotalOnDomainTrait, TotalOnRangeTrait
+from src.mod.types.base import BaseType, BoolType
 from src.mod.types.primitive import NoneType_, IntType
 from src.mod.types.tuple_ import PairType
+from src.mod.types.meta import AnyType_
 
 
 # TODO we basically need a SetSimulator that will return the expected type, element type, and traits when executing a set operation
@@ -60,23 +61,20 @@ class SetType(BaseType):
     def is_bag(self) -> bool:
         return isinstance(self.element_type, PairType) and self.element_type.right.is_eq_type(IntType())
 
-    def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+    def _is_eq_type(self, other: BaseType) -> bool:
         if not isinstance(other, SetType):
             return False
-        return self.element_type.is_eq_type(other.element_type, substitution_mapping)
+        return self.element_type.is_eq_type(other.element_type)
 
-    def _is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+    def _is_subtype(self, other: BaseType) -> bool:
         if not isinstance(other, SetType):
             return False
-        return self.element_type.is_sub_type(other.element_type, substitution_mapping)
+        return self.element_type.is_subtype(other.element_type)
 
     def _is_sub_traits(self, other: BaseType) -> bool:
         if self.trait_collection.empty_trait is not None:
             return True
         raise NotImplementedError
-
-    def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
-        return SetType(element_type=self.element_type._replace_generic_types(lst), trait_collection=self.trait_collection)
 
     # Programming-oriented operations
     def copy(self) -> SetType:
@@ -111,10 +109,13 @@ class SetType(BaseType):
     @classmethod
     def enumeration(cls: Type[T], element_types: list[BaseType]) -> T:
         """Create a set from an enumeration of elements of a specific type."""
+        trait_collection = TraitCollection(
+            size_trait=SizeTrait(size=len(element_types)),
+        )
         if element_types == []:
-            return cls(element_type=AnyType_())
+            return cls(element_type=AnyType_(), trait_collection=trait_collection)
 
-        return cls(element_type=BaseType.max_type(element_types))
+        return cls(element_type=BaseType.max_type(element_types), trait_collection=trait_collection)
 
     # Single operations
     def cardinality(self) -> IntType:

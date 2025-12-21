@@ -2,6 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from copy import deepcopy
 from typing import Callable, Type, TypeVar
+import inspect
 
 from src.mod.types.error import SimileTypeError
 from src.mod.types.traits import Trait, TraitCollection
@@ -40,28 +41,29 @@ class BaseType:
         raise NotImplementedError
 
     # Helper methods
-    def is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType] | None = None, check_traits: bool = False) -> bool:
-        if substitution_mapping is None:
-            substitution_mapping = {}
-        if check_traits:
-            return self._is_eq_type(other, substitution_mapping) and self._is_eq_traits(other)
-        else:
-            return self._is_eq_type(other, substitution_mapping)
+    def is_eq_type(self, other: BaseType, check_traits: bool = False) -> bool:
+        from src.mod.types.meta import DeferToSymbolTable
 
-    def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+        if isinstance(other, DeferToSymbolTable):
+            raise SimileTypeError("Cannot compare DeferToSymbolTable types before symbol table resolution")
+
+        if check_traits:
+            return self._is_eq_type(other) and self._is_eq_traits(other)
+        return self._is_eq_type(other)
+
+    def _is_eq_type(self, other: BaseType) -> bool:
         raise NotImplementedError
 
     def _is_eq_traits(self, other: BaseType) -> bool:
         """Check whether the type would be equal when considering traits."""
         return self.trait_collection == other.trait_collection
 
-    def is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType] | None = None, check_traits: bool = False) -> bool:
+    def is_subtype(self, other: BaseType, check_traits: bool = False) -> bool:
         """Check if self is a sub-type of other (in formal type theory, whether self <= other)."""
-        if substitution_mapping is None:
-            substitution_mapping = {}
+        from src.mod.types.meta import GenericType, AnyType_
 
         # Reflexive Subtype
-        if self.is_eq_type(other, substitution_mapping, check_traits):
+        if self.is_eq_type(other, check_traits):
             return True
 
         is_sub_trait = True
@@ -72,21 +74,23 @@ class BaseType:
         if isinstance(other, AnyType_):
             return is_sub_trait
 
-        return is_sub_trait and self._is_sub_type(other, substitution_mapping)
+        # Sub Top Type for generics
+        if not isinstance(self, GenericType) and isinstance(other, GenericType):
+            if other.trait_collection.generic_bound_trait is None:
+                return is_sub_trait  # unbound generic is supertype of all types
 
-    def _is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+            for other_bound in other.trait_collection.generic_bound_trait.bound_types:
+                if self.is_subtype(other_bound):
+                    return is_sub_trait
+            return False
+
+        return is_sub_trait and self._is_subtype(other)
+
+    def _is_subtype(self, other: BaseType) -> bool:
         raise NotImplementedError
 
     def _is_sub_traits(self, other: BaseType) -> bool:
         """Check whether the type is a sub-type when considering traits."""
-        raise NotImplementedError
-
-    def replace_generic_types(self, lst: list[BaseType]) -> BaseType:
-        """Structurally replace generic types in self according to the provided list of types."""
-        new_lst = deepcopy(lst)
-        return self._replace_generic_types(new_lst)
-
-    def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
         raise NotImplementedError
 
     @classmethod
@@ -97,9 +101,9 @@ class BaseType:
         widest_type = types[0]
         for type_ in types:
             # Widen type as necessary
-            if widest_type.is_sub_type(type_):
+            if widest_type.is_subtype(type_):
                 widest_type = type_
-            elif not type_.is_sub_type(widest_type):
+            elif not type_.is_subtype(widest_type):
                 raise SimileTypeError(f"Cannot find max (widest) type with incompatible element types: {widest_type} and {type_}")
         return widest_type
 
@@ -111,19 +115,33 @@ class BaseType:
         narrowest_type = types[0]
         for type_ in types:
             # Widen type as necessary
-            if type_.is_sub_type(narrowest_type):
+            if type_.is_subtype(narrowest_type):
                 narrowest_type = type_
-            elif not narrowest_type.is_sub_type(type_):
+            elif not narrowest_type.is_subtype(type_):
                 raise SimileTypeError(f"Cannot find min (narrowest) type with incompatible element types: {narrowest_type} and {type_}")
         return narrowest_type
+
+    def _is_subtype_or_error(self, other: BaseType, is_subtype_of: BaseType | tuple[BaseType, ...]) -> None:
+        """Helper to perform is_subtype with a SimileTypeError exception on failure"""
+        class_name = self.__class__.__name__
+        method_name = inspect.stack()[1][3]
+
+        if not isinstance(is_subtype_of, tuple):
+            is_subtype_of = (is_subtype_of,)
+
+        for subtype_to_check in is_subtype_of:
+            if other.is_subtype(subtype_to_check):
+                return
+
+        raise SimileTypeError(f"Cannot perform operation {class_name}.{method_name} with incompatible type: {other} (expected a (sub)type of one of {is_subtype_of})")
 
 
 @dataclass
 class BoolType(BaseType):
-    def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+    def _is_eq_type(self, other: BaseType) -> bool:
         return isinstance(other, BoolType)
 
-    def _is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+    def _is_subtype(self, other: BaseType) -> bool:
         return isinstance(other, BoolType)
 
     def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
@@ -146,16 +164,3 @@ class BoolType(BaseType):
 
     def or_(self, other: BaseType) -> BoolType:
         return BoolType()
-
-
-@dataclass
-class AnyType_(BaseType):
-
-    def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
-        return isinstance(other, AnyType_)
-
-    def _is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
-        return False
-
-    def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
-        return self

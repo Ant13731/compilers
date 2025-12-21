@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.mod.ast_.ast_node_base import ASTNode
+    from src.mod.types.base import BaseType
 
 
 # TODO make a function to translate ASTNodes into traits when they appear in the trait position
@@ -46,6 +47,9 @@ class TraitCollection:
     total_on_range_trait: TotalOnRangeTrait | None = None
     many_to_one_trait: ManyToOneTrait | None = None
     one_to_many_trait: OneToManyTrait | None = None
+
+    # For generic types that may be bound to certain types
+    generic_bound_trait: GenericBoundTrait | None = None
 
     def __post_init__(self):
         self._fill_implicit_traits()
@@ -313,3 +317,9 @@ class ManyToOneTrait(Trait):
 @dataclass
 class OneToManyTrait(Trait):
     name: ClassVar[str] = "one_to_many"
+
+
+@dataclass
+class GenericBoundTrait(Trait):
+    name: ClassVar[str] = "generic_bound"
+    bound_types: list[BaseType]

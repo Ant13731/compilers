@@ -14,18 +14,18 @@ class RecordType(BaseType):
     # Internally a (many-to-one) (total on defined fields) function
     fields: OrderedDict[str, BaseType]
 
-    def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+    def _is_eq_type(self, other: BaseType) -> bool:
         if not isinstance(other, RecordType):
             return False
         return all(
-            self_field._is_eq_type(other_field, substitution_mapping)
+            self_field._is_eq_type(other_field)
             for self_field, other_field in zip(
                 self.fields.values(),
                 other.fields.values(),
             )
         )
 
-    def _is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+    def _is_subtype(self, other: BaseType) -> bool:
         if not isinstance(other, RecordType):
             return False
 
@@ -35,16 +35,10 @@ class RecordType(BaseType):
                 return False
 
             # Fields that do match must be subtypes
-            if not self.fields[name].is_sub_type(other.fields[name], substitution_mapping):
+            if not self.fields[name].is_subtype(other.fields[name]):
                 return False
 
         return True
-
-    def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
-        return RecordType(
-            fields=OrderedDict((name, field._replace_generic_types(lst)) for name, field in self.fields.items()),
-            trait_collection=self.trait_collection,
-        )
 
     def access(self, field_name: str) -> BaseType:
         if field_name not in self.fields:
@@ -74,39 +68,30 @@ class ProcedureType(BaseType):
     arg_types: OrderedDict[str, BaseType]
     return_type: BaseType
 
-    def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+    def _is_eq_type(self, other: BaseType) -> bool:
         if not isinstance(other, ProcedureType):
             return False
         return all(
-            self_arg.is_eq_type(other_arg, substitution_mapping)
+            self_arg.is_eq_type(other_arg)
             for self_arg, other_arg in zip(
                 self.arg_types.values(),
                 other.arg_types.values(),
             )
         ) and self.return_type.is_eq_type(
             other.return_type,
-            substitution_mapping,
         )
 
-    def _is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+    def _is_subtype(self, other: BaseType) -> bool:
         if not isinstance(other, ProcedureType):
             return False
         return all(
-            other_arg.is_eq_type(self_arg, substitution_mapping)
+            other_arg.is_eq_type(self_arg)
             for self_arg, other_arg in zip(
                 self.arg_types.values(),
                 other.arg_types.values(),
             )
-        ) and self.return_type.is_sub_type(
+        ) and self.return_type.is_subtype(
             other.return_type,
-            substitution_mapping,
-        )
-
-    def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
-        return ProcedureType(
-            arg_types=OrderedDict((name, arg_type._replace_generic_types(lst)) for name, arg_type in self.arg_types.items()),
-            return_type=self.return_type._replace_generic_types(lst),
-            trait_collection=self.trait_collection,
         )
 
     def call(self, arg_types: list[BaseType]) -> BaseType:
@@ -114,7 +99,9 @@ class ProcedureType(BaseType):
             raise SimileTypeError(f"Procedure called with incorrect number of arguments. Expected {len(self.arg_types)}, got {len(arg_types)}")
 
         for provided_type, (arg_name, expected_type) in zip(arg_types, self.arg_types.items()):
-            if not provided_type.is_sub_type(expected_type):
+            if not provided_type.is_subtype(expected_type):
                 raise SimileTypeError(f"Procedure argument '{arg_name}' expected type {expected_type}, got {provided_type}")
+        # TODO check for generics here - ex, if return type is generic, look for the actual type in one of its arguments
+        # generic ids should match
 
         return self.return_type

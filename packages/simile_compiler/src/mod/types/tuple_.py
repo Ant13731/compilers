@@ -3,9 +3,8 @@ from dataclasses import dataclass, field
 from copy import deepcopy
 from typing import Callable
 
-from src.mod.types.base import BaseType, BoolType, AnyType_
+from src.mod.types.base import BaseType
 from src.mod.types.traits import Trait, TraitCollection
-from src.mod.types.primitive import NoneType_, IntType
 
 
 @dataclass
@@ -17,25 +16,25 @@ class TupleType(BaseType):
             if not isinstance(item, BaseType):
                 raise TypeError(f"TupleType items must be BaseType instances, got {type(item)}")
 
-    def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+    def _is_eq_type(self, other: BaseType) -> bool:
         if not isinstance(other, TupleType):
             return False
         if len(self.items) != len(other.items):
             return False
 
         for self_item, other_item in zip(self.items, other.items):
-            if not self_item._is_eq_type(other_item, substitution_mapping):
+            if not self_item._is_eq_type(other_item):
                 return False
         return True
 
-    def _is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+    def _is_subtype(self, other: BaseType) -> bool:
         if not isinstance(other, TupleType):
             return False
         if len(self.items) != len(other.items):
             return False
 
         for self_item, other_item in zip(self.items, other.items):
-            if not self_item._is_sub_type(other_item, substitution_mapping):
+            if not self_item._is_subtype(other_item):
                 return False
         return True
 
@@ -43,12 +42,6 @@ class TupleType(BaseType):
         if self.trait_collection.empty_trait is not None:
             return True
         raise NotImplementedError
-
-    def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
-        return TupleType(
-            items=tuple(item._replace_generic_types(lst) for item in self.items),
-            trait_collection=self.trait_collection,
-        )
 
     @classmethod
     def enumeration(cls, element_types: list[BaseType]) -> TupleType:
@@ -75,13 +68,6 @@ class PairType(TupleType):
     @property
     def right(self) -> BaseType:
         return self.items[1]
-
-    def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
-        return PairType(
-            left=self.left._replace_generic_types(lst),
-            right=self.right._replace_generic_types(lst),
-            trait_collection=self.trait_collection,
-        )
 
     @classmethod
     def maplet(cls, key_type: BaseType, value_type: BaseType) -> PairType:

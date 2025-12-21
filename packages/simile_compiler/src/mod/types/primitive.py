@@ -14,10 +14,10 @@ if TYPE_CHECKING:
 class NoneType_(BaseType):
     """Intended for statements without a type, not expressions. For example, a while loop node doesn't have a type."""
 
-    def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+    def _is_eq_type(self, other: BaseType) -> bool:
         return isinstance(other, NoneType_)
 
-    def _is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+    def _is_subtype(self, other: BaseType) -> bool:
         return isinstance(other, NoneType_)
 
     def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
@@ -26,10 +26,10 @@ class NoneType_(BaseType):
 
 @dataclass
 class StringType(BaseType):
-    def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+    def _is_eq_type(self, other: BaseType) -> bool:
         return isinstance(other, StringType)
 
-    def _is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+    def _is_subtype(self, other: BaseType) -> bool:
         return isinstance(other, StringType)
 
     def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
@@ -42,10 +42,10 @@ class IntType(BaseType):
     def __post_init__(self):
         self.trait_collection.orderable_trait = OrderableTrait()
 
-    def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+    def _is_eq_type(self, other: BaseType) -> bool:
         return isinstance(other, IntType)
 
-    def _is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+    def _is_subtype(self, other: BaseType) -> bool:
         return isinstance(other, IntType) or isinstance(other, FloatType)
 
     def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
@@ -69,47 +69,43 @@ class IntType(BaseType):
         return IntType()
 
     def int_division(self, other: BaseType) -> IntType:
-        if not isinstance(other, (IntType, FloatType)):
-            raise SimileTypeError(f"Cannot integer-divide IntType with incompatible type: {other}")
+        self._is_subtype_or_error(other, (IntType(), FloatType()))
+
         return IntType()
 
     def modulo(self, other: BaseType) -> IntType:
-        if not isinstance(other, (IntType, FloatType)):
-            raise SimileTypeError(f"Cannot modulo IntType with incompatible type: {other}")
+        self._is_subtype_or_error(other, (IntType(), FloatType()))
+
         return IntType()
 
     def add(self, other: BaseType) -> IntType | FloatType:
-        if not isinstance(other, (IntType, FloatType)):
-            raise SimileTypeError(f"Cannot add IntType with incompatible type: {other}")
+        self._is_subtype_or_error(other, (IntType(), FloatType()))
 
         if isinstance(other, FloatType):
             return other.add(self)
         return IntType()
 
     def subtract(self, other: BaseType) -> IntType | FloatType:
-        if not isinstance(other, (IntType, FloatType)):
-            raise SimileTypeError(f"Cannot subtract IntType with incompatible type: {other}")
+        self._is_subtype_or_error(other, (IntType(), FloatType()))
 
         if isinstance(other, FloatType):
             return other.subtract(self)
         return IntType()
 
     def division(self, other: BaseType) -> FloatType:
-        if not isinstance(other, (IntType, FloatType)):
-            raise SimileTypeError(f"Cannot divide IntType with incompatible type: {other}")
+        self._is_subtype_or_error(other, (IntType(), FloatType()))
+
         return FloatType()
 
     def multiply(self, other: BaseType) -> IntType | FloatType:
-        if not isinstance(other, (IntType, FloatType)):
-            raise SimileTypeError(f"Cannot multiply IntType with incompatible type: {other}")
+        self._is_subtype_or_error(other, (IntType(), FloatType()))
 
         if isinstance(other, FloatType):
             return other.multiply(self)
         return IntType()
 
     def power(self, other: BaseType) -> IntType | FloatType:
-        if not isinstance(other, (IntType, FloatType)):
-            raise SimileTypeError(f"Cannot power IntType with incompatible type: {other}")
+        self._is_subtype_or_error(other, (IntType(), FloatType()))
 
         if isinstance(other, FloatType):
             return other.power(self)
@@ -132,10 +128,10 @@ class FloatType(BaseType):
     def __post_init__(self):
         self.trait_collection.orderable_trait = OrderableTrait()
 
-    def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+    def _is_eq_type(self, other: BaseType) -> bool:
         return isinstance(other, FloatType)
 
-    def _is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+    def _is_subtype(self, other: BaseType) -> bool:
         return isinstance(other, FloatType)
 
     def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
