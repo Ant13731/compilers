@@ -8,7 +8,7 @@
     - implicit (just lookup in the environment)
 - [x] Reflexive Subtype
     - eq_type is checked for truthiness within is_sub_type
-- [ ] Transitive Subtype
+- [-] Transitive Subtype
     - will need to write tests for, equivalent for finding any B that works for types A and C
 - [ ] Subsumption
     - need to check for subtyping when arguments are passed
@@ -30,9 +30,9 @@
     - note some traits imply others - set of literal ints implicitly imposes a min/max bound
 - [x] Powerset
     - Implicit, sets are generic
-- [ ] Emptyset
+- [x] Emptyset
     - Need to add trait Empty
-- [ ] Emptyset Bottom
+- [x] Emptyset Bottom
     - implement this in the set comparison
 - [x] Set Enumeration
     - add function to Set - enumeration(element_type: T) -> Set (with element type T, add in literal trait (trait will disappear once we cant be sure of the literals))
@@ -45,14 +45,14 @@
 - [x] Primitives - str
     - implicit type
 - [ ] Nat from int
-    - implement with traits
+    - wont actually have a dedicated nat type - just int with traits
 - [x] Int from float
     - implement in subtype function
 - [x] Tuples
     - type
-- [ ] Empty Tuple
+- [x] Empty Tuple
     - needs Empty trait
-- [ ] Empty Tuple Bottom
+- [x] Empty Tuple Bottom
     - implement in subtype considering trait
 - [x] Tuple Enumeration
     - add enumeration function like set
@@ -66,20 +66,20 @@
     - inherit from Relation type
 - [x] Sequence Enumeration
     - same as Set enumeration function
-- [ ] Enum from static set
+- [x] Enum from static set
     - needs Immutable trait
     - EnumTypeDef -> EnumType, make sure all enumtypes have the immutable trait
-- [ ] Relation Subtype - Total Relation
+- [x] Relation Subtype - Total Relation
     - add traits for Total, Surjective, OneToMany, ManyToOne, follow table, maybe implement it as the mask? see how much of a hassle separate types would be
-- [ ] Relation Subtype - Surjective Relation
-- [ ] Relation Subtype - Total Surjective Relation
-- [ ] Relation Subtype - Partial Function
-- [ ] Relation Subtype - Total Function
-- [ ] Relation Subtype - Partial Injection
-- [ ] Relation Subtype - Total Injection
-- [ ] Relation Subtype - Partial Surjection
-- [ ] Relation Subtype - Total Surjection
-- [ ] Relation Subtype - Bijection
+- [x] Relation Subtype - Surjective Relation
+- [x] Relation Subtype - Total Surjective Relation
+- [x] Relation Subtype - Partial Function
+- [x] Relation Subtype - Total Function
+- [x] Relation Subtype - Partial Injection
+- [x] Relation Subtype - Total Injection
+- [x] Relation Subtype - Partial Surjection
+- [x] Relation Subtype - Total Surjection
+- [x] Relation Subtype - Bijection
 - [ ] Variable Assignment
     - symb table responsibility
 - [ ] Type Alias Assignment
@@ -149,13 +149,13 @@
 - [x] Relation Operations - Domain Subtraction
 - [x] Relation Operations - Range Restriction
 - [x] Relation Operations - Range Subtraction
-- [ ] Relational Subtype - Domain Restriction
-- [ ] Relational Subtype - Domain Subtraction
-- [ ] Relational Subtype - Range Restriction
-- [ ] Relational Subtype - Range Subtraction
-- [ ] Relational Subtype - Inverse
-- [ ] Relational Subtype - Overriding
-- [ ] Relational Subtype - Composition
+- [x] Relational Subtype - Domain Restriction
+- [x] Relational Subtype - Domain Subtraction
+- [x] Relational Subtype - Range Restriction
+- [x] Relational Subtype - Range Subtraction
+- [x] Relational Subtype - Inverse
+- [x] Relational Subtype - Overriding
+- [x] Relational Subtype - Composition
 - [x] Sequence Operations - Concatenation
     - implement in Sequence
 - [x] Integer Operations - Division
@@ -185,7 +185,7 @@
     - symb table
 - [ ] Command - Procedure Definition
     - symb table
-- [ ] Command - Procedure Call
+- [x] Command - Procedure Call
     - impl in Procedure
 - [-] Command - If
     - no types
@@ -193,15 +193,15 @@
 - [-] Command - While
 - [-] Command - For
 - [-] Command - Block
-- [ ] Built-in - Minimum
+- [x] Built-in - Minimum
     - impl in Set
 - [x] Built-in - Mapped Minimum
     - impl in Set
-- [ ] Built-in - Maximum
+- [x] Built-in - Maximum
     - impl in Set
 - [x] Built-in - Mapped Maximum
     - impl in Set
-- [ ] Built-in - Choice
+- [x] Built-in - Choice
     - impl in Set
 - [x] Built-in - Domain
     - impl in Relation

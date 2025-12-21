@@ -1,16 +1,18 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
+from collections import OrderedDict
 
-from src.mod.types.traits import Trait
+from src.mod.types.error import SimileTypeError
+from src.mod.types.traits import Trait, DomainTrait, LiteralTrait, ImmutableTrait
 from src.mod.types.set_ import SetType
-from src.mod.types.base import BaseType, SimileTypeError
+from src.mod.types.base import BaseType
 from src.mod.types.primitive import StringType
 
 
-@dataclass(kw_only=True)
+@dataclass
 class RecordType(BaseType):
     # Internally a (many-to-one) (total on defined fields) function
-    fields: dict[str, BaseType]
+    fields: OrderedDict[str, BaseType]
 
     def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
         if not isinstance(other, RecordType):
@@ -40,8 +42,8 @@ class RecordType(BaseType):
 
     def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
         return RecordType(
-            fields={name: field._replace_generic_types(lst) for name, field in self.fields.items()},
-            traits=self.traits,
+            fields=OrderedDict((name, field._replace_generic_types(lst)) for name, field in self.fields.items()),
+            trait_collection=self.trait_collection,
         )
 
     def access(self, field_name: str) -> BaseType:
@@ -50,7 +52,7 @@ class RecordType(BaseType):
         return self.fields[field_name]
 
 
-@dataclass(kw_only=True)
+@dataclass
 class EnumType(SetType):
     # Internally a set of identifiers
     # element_type = StringType()  # TODO add trait domain
@@ -59,12 +61,17 @@ class EnumType(SetType):
     def __post_init__(self):
         self._element_type = StringType()
 
-    # TODO add trait-domain subtyping and eq typing - maybe even in non-trait checked instances?
+        from src.mod.ast_.ast_nodes import String
+
+        self.trait_collection.domain_trait = DomainTrait(
+            [LiteralTrait(String(member)) for member in self.members],
+        )
+        self.element_type.trait_collection.immutable_trait = ImmutableTrait()
 
 
-@dataclass(kw_only=True)
+@dataclass
 class ProcedureType(BaseType):
-    arg_types: dict[str, BaseType]
+    arg_types: OrderedDict[str, BaseType]
     return_type: BaseType
 
     def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
@@ -97,7 +104,17 @@ class ProcedureType(BaseType):
 
     def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
         return ProcedureType(
-            arg_types={name: arg_type._replace_generic_types(lst) for name, arg_type in self.arg_types.items()},
+            arg_types=OrderedDict((name, arg_type._replace_generic_types(lst)) for name, arg_type in self.arg_types.items()),
             return_type=self.return_type._replace_generic_types(lst),
-            traits=self.traits,
+            trait_collection=self.trait_collection,
         )
+
+    def call(self, arg_types: list[BaseType]) -> BaseType:
+        if len(arg_types) != len(self.arg_types):
+            raise SimileTypeError(f"Procedure called with incorrect number of arguments. Expected {len(self.arg_types)}, got {len(arg_types)}")
+
+        for provided_type, (arg_name, expected_type) in zip(arg_types, self.arg_types.items()):
+            if not provided_type.is_sub_type(expected_type):
+                raise SimileTypeError(f"Procedure argument '{arg_name}' expected type {expected_type}, got {provided_type}")
+
+        return self.return_type

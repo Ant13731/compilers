@@ -200,7 +200,7 @@ class RelationSubTypeMask:
 
     @staticmethod
     def bag_type() -> RelationSubTypeMask:
-        return RelationSubTypeMask(False, False, True, True)
+        return RelationSubTypeMask(False, False, False, True)
 
     def get_properties(self) -> dict[str, bool]:
         return {

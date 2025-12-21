@@ -1,36 +1,34 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
-from src.mod.types.base import BaseType, SimileTypeError
+from src.mod.types.error import SimileTypeError
+from src.mod.types.base import BaseType
 from src.mod.types.traits import Trait
 
-if TYPE_CHECKING:
-    from src.mod.ast_.ast_node_base import ASTNode
+
+# @dataclass
+# Moved to trait
+# class LiteralType(BaseType):
+#     """A literal value of a specific type T."""
+
+#     value: ASTNode  # This shouldn't be a type, rather it should be a value "promoted" to a type - so ASTNode?
+
+#     def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+#         if not isinstance(other, LiteralType):
+#             return False
+#         return self.value == other.value
+
+#     def _is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
+#         if not isinstance(other, LiteralType):
+#             return False
+#         # TODO We will need to check for subsets of sets, subtuples, etc.
+#         raise NotImplementedError
+
+#     def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
+#         return self
 
 
-@dataclass(kw_only=True)
-class LiteralType(BaseType):
-    """A literal value of a specific type T."""
-
-    value: ASTNode  # This shouldn't be a type, rather it should be a value "promoted" to a type - so ASTNode?
-
-    def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
-        if not isinstance(other, LiteralType):
-            return False
-        return self.value == other.value
-
-    def _is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
-        if not isinstance(other, LiteralType):
-            return False
-        # TODO We will need to check for subsets of sets, subtuples, etc.
-        raise NotImplementedError
-
-    def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
-        return self
-
-
-@dataclass(kw_only=True)
+@dataclass
 class GenericType(BaseType):
     """Generic types are used primarily for resolving generic procedures/functions into a specific type based on context.
 
@@ -51,7 +49,7 @@ class GenericType(BaseType):
             raise SimileTypeError("Failed to replace generic type value: not enough types provided") from None
 
 
-@dataclass(kw_only=True)
+@dataclass
 class DeferToSymbolTable(BaseType):
     """Types dependent on this will not be resolved until the analysis phase.
 
@@ -61,7 +59,7 @@ class DeferToSymbolTable(BaseType):
     """Identifier to look up in table"""
 
 
-@dataclass(kw_only=True)
+@dataclass
 class ModuleImports(BaseType):
     """Type to represent importing these objects into the module namespace
 

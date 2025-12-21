@@ -3,8 +3,15 @@ from dataclasses import dataclass, field
 from copy import deepcopy
 from typing import Callable, TypeVar, Type
 
-from src.mod.types.traits import Trait
-from src.mod.types.base import BaseType, BoolType, AnyType_, SimileTypeError
+from src.mod.ast_.ast_node_operators import (
+    CollectionOperator,
+    RelationOperator,
+    BinaryOperator,
+    UnaryOperator,
+)
+from src.mod.types.error import SimileTypeError
+from src.mod.types.traits import Trait, TraitCollection, ManyToOneTrait, OneToManyTrait, TotalOnDomainTrait, TotalOnRangeTrait
+from src.mod.types.base import BaseType, BoolType, AnyType_
 from src.mod.types.primitive import NoneType_, IntType
 from src.mod.types.tuple_ import PairType
 
@@ -19,7 +26,7 @@ T = TypeVar("T", bound="SetType")
 V = TypeVar("V", bound="BaseType")
 
 
-@dataclass(kw_only=True)
+@dataclass
 class SetType(BaseType):
     """Representation of the Simile Set type.
     This class contains the interface of sets, but can be expanded."""
@@ -28,10 +35,11 @@ class SetType(BaseType):
     _element_type: BaseType = field(init=False)
     """The Simile-type of elements in the set"""
 
-    def __init__(self, *, element_type: BaseType, traits: list[Trait] | None = None) -> None:
-        if traits is None:
-            traits = []
-        super().__init__(traits=traits)
+    def __init__(self, element_type: BaseType, *, trait_collection: TraitCollection | None = None) -> None:
+        if trait_collection is None:
+            super().__init__()
+        else:
+            super().__init__(trait_collection=trait_collection)
         self._element_type = element_type
 
     @property
@@ -62,8 +70,13 @@ class SetType(BaseType):
             return False
         return self.element_type.is_sub_type(other.element_type, substitution_mapping)
 
+    def _is_sub_traits(self, other: BaseType) -> bool:
+        if self.trait_collection.empty_trait is not None:
+            return True
+        raise NotImplementedError
+
     def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
-        return SetType(element_type=self.element_type._replace_generic_types(lst), traits=self.traits)
+        return SetType(element_type=self.element_type._replace_generic_types(lst), trait_collection=self.trait_collection)
 
     # Programming-oriented operations
     def copy(self) -> SetType:
@@ -118,7 +131,9 @@ class SetType(BaseType):
 
     def choice(self) -> BaseType:
         """Select an arbitrary element from the set."""
-        # TODO Fail if empty trait is present
+        if self.trait_collection.empty_trait is not None:
+            raise SimileTypeError("Cannot choose an element from a known empty set (EmptyTrait found).")
+
         return self.element_type
 
     def sum(self) -> BaseType:
@@ -131,10 +146,16 @@ class SetType(BaseType):
 
     def min(self) -> BaseType:
         """Return the minimum element in the set."""
+        if self.element_type.trait_collection.orderable_trait is None:
+            raise SimileTypeError(f"Cannot get minimum of set with non-orderable element type: {self.element_type}")
+
         return self.element_type
 
     def max(self) -> BaseType:
         """Return the maximum element in the set."""
+        if self.element_type.trait_collection.orderable_trait is None:
+            raise SimileTypeError(f"Cannot get maximum of set with non-orderable element type: {self.element_type}")
+
         return self.element_type
 
     def map_min(self, func: Callable[[BaseType], IntType]) -> BaseType:
@@ -230,13 +251,11 @@ class SetType(BaseType):
     # N-ary operations
 
 
-@dataclass(kw_only=True)
+@dataclass
 class RelationType(SetType):
 
-    def __init__(self, *, left: BaseType, right: BaseType, traits: list[Trait] | None = None) -> None:
-        if traits is None:
-            traits = []
-        super().__init__(element_type=PairType(left=left, right=right), traits=traits)
+    def __init__(self, left: BaseType, right: BaseType, *, trait_collection: TraitCollection | None = None) -> None:
+        super().__init__(element_type=PairType(left=left, right=right), trait_collection=trait_collection)
 
     @property
     def left(self) -> BaseType:
@@ -248,13 +267,70 @@ class RelationType(SetType):
         assert isinstance(self.element_type, PairType)
         return self.element_type.right
 
+    # Tuple represents (total on domain, total on range, one-to-many, many-to-one)
+    __relation_operator_table = {
+        RelationOperator.RELATION: (False, False, False, False),
+        RelationOperator.PARTIAL_FUNCTION: (False, False, True, False),
+        RelationOperator.PARTIAL_INJECTION: (False, False, True, True),
+        RelationOperator.SURJECTIVE_RELATION: (False, True, False, False),
+        RelationOperator.PARTIAL_SURJECTION: (False, True, True, False),
+        RelationOperator.TOTAL_RELATION: (True, False, False, False),
+        RelationOperator.TOTAL_FUNCTION: (True, False, True, False),
+        RelationOperator.TOTAL_INJECTION: (True, False, True, True),
+        RelationOperator.TOTAL_SURJECTIVE_RELATION: (True, True, False, False),
+        RelationOperator.TOTAL_SURJECTION: (True, True, True, False),
+        RelationOperator.BIJECTION: (True, True, True, True),
+    }
+
+    def apply_traits_from_relation_operator(self, relation_operator: RelationOperator) -> None:
+        self._add_relation_traits_from_tuple(self.__relation_operator_table[relation_operator])
+
+    def _add_relation_traits_from_tuple(self, traits_tuple: tuple[bool, bool, bool, bool]) -> None:
+        if traits_tuple[0]:
+            self.trait_collection.total_on_domain_trait = TotalOnDomainTrait()
+        if traits_tuple[1]:
+            self.trait_collection.total_on_range_trait = TotalOnRangeTrait()
+        if traits_tuple[2]:
+            self.trait_collection.one_to_many_trait = OneToManyTrait()
+        if traits_tuple[3]:
+            self.trait_collection.many_to_one_trait = ManyToOneTrait()
+
+    def _relation_traits_to_tuple(self) -> tuple[bool, bool, bool, bool]:
+        return (
+            self.trait_collection.total_on_domain_trait is not None,
+            self.trait_collection.total_on_range_trait is not None,
+            self.trait_collection.one_to_many_trait is not None,
+            self.trait_collection.many_to_one_trait is not None,
+        )
+
     def inverse(self) -> RelationType:
-        return RelationType(left=self.right, right=self.left)
+        new_type = deepcopy(self)
+        relation_traits_tuple = self._relation_traits_to_tuple()
+        new_relation_traits_tuple = (
+            relation_traits_tuple[1],
+            relation_traits_tuple[0],
+            relation_traits_tuple[3],
+            relation_traits_tuple[2],
+        )
+        new_type._add_relation_traits_from_tuple(new_relation_traits_tuple)
+
+        return new_type
 
     def composition(self, other: RelationType) -> RelationType:
         if not self.right.is_eq_type(other.left):
             raise SimileTypeError(f"Cannot compose relations with incompatible types: {self} and {other}")
-        return RelationType(left=self.left, right=other.right)
+
+        new_type = RelationType(left=self.left, right=other.right, trait_collection=deepcopy(self.trait_collection))
+        self_relation_traits_tuple = self._relation_traits_to_tuple()
+        other_relation_traits_tuple = other._relation_traits_to_tuple()
+        new_relation_traits_tuple = (
+            self_relation_traits_tuple[0],
+            self_relation_traits_tuple[1] and other_relation_traits_tuple[1],
+            self_relation_traits_tuple[2] and other_relation_traits_tuple[2],
+            self_relation_traits_tuple[3] and other_relation_traits_tuple[3],
+        )
+        new_type._add_relation_traits_from_tuple(new_relation_traits_tuple)
+        return new_type
 
     def function_call(self, argument: BaseType) -> BaseType:
         if not argument.is_eq_type(self.left):
@@ -269,7 +345,18 @@ class RelationType(SetType):
     def overriding(self, other: RelationType) -> RelationType:
         if not self.left.is_eq_type(other.left) or not self.right.is_eq_type(other.right):
             raise SimileTypeError(f"Cannot override relations with incompatible types: {self} and {other}")
-        return self
+
+        new_type = deepcopy(self)
+        self_relation_traits_tuple = self._relation_traits_to_tuple()
+        other_relation_traits_tuple = other._relation_traits_to_tuple()
+        new_relation_traits_tuple = (
+            other_relation_traits_tuple[0],
+            other_relation_traits_tuple[1],
+            self_relation_traits_tuple[2] and other_relation_traits_tuple[2],
+            self_relation_traits_tuple[3] and other_relation_traits_tuple[3],
+        )
+        new_type._add_relation_traits_from_tuple(new_relation_traits_tuple)
+        return new_type
 
     def domain(self) -> SetType:
         return SetType(element_type=self.left)
@@ -280,22 +367,34 @@ class RelationType(SetType):
     def domain_restriction(self, domain_set: SetType) -> RelationType:
         if not self.domain().is_eq_type(domain_set):
             raise SimileTypeError(f"Cannot perform domain restriction with incompatible set element type: {domain_set.element_type} for relation {self}")
-        return self
+
+        new_type = deepcopy(self)
+        new_type.trait_collection.total_on_domain_trait = None
+        return new_type
 
     def domain_subtraction(self, domain_set: SetType) -> RelationType:
         if not self.domain().is_eq_type(domain_set):
             raise SimileTypeError(f"Cannot perform domain subtraction with incompatible set element type: {domain_set.element_type} for relation {self}")
-        return self
+
+        new_type = deepcopy(self)
+        new_type.trait_collection.total_on_domain_trait = None
+        return new_type
 
     def range_restriction(self, range_set: SetType) -> RelationType:
         if not self.range_().is_eq_type(range_set):
             raise SimileTypeError(f"Cannot perform range restriction with incompatible set element type: {range_set.element_type} for relation {self}")
-        return self
+
+        new_type = deepcopy(self)
+        new_type.trait_collection.total_on_range_trait = None
+        return new_type
 
     def range_subtraction(self, range_set: SetType) -> RelationType:
         if not self.range_().is_eq_type(range_set):
             raise SimileTypeError(f"Cannot perform range subtraction with incompatible set element type: {range_set.element_type} for relation {self}")
-        return self
+
+        new_type = deepcopy(self)
+        new_type.trait_collection.total_on_range_trait = None
+        return new_type
 
     def bag_image(self, bag: BagType) -> BagType:
         # Get traits from here. This also needs to be run to check for type errors from dependent operations
@@ -304,13 +403,12 @@ class RelationType(SetType):
         return BagType(element_type=self.right)
 
 
-@dataclass(kw_only=True)
+@dataclass
 class BagType(RelationType):
 
-    def __init__(self, *, element_type: BaseType, traits: list[Trait] | None = None) -> None:
-        if traits is None:
-            traits = []
-        super().__init__(left=element_type, right=IntType(), traits=traits)
+    def __init__(self, element_type: BaseType, *, trait_collection: TraitCollection | None = None) -> None:
+        super().__init__(left=element_type, right=IntType(), trait_collection=trait_collection)
+        self.trait_collection.many_to_one_trait = ManyToOneTrait()
 
     @property
     def element_type(self) -> BaseType:
@@ -353,13 +451,12 @@ class BagType(RelationType):
         return IntType()
 
 
-@dataclass(kw_only=True)
+@dataclass
 class SequenceType(RelationType):
 
-    def __init__(self, *, element_type: BaseType, traits: list[Trait] | None = None) -> None:
-        if traits is None:
-            traits = []
-        super().__init__(left=IntType(), right=element_type, traits=traits)
+    def __init__(self, element_type: BaseType, *, trait_collection: TraitCollection | None = None) -> None:
+        super().__init__(left=IntType(), right=element_type, trait_collection=trait_collection)
+        self.trait_collection.many_to_one_trait = ManyToOneTrait()
 
     @property
     def element_type(self) -> BaseType:

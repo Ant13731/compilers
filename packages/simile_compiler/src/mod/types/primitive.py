@@ -2,14 +2,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from src.mod.types.traits import Trait
-from src.mod.types.base import BaseType, BoolType, SimileTypeError
+from src.mod.types.error import SimileTypeError
+from src.mod.types.traits import Trait, OrderableTrait
+from src.mod.types.base import BaseType, BoolType
 
 if TYPE_CHECKING:
     from src.mod.types.set_ import SetType
 
 
-@dataclass(kw_only=True)
+@dataclass
 class NoneType_(BaseType):
     """Intended for statements without a type, not expressions. For example, a while loop node doesn't have a type."""
 
@@ -23,7 +24,7 @@ class NoneType_(BaseType):
         return self
 
 
-@dataclass(kw_only=True)
+@dataclass
 class StringType(BaseType):
     def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
         return isinstance(other, StringType)
@@ -35,8 +36,12 @@ class StringType(BaseType):
         return self
 
 
-@dataclass(kw_only=True)
+@dataclass
 class IntType(BaseType):
+
+    def __post_init__(self):
+        self.trait_collection.orderable_trait = OrderableTrait()
+
     def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
         return isinstance(other, IntType)
 
@@ -100,8 +105,12 @@ class IntType(BaseType):
         return SetType(element_type=IntType())
 
 
-@dataclass(kw_only=True)
+@dataclass
 class FloatType(BaseType):
+
+    def __post_init__(self):
+        self.trait_collection.orderable_trait = OrderableTrait()
+
     def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
         return isinstance(other, FloatType)
 

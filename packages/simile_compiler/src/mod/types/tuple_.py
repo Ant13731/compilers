@@ -4,11 +4,11 @@ from copy import deepcopy
 from typing import Callable
 
 from src.mod.types.base import BaseType, BoolType, AnyType_
-from src.mod.types.traits import Trait
+from src.mod.types.traits import Trait, TraitCollection
 from src.mod.types.primitive import NoneType_, IntType
 
 
-@dataclass(kw_only=True)
+@dataclass
 class TupleType(BaseType):
     items: tuple[BaseType, ...]
 
@@ -39,10 +39,15 @@ class TupleType(BaseType):
                 return False
         return True
 
+    def _is_sub_traits(self, other: BaseType) -> bool:
+        if self.trait_collection.empty_trait is not None:
+            return True
+        raise NotImplementedError
+
     def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
         return TupleType(
             items=tuple(item._replace_generic_types(lst) for item in self.items),
-            traits=self.traits,
+            trait_collection=self.trait_collection,
         )
 
     @classmethod
@@ -54,13 +59,14 @@ class TupleType(BaseType):
         return cls(items=tuple(element_types))
 
 
-@dataclass(kw_only=True)
+@dataclass
 class PairType(TupleType):
 
-    def __init__(self, *, left: BaseType, right: BaseType, traits: list[Trait] | None = None) -> None:
-        if traits is None:
-            traits = []
-        super().__init__(items=(left, right), traits=traits)
+    def __init__(self, left: BaseType, right: BaseType, *, trait_collection: TraitCollection | None = None) -> None:
+        if trait_collection is None:
+            trait_collection = TraitCollection()
+
+        super().__init__(items=(left, right), trait_collection=trait_collection)
 
     @property
     def left(self) -> BaseType:
@@ -74,7 +80,7 @@ class PairType(TupleType):
         return PairType(
             left=self.left._replace_generic_types(lst),
             right=self.right._replace_generic_types(lst),
-            traits=self.traits,
+            trait_collection=self.trait_collection,
         )
 
     @classmethod

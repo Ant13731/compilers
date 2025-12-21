@@ -1,24 +1,10 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from copy import deepcopy
-from typing import Callable, Type, TypeVar, TYPE_CHECKING
+from typing import Callable, Type, TypeVar
 
-from src.mod.types.traits import Trait
-
-if TYPE_CHECKING:
-    from src.mod.ast_.ast_node_base import ASTNode
-
-
-class SimileTypeError(Exception):
-    """Custom exception for Simile type errors."""
-
-    def __init__(self, message: str, node: ASTNode | None = None) -> None:
-        message = f"SimileTypeError: {message}"
-        if node is not None:
-            message = f"Error {node.get_location()} (at node {node}): {message}"
-
-        super().__init__(message)
-        self.node = node
+from src.mod.types.error import SimileTypeError
+from src.mod.types.traits import Trait, TraitCollection
 
 
 T = TypeVar("T", bound="BaseType")
@@ -30,15 +16,17 @@ class BaseType:
     """Base type for all Simile types."""
 
     # TODO should traits be a set? we really shouldn't care about order or duplicates...
-    traits: list[Trait] = field(default_factory=list)
+    trait_collection: TraitCollection = field(default_factory=TraitCollection)
 
     # Actual type methods
-    def cast(self, caster: T, add_traits: list[Trait] | None = None) -> T:
+    def cast(self, caster: T, add_trait_collection: TraitCollection | None = None) -> T:
         """Cast the type to a different type."""
         caster = deepcopy(caster)
         # TODO only add traits if the traits make sense to add (ex. no min trait allowed on a StringType)
         # Each type should specify which traits are allowed
-        caster.traits.extend(add_traits if add_traits is not None else [])
+
+        if add_trait_collection is not None:
+            caster.trait_collection = self.trait_collection.merge(add_trait_collection)
         return caster
 
     def _allowed_traits(self) -> list[Type[Trait]]:
@@ -67,7 +55,7 @@ class BaseType:
 
     def _is_eq_traits(self, other: BaseType) -> bool:
         """Check whether the type would be equal when considering traits."""
-        raise NotImplementedError
+        return self.trait_collection == other.trait_collection
 
     def is_sub_type(self, other: BaseType, substitution_mapping: dict[str, BaseType] | None = None, check_traits: bool = False) -> bool:
         """Check if self is a sub-type of other (in formal type theory, whether self <= other)."""
@@ -133,7 +121,7 @@ class BaseType:
 
 
 # BoolType needs to be here to avoid circular imports
-@dataclass(kw_only=True)
+@dataclass
 class BoolType(BaseType):
     def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
         return isinstance(other, BoolType)
@@ -163,7 +151,7 @@ class BoolType(BaseType):
         return BoolType()
 
 
-@dataclass(kw_only=True)
+@dataclass
 class AnyType_(BaseType):
 
     def _is_eq_type(self, other: BaseType, substitution_mapping: dict[str, BaseType]) -> bool:
