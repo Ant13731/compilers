@@ -2,14 +2,13 @@ from src.mod.types.error import SimileTypeError
 from src.mod.types.base import (
     BaseType,
     BoolType,
-    AnyType_,
 )
 from src.mod.types.composite import (
     RecordType,
-    EnumType,
     ProcedureType,
 )
 from src.mod.types.meta import (
+    AnyType_,
     GenericType,
     DeferToSymbolTable,
     ModuleImports,
@@ -22,6 +21,10 @@ from src.mod.types.primitive import (
 )
 from src.mod.types.set_ import (
     SetType,
+    EnumType,
+    BagType,
+    RelationType,
+    SequenceType,
 )
 from src.mod.types.traits import (
     Trait,

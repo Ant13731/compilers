@@ -20,9 +20,6 @@ class NoneType_(BaseType):
     def _is_subtype(self, other: BaseType) -> bool:
         return isinstance(other, NoneType_)
 
-    def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
-        return self
-
 
 @dataclass
 class StringType(BaseType):
@@ -31,9 +28,6 @@ class StringType(BaseType):
 
     def _is_subtype(self, other: BaseType) -> bool:
         return isinstance(other, StringType)
-
-    def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
-        return self
 
 
 @dataclass
@@ -48,20 +42,21 @@ class IntType(BaseType):
     def _is_subtype(self, other: BaseType) -> bool:
         return isinstance(other, IntType) or isinstance(other, FloatType)
 
-    def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
-        return self
-
     # Comparison
     def greater_than(self, other: BaseType) -> BoolType:
+        self._is_subtype_or_error(other, (IntType(), FloatType()))
         return BoolType()
 
     def less_than(self, other: BaseType) -> BoolType:
+        self._is_subtype_or_error(other, (IntType(), FloatType()))
         return BoolType()
 
     def greater_than_equals(self, other: BaseType) -> BoolType:
+        self._is_subtype_or_error(other, (IntType(), FloatType()))
         return BoolType()
 
     def less_than_equals(self, other: BaseType) -> BoolType:
+        self._is_subtype_or_error(other, (IntType(), FloatType()))
         return BoolType()
 
     # Arithmetic
@@ -115,10 +110,8 @@ class IntType(BaseType):
     def upto(self, other: IntType) -> SetType:
         from src.mod.types.set_ import SetType
 
-        if not isinstance(other, IntType):
-            raise SimileTypeError(f"Cannot divide IntType with incompatible type: {other}")
+        self._is_subtype_or_error(other, (IntType(), FloatType()))
 
-        """Return a set representing the range from this IntType to another IntType."""
         return SetType(element_type=IntType())
 
 
@@ -134,43 +127,41 @@ class FloatType(BaseType):
     def _is_subtype(self, other: BaseType) -> bool:
         return isinstance(other, FloatType)
 
-    def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
-        return self
-
     def greater_than(self, other: BaseType) -> BoolType:
+        self._is_subtype_or_error(other, (IntType(), FloatType()))
         return BoolType()
 
     def less_than(self, other: BaseType) -> BoolType:
+        self._is_subtype_or_error(other, (IntType(), FloatType()))
         return BoolType()
 
     def greater_than_equals(self, other: BaseType) -> BoolType:
+        self._is_subtype_or_error(other, (IntType(), FloatType()))
         return BoolType()
 
     def less_than_equals(self, other: BaseType) -> BoolType:
+        self._is_subtype_or_error(other, (IntType(), FloatType()))
         return BoolType()
 
     def negate(self) -> FloatType:
         return FloatType()
 
     def add(self, other: BaseType) -> FloatType:
-        if not isinstance(other, FloatType) and not isinstance(other, IntType):
-            raise SimileTypeError(f"Cannot add FloatType with incompatible type: {other}")
+        self._is_subtype_or_error(other, (IntType(), FloatType()))
         return FloatType()
 
     def subtract(self, other: BaseType) -> FloatType:
-        if not isinstance(other, FloatType) and not isinstance(other, IntType):
-            raise SimileTypeError(f"Cannot subtract FloatType with incompatible type: {other}")
+        self._is_subtype_or_error(other, (IntType(), FloatType()))
         return FloatType()
 
     def division(self, other: BaseType) -> FloatType:
+        self._is_subtype_or_error(other, (IntType(), FloatType()))
         return FloatType()
 
     def multiply(self, other: BaseType) -> FloatType:
-        if not isinstance(other, FloatType) and not isinstance(other, IntType):
-            raise SimileTypeError(f"Cannot multiply FloatType with incompatible type: {other}")
+        self._is_subtype_or_error(other, (IntType(), FloatType()))
         return FloatType()
 
     def power(self, other: BaseType) -> FloatType:
-        if not isinstance(other, FloatType) and not isinstance(other, IntType):
-            raise SimileTypeError(f"Cannot power FloatType with incompatible type: {other}")
+        self._is_subtype_or_error(other, (IntType(), FloatType()))
         return FloatType()

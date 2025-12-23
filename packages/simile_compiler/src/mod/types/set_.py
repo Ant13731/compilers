@@ -10,11 +10,22 @@ from src.mod.ast_.ast_node_operators import (
     UnaryOperator,
 )
 from src.mod.types.error import SimileTypeError
-from src.mod.types.traits import SizeTrait, Trait, TraitCollection, ManyToOneTrait, OneToManyTrait, TotalOnDomainTrait, TotalOnRangeTrait
+from src.mod.types.traits import (
+    SizeTrait,
+    TraitCollection,
+    ManyToOneTrait,
+    OneToManyTrait,
+    TotalOnDomainTrait,
+    TotalOnRangeTrait,
+    ImmutableTrait,
+    LiteralTrait,
+    DomainTrait,
+)
 from src.mod.types.base import BaseType, BoolType
-from src.mod.types.primitive import NoneType_, IntType
+from src.mod.types.primitive import NoneType_, IntType, StringType
 from src.mod.types.tuple_ import PairType
 from src.mod.types.meta import AnyType_
+from src.mod.types.composite import ProcedureType
 
 
 # TODO we basically need a SetSimulator that will return the expected type, element type, and traits when executing a set operation
@@ -51,16 +62,6 @@ class SetType(BaseType):
     # I suppose this kind-of simulates the program execution just looking at traits and element types
 
     # Type checking methods
-    # TODO add classmethods like bag(), sequence(), relation() to create specific set subtypes easily, without needing to fiddle with traits
-    def is_relation(self) -> bool:
-        return isinstance(self.element_type, PairType)
-
-    def is_sequence(self) -> bool:
-        return isinstance(self.element_type, PairType) and self.element_type.left.is_eq_type(IntType())
-
-    def is_bag(self) -> bool:
-        return isinstance(self.element_type, PairType) and self.element_type.right.is_eq_type(IntType())
-
     def _is_eq_type(self, other: BaseType) -> bool:
         if not isinstance(other, SetType):
             return False
@@ -92,18 +93,22 @@ class SetType(BaseType):
     # Atomic operations
     def add(self, element: BaseType) -> NoneType_:
         """Add an element to the set."""
+        self._is_subtype_or_error(element, (self.element_type,))
         return NoneType_()
 
     def remove(self, element: BaseType) -> NoneType_:
         """Remove an element from the set."""
+        self._is_subtype_or_error(element, (self.element_type,))
         return NoneType_()
 
     def in_(self, element: BaseType) -> BoolType:
         """Check if an element is in the set (membership test)."""
+        self._is_subtype_or_error(element, (self.element_type,))
         return BoolType()
 
     def not_in(self, element: BaseType) -> BoolType:
         """Check if an element is in the set (membership test)."""
+        self._is_subtype_or_error(element, (self.element_type,))
         return self.in_(element).not_()
 
     @classmethod
@@ -126,9 +131,15 @@ class SetType(BaseType):
         """Return the powerset of the set."""
         return SetType(element_type=self)
 
-    def map(self, func: Callable[[BaseType], BaseType]) -> SetType:
+    def map(self, func: ProcedureType) -> SetType:
         """Apply a function to each element in the set."""
-        return SetType(element_type=func(self.element_type))
+        if len(func.arg_types) != 1:
+            raise SimileTypeError(f"Function passed to Set.map must take exactly one argument, got {len(func.arg_types)}")
+
+        func_arg_type = next(iter(func.arg_types.values()))
+        self._is_subtype_or_error(self.element_type, (func_arg_type,))
+
+        return SetType(element_type=func.return_type)
 
     def choice(self) -> BaseType:
         """Select an arbitrary element from the set."""
@@ -159,58 +170,52 @@ class SetType(BaseType):
 
         return self.element_type
 
-    def map_min(self, func: Callable[[BaseType], IntType]) -> BaseType:
+    def map_min(self, func: ProcedureType) -> BaseType:
         """Apply a weighting function to each element and return the minimum."""
-        # Need to call function to type check the function with the input type
-        func(self.element_type)
+        if len(func.arg_types) != 1:
+            raise SimileTypeError(f"Function passed to Set.map must take exactly one argument, got {len(func.arg_types)}")
+
+        func_arg_type = next(iter(func.arg_types.values()))
+        self._is_subtype_or_error(self.element_type, (func_arg_type,))
         return self.element_type
 
-    def map_max(self, func: Callable[[BaseType], IntType]) -> BaseType:
+    def map_max(self, func: ProcedureType) -> BaseType:
         """Apply a weighting function to each element and return the maximum."""
-        func(self.element_type)
+        if len(func.arg_types) != 1:
+            raise SimileTypeError(f"Function passed to Set.map must take exactly one argument, got {len(func.arg_types)}")
+
+        func_arg_type = next(iter(func.arg_types.values()))
+        self._is_subtype_or_error(self.element_type, (func_arg_type,))
         return self.element_type
 
     # Binary operations
     def union(self, other: SetType) -> SetType:
         """Return the union of this set and another set."""
-        if not self.element_type.is_eq_type(other.element_type):
-            raise SimileTypeError(f"Cannot perform union on sets with different element types: {self.element_type} and {other.element_type}")
+        self._is_subtype_or_error(other, (SetType(AnyType_()),))
 
-        if not self.is_eq_type(other):
-            # TODO this should check for subtypes?
-            raise SimileTypeError(f"Cannot perform union on sets with different types: {self} and {other}")
-
-        return self
+        new_element_type = BaseType.max_type([self.element_type, other.element_type])
+        return SetType(element_type=new_element_type)
 
     def intersection(self, other: SetType) -> SetType:
         """Return the intersection of this set and another set."""
-        if not self.element_type.is_eq_type(other.element_type):
-            raise SimileTypeError(f"Cannot perform intersection on sets with different element types: {self.element_type} and {other.element_type}")
+        self._is_subtype_or_error(other, (SetType(AnyType_()),))
 
-        if not self.is_eq_type(other):
-            # TODO this should check for subtypes?
-            raise SimileTypeError(f"Cannot perform intersection on sets with different types: {self} and {other}")
-        return self
+        new_element_type = BaseType.max_type([self.element_type, other.element_type])
+        return SetType(element_type=new_element_type)
 
     def difference(self, other: SetType) -> SetType:
         """Return the difference of this set and another set."""
-        if not self.element_type.is_eq_type(other.element_type):
-            raise SimileTypeError(f"Cannot perform difference on sets with different element types: {self.element_type} and {other.element_type}")
+        self._is_subtype_or_error(other, (SetType(AnyType_()),))
 
-        if not self.is_eq_type(other):
-            # TODO this should check for subtypes?
-            raise SimileTypeError(f"Cannot perform difference on sets with different types: {self} and {other}")
-        return self
+        new_element_type = BaseType.max_type([self.element_type, other.element_type])
+        return SetType(element_type=new_element_type)
 
     def symmetric_difference(self, other: SetType) -> SetType:
         """Return the symmetric difference of this set and another set."""
-        if not self.element_type.is_eq_type(other.element_type):
-            raise SimileTypeError(f"Cannot perform symmetric difference on sets with different element types: {self.element_type} and {other.element_type}")
+        self._is_subtype_or_error(other, (SetType(AnyType_()),))
 
-        if not self.is_eq_type(other):
-            # TODO this should check for subtypes?
-            raise SimileTypeError(f"Cannot perform symmetric difference on sets with different types: {self} and {other}")
-        return self
+        new_element_type = BaseType.max_type([self.element_type, other.element_type])
+        return SetType(element_type=new_element_type)
 
     def cartesian_product(self, other: SetType) -> RelationType:
         """Return the cartesian product of this set and another set."""
@@ -221,20 +226,35 @@ class SetType(BaseType):
 
     def is_disjoint(self, other: SetType) -> BoolType:
         """Check if this set and another set are disjoint."""
+        self._is_subtype_or_error(other, (SetType(AnyType_()),))
+        # Check that element types are compatible but throw away the result
+        BaseType.max_type([self.element_type, other.element_type])
         return BoolType()
 
     def is_subset(self, other: SetType) -> BoolType:
         """Check if this set is a subset of another set."""
+        self._is_subtype_or_error(other, (SetType(AnyType_()),))
+        # Check that element types are compatible but throw away the result
+        BaseType.max_type([self.element_type, other.element_type])
         return BoolType()
 
     def is_subset_equals(self, other: SetType) -> BoolType:
+        self._is_subtype_or_error(other, (SetType(AnyType_()),))
+        # Check that element types are compatible but throw away the result
+        BaseType.max_type([self.element_type, other.element_type])
         return BoolType()
 
     def is_superset(self, other: SetType) -> BoolType:
         """Check if this set is a superset of another set."""
+        self._is_subtype_or_error(other, (SetType(AnyType_()),))
+        # Check that element types are compatible but throw away the result
+        BaseType.max_type([self.element_type, other.element_type])
         return BoolType()
 
     def is_superset_equals(self, other: SetType) -> BoolType:
+        self._is_subtype_or_error(other, (SetType(AnyType_()),))
+        # Check that element types are compatible but throw away the result
+        BaseType.max_type([self.element_type, other.element_type])
         return BoolType()
 
     def not_is_subset(self, other: SetType) -> BoolType:
@@ -249,7 +269,7 @@ class SetType(BaseType):
     def not_is_superset_equals(self, other: SetType) -> BoolType:
         return self.is_superset_equals(other).not_()
 
-    # N-ary operations
+    # TODO N-ary operations
 
 
 @dataclass
@@ -318,8 +338,10 @@ class RelationType(SetType):
         return new_type
 
     def composition(self, other: RelationType) -> RelationType:
-        if not self.right.is_eq_type(other.left):
-            raise SimileTypeError(f"Cannot compose relations with incompatible types: {self} and {other}")
+        try:
+            BaseType.max_type([self.right, other.left])
+        except SimileTypeError as e:
+            raise SimileTypeError(f"Cannot compose relations with incompatible (middle) types: {self.right} and {other.left}") from e
 
         new_type = RelationType(left=self.left, right=other.right, trait_collection=deepcopy(self.trait_collection))
         self_relation_traits_tuple = self._relation_traits_to_tuple()
@@ -334,20 +356,29 @@ class RelationType(SetType):
         return new_type
 
     def function_call(self, argument: BaseType) -> BaseType:
-        if not argument.is_eq_type(self.left):
-            raise SimileTypeError(f"Cannot call relation as function with incompatible argument type: {argument} for relation {self}")
-        return self.right
+        return self.image(argument).choice()
 
     def image(self, argument: BaseType) -> SetType:
-        if not argument.is_eq_type(self.left):
-            raise SimileTypeError(f"Cannot call relation as function with incompatible argument type: {argument} for relation {self}")
+        self._is_subtype_or_error(argument, (self.left,))
+        # TODO transfer empty trait
         return SetType(element_type=self.right)
 
     def overriding(self, other: RelationType) -> RelationType:
-        if not self.left.is_eq_type(other.left) or not self.right.is_eq_type(other.right):
-            raise SimileTypeError(f"Cannot override relations with incompatible types: {self} and {other}")
+        max_left_type = BaseType.max_type([self.left, other.left])
+        max_right_type = BaseType.max_type([self.right, other.right])
+        possible_types: list[BaseType] = [
+            self,
+            other,
+            RelationType(max_left_type, max_right_type),
+            BagType(max_left_type),
+            SequenceType(max_right_type),
+        ]
+        max_type = BaseType.min_type(possible_types)
+        if not isinstance(max_type, RelationType):
+            raise SimileTypeError(f"Cannot override relations with incompatible types: {self} and {other} (widest type is not a relation)")
+        # TODO copy traits - this is a new type after all
 
-        new_type = deepcopy(self)
+        new_type = deepcopy(max_type)
         self_relation_traits_tuple = self._relation_traits_to_tuple()
         other_relation_traits_tuple = other._relation_traits_to_tuple()
         new_relation_traits_tuple = (
@@ -366,32 +397,28 @@ class RelationType(SetType):
         return SetType(element_type=self.right)
 
     def domain_restriction(self, domain_set: SetType) -> RelationType:
-        if not self.domain().is_eq_type(domain_set):
-            raise SimileTypeError(f"Cannot perform domain restriction with incompatible set element type: {domain_set.element_type} for relation {self}")
+        self._is_subtype_or_error(domain_set, (self.domain(),))
 
         new_type = deepcopy(self)
         new_type.trait_collection.total_on_domain_trait = None
         return new_type
 
     def domain_subtraction(self, domain_set: SetType) -> RelationType:
-        if not self.domain().is_eq_type(domain_set):
-            raise SimileTypeError(f"Cannot perform domain subtraction with incompatible set element type: {domain_set.element_type} for relation {self}")
+        self._is_subtype_or_error(domain_set, (self.domain(),))
 
         new_type = deepcopy(self)
         new_type.trait_collection.total_on_domain_trait = None
         return new_type
 
     def range_restriction(self, range_set: SetType) -> RelationType:
-        if not self.range_().is_eq_type(range_set):
-            raise SimileTypeError(f"Cannot perform range restriction with incompatible set element type: {range_set.element_type} for relation {self}")
+        self._is_subtype_or_error(range_set, (self.range_(),))
 
         new_type = deepcopy(self)
         new_type.trait_collection.total_on_range_trait = None
         return new_type
 
     def range_subtraction(self, range_set: SetType) -> RelationType:
-        if not self.range_().is_eq_type(range_set):
-            raise SimileTypeError(f"Cannot perform range subtraction with incompatible set element type: {range_set.element_type} for relation {self}")
+        self._is_subtype_or_error(range_set, (self.range_(),))
 
         new_type = deepcopy(self)
         new_type.trait_collection.total_on_range_trait = None
@@ -416,36 +443,24 @@ class BagType(RelationType):
         return self.left
 
     def bag_union(self, other: BagType) -> BagType:
-        if not self.element_type.is_eq_type(other.element_type):
-            raise SimileTypeError(f"Cannot perform union on bags with different element types: {self.element_type} and {other.element_type}")
-
-        if not self.is_eq_type(other):
-            raise SimileTypeError(f"Cannot perform union on bags with different types: {self} and {other}")
-        return self
+        self._is_subtype_or_error(other, (BagType(AnyType_()),))
+        new_element_type = BaseType.max_type([self.element_type, other.element_type])
+        return BagType(element_type=new_element_type)
 
     def bag_intersection(self, other: BagType) -> BagType:
-        if not self.element_type.is_eq_type(other.element_type):
-            raise SimileTypeError(f"Cannot perform intersection on bags with different element types: {self.element_type} and {other.element_type}")
-
-        if not self.is_eq_type(other):
-            raise SimileTypeError(f"Cannot perform intersection on bags with different types: {self} and {other}")
-        return self
+        self._is_subtype_or_error(other, (BagType(AnyType_()),))
+        new_element_type = BaseType.max_type([self.element_type, other.element_type])
+        return BagType(element_type=new_element_type)
 
     def bag_add(self, other: BagType) -> BagType:
-        if not self.element_type.is_eq_type(other.element_type):
-            raise SimileTypeError(f"Cannot perform addition on bags with different element types: {self.element_type} and {other.element_type}")
-
-        if not self.is_eq_type(other):
-            raise SimileTypeError(f"Cannot perform addition on bags with different types: {self} and {other}")
-        return self
+        self._is_subtype_or_error(other, (BagType(AnyType_()),))
+        new_element_type = BaseType.max_type([self.element_type, other.element_type])
+        return BagType(element_type=new_element_type)
 
     def bag_difference(self, other: BagType) -> BagType:
-        if not self.element_type.is_eq_type(other.element_type):
-            raise SimileTypeError(f"Cannot perform difference on bags with different element types: {self.element_type} and {other.element_type}")
-
-        if not self.is_eq_type(other):
-            raise SimileTypeError(f"Cannot perform difference on bags with different types: {self} and {other}")
-        return self
+        self._is_subtype_or_error(other, (BagType(AnyType_()),))
+        new_element_type = BaseType.max_type([self.element_type, other.element_type])
+        return BagType(element_type=new_element_type)
 
     def size(self) -> IntType:
         """Return the total number of elements in the bag, counting multiplicities."""
@@ -464,10 +479,23 @@ class SequenceType(RelationType):
         return self.right
 
     def concat(self, other: SequenceType) -> SequenceType:
-        if not self.element_type.is_eq_type(other.element_type):
-            raise SimileTypeError(f"Cannot concatenate sequences with different element types: {self.element_type} and {other.element_type}")
+        self._is_subtype_or_error(other, (SequenceType(AnyType_()),))
+        new_element_type = BaseType.max_type([self.element_type, other.element_type])
+        return SequenceType(element_type=new_element_type)
 
-        if not self.is_eq_type(other):
-            # TODO this should check for subtypes?
-            raise SimileTypeError(f"Cannot concatenate sequences with different types: {self} and {other}")
-        return self
+
+@dataclass
+class EnumType(SetType):
+    # Internally a set of identifiers
+    # element_type = StringType()  # TODO add trait domain
+    members: set[str] = field(default_factory=set)
+
+    def __post_init__(self):
+        self._element_type = StringType()
+
+        from src.mod.ast_.ast_nodes import String
+
+        self.trait_collection.domain_trait = DomainTrait(
+            [LiteralTrait(String(member)) for member in self.members],
+        )
+        self.element_type.trait_collection.immutable_trait = ImmutableTrait()

@@ -47,23 +47,6 @@ class RecordType(BaseType):
 
 
 @dataclass
-class EnumType(SetType):
-    # Internally a set of identifiers
-    # element_type = StringType()  # TODO add trait domain
-    members: set[str] = field(default_factory=set)
-
-    def __post_init__(self):
-        self._element_type = StringType()
-
-        from src.mod.ast_.ast_nodes import String
-
-        self.trait_collection.domain_trait = DomainTrait(
-            [LiteralTrait(String(member)) for member in self.members],
-        )
-        self.element_type.trait_collection.immutable_trait = ImmutableTrait()
-
-
-@dataclass
 class ProcedureType(BaseType):
     arg_types: OrderedDict[str, BaseType]
     return_type: BaseType
@@ -103,5 +86,6 @@ class ProcedureType(BaseType):
                 raise SimileTypeError(f"Procedure argument '{arg_name}' expected type {expected_type}, got {provided_type}")
         # TODO check for generics here - ex, if return type is generic, look for the actual type in one of its arguments
         # generic ids should match
+        # TODO also need to account for the return type matching the type of the returned value
 
         return self.return_type

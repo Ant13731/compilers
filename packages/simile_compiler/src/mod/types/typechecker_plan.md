@@ -1,4 +1,5 @@
 # Other TODOs
+- [ ] Formalize trait-trait and trait-operation interactions
 - [ ] Add input type validation to all functions (look at previous type checking in ASTNodes)
     - even if functions have a specific type hint, they still need to check for that specific type at runtime
     - cant rely on python's type checker

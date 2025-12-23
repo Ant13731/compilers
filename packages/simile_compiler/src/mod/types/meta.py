@@ -15,9 +15,6 @@ class AnyType_(BaseType):
     def _is_subtype(self, other: BaseType) -> bool:
         return False
 
-    def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
-        return self
-
 
 @dataclass
 class GenericType(BaseType):

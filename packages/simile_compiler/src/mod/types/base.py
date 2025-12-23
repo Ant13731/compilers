@@ -98,27 +98,37 @@ class BaseType:
         """Return the widest type among the inputs.
 
         Throws a SimileTypeError if types are incompatible (aside from AnyType_)."""
+        class_name = cls.__name__
+        method_name = inspect.stack()[1][3]
+
         widest_type = types[0]
         for type_ in types:
             # Widen type as necessary
             if widest_type.is_subtype(type_):
                 widest_type = type_
             elif not type_.is_subtype(widest_type):
-                raise SimileTypeError(f"Cannot find max (widest) type with incompatible element types: {widest_type} and {type_}")
+                raise SimileTypeError(
+                    f"Cannot perform operation {class_name}.{method_name}: Cannot find max (widest) type with incompatible element types: {widest_type} and {type_}"
+                )
         return widest_type
 
     @classmethod
     def min_type(cls, types: list[BaseType]) -> BaseType:
-        """Return the widest type among the inputs.
+        """Return the narrowest type among the inputs.
 
         Throws a SimileTypeError if types are incompatible (aside from NoneType_)."""
+        class_name = cls.__name__
+        method_name = inspect.stack()[1][3]
+
         narrowest_type = types[0]
         for type_ in types:
             # Widen type as necessary
             if type_.is_subtype(narrowest_type):
                 narrowest_type = type_
             elif not narrowest_type.is_subtype(type_):
-                raise SimileTypeError(f"Cannot find min (narrowest) type with incompatible element types: {narrowest_type} and {type_}")
+                raise SimileTypeError(
+                    f"Cannot perform operation {class_name}.{method_name}:Cannot find min (narrowest) type with incompatible element types: {narrowest_type} and {type_}"
+                )
         return narrowest_type
 
     def _is_subtype_or_error(self, other: BaseType, is_subtype_of: BaseType | tuple[BaseType, ...]) -> None:
@@ -144,23 +154,25 @@ class BoolType(BaseType):
     def _is_subtype(self, other: BaseType) -> bool:
         return isinstance(other, BoolType)
 
-    def _replace_generic_types(self, lst: list[BaseType]) -> BaseType:
-        return self
-
     def not_(self) -> BoolType:
         return BoolType()
 
     def equivalent(self, other: BaseType) -> BoolType:
+        self._is_subtype_or_error(other, BoolType())
         return BoolType()
 
     def not_equivalent(self, other: BaseType) -> BoolType:
+        self._is_subtype_or_error(other, BoolType())
         return BoolType()
 
     def implies(self, other: BaseType) -> BoolType:
+        self._is_subtype_or_error(other, BoolType())
         return BoolType()
 
     def and_(self, other: BaseType) -> BoolType:
+        self._is_subtype_or_error(other, BoolType())
         return BoolType()
 
     def or_(self, other: BaseType) -> BoolType:
+        self._is_subtype_or_error(other, BoolType())
         return BoolType()
