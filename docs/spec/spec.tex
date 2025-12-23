@@ -95,9 +95,9 @@
 
 % Other preamble
 \allowdisplaybreaks
-% \graphicspath{{./images/}}
+\graphicspath{{./images/}}
 % NOTE: need to run `biber <name>` to ensure up-to-date references
-\addbibresource{../ref.bib}
+\addbibresource{citation.bib}
 
 \title{Complete Specification and Design for Simile}
 \author{Anthony Hunt}
@@ -309,7 +309,8 @@ The following are symbols used for expressions:
 \begin{longtable}{c c l}
     \textbf{Token} & \textbf{ASCII Token} & \textbf{Name} \\
     \endhead
-    \lexentry{\cdot}{.}{Center Dot (Quantifier Separator)}
+    \lexentry{\cdot}{.}{Center Dot (Quantifier Separator) \footnote{Anywhere $\cdot$ is valid, $.$ is valid.}}
+    \lexentry{.}{}{Dot}
     \lexentry{,}{}{Comma}
     \lexentry{:}{}{Colon}
     \lexentry{;}{}{Semicolon}
@@ -317,10 +318,10 @@ The following are symbols used for expressions:
     \lexentry{\lambda}{lambda}{Lambda}
     \lexentry{(}{}{Left Parenthesis}
     \lexentry{)}{}{Right Parenthesis}
-    \lexentry{\langle}{<{}<}{Left Angle Bracket}
-    \lexentry{}{[}{Left Angle Bracket (Alternative)}
-    \lexentry{\rangle}{>{}>}{Right Angle Bracket}
-    \lexentry{}{]}{Right Angle Bracket (Alternative)}
+    \lexentry{\langle}{<{}<}{Left Bracket}
+    \lexentry{}{[}{Left Bracket (Alternative)}
+    \lexentry{\rangle}{>{}>}{Right Bracket}
+    \lexentry{}{]}{Right Bracket (Alternative)}
     \lexentry{\{}{}{Left Brace}
     \lexentry{\}}{}{Right Brace}
     \lexentry{\llbracket}{[[}{Left Double Bracket}
@@ -341,7 +342,6 @@ The following are symbols used for expressions:
     \lexentry{}{+}{Plus}
     \lexentry{}{-}{Minus}
     \lexentry{}{*}{Multiplication}
-    \lexentry{\times}{><}{Cartesian Product}
     \lexentry{}{/}{Division}
     \lexentry{}{div}{Integer Division}
     \lexentry{}{mod}{Modulo}
@@ -355,15 +355,16 @@ The following are symbols used for expressions:
     \lexentry{\cup}{\textbackslash/}{Union}
     \lexentry{\cap}{/\textbackslash}{Intersection}
     \lexentry{\setminus}{\textbackslash}{Backslash (Set Minus)}
+    \lexentry{\times}{><}{Cartesian Product}
     % \lexentry{\times}{><}{Cartesian Product}
     \lexentry{\subset}{<{}<:}{Subset}
     \lexentry{\subseteq}{<:}{Subset or Equal}
     \lexentry{\supset}{:>{}>}{Superset}
     \lexentry{\supseteq}{:>}{Superset or Equal}
-    \lexentry{\not\subset}{}{Not Subset}
-    \lexentry{\not\subseteq}{}{Not Subset or Equal}
-    \lexentry{\not\supset}{}{Not Superset}
-    \lexentry{\not\supseteq}{}{Not Superset or Equal}
+    \lexentry{\not\subset}{!<{}<:}{Not Subset}
+    \lexentry{\not\subseteq}{!<:}{Not Subset or Equal}
+    \lexentry{\not\supset}{!:>{}>}{Not Superset}
+    \lexentry{\not\supseteq}{!:>}{Not Superset or Equal}
     \lexentry{\bigcup}{union}{General Union}
     \lexentry{\bigcap}{intersection}{General Intersection}
     \lexentry{\mapsto}{|->}{Maplet}
@@ -380,11 +381,11 @@ The following are symbols used for expressions:
     \lexentry{\srel}{<->{}>}{Surjective Relation \footnote{Brave Sans Mono unicode: U+E101}}
     \lexentry{\strel}{<{}<->{}>}{Total Surjective Relation \footnote{Brave Sans Mono unicode: U+E102}}
     \lexentry{\pfun}{+->}{Partial Function}
-    \lexentry{\tfun}{-->}{Total Function}
+    \lexentry{\tfun}{-{}->}{Total Function}
     \lexentry{\pinj}{>+>}{Partial Injection}
     \lexentry{\tinj}{>->}{Total Injection}
     \lexentry{\psur}{+->{}>}{Partial Surjection}
-    \lexentry{\tsur}{-->{}>}{Total Surjection}
+    \lexentry{\tsur}{-{}->{}>}{Total Surjection}
     \lexentry{\tbij}{>->{}>}{Bijection}
     \lexentry{\upto}{}{Upto}
     \lexentry{\pow}{powerset}{Powerset}
@@ -398,7 +399,7 @@ The following are symbols used for programming constructs:
     \textbf{(Unicode) Token} & \textbf{(ASCII) Token} & \textbf{Name} \\
     \endhead
     \lexentry{\coloneqq}{:=}{Assignment}
-    \lexentry{:\in}{::}{Non-deterministic Membership Assignment}
+    \lexentry{:\in}{::}{Choice (Non-deterministic Membership) Assignment}
     \lexentry{\rightarrow}{->}{Right Arrow}
 \end{longtable}
 \end{center}
@@ -410,7 +411,7 @@ The following list of symbols and identifiers are reserved for programming const
 \begin{tabular}{c c c c c c}
 true & false & if & else & for\\
 while & record & enum & procedure & is\\
-is not & return & exists & break & continue \\
+is not & return & break & continue \\
 from & import & skip & with & type  \\
 min & max & choice &  &  &
 \end{tabular}
@@ -442,17 +443,17 @@ We follow the standard EBNF notation for describing the language structure.
 
 <ImportList> ::= `*'
     \alt <FlatTupleIdentifier>
-    \alt `(' <FlatTupleIdentifier> `)'
 
 <FlatTupleIdentifier> ::= IDENTIFIER \{`,' IDENTIFIER \}
+    \alt `(' IDENTIFIER \{`,' IDENTIFIER \} `)'
 
 <Expr> ::= <Quantification> | <Predicate>
 
-<Quantification> ::= \lit{$\lambda$} <FlatTupleIdentifier> \lit{$\cdot$} <Predicate> `|' <Expr>
+<Quantification> ::= \lit{$\lambda$} [<FlatTupleIdentifier>] \lit{$\cdot$} <Predicate> `|' <Expr>
     \alt \lit{$\bigcup$} <QuantificationBody>
     \alt \lit{$\bigcap$} <QuantificationBody>
-    \alt \lit{min} <QuantificationBody> % TODO remove and let min/max take in an iterable? May be better to just let min be a func like min({x,y,z . x > 1 | x}), could even add a key as a second optional argument
-    \alt \lit{max} <QuantificationBody>
+    % \alt \lit{min} <QuantificationBody> % TODO remove and let min/max take in an iterable? May be better to just let min be a func like min({x,y,z . x > 1 | x}), could even add a key as a second optional argument
+    % \alt \lit{max} <QuantificationBody>
 
 <QuantificationBody> ::= <IdentList> \lit{$\cdot$} <Predicate> `|' <Expr>
     \alt <Expr> `|' <Predicate>
@@ -638,6 +639,78 @@ Type refinements may be applicable to types with certain traits (ex., min/max va
 \end{prooftree}
 \end{gather}
 
+\subsubsection{Subtype Interactions}
+\paragraph{Includes:} Generic subtyping rules.
+
+\begin{gather}
+\tag{Reflexive Subtype}
+\begin{prooftree}
+\hypo{\Gamma \vdash A}
+\infer1{\Gamma \vdash A \leq A}
+\end{prooftree}
+\\
+\tag{Transitive Subtype}
+\begin{prooftree}
+\hypo{\Gamma \vdash A \leq B}
+\hypo{\Gamma \vdash B \leq C}
+\infer2{\Gamma \vdash A \leq C}
+\end{prooftree}
+\\
+\tag{Subsumption}
+\begin{prooftree}
+\hypo{\Gamma \vdash a:A}
+\hypo{\Gamma \vdash A \leq B}
+\infer2{\Gamma \vdash a: B}
+\end{prooftree}
+\\
+\tag{Top Type}
+\begin{prooftree}
+\hypo{\Gamma \vdash \diamond}
+\infer1{\Gamma \vdash Any}
+\end{prooftree}
+\\
+\tag{Sub Top Type}
+\begin{prooftree}
+\hypo{\Gamma \vdash A}
+\infer1{\Gamma \vdash A \leq Any}
+\end{prooftree}
+\\
+\tag{Sub Function}
+\begin{prooftree}
+\hypo{\Gamma \vdash A' \leq A}
+\hypo{\Gamma \vdash B \leq B'}
+\infer2{\Gamma \vdash A \rightarrow B \leq A' \rightarrow B'}
+\end{prooftree}
+\\
+\tag{Sub Set}
+% TODO check this - doesnt match up with the definition of set as set: A -> bool, but does work intuitively
+% ex. set[nat] <= set[int]
+\begin{prooftree}
+\hypo{\Gamma \vdash A \leq B}
+\infer1{\Gamma \vdash set[A] \leq set[B]}
+\end{prooftree}
+\\
+\tag{Sub Product}
+\begin{prooftree}
+\hypo{\Gamma \vdash A_1 \leq B_1}
+\hypo{\Gamma \vdash A_2 \leq B_2}
+\infer2{\Gamma \vdash A_1 \times A_2 \leq B_1 \times B_2 }
+\end{prooftree}
+\\
+\tag{Sub Record}
+\begin{prooftree}
+\hypo{\Gamma \vdash A_1 \leq B_1 ... A_n \leq B_n}
+\hypo{\Gamma \vdash A_{n+1} ... A_{n+m}}
+\infer2{\Gamma \vdash  Record[I_1: A_1, ..., I_n: A_n, I_{n+1}: A_{n+1}, ... I_{n+m}: A_{n+m}] \leq  Record[I_1: B_1, ..., I_n: B_n]}
+\end{prooftree}
+\\
+\tag{Type Refinement}
+\begin{prooftree}
+\hypo{\Gamma \vdash T}
+\infer1{\Gamma \vdash T[\text{with } x] \leq T}
+\end{prooftree}
+\end{gather}
+
 \subsubsection{The Set Type}
 \paragraph{Includes:} Universal type; everything is a set. The empty set is a part of every type (aside from primitives).
 
@@ -654,7 +727,7 @@ Type refinements may be applicable to types with certain traits (ex., min/max va
 \infer1{\Gamma \vdash EmptySet}
 \end{prooftree}
 \\
-\tag{Emptyset Top}
+\tag{Emptyset Bottom}
 \begin{prooftree}
 \hypo{\Gamma \vdash EmptySet, set[T]}
 \infer1{EmptySet \leq set[T]}
@@ -698,7 +771,7 @@ Type refinements may be applicable to types with certain traits (ex., min/max va
 \tag{Nat from int}
 \begin{prooftree}
 \hypo{\Gamma \vdash int}
-\infer1{\Gamma \vdash nat \ruleSpace nat = \bSetT{n \geq 0}{n \in int} }
+\infer1{\Gamma \vdash nat \leq int[\text{with } min=0] }
 \end{prooftree}
 \\
 \tag{Int from float}
@@ -724,10 +797,10 @@ Type refinements may be applicable to types with certain traits (ex., min/max va
 \infer1{\Gamma \vdash (): EmptyTuple}
 \end{prooftree}
 \\
-\tag{Empty Tuple Top}
+\tag{Empty Tuple Bottom}
 \begin{prooftree}
 \hypo{\Gamma \vdash EmptyTuple, T}
-\infer1{\Gamma \vdash EmptyTuple \subseteq tuple[T]}
+\infer1{\Gamma \vdash EmptyTuple \leq tuple[T]}
 \end{prooftree}
 \\
 \tag{Tuple Enumeration}
@@ -745,7 +818,7 @@ Type refinements may be applicable to types with certain traits (ex., min/max va
 \tag{Bag Type}
 \begin{prooftree}
 \hypo{\Gamma \vdash T, nat}
-\infer1{\Gamma \vdash bag[T] = T \pfun nat }
+\infer1{\Gamma \vdash bag[T] \leq T \pfun nat }
 \end{prooftree}
 \\
 \tag{Bag Enumeration}
@@ -757,7 +830,7 @@ Type refinements may be applicable to types with certain traits (ex., min/max va
 \tag{Sequence Type}
 \begin{prooftree}
 \hypo{\Gamma \vdash T, nat}
-\infer1{\Gamma \vdash bag[T] = nat \pfun T }
+\infer1{\Gamma \vdash sequence[T] \leq nat \pfun T }
 \end{prooftree}
 \\
 \tag{Sequence Enumeration}
@@ -771,7 +844,7 @@ Type refinements may be applicable to types with certain traits (ex., min/max va
 \hypo{\Gamma \vdash s_1, ..., s_n : str}
 \hypo{A = \{s_1, ..., s_n\} }
 \hypo{immutable(A)}
-\infer3{\Gamma \vdash enum[A]}
+\infer3{\Gamma \vdash enum[A] \leq set[A, \text{with } immutable]}
 \end{prooftree}
 \end{gather}
 
@@ -916,7 +989,7 @@ Type refinements may be applicable to types with certain traits (ex., min/max va
 \infer2{\Gamma \vdash (\lambda I_1, ..., I_n \cdot P \mid E): (T_1, ..., T_n) \tfun A}
 \end{prooftree}
 \\
-\tag{Quantification Body \footnote{where $TupleIdentifier$ is a recursive tuple of either $Identifier$s or nested $TupleIdentifiers$, $structuralMatch(e,T)$ is a recursive match between identifiers in $e$ and the set type $T$, $hasGenerator(P,e \in g)$ means the expression $e \in g$ occurs in one of the top-level OR/AND clauses, and $structuralMatchInAllORs(e, T, P)$ means all top-level OR clauses must see $e \in g$ for any $g$ with type $T$}}
+\tag{Quantification Body \footnote{where $TupleIdentifier$ is a recursive tuple of either $Identifier$s or nested $TupleIdentifiers$, $structuralMatch(e,T)$ is a recursive match between identifiers in $e$ and the set type $T$, $hasGenerator(P,e \in g)$ means the expression $e \in g$ occurs in one of the top-level OR/AND clauses, and $structuralMatchInAllORs(e, T, P)$ means all top-level OR clauses must see $e \in g$ for any $g$ with type $T$. For now, we may just force the generator to appear in the first clause of the predicate, where the predicate is a top-level AND.}}
 \begin{prooftree}
 \hypo{\begin{matrix}
 \Gamma \vdash E:A, P:bool\\
@@ -1022,35 +1095,13 @@ M = \{I_i \mapsto T \cdot &0 \leq i \leq n \\
 \subsubsection{Boolean Operations}
 \paragraph{Includes:} Common predicate logic operations (equivalence, implication, and, or, etc.).
 
+Let $\otimes = \{\equiv, \not\equiv, \implies, \land, \lor \}$
+
 \begin{gather}
-\tag{Boolean Operations - Equivalence}
+\tag{Binary Boolean Operations}
 \begin{prooftree}
 \hypo{\Gamma \vdash b_1, b_2: bool}
-\infer1{\Gamma \vdash b_1 \equiv b_2 : bool}
-\end{prooftree}
-\\
-\tag{Boolean Operations - Not Equivalence}
-\begin{prooftree}
-\hypo{\Gamma \vdash b_1, b_2: bool}
-\infer1{\Gamma \vdash b_1 \not\equiv b_2 : bool}
-\end{prooftree}
-\\
-\tag{Boolean Operations - Implication}
-\begin{prooftree}
-\hypo{\Gamma \vdash b_1, b_2: bool}
-\infer1{\Gamma \vdash b_1 \implies b_2 : bool}
-\end{prooftree}
-\\
-\tag{Boolean Operations - And}
-\begin{prooftree}
-\hypo{\Gamma \vdash b_1, b_2: bool}
-\infer1{\Gamma \vdash b_1 \land b_2 : bool}
-\end{prooftree}
-\\
-\tag{Boolean Operations - Or}
-\begin{prooftree}
-\hypo{\Gamma \vdash b_1, b_2: bool}
-\infer1{\Gamma \vdash b_1 \lor b_2 : bool}
+\infer1{\Gamma \vdash b_1 \otimes b_2 : bool}
 \end{prooftree}
 \\
 \tag{Boolean Operations - Negation}
@@ -1063,128 +1114,57 @@ M = \{I_i \mapsto T \cdot &0 \leq i \leq n \\
 \subsubsection{Equality and Membership}
 \paragraph{Includes:} Equality and ordering comparisons, set membership.
 
+Let $\otimes = \{=, \neq\}$
+
 \begin{gather}
 \tag{Equals}
 \begin{prooftree}
 \hypo{\Gamma \vdash a_1: T_1, a_2: T_2}
-\infer1{\Gamma \vdash a_1 = a_2 : bool}
+\infer1{\Gamma \vdash a_1 \otimes a_2 : bool}
 \end{prooftree}
-\\
-\tag{Not Equals}
-\begin{prooftree}
-\hypo{\Gamma \vdash a_1: T_1, a_2: T_2}
-\infer1{\Gamma \vdash a_1 \neq a_2 : bool}
-\end{prooftree}
-\\
-\tag{Less Than}
+\end{gather}
+
+Let $\otimes = \{<, \leq, >, \geq \}$
+
+\begin{gather}
+\tag{Ordering Operators}
 \begin{prooftree}
 \hypo{\Gamma \vdash a_1, a_2: T}
 \hypo{T \in \{int, float, nat\}}
-\infer2{\Gamma \vdash a_1 < a_2 : bool}
+\infer2{\Gamma \vdash a_1 \otimes a_2 : bool}
 \end{prooftree}
-\\
-\tag{Less Than or Equal}
-\begin{prooftree}
-\hypo{\Gamma \vdash a_1, a_2: T}
-\hypo{T \in \{int, float, nat\}}
-\infer2{\Gamma \vdash a_1 \leq a_2 : bool}
-\end{prooftree}
-\\
-\tag{Greater Than}
-\begin{prooftree}
-\hypo{\Gamma \vdash a_1, a_2: T}
-\hypo{T \in \{int, float, nat\}}
-\infer2{\Gamma \vdash a_1 > a_2 : bool}
-\end{prooftree}
-\\
-\tag{Greater Than or Equal}
-\begin{prooftree}
-\hypo{\Gamma \vdash a_1, a_2: T}
-\hypo{T \in \{int, float, nat\}}
-\infer2{\Gamma \vdash a_1 \geq a_2 : bool}
-\end{prooftree}
-\\
+\end{gather}
+
+Let $\otimes = \{\in, \not\in \}$
+
+\begin{gather}
 \tag{Set Membership}
 \begin{prooftree}
 \hypo{\Gamma \vdash a_1: T_1, a_2: set[T_2]}
-\infer1{\Gamma \vdash a_1 \in a_2: bool}
-\end{prooftree}
-\\
-\tag{Not Set Membership}
-\begin{prooftree}
-\hypo{\Gamma \vdash a_1: T_1, a_2: set[T_2]}
-\infer1{\Gamma \vdash a_1 \not\in a_2: bool}
+\infer1{\Gamma \vdash a_1 \otimes a_2: bool}
 \end{prooftree}
 \end{gather}
 
 \subsubsection{Set Operations}
 \paragraph{Includes:} Subset comparisons, union, intersection, cartesian product, etc. Also includes Maplet and Range.
 
+Let $\otimes = \{\subset, \subseteq, \supset, \supseteq, \not\subset, \not\subseteq, \not\supset, \not\supseteq \}$
+
 \begin{gather}
-\tag{Set Operations - Subset}
+\tag{Set Operations}
 \begin{prooftree}
 \hypo{\Gamma \vdash a_1: set[T_1], a_2: set[T_2]}
-\infer1{\Gamma \vdash a_1 \subset a_2: bool}
+\infer1{\Gamma \vdash a_1 \otimes a_2: bool}
 \end{prooftree}
-\\
-\tag{Set Operations - Subset Equal}
-\begin{prooftree}
-\hypo{\Gamma \vdash a_1: set[T_1], a_2: set[T_2]}
-\infer1{\Gamma \vdash a_1 \subseteq a_2: bool}
-\end{prooftree}
-\\
-\tag{Set Operations - Superset}
-\begin{prooftree}
-\hypo{\Gamma \vdash a_1: set[T_1], a_2: set[T_2]}
-\infer1{\Gamma \vdash a_1 \supset a_2: bool}
-\end{prooftree}
-\\
-\tag{Set Operations - Superset Equal}
-\begin{prooftree}
-\hypo{\Gamma \vdash a_1: set[T_1], a_2: set[T_2]}
-\infer1{\Gamma \vdash a_1 \supseteq a_2: bool}
-\end{prooftree}
-\\
-\tag{Set Operations - Not Subset}
-\begin{prooftree}
-\hypo{\Gamma \vdash a_1: set[T_1], a_2: set[T_2]}
-\infer1{\Gamma \vdash a_1 \not\subset a_2: bool}
-\end{prooftree}
-\\
-\tag{Set Operations - Not Subset Equal}
-\begin{prooftree}
-\hypo{\Gamma \vdash a_1: set[T_1], a_2: set[T_2]}
-\infer1{\Gamma \vdash a_1 \not\subseteq a_2: bool}
-\end{prooftree}
-\\
-\tag{Set Operations - Not Superset}
-\begin{prooftree}
-\hypo{\Gamma \vdash a_1: set[T_1], a_2: set[T_2]}
-\infer1{\Gamma \vdash a_1 \not\supset a_2: bool}
-\end{prooftree}
-\\
-\tag{Set Operations - Not Superset Equal}
-\begin{prooftree}
-\hypo{\Gamma \vdash a_1: set[T_1], a_2: set[T_2]}
-\infer1{\Gamma \vdash a_1 \not\supseteq a_2: bool}
-\end{prooftree}
-\\
-\tag{Set Operations - Union}
+\end{gather}
+
+Let $\otimes = \{\cup, \cap, \setminus \}$
+
+\begin{gather}
+\tag{Set Operations}
 \begin{prooftree}
 \hypo{\Gamma \vdash a_1, a_2: set[T]}
-\infer1{\Gamma \vdash a_1 \cup a_2: set[T]}
-\end{prooftree}
-\\
-\tag{Set Operations - Intersection}
-\begin{prooftree}
-\hypo{\Gamma \vdash a_1, a_2: set[T]}
-\infer1{\Gamma \vdash a_1 \cap a_2: set[T]}
-\end{prooftree}
-\\
-\tag{Set Operations - Difference}
-\begin{prooftree}
-\hypo{\Gamma \vdash a_1, a_2: set[T]}
-\infer1{\Gamma \vdash a_1 \setminus a_2: set[T]}
+\infer1{\Gamma \vdash a_1 \otimes a_2: set[T]}
 \end{prooftree}
 \\
 \tag{Cartesian Product}
@@ -1202,7 +1182,7 @@ M = \{I_i \mapsto T \cdot &0 \leq i \leq n \\
 \tag{Numerical Range}
 \begin{prooftree}
 \hypo{\Gamma \vdash a_1, a_2: int}
-\infer1{\Gamma \vdash a_1 \upto a_2: set[int, \text{ with } exclude(n)=a_1 < n, \text{ with } exclude(n)=a_2 > n]}
+\infer1{\Gamma \vdash a_1 \upto a_2: set[int, \text{ with } min = a_1, \text{ with } max = a_2]}
 % Is max/min enough here? what if we union two ranges with dijoint max/mins
 \end{prooftree}
 \\
@@ -1216,29 +1196,12 @@ M = \{I_i \mapsto T \cdot &0 \leq i \leq n \\
 \subsubsection{Bag Operations}
 \paragraph{Includes:} Bag union, bag intersection, etc.
 
+Let $\otimes = \{\cup, \cap, +, -\}$
 \begin{gather}
 \tag{Bag Operations - (Max) Union}
 \begin{prooftree}
 \hypo{\Gamma \vdash a_1, a_2: bag[T]}
-\infer1{\Gamma \vdash a_1 \cup a_2: bag[T]}
-\end{prooftree}
-\\
-\tag{Bag Operations - (Min) Intersection}
-\begin{prooftree}
-\hypo{\Gamma \vdash a_1, a_2: bag[T]}
-\infer1{\Gamma \vdash a_1 \cap a_2: bag[T]}
-\end{prooftree}
-\\
-\tag{Bag Operations - Addition}
-\begin{prooftree}
-\hypo{\Gamma \vdash a_1, a_2: bag[T]}
-\infer1{\Gamma \vdash a_1 + a_2: bag[T]}
-\end{prooftree}
-\\
-\tag{Bag Operations - Subtraction}
-\begin{prooftree}
-\hypo{\Gamma \vdash a_1, a_2: bag[T]}
-\infer1{\Gamma \vdash a_1 - a_2: bag[T]}
+\infer1{\Gamma \vdash a_1 \otimes a_2: bag[T]}
 \end{prooftree}
 \\
 \tag{Bag Operations - Image}
@@ -1298,6 +1261,54 @@ M = \{I_i \mapsto T \cdot &0 \leq i \leq n \\
 \begin{prooftree}
 \hypo{\Gamma \vdash a_1: T_1 \rel T_2, a_2: T_2}
 \infer1{\Gamma \vdash a_1 \ransub a_2: T_1 \rel T_2}
+\end{prooftree}
+\end{gather}
+
+\subsubsection{Relational Subtypes After Operations}
+\paragraph{Includes:} Changes in relational subtyping (totality, surjectivity, etc.) after applying operations.
+For simplicity, we implement subtype changes in a few binary operators as a boolean mask representing: [with total ($t$), with total on range ($t_r$), with one-to-manyness ($1-$), with many-to-oneness ($1-_r$)]. Subtyping is done conservatively: we keep subtype properties only when they are guaranteed. See Section 5.1.3 for more on relational subtyping.
+
+\begin{gather}
+\tag{Relational Subtype - Domain Restriction}
+\begin{prooftree}
+\hypo{\Gamma \vdash s: set[T_1], r: (T_1 \rel T_2)[True, x, y, z]}
+\infer1{\Gamma \vdash (s \domres r): (T_1 \rel T_2)[False, x, y, z]}
+\end{prooftree}
+\\
+\tag{Relational Subtype - Domain Subtraction}
+\begin{prooftree}
+\hypo{\Gamma \vdash s: set[T_1], r: (T_1 \rel T_2)[True, x, y, z]}
+\infer1{\Gamma \vdash (s \domsub r): (T_1 \rel T_2)[False, x, y, z]}
+\end{prooftree}
+\\
+\tag{Relational Subtype - Range Restriction}
+\begin{prooftree}
+\hypo{\Gamma \vdash s: set[T_2], r: (T_1 \rel T_2)[x, True, y, z]}
+\infer1{\Gamma \vdash (r \ranres s): (T_1 \rel T_2)[x, False, y, z]}
+\end{prooftree}
+\\
+\tag{Relational Subtype - Range Subtraction}
+\begin{prooftree}
+\hypo{\Gamma \vdash s: set[T_2], r: (T_1 \rel T_2)[x, True, y, z]}
+\infer1{\Gamma \vdash (r \ransub s): (T_1 \rel T_2)[x, False, y, z]}
+\end{prooftree}
+\\
+\tag{Relational Subtype - Inverse}
+\begin{prooftree}
+\hypo{\Gamma \vdash r: (T_1 \rel T_2)[w, x, y, z]}
+\infer1{\Gamma \vdash r^{-1}: (T_1 \rel T_2)[x, w, z, y]}
+\end{prooftree}
+\\
+\tag{Relational Subtype - Overriding}
+\begin{prooftree}
+\hypo{\Gamma \vdash r: (T_1 \rel T_2)[a, b, c, d], t: (T_1 \rel T_2)[w, x, y, z]}
+\infer1{\Gamma \vdash (r \oplus t): (T_1 \rel T_2)[w, x, c \land y, d \land z]}
+\end{prooftree}
+\\
+\tag{Relational Subtype - Composition}
+\begin{prooftree}
+\hypo{\Gamma \vdash r: (T_1 \rel T_2)[a, b, c, d], t: (T_2 \rel T_3)[w, x, y, z]}
+\infer1{\Gamma \vdash (r \circ t): (T_1 \rel T_3)[a, b \land x, c \land y, d \land z]}
 \end{prooftree}
 \end{gather}
 
@@ -1476,53 +1487,7 @@ M = \{I_i \mapsto T \cdot &0 \leq i \leq n \\
 \end{prooftree}
 \end{gather}
 
-\subsubsection{Relational Subtypes After Operations}
-\paragraph{Includes:} Changes in relational subtyping (totality, surjectivity, etc.) after applying operations.
-For simplicity, we implement subtype changes in a few binary operators as a boolean mask representing: [with total ($t$), with total on range ($t_r$), with one-to-manyness ($1-$), with many-to-oneness ($1-_r$)]. Subtyping is done conservatively: we keep subtype properties only when they are guaranteed. See Section 5.1.3 for more on relational subtyping.
 
-\begin{gather}
-\tag{Relational Subtype - Domain Restriction}
-\begin{prooftree}
-\hypo{\Gamma \vdash s: set[T_1], r: (T_1 \rel T_2)[True, x, y, z]}
-\infer1{\Gamma \vdash (s \domres r): (T_1 \rel T_2)[False, x, y, z]}
-\end{prooftree}
-\\
-\tag{Relational Subtype - Domain Subtraction}
-\begin{prooftree}
-\hypo{\Gamma \vdash s: set[T_1], r: (T_1 \rel T_2)[True, x, y, z]}
-\infer1{\Gamma \vdash (s \domsub r): (T_1 \rel T_2)[False, x, y, z]}
-\end{prooftree}
-\\
-\tag{Relational Subtype - Range Restriction}
-\begin{prooftree}
-\hypo{\Gamma \vdash s: set[T_2], r: (T_1 \rel T_2)[x, True, y, z]}
-\infer1{\Gamma \vdash (r \ranres s): (T_1 \rel T_2)[x, False, y, z]}
-\end{prooftree}
-\\
-\tag{Relational Subtype - Range Subtraction}
-\begin{prooftree}
-\hypo{\Gamma \vdash s: set[T_2], r: (T_1 \rel T_2)[x, True, y, z]}
-\infer1{\Gamma \vdash (r \ransub s): (T_1 \rel T_2)[x, False, y, z]}
-\end{prooftree}
-\\
-\tag{Relational Subtype - Inverse}
-\begin{prooftree}
-\hypo{\Gamma \vdash r: (T_1 \rel T_2)[w, x, y, z]}
-\infer1{\Gamma \vdash r^{-1}: (T_1 \rel T_2)[x, w, z, y]}
-\end{prooftree}
-\\
-\tag{Relational Subtype - Overriding}
-\begin{prooftree}
-\hypo{\Gamma \vdash r: (T_1 \rel T_2)[a, b, c, d], t: (T_1 \rel T_2)[w, x, y, z]}
-\infer1{\Gamma \vdash (r \oplus t): (T_1 \rel T_2)[w, x, c \land y, d \land z]}
-\end{prooftree}
-\\
-\tag{Relational Subtype - Composition}
-\begin{prooftree}
-\hypo{\Gamma \vdash r: (T_1 \rel T_2)[a, b, c, d], t: (T_2 \rel T_3)[w, x, y, z]}
-\infer1{\Gamma \vdash (r \circ t): (T_1 \rel T_3)[a, b \land x, c \land y, d \land z]}
-\end{prooftree}
-\end{gather}
 
 \subsubsection{Built-in Functions}
 \paragraph{Includes:} Common set-related functions.
@@ -1588,7 +1553,21 @@ For simplicity, we implement subtype changes in a few binary operators as a bool
 \hypo{T \in \{int, float, nat\}}
 \infer2{\Gamma \vdash sum: set[T] \rightarrow T}
 \end{prooftree}
+\\
+\tag{Built-in - Cast}
+\begin{prooftree}
+\hypo{\Gamma \vdash T_1, T_2}
+\infer1{\Gamma \vdash cast: type[T_1] \times T_1 \rightarrow T_2}
+\end{prooftree}
+\\
+\tag{Built-in - Cast With \footnote{$E$ represents `with' expressions to tag onto a type}}
+\begin{prooftree}
+\hypo{\Gamma \vdash T_1, T_2, x: E}
+\infer1{\Gamma \vdash cast: type[T_1] \times T_1 \times set[E] \rightarrow T_2[\text{with } x: E]}
+\end{prooftree}
 \end{gather}
+
+% TODO add in semantics for "with"-clause interactions
 
 \subsection{Definedness}
 % Operators that can be undefined:
@@ -1785,13 +1764,14 @@ Below is a list of rewrite rules for key abstract data types, syntactic sugar, a
   S + T &\leadsto \bag{x}{x \in dom(S) \cup dom(T) \land n = sum(S[x] \cup T[x])}{x \mapsto n}
   \\
   \tag{Bag Predicates - Difference}
-  S - T &\leadsto \bag{x}{x \in dom(S) \land pop(S[x]) - popDefault(T[x], 0) \land n > 0}{x \mapsto n}
+  % S - T &\leadsto \bag{x}{x \in dom(S) \land pop(S[x]) - popDefault(T[x], 0) \land n > 0}{x \mapsto n}
+  S - T &\leadsto \bag{x}{x \in dom(S) \land n = S(x) - (T \cup \llbracket x \mapsto 0\rrbracket)(x) \land n > 0}{x \mapsto n}
 \end{align}
 
 \subsection{Syntactic Sugar for Sequences}
 \begin{align}
     \tag{Concatenation}
-    L + M
+    L \concat M
     &\leadsto
     L \cup \bSet{x \mapsto y}{x \mapsto y \in M }{x + max(dom(L)) \mapsto y}
     \\
@@ -1886,8 +1866,8 @@ Below is a list of rewrite rules for key abstract data types, syntactic sugar, a
 
 \noindent\begin{minipage}{\linewidth}
 \begin{align}
-  \tag{Functional Image \footnote{May fail if R is not total.}}
-  R(x) &\leadsto pop(R[x])
+  \tag{Functional Image \footnote{May fail if R is not total. $choice$ is nondeterministic.}}
+  R(x) &\leadsto choice(R[x])
   \\ % dont use pop - random choice but pop(S) == pop(S). Python op is completely nondeterministic so it may not return the same one R(x) = small epsilon y . y in R[{x}]
   % if R[{x}] is empty, you return "an arbitrary element of range of R", not None
   \tag{Image}
