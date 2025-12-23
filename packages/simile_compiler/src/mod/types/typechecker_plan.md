@@ -24,8 +24,9 @@
     - eq_type is checked for truthiness within is_sub_type
 - [-] Transitive Subtype
     - will need to write tests for, equivalent for finding any B that works for types A and C
-- [ ] Subsumption - TODO tomorrow!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+- [-] Subsumption - TODO tomorrow!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     - need to check for subtyping when arguments are passed to functions - not just equality
+    - [ ] implement trait-trait interactions
 - [x] Top Type
     - Use AnyType
 - [x] Sub Top Type
@@ -106,9 +107,10 @@
     - symb table resp
 - [ ] Command - break
     - change nonetype to CommandType?
-- [ ] Command - continue
-- [ ] Command - skip
+- [x] Command - continue
+- [x] Command - skip
 - [ ] Command - return
+    - return needs to be a subtype of the actual returning procedure type
 - [ ] Lambda Expression
     - use ProcedureType
 - [ ] Quantification Body

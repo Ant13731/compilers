@@ -495,6 +495,7 @@ class EnumType(SetType):
 
         from src.mod.ast_.ast_nodes import String
 
+        # TODO just assign literal_trait and call _fill_implicit_traits to get domain_trait filled out
         self.trait_collection.domain_trait = DomainTrait(
             [LiteralTrait(String(member)) for member in self.members],
         )

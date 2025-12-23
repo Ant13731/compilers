@@ -40,6 +40,7 @@ class TraitCollection:
     size_trait: SizeTrait | None = None
 
     # On relations, total_trait means every possible pair is enumerated (ie. cartesian product of domain and range)
+    # On sets, this just means the set contains every possible element from its domain
     total_trait: TotalTrait | None = None
 
     # Relation type only - no static validation available for this...
@@ -63,29 +64,29 @@ class TraitCollection:
         Ex. a Literal[1] implies min=1 and max=1."""
 
         # Literal-Domain interaction
-        if self.literal_traits is not None:
-            if self.domain_trait is None:
-                self.domain_trait = DomainTrait(self.literal_traits)
-            else:
+        if self.literal_traits:
+            if self.domain_trait:
                 self.domain_trait = self.domain_trait.merge(DomainTrait(self.literal_traits))
+            else:
+                self.domain_trait = DomainTrait(self.literal_traits)
 
         # Domain-Min/Max interaction
         # For relations, this data will be stored in the child types, not in the relation itself
         # So the "Range" will really have its own TraitCollection and fill out these based on its "domain"
-        if self.domain_trait is not None:
+        if self.domain_trait:
             min_trait_from_domain = MinTrait.from_domain_trait(self.domain_trait)
-            if min_trait_from_domain is not None:
-                if self.min_trait is None:
-                    self.min_trait = min_trait_from_domain
-                else:
+            if min_trait_from_domain:
+                if self.min_trait:
                     self.min_trait = self.min_trait.merge(min_trait_from_domain)
+                else:
+                    self.min_trait = min_trait_from_domain
 
             max_trait_from_domain = MaxTrait.from_domain_trait(self.domain_trait)
-            if max_trait_from_domain is not None:
-                if self.max_trait is None:
-                    self.max_trait = max_trait_from_domain
-                else:
+            if max_trait_from_domain:
+                if self.max_trait:
                     self.max_trait = self.max_trait.merge(max_trait_from_domain)
+                else:
+                    self.max_trait = max_trait_from_domain
 
         # Min/Max implies order
         if self.orderable_trait is None and (self.min_trait is not None or self.max_trait is not None):
