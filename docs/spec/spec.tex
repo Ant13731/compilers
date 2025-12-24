@@ -1567,6 +1567,220 @@ For simplicity, we implement subtype changes in a few binary operators as a bool
 \end{prooftree}
 \end{gather}
 
+\subsection{Static Analysis - Type System Extensions with Traits}
+
+\subsubsection{Trait-trait interactions}
+Collection of trait-implies-trait interactions that are universal (i.e., they do not depend on a type). Most traits are really just boolean values, as in, does this type have this property. Thus when traits used with boolean operations should be interpreted as truthy/falsy.
+
+Interpret these as if it were type initialization. So, if a type were initialized with these traits, we would get the following implications ``for-free''. A type can only have one of each trait (except for multiple literals?), so traits given in the assumption can be used in the result without ambiguity or naming. Traits with function notation (parenthesis) are assumed to be new constructions.
+
+TODO design decision: should traits be applied automatically or just verified? If we apply automatically, we could give best effort and then error/remove traits that are incompatible. In verification, we just throw an error. We may use trait restrictions per-type to further determine incompatibilities (ex. an integer cannot be empty?).
+
+\begin{gather}
+  \tag{Literal Empty}
+  \begin{prooftree}
+    \hypo{LiteralTrait.values = []}
+    \infer1{\lnot LiteralTrait}
+  \end{prooftree}
+  \\
+  \tag{Domain Empty}
+  \begin{prooftree}
+    \hypo{DomainTrait.values = []}
+    \infer1{\lnot DomainTrait}
+  \end{prooftree}
+  \\
+  \tag{Literal implies a Domain}
+  \begin{prooftree}
+    \hypo{LiteralTraits}
+    \hypo{\lnot DomainTrait}
+    \infer2{DomainTrait(LiteralTraits)}
+  \end{prooftree}
+  \\
+  \tag{Literals within Domain}
+  \begin{prooftree}
+    \hypo{LiteralTraits}
+    \hypo{DomainTrait}
+    \infer2{DomainTrait(DomainTrait + LiteralTraits)}
+  \end{prooftree}
+  \\
+  \tag{Orderable Domain without Min}
+  \begin{prooftree}
+    \hypo{DomainTrait}
+    \hypo{OrderableTrait}
+    \hypo{\lnot MinTrait}
+    \infer3{MinTrait(min(DomainTrait))}
+  \end{prooftree}
+  \\
+  \tag{Orderable Domain with Min}
+  \begin{prooftree}
+    \hypo{DomainTrait}
+    \hypo{OrderableTrait}
+    \hypo{MinTrait}
+    \infer3{MinTrait(min(MinTrait, DomainTrait))}
+  \end{prooftree}
+  \\
+  \tag{Orderable Domain without Max}
+  \begin{prooftree}
+    \hypo{DomainTrait}
+    \hypo{OrderableTrait}
+    \hypo{\lnot MaxTrait}
+    \infer3{MaxTrait(max(DomainTrait))}
+  \end{prooftree}
+  \\
+  \tag{Orderable Domain with Max}
+  \begin{prooftree}
+    \hypo{DomainTrait}
+    \hypo{OrderableTrait}
+    \hypo{MaxTrait}
+    \infer3{MaxTrait(max(MaxTrait, DomainTrait))}
+  \end{prooftree}
+  \\
+  \tag{Min implies Order}
+  \begin{prooftree}
+    \hypo{MinTrait}
+    \infer1{OrderableTrait}
+  \end{prooftree}
+  \\
+  \tag{Max implies Order}
+  \begin{prooftree}
+    \hypo{MaxTrait}
+    \infer1{OrderableTrait}
+  \end{prooftree}
+  \\
+  \tag{Full set}
+  \begin{prooftree}
+    \hypo{UniqueElementsTrait}
+    \hypo{SizeTrait = len(DomainTrait)}
+    \hypo{\lnot EmptyTrait} % could an empty set be total if its domain consists of nothing? what is this a set of?
+    \infer3{TotalTrait}
+  \end{prooftree}
+  \\
+  \tag{Empty Size}
+  \begin{prooftree}
+    \hypo{SizeTrait = 0}
+    \infer1{EmptyTrait}
+  \end{prooftree}
+  \\
+  \tag{Non-Empty Size}
+  \begin{prooftree}
+    \hypo{SizeTrait \neq 0}
+    \infer1{\lnot EmptyTrait}
+  \end{prooftree}
+  \\
+  \tag{Size implies Iterable}
+  \begin{prooftree}
+    \hypo{SizeTrait}
+    \infer1{IterableTrait}
+  \end{prooftree}
+  \\
+  \tag{Unknown value clears literals TODO move this to the operation section TODO add unknown trait so we can keep domain + unknown? Could help some values...}
+  \begin{prooftree}
+    \hypo{LiteralTraits}
+    \hypo{unknown\_operation}
+    \infer2{\lnot LiteralTraits}
+  \end{prooftree}
+\end{gather}
+
+\subsubsection{Type-trait interactions}
+Some types are incompatible with some traits, some types must have some traits. This section lists the possible traits for each type.
+
+Asterisks are for mandatory traits. Traits not listed are not allowed.
+
+All types:
+\begin{itemize}
+  \item ImmutableTrait
+  \item LiteralTraits
+  \item DomainTrait
+\end{itemize}
+
+Bool:
+\begin{itemize}
+  \item DomainTrait(true, false)*
+\end{itemize}
+
+None:
+\begin{itemize}
+  \item LiteralTrait*
+  \item Domain? (implied from literal)
+\end{itemize}
+
+String:
+\begin{itemize}
+  \item Empty
+  \item Size (length)
+  \item Unique?
+  \item Iterable*
+  \item Orderable (lexicographic)*
+\end{itemize}
+
+Int, Float:
+\begin{itemize}
+  \item Min
+  \item Max
+  \item Size (num of bits? or just depend on min/max? If so, min/max must be given, with a default value of 64 bit range)
+  \item Iterable*
+  \item Orderable*
+\end{itemize}
+
+Tuple:
+\begin{itemize}
+  \item Min
+  \item Max
+  \item Size (length)
+  \item UniqueElements
+  \item Total
+  \item Iterable*
+  \item Orderable (lexicographic if dependents are orderable?)
+\end{itemize}
+
+Maplet: Tuple but with:
+\begin{itemize}
+  \item Domain?
+  \item Size = 2*
+\end{itemize}
+
+Record:
+\begin{itemize}
+  \item Iterable* (treat as a relation)
+  \item Domain* (str entries)
+  \item ManyToOne* (treat as a relation with keys = strings)
+\end{itemize}
+
+Procedure:
+\begin{itemize}
+  \item Domain should be stored in the domain of the input types since there are too many to count? Range should be the domain of the return type
+  \item Need to worry about generics?
+\end{itemize}
+
+Set:
+\begin{itemize}
+  \item Orderable if children are
+  \item Min
+  \item Max
+  \item Iterable*
+  \item Empty
+  \item UniqueElements*
+  \item Size
+  \item Total
+\end{itemize}
+
+Relation: all traits except generic trait
+
+Bag: same as relation, with ManyToOne*. Should we add a trait called Count, which is the sum of the range values?
+
+Seq: same as relation, with ManyToOne*, Size*
+
+Enum:
+\begin{enumerate}
+  \item Immutable*
+  \item Domain*
+  \item Literal*
+  \item Iterable*
+  \item UniqueELements*
+  \item Size*?
+  \item Can never be total unless enum size = 1, then always total
+\end{enumerate}
+
 % TODO add in semantics for "with"-clause interactions
 
 \subsection{Definedness}
