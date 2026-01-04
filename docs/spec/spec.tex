@@ -1569,142 +1569,183 @@ For simplicity, we implement subtype changes in a few binary operators as a bool
 
 \subsection{Static Analysis - Type System Extensions with Traits}
 
-\subsubsection{Trait-trait interactions}
+\subsubsection{Trait Collection}
+Traits are used to augment types, providing the compiler with additional context for the use of an abstract type that could influence the generated implementation. The following paragraphs list identified traits and provides justification for their existence.
+
+\paragraph{Constant Pre-computation} The type may contain values for easily identifiable constants, allowing for specialized generated instructions. When possible, constant traits will propagate along operations until the constant values can no longer be guaranteed.
+\begin{itemize}
+    \item $Literal$: A trait containing a single literal value. If a type has this trait, it is guaranteed to be of this value.
+    \item $Domain$: A looser form of $Literal$ that carries a set of possible values. When applied, the type is restricted to (one of) the values from this $Domain$.
+    \item Leave out for now: $UnknownElementInDomain$: Loosens the $Domain$ guarantee so that values in the domain are only likely to appear, but not guaranteed? We would need to see if this opens up any optimizations...
+    \item $Immutable$: Represents types whos values (and value contents) cannot be modified. Should we instead assume immutability and have a Mutable trait?
+\end{itemize}
+
+\paragraph{Arithmetic} Restricts the value of primitive types. Collection types wishing to take advantage of this information should instead store it in the underlying primitive element type. For example, applying $Min$ to a $set[int]$ should be written as $set[int[$with $min=0]]$, not $set[int, $with $min=0]$ (although we can loosen this with syntactic sugar). Like Event-B, $set$ types are really powersets of the underlying element type, whereas primitive types represent values chosen from a \textit{set} of primitive values.
+\begin{itemize}
+    \item $Orderable$: Values of this type can be ordered. This may be useful for order-based implementations like BTrees for sets.
+    \item $Min$: minimum value
+    \item $Max$: maximum value
+\end{itemize}
+
+\paragraph{Collection Traits}
+\begin{itemize}
+    \item $Iterable$: All collections are iterable (they can be used as a for-loop generator).
+    \item $Empty$: A collection with guaranteed cardinality = 0.
+    \item $Size$: An over-estimate of a set's size. When available, Size will never under-estimate the number of elements in a collection.
+    \item $UniqueElements$: All entries are guaranteed to be unique. More useful for the domain/range of relations, checking if a bag only has range = 1, or if a sequence has no repeats.
+    \item $Total$: The elements in a set cover the entirety of the domain of the underlying element type. On relations, this means every possible pair combination is an element.
+\end{itemize}
+
+\paragraph{Relations}
+Represents the relational subtype properties (injectiveness, surjectiveness, etc.)
+\begin{itemize}
+    \item $TotalOnDomain$: All elements of the domain are within the mapping.
+    \item $TotalOnRange$: All elements of the range are within the mapping.
+    \item $ManyToOne$: Elements of the domain may be repeated with different range values.
+    \item $OneToMany$: Elements of the range may be repeated with different range values. $ManyToOne$ and $OneToMany$ imply a one-to-one mapping
+\end{itemize}
+
+\paragraph{Generics}
+\begin{itemize}
+    \item $GenericBound$: Contains the set of types a generic may become. For example, $T[$with $GenericBound=\{int, float\}$ represents any numeric value.
+\end{itemize}
+
+
+
+\subsubsection{Trait-trait Interactions}
 Collection of trait-implies-trait interactions that are universal (i.e., they do not depend on a type). Most traits are really just boolean values, as in, does this type have this property. Thus when traits used with boolean operations should be interpreted as truthy/falsy.
 
-Interpret these as if it were type initialization. So, if a type were initialized with these traits, we would get the following implications ``for-free''. A type can only have one of each trait (except for multiple literals?), so traits given in the assumption can be used in the result without ambiguity or naming. Traits with function notation (parenthesis) are assumed to be new constructions.
+Interpret these as if it were type initialization rules. So, if a type were initialized with these traits, we would get the following implications ``for-free''. A type can only have one of each trait (except for multiple literals?), so traits given in the assumption can be used in the result without ambiguity or naming. Traits with function notation (parenthesis) are assumed to be new constructions.
 
 TODO design decision: should traits be applied automatically or just verified? If we apply automatically, we could give best effort and then error/remove traits that are incompatible. In verification, we just throw an error. We may use trait restrictions per-type to further determine incompatibilities (ex. an integer cannot be empty?).
 
 \begin{gather}
-  \tag{Literal Empty}
-  \begin{prooftree}
-    \hypo{LiteralTrait.values = []}
-    \infer1{\lnot LiteralTrait}
-  \end{prooftree}
-  \\
+  % \tag{Literal Empty}
+  % \begin{prooftree}
+  %   \hypo{Literals = \{\}}
+  %   \infer1{\lnot Literals}
+  % \end{prooftree}
+  % \\
   \tag{Domain Empty}
   \begin{prooftree}
-    \hypo{DomainTrait.values = []}
-    \infer1{\lnot DomainTrait}
+    \hypo{Domain = \{\}}
+    \infer1{\lnot Domain}
   \end{prooftree}
   \\
   \tag{Literal implies a Domain}
   \begin{prooftree}
-    \hypo{LiteralTraits}
-    \hypo{\lnot DomainTrait}
-    \infer2{DomainTrait(LiteralTraits)}
+    \hypo{Literal}
+    \hypo{\lnot Domain}
+    \infer2{Domain := \{Literal\}}
   \end{prooftree}
   \\
-  \tag{Literals within Domain}
+  \tag{Literal within Domain}
   \begin{prooftree}
-    \hypo{LiteralTraits}
-    \hypo{DomainTrait}
-    \infer2{DomainTrait(DomainTrait + LiteralTraits)}
+    \hypo{Literal}
+    \hypo{Domain}
+    \infer2{Domain := Domain \cup {Literal}}
   \end{prooftree}
   \\
   \tag{Orderable Domain without Min}
   \begin{prooftree}
-    \hypo{DomainTrait}
-    \hypo{OrderableTrait}
-    \hypo{\lnot MinTrait}
-    \infer3{MinTrait(min(DomainTrait))}
+    \hypo{Domain}
+    \hypo{Orderable}
+    \hypo{\lnot Min}
+    \infer3{Min := min(Domain)}
   \end{prooftree}
   \\
   \tag{Orderable Domain with Min}
   \begin{prooftree}
-    \hypo{DomainTrait}
-    \hypo{OrderableTrait}
-    \hypo{MinTrait}
-    \infer3{MinTrait(min(MinTrait, DomainTrait))}
+    \hypo{Domain}
+    \hypo{Orderable}
+    \hypo{Min}
+    \infer3{Min := min(Min, Domain)}
   \end{prooftree}
   \\
   \tag{Orderable Domain without Max}
   \begin{prooftree}
-    \hypo{DomainTrait}
-    \hypo{OrderableTrait}
-    \hypo{\lnot MaxTrait}
-    \infer3{MaxTrait(max(DomainTrait))}
+    \hypo{Domain}
+    \hypo{Orderable}
+    \hypo{\lnot Max}
+    \infer3{Max = max(Domain)}
   \end{prooftree}
   \\
   \tag{Orderable Domain with Max}
   \begin{prooftree}
-    \hypo{DomainTrait}
-    \hypo{OrderableTrait}
-    \hypo{MaxTrait}
-    \infer3{MaxTrait(max(MaxTrait, DomainTrait))}
+    \hypo{Domain}
+    \hypo{Orderable}
+    \hypo{Max}
+    \infer3{Max = max(Max, Domain)}
   \end{prooftree}
   \\
   \tag{Min implies Order}
   \begin{prooftree}
-    \hypo{MinTrait}
-    \infer1{OrderableTrait}
+    \hypo{Min}
+    \infer1{Orderable}
   \end{prooftree}
   \\
   \tag{Max implies Order}
   \begin{prooftree}
-    \hypo{MaxTrait}
-    \infer1{OrderableTrait}
+    \hypo{Max}
+    \infer1{Orderable}
   \end{prooftree}
   \\
   \tag{Full set}
   \begin{prooftree}
-    \hypo{UniqueElementsTrait}
-    \hypo{SizeTrait = len(DomainTrait)}
-    \hypo{\lnot EmptyTrait} % could an empty set be total if its domain consists of nothing? what is this a set of?
-    \infer3{TotalTrait}
+    \hypo{UniqueElements}
+    \hypo{Size = len(Domain)}
+    \hypo{\lnot Empty} % could an empty set be total if its domain consists of nothing? what is this a set of?
+    \infer3{Total}
   \end{prooftree}
   \\
   \tag{Empty Size}
   \begin{prooftree}
-    \hypo{SizeTrait = 0}
-    \infer1{EmptyTrait}
+    \hypo{Size = 0}
+    \infer1{Empty}
   \end{prooftree}
   \\
   \tag{Non-Empty Size}
   \begin{prooftree}
-    \hypo{SizeTrait \neq 0}
-    \infer1{\lnot EmptyTrait}
+    \hypo{Size \neq 0}
+    \infer1{\lnot Empty}
   \end{prooftree}
   \\
   \tag{Size implies Iterable}
   \begin{prooftree}
-    \hypo{SizeTrait}
-    \infer1{IterableTrait}
+    \hypo{Size}
+    \infer1{Iterable}
   \end{prooftree}
-  \\
-  \tag{Unknown value clears literals TODO move this to the operation section TODO add unknown trait so we can keep domain + unknown? Could help some values...}
-  \begin{prooftree}
-    \hypo{LiteralTraits}
-    \hypo{unknown\_operation}
-    \infer2{\lnot LiteralTraits}
-  \end{prooftree}
+  % \\
+  % \tag{Unknown value clears literals TODO move this to the operation section TODO add unknown trait so we can keep domain + unknown? Could help some values...}
+  % \begin{prooftree}
+  %   \hypo{LiteralTraits}
+  %   \hypo{unknown\_operation}
+  %   \infer2{\lnot LiteralTraits}
+  % \end{prooftree}
 \end{gather}
 
 \subsubsection{Type-trait interactions}
-Some types are incompatible with some traits, some types must have some traits. This section lists the possible traits for each type.
+Some types are incompatible with some traits, and some types must have some traits. This section lists the possible traits for each type - asterisks are for mandatory traits, and traits not listed are not allowed for that specific type.
 
-Asterisks are for mandatory traits. Traits not listed are not allowed.
-
-All types:
+\paragraph{All types} Literal and Domain support constant propagations and compile time computations.
 \begin{itemize}
-  \item ImmutableTrait
-  \item LiteralTraits
-  \item DomainTrait
+  \item Immutable
+  \item Literals
+  \item Domain
+\end{itemize} %
+
+\paragraph{Bool}
+\begin{itemize}
+  \item Domain = $\{$true, false$\}$*
 \end{itemize}
 
-Bool:
+\paragraph{None}
 \begin{itemize}
-  \item DomainTrait(true, false)*
-\end{itemize}
-
-None:
-\begin{itemize}
-  \item LiteralTrait*
+  \item Literal*
   \item Domain? (implied from literal)
 \end{itemize}
 
-String:
+\paragraph{String}
 \begin{itemize}
   \item Empty
   \item Size (length)
@@ -1713,7 +1754,7 @@ String:
   \item Orderable (lexicographic)*
 \end{itemize}
 
-Int, Float:
+\paragraph{Int, Float}
 \begin{itemize}
   \item Min
   \item Max
@@ -1722,7 +1763,7 @@ Int, Float:
   \item Orderable*
 \end{itemize}
 
-Tuple:
+\paragraph{Tuple}
 \begin{itemize}
   \item Min
   \item Max
@@ -1733,26 +1774,26 @@ Tuple:
   \item Orderable (lexicographic if dependents are orderable?)
 \end{itemize}
 
-Maplet: Tuple but with:
+\paragraph{Maplet} Tuple but with the addition of:
 \begin{itemize}
   \item Domain?
   \item Size = 2*
 \end{itemize}
 
-Record:
+\paragraph{Record}
 \begin{itemize}
   \item Iterable* (treat as a relation)
   \item Domain* (str entries)
   \item ManyToOne* (treat as a relation with keys = strings)
 \end{itemize}
 
-Procedure:
+\paragraph{Procedure}
 \begin{itemize}
   \item Domain should be stored in the domain of the input types since there are too many to count? Range should be the domain of the return type
   \item Need to worry about generics?
 \end{itemize}
 
-Set:
+\paragraph{Set}
 \begin{itemize}
   \item Orderable if children are
   \item Min
@@ -1764,13 +1805,13 @@ Set:
   \item Total
 \end{itemize}
 
-Relation: all traits except generic trait
+\paragraph{Relation} All traits except generic trait
 
-Bag: same as relation, with ManyToOne*. Should we add a trait called Count, which is the sum of the range values?
+\paragraph{Bag} Same as relation, with ManyToOne*. Should we add a trait called Count, which is the sum of the range values?
 
-Seq: same as relation, with ManyToOne*, Size*
+\paragraph{Seq} Same as relation, with ManyToOne*, Size*
 
-Enum:
+\paragraph{Enum}
 \begin{enumerate}
   \item Immutable*
   \item Domain*
@@ -1780,6 +1821,304 @@ Enum:
   \item Size*?
   \item Can never be total unless enum size = 1, then always total
 \end{enumerate}
+
+\subsubsection{Operation-Trait Interactions}
+Operations on $Literal$ traits will always produce a $Literal$ where possible, following the effects of applying the function on values. For conciseness, we omit all $Literal$ interactions and instead refer to the semantics of the operations themselves. % Which has yet to be written formally...
+
+\begin{gather}
+    \tag{Less than with max-min}
+    \begin{prooftree}
+        \hypo{a: T[Max=x]}
+        \hypo{b : T[Min=y]}
+        \hypo{x < y}
+        \infer3{(a < b): Bool[Literal=true]}
+    \end{prooftree}
+    \\
+    \tag{Less than or equal with max-min}
+    \begin{prooftree}
+        \hypo{a: T[Max=x]}
+        \hypo{b : T[Min=y]}
+        \hypo{x \leq y}
+        \infer3{(a \leq b): Bool[Literal=true]}
+    \end{prooftree}
+    \\
+    \tag{Less than with min-max}
+    \begin{prooftree}
+        \hypo{a: T[Min=x]}
+        \hypo{b : T[Max=y]}
+        \hypo{x > y}
+        \infer3{(a < b): Bool[Literal=false]}
+    \end{prooftree}
+    \\
+    \tag{Less than or equal with min-max}
+    \begin{prooftree}
+        \hypo{a: T[Min=x]}
+        \hypo{b : T[Max=y]}
+        \hypo{x > y}
+        \infer3{(a \leq b): Bool[Literal=false]}
+    \end{prooftree}
+    % Similar for greater than
+    \\
+    \tag{Upto}
+    \begin{prooftree}
+        \hypo{a: Int[Literal]}
+        \hypo{b: Int[Literal]}
+        \infer2{(a \upto b): set[Int[Min=a, Max=b], Literal=\{a, a+1, ..., b\}, Total]}
+    \end{prooftree} % If only one of these are literals, we should still try to get either a max or min value
+    \\
+    \tag{Is Empty}
+    \begin{prooftree}
+        \hypo{s: set[Empty]}
+        \infer1{(s = \{\}): Bool[Literal=true]}
+    \end{prooftree}
+    \\
+    \tag{Set add}
+    \begin{prooftree}
+        \hypo{s: set[T, Size=x]}
+        \hypo{a: T}
+        \infer2{(s \cup \{a\}): set[T, Size=x+1]} % Can check literals to see if the size will actually increase. For now, best overestimation guess
+    \end{prooftree}
+    \\
+    \tag{Set add with Total}
+    \begin{prooftree}
+        \hypo{s: set[T, Size=x, Total]}
+        \hypo{a: T}
+        \infer2{(s \cup \{a\}): set[T, Size=x, Total]}
+    \end{prooftree}
+    \\
+    \tag{Set delete}
+    \begin{prooftree}
+        \hypo{s: set[T, Size=x]}
+        \hypo{a: T}
+        \infer2{(s \setminus \{a\}): set[T, Size=x]}
+    \end{prooftree}
+    \\
+    \tag{Set delete removes Total}
+    \begin{prooftree}
+        \hypo{s: set[T, Size=x, Total]}
+        \hypo{a: T}
+        \infer2{(s \setminus \{a\}): set[T, Size=x-1]}
+    \end{prooftree}
+    \\
+    \tag{Membership within domain}
+    \begin{prooftree}
+        \hypo{s: set[T[Domain=S]]}
+        \hypo{a: T[Literal=A]}
+        \infer2{(a \in s): Bool[Literal=A \in S]}
+    \end{prooftree}
+    \\
+    \tag{Membership within total domain}
+    \begin{prooftree}
+        \hypo{s: set[T, Total]}
+        \hypo{a: T}
+        \infer2{(a \in s): Bool[Literal=true]}
+    \end{prooftree}
+    \\
+    \tag{Enumeration}
+    \begin{prooftree}
+        \hypo{a_1, a_2, ..., a_n: T}
+        \infer1{\{a_1, a_2, ..., a_n\}: set[T, Size=n]}
+    \end{prooftree}
+    \\
+    \tag{Cardinality}
+    \begin{prooftree}
+        \hypo{s: set[T, Size=n]}
+        \infer1{card(s): Int[Max=n]}
+    \end{prooftree}
+    \\
+    \tag{Powerset}
+    \begin{prooftree}
+        \hypo{s: set[T, Size=n, Total]}
+        \infer1{powerset(s): set[set[T], Size=2^n, Total]}
+    \end{prooftree}
+    \\
+    \tag{Empty choice fails (statically)}
+    \begin{prooftree}
+        \hypo{s: set[T, Empty]}
+        \infer1{choice(s): TypeError}
+    \end{prooftree}
+    \\
+    \tag{Sum bounds}
+    \begin{prooftree}
+        \hypo{s: set[T[Max=y, Size=n]]}
+        \infer1{sum(s): T[Max=y\times n]}
+    \end{prooftree}
+    \\
+    \tag{Product bounds}
+    \begin{prooftree}
+        \hypo{s: set[T[Max=y, Size=n]]}
+        \infer1{sum(s): T[Max=y^n]}
+    \end{prooftree}
+    \\
+    \tag{Min looks for Min}
+    \begin{prooftree}
+        \hypo{s: set[T[Min=y]]}
+        \hypo{a: T[Literal=y]}
+        \hypo{a \in s}
+        \infer3{min(s): T[Literal=y]}
+    \end{prooftree}
+    \\
+    \tag{Max looks for Max}
+    \begin{prooftree}
+        \hypo{s: set[T[Max=y]]}
+        \hypo{a: T[Literal=y]}
+        \hypo{a \in s}
+        \infer3{max(s): T[Literal=y]}
+    \end{prooftree}
+    \\
+    \tag{Union Literal}
+    \begin{prooftree}
+        \hypo{s: set[T, Literal=a]}
+        \hypo{t: set[T, Literal=b]}
+        \infer2{(s \cup t): set[T, Literal=a \cup b]}
+    \end{prooftree}
+    \\
+    \tag{Union with widest Domain}
+    \begin{prooftree}
+        \hypo{s: set[T[Domain=a]]}
+        \hypo{t: set[T[Domain=b]]}
+        \infer2{(s \cup t): set[T[Domain=a \cup b]]}
+    \end{prooftree}
+    \\
+    \tag{Union with lowest Min}
+    \begin{prooftree}
+        \hypo{s: set[T[Min=a]]}
+        \hypo{t: set[T[Min=b]]}
+        \hypo{a < b}
+        \infer3{(s \cup t): set[T[Min=a]]}
+    \end{prooftree}
+    \\
+    \tag{Union with highest Max}
+    \begin{prooftree}
+        \hypo{s: set[T[Max=a]]}
+        \hypo{t: set[T[Max=b]]}
+        \hypo{a < b}
+        \infer3{(s \cup t): set[T[Max=b]]}
+    \end{prooftree}
+    \\
+    \tag{Union with Empty keeps Traits}
+    \begin{prooftree}
+        \hypo{s: set[T, Empty]}
+        \hypo{t: set[T, x]}
+        \hypo{a < b}
+        \infer3{(s \cup t): set[T, x]}
+    \end{prooftree}
+    \\
+    \tag{Union with widest size}
+    \begin{prooftree}
+        \hypo{s: set[T, Size=x]}
+        \hypo{t: set[T, Size=y]}
+        \hypo{x < y}
+        \infer3{(s \cup t): set[T, Size=y]}
+    \end{prooftree}
+    \\
+    \tag{Union with Total stays}
+    \begin{prooftree}
+        \hypo{s: set[T]}
+        \hypo{t: set[T,Total]}
+        \infer2{(s \cup t): set[T, Total]}
+    \end{prooftree}
+    \\
+    \tag{Generics with set ops}
+    \begin{prooftree}
+        \hypo{s: set[T[GenericBound=x]]}
+        \hypo{t: set[T[GenericBound=y]]}
+        \infer2{(s \oplus t): set[T[GenericBound=x \cap y]]}
+    \end{prooftree}
+    % Intersection and difference, much of the same but take minimum, order matters for difference (eg difference from empty set), precompute literals, set operations takes the minimum of bound types for generics
+    \\
+    \tag{Cartesian Product}
+    \begin{prooftree}
+        \hypo{s: set[T[Domain=x]]}
+        \hypo{t: set[V[Domain=y]]}
+        \infer2{(s \times t): set[tuple[T, V, Domain=x \times y]]}
+    \end{prooftree}
+    \\
+    \tag{Total Cartesian Product}
+    \begin{prooftree}
+        \hypo{s: set[T, Total]}
+        \hypo{t: set[V, Total]}
+        \infer2{(s \times t): set[tuple[T, V, Total]]}
+    \end{prooftree}
+    \\
+    \tag{Subset with min-max}
+    \begin{prooftree}
+        \hypo{s: set[T, Min=w, Max=x]}
+        \hypo{t: set[T, Min=y, Max=z]}
+        \hypo{w > y}
+        \hypo{x < z}
+    % Then we should only consider values within w and x range? Assuming they are ordered...
+        \infer4{(s \subset t: set[T, Min=w, Max=x]): Bool}
+    \end{prooftree}
+    \\
+    % NOTE: These are in addition to the relation-specific traits in the above section!
+    \tag{Inverse swaps Domain}
+    \begin{prooftree}
+        \hypo{r: relation[T[Domain=x], V[Domain=y]]}
+        \infer1{r^{-1}: relation[V[Domain=y], T[Domain=x]]}
+    \end{prooftree}
+    \\
+    % NOTE: These are in addition to the relation-specific traits in the above section!
+    \tag{Empty Composition}
+    \begin{prooftree}
+        \hypo{s: relation[T, V, Empty]}
+        \hypo{t: relation[V, U]} % this one may be empty too
+        \infer2{s \circ t: relation[T, U, Empty]}
+    \end{prooftree}
+    \\
+    % NOTE: These are in addition to the relation-specific traits in the above section!
+    \tag{Image with Empty Arg}
+    \begin{prooftree}
+        \hypo{r: relation[T, V]}
+        \hypo{s: set[T, Empty]}
+        \infer2{r[s]: set[V, Empty]}
+    \end{prooftree}
+    \\
+    % NOTE: These are in addition to the relation-specific traits in the above section!
+    \tag{Image with Empty Relation}
+    \begin{prooftree}
+        \hypo{r: relation[T, V, Empty]}
+        \hypo{s: set[T]}
+        \infer2{r[s]: set[V, Empty]}
+    \end{prooftree}
+    % TODO more can be determined to be empty by using max/min/domain
+    \\
+    % NOTE: These are in addition to the relation-specific traits in the above section!
+    \tag{Image with ManyToOne}
+    \begin{prooftree}
+        \hypo{r: relation[T, V, TotalOnDomain]}
+        \hypo{s: set[T, Domain=domain(r), Size > 0]}
+        \infer2{r[s]: set[V, Size > 0]}
+    \end{prooftree}
+    \\
+    % NOTE: These are in addition to the relation-specific traits in the above section!
+    \tag{Image with ManyToOne}
+    \begin{prooftree}
+        \hypo{r: relation[T, V, ManyToOne]}
+        \hypo{s: set[T, Size = n]}
+        \infer2{r[s]: set[V, Size = n]}
+    \end{prooftree}
+    \\
+    \tag{Total domain}
+    \begin{prooftree}
+        \hypo{r: relation[T, V, TotalOnDomain]}
+        \infer1{domain(r): set[T, Total]}
+    \end{prooftree}
+    \\
+    \tag{Total range}
+    \begin{prooftree}
+        \hypo{r: relation[T, V, TotalOnRange]}
+        \infer1{range(r): set[V, Total]}
+    \end{prooftree}
+    \\
+    \tag{Concat with Size}
+    \begin{prooftree}
+        \hypo{s: sequence[T, Size=x]}
+        \hypo{t: sequence[T, Size=y]}
+        \infer2{s \concat t: sequence[T, Size=x+y]}
+    \end{prooftree}
+    % Procedure call? need to propagate traits from return value type - should be done at procedure definition time?
+\end{gather}
 
 % TODO add in semantics for "with"-clause interactions
 
