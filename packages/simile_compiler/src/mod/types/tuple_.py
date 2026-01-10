@@ -1,15 +1,44 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from copy import deepcopy
-from typing import Callable
+from typing import ClassVar, Type
 
 from src.mod.types.base import BaseType
-from src.mod.types.traits import Trait, TraitCollection
+from src.mod.types.traits import (
+    Trait,
+    TraitCollection,
+    OrderableTrait,
+    IterableTrait,
+    LiteralTrait,
+    DomainTrait,
+    MinTrait,
+    MaxTrait,
+    SizeTrait,
+    ImmutableTrait,
+    TotalOnDomainTrait,
+    TotalOnRangeTrait,
+    ManyToOneTrait,
+    OneToManyTrait,
+    EmptyTrait,
+    TotalTrait,
+    UniqueElementsTrait,
+)
 
 
 @dataclass
 class TupleType(BaseType):
     items: tuple[BaseType, ...]
+    valid_traits: ClassVar[set[Type[Trait]]] = {
+        *BaseType.valid_traits,
+        MinTrait,
+        MaxTrait,
+        SizeTrait,
+        UniqueElementsTrait,
+        TotalTrait,
+        IterableTrait,
+        OrderableTrait,
+        EmptyTrait,
+    }
 
     def __post__init__(self):
         for item in self.items:
@@ -43,6 +72,9 @@ class TupleType(BaseType):
             return True
         raise NotImplementedError
 
+    def _populate_mandatory_traits(self) -> None:
+        self.trait_collection.iterable_trait = IterableTrait()
+
     @classmethod
     def enumeration(cls, element_types: list[BaseType]) -> TupleType:
         """Create a set from an enumeration of elements of a specific type."""
@@ -60,6 +92,10 @@ class PairType(TupleType):
             trait_collection = TraitCollection()
 
         super().__init__(items=(left, right), trait_collection=trait_collection)
+
+    def _populate_mandatory_traits(self) -> None:
+        super()._populate_mandatory_traits()
+        self.trait_collection.size_trait = SizeTrait(2)
 
     @property
     def left(self) -> BaseType:

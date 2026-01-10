@@ -44,6 +44,7 @@ from src.mod.types.traits import (
     EmptyTrait,
     TotalTrait,
     UniqueElementsTrait,
+    GenericBoundTrait,
 )
 from src.mod.types.tuple_ import (
     TupleType,

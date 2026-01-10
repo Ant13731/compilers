@@ -30,7 +30,10 @@ class TraitCollection:
     max_trait: MaxTrait | None = None
 
     # Restricting values of a type
-    literal_traits: list[LiteralTrait] = field(default_factory=list)
+    # @deprecated
+    # literal_traits: list[LiteralTrait] = field(default_factory=list)
+
+    literal_trait: LiteralTrait | None = None
     domain_trait: DomainTrait | None = None
 
     # Useful for sets/collections
@@ -61,52 +64,80 @@ class TraitCollection:
 
     def _fill_implicit_traits(self) -> None:
         """Some traits implicitly encompass others. This fills in that closure.
-        Ex. a Literal[1] implies min=1 and max=1."""
+        Ex. a Literal[1] implies min=1 and max=1.
 
-        # Literal-Domain interaction
-        if self.literal_traits:
-            if self.domain_trait:
-                self.domain_trait = self.domain_trait.merge(DomainTrait(self.literal_traits))
-            else:
-                self.domain_trait = DomainTrait(self.literal_traits)
+        Mandatory traits should have been filled in first, restricted traits should be checked after
+        """
 
-        # Domain-Min/Max interaction
-        # For relations, this data will be stored in the child types, not in the relation itself
-        # So the "Range" will really have its own TraitCollection and fill out these based on its "domain"
-        if self.domain_trait:
+        # Domain Empty
+        if self.domain_trait and len(self.domain_trait.values) == 0:
+            self.domain_trait = None
+
+        # Literal Implies a Domain
+        if self.literal_trait and self.domain_trait is None:
+            self.domain_trait = DomainTrait([self.literal_trait.value])
+
+        # Literal within Domain
+        if self.literal_trait and self.domain_trait:
+            if self.literal_trait.value not in self.domain_trait.values:
+                self.domain_trait = DomainTrait(self.domain_trait.values + [self.literal_trait.value])
+
+        # Orderable Domain without Min
+        if self.domain_trait and self.orderable_trait and self.min_trait is None:
+            self.min_trait = MinTrait.from_domain_trait(self.domain_trait)
+
+        # Orderable Domain with Min
+        if self.domain_trait and self.orderable_trait and self.min_trait:
             min_trait_from_domain = MinTrait.from_domain_trait(self.domain_trait)
             if min_trait_from_domain:
-                if self.min_trait:
-                    self.min_trait = self.min_trait.merge(min_trait_from_domain)
-                else:
-                    self.min_trait = min_trait_from_domain
+                self.min_trait = self.min_trait.merge(min_trait_from_domain)
 
+        # Orderable Domain without Max
+        if self.domain_trait and self.orderable_trait and self.max_trait is None:
+            self.max_trait = MaxTrait.from_domain_trait(self.domain_trait)
+
+        # Orderable Domain with Max
+        if self.domain_trait and self.orderable_trait and self.max_trait:
             max_trait_from_domain = MaxTrait.from_domain_trait(self.domain_trait)
             if max_trait_from_domain:
-                if self.max_trait:
-                    self.max_trait = self.max_trait.merge(max_trait_from_domain)
-                else:
-                    self.max_trait = max_trait_from_domain
+                self.max_trait = self.max_trait.merge(max_trait_from_domain)
 
-        # Min/Max implies order
-        if self.orderable_trait is None and (self.min_trait is not None or self.max_trait is not None):
+        # Min implies Order
+        if self.min_trait and self.orderable_trait is None:
             self.orderable_trait = OrderableTrait()
 
-        # Object is Total if If the size equals the domain and is unique
-        if self.unique_elements_trait is not None and self.size_trait is not None and self.domain_trait is not None and self.empty_trait is None:
-            if self.size_trait.size == len(self.domain_trait.values):
-                self.total_trait = TotalTrait()
+        # Max implies Order
+        if self.max_trait and self.orderable_trait is None:
+            self.orderable_trait = OrderableTrait()
 
-        # Size = 0 => Empty
-        if self.size_trait is not None and self.size_trait.size == 0:
+        # Full set
+        if self.unique_elements_trait and self.size_trait and self.domain_trait and self.size_trait.size == len(self.domain_trait.values) and self.empty_trait is None:
+            self.total_trait = TotalTrait()
+
+        # Empty Size
+        if self.size_trait and self.size_trait.size == 0:
             self.empty_trait = EmptyTrait()
 
-        # Cant calculate a size without some collection?
-        if self.size_trait is not None:
+        # Non-empty Size
+        if self.size_trait and self.size_trait.size > 0:
+            self.empty_trait = None
+
+        # Size implies Iterable
+        if self.size_trait:
             self.iterable_trait = IterableTrait()
 
-    def merge(self, other: TraitCollection) -> TraitCollection:
-        """Merge this TraitCollection with another, returning a new TraitCollection."""
+        # Orderable Literal is Min
+        if self.literal_trait and self.orderable_trait and self.min_trait is None:
+            self.min_trait = MinTrait(value=self.literal_trait.value)
+
+        # Orderable Literal is Max
+        if self.literal_trait and self.orderable_trait and self.max_trait is None:
+            self.max_trait = MaxTrait(value=self.literal_trait.value)
+
+    def merge(self, other: TraitCollection, prioritize_self_over_other: bool = False) -> TraitCollection:
+        """Merge this TraitCollection with another, returning a new TraitCollection.
+
+        Prioritize_self_over_other indicates whether to keep self's traits when both are present."""
         merged = deepcopy(self)
 
         for trait in fields(merged):
@@ -115,7 +146,7 @@ class TraitCollection:
 
             if self_trait is None:
                 continue
-            if other_trait is None:
+            if other_trait is None or prioritize_self_over_other:
                 setattr(merged, trait.name, self_trait)
                 continue
 
@@ -176,7 +207,7 @@ class LiteralTrait(Trait):
 @dataclass
 class DomainTrait(Trait):
     name: ClassVar[str] = "domain"
-    values: list[LiteralTrait]
+    values: list[ASTNode]
 
     def __post_init__(self):
         # Ensure all values are unique
@@ -186,14 +217,10 @@ class DomainTrait(Trait):
                 unique_values.append(literal)
         self.values = unique_values
 
-    @property
-    def astnode_values(self) -> list[ASTNode]:
-        return [literal.value for literal in self.values]
-
     def merge(self, other: DomainTrait) -> DomainTrait:
         combined_values = self.values
         for value in other.values:
-            if value.value not in combined_values:
+            if value not in combined_values:
                 combined_values.append(value)
 
         return self.__class__(values=combined_values)
@@ -206,11 +233,11 @@ class MinTrait(Trait):
 
     @classmethod
     def from_domain_trait(cls, trait: DomainTrait) -> MinTrait | None:
-        if not OrderableTrait.is_orderable(trait.astnode_values):
+        if not OrderableTrait.is_orderable(trait.values):
             return None
 
         min_value = None
-        for value in trait.astnode_values:
+        for value in trait.values:
             # Most ASTNodes wont have literal_min defined
             # This is mostly meant for ints and floats
             if not hasattr(value, "literal_min"):
@@ -246,11 +273,11 @@ class MaxTrait(Trait):
 
     @classmethod
     def from_domain_trait(cls, trait: DomainTrait) -> MaxTrait | None:
-        if not OrderableTrait.is_orderable(trait.astnode_values):
+        if not OrderableTrait.is_orderable(trait.values):
             return None
 
         max_value = None
-        for value in trait.astnode_values:
+        for value in trait.values:
             # Most ASTNodes wont have literal_max defined
             # This is mostly meant for ints and floats
             if not hasattr(value, "literal_max"):

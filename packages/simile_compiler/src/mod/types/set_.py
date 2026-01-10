@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from copy import deepcopy
-from typing import Callable, TypeVar, Type
+from typing import Callable, TypeVar, Type, ClassVar
 
 from src.mod.ast_.ast_node_operators import (
     CollectionOperator,
@@ -11,15 +11,23 @@ from src.mod.ast_.ast_node_operators import (
 )
 from src.mod.types.error import SimileTypeError
 from src.mod.types.traits import (
-    SizeTrait,
+    Trait,
     TraitCollection,
-    ManyToOneTrait,
-    OneToManyTrait,
-    TotalOnDomainTrait,
-    TotalOnRangeTrait,
-    ImmutableTrait,
+    OrderableTrait,
+    IterableTrait,
     LiteralTrait,
     DomainTrait,
+    MinTrait,
+    MaxTrait,
+    SizeTrait,
+    ImmutableTrait,
+    TotalOnDomainTrait,
+    TotalOnRangeTrait,
+    ManyToOneTrait,
+    OneToManyTrait,
+    EmptyTrait,
+    TotalTrait,
+    UniqueElementsTrait,
 )
 from src.mod.types.base import BaseType, BoolType
 from src.mod.types.primitive import NoneType_, IntType, StringType
@@ -46,6 +54,21 @@ class SetType(BaseType):
     # We opt not for generic types since we dont want to hijack python's type system - we want to make our own
     _element_type: BaseType = field(init=False)
     """The Simile-type of elements in the set"""
+
+    valid_traits: ClassVar[set[Type[Trait]]] = {
+        *BaseType.valid_traits,
+        OrderableTrait,
+        IterableTrait,
+        LiteralTrait,
+        DomainTrait,
+        MinTrait,
+        MaxTrait,
+        SizeTrait,
+        ImmutableTrait,
+        EmptyTrait,
+        TotalTrait,
+        UniqueElementsTrait,
+    }
 
     def __init__(self, element_type: BaseType, *, trait_collection: TraitCollection | None = None) -> None:
         if trait_collection is None:
@@ -76,6 +99,10 @@ class SetType(BaseType):
         if self.trait_collection.empty_trait is not None:
             return True
         raise NotImplementedError
+
+    def _populate_mandatory_traits(self) -> None:
+        self.trait_collection.iterable_trait = IterableTrait()
+        self.trait_collection.unique_elements_trait = UniqueElementsTrait()
 
     # Programming-oriented operations
     def copy(self) -> SetType:
@@ -274,6 +301,24 @@ class SetType(BaseType):
 
 @dataclass
 class RelationType(SetType):
+    valid_traits: ClassVar[set[Type[Trait]]] = {
+        *BaseType.valid_traits,
+        OrderableTrait,
+        IterableTrait,
+        LiteralTrait,
+        DomainTrait,
+        MinTrait,
+        MaxTrait,
+        SizeTrait,
+        ImmutableTrait,
+        TotalOnDomainTrait,
+        TotalOnRangeTrait,
+        ManyToOneTrait,
+        OneToManyTrait,
+        EmptyTrait,
+        TotalTrait,
+        UniqueElementsTrait,
+    }
 
     def __init__(self, left: BaseType, right: BaseType, *, trait_collection: TraitCollection | None = None) -> None:
         super().__init__(element_type=PairType(left=left, right=right), trait_collection=trait_collection)
@@ -442,6 +487,10 @@ class BagType(RelationType):
     def element_type(self) -> BaseType:
         return self.left
 
+    def _populate_mandatory_traits(self) -> None:
+        super()._populate_mandatory_traits()
+        self.trait_collection.many_to_one_trait = ManyToOneTrait()
+
     def bag_union(self, other: BagType) -> BagType:
         self._is_subtype_or_error(other, (BagType(AnyType_()),))
         new_element_type = BaseType.max_type([self.element_type, other.element_type])
@@ -478,6 +527,10 @@ class SequenceType(RelationType):
     def element_type(self) -> BaseType:
         return self.right
 
+    def _populate_mandatory_traits(self) -> None:
+        super()._populate_mandatory_traits()
+        self.trait_collection.many_to_one_trait = ManyToOneTrait()
+
     def concat(self, other: SequenceType) -> SequenceType:
         self._is_subtype_or_error(other, (SequenceType(AnyType_()),))
         new_element_type = BaseType.max_type([self.element_type, other.element_type])
@@ -492,11 +545,14 @@ class EnumType(SetType):
 
     def __post_init__(self):
         self._element_type = StringType()
+        super().__post_init__()
 
-        from src.mod.ast_.ast_nodes import String
+    def _populate_mandatory_traits(self) -> None:
+        from src.mod.ast_ import String
 
-        # TODO just assign literal_trait and call _fill_implicit_traits to get domain_trait filled out
-        self.trait_collection.domain_trait = DomainTrait(
-            [LiteralTrait(String(member)) for member in self.members],
-        )
+        super()._populate_mandatory_traits()
+        self.trait_collection.immutable_trait = ImmutableTrait()
+        self.trait_collection.domain_trait = DomainTrait([String(member) for member in self.members])
+        self.trait_collection.size_trait = SizeTrait(len(self.members))
+
         self.element_type.trait_collection.immutable_trait = ImmutableTrait()

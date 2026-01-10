@@ -1,9 +1,10 @@
 from __future__ import annotations
 from dataclasses import dataclass
+from typing import Type, ClassVar
 
 from src.mod.types.error import SimileTypeError
 from src.mod.types.base import BaseType
-from src.mod.types.traits import Trait
+from src.mod.types.traits import Trait, GenericBoundTrait
 
 
 @dataclass
@@ -24,6 +25,10 @@ class GenericType(BaseType):
     """
 
     id_: str
+    valid_traits: ClassVar[set[Type[Trait]]] = {
+        *BaseType.valid_traits,
+        GenericBoundTrait,
+    }
 
     def _is_eq_type(self, other: BaseType) -> bool:
         if not isinstance(other, GenericType):

@@ -1,11 +1,11 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from copy import deepcopy
-from typing import Callable, Type, TypeVar
+from typing import Callable, ClassVar, Type, TypeVar
 import inspect
 
 from src.mod.types.error import SimileTypeError
-from src.mod.types.traits import Trait, TraitCollection
+from src.mod.types.traits import Trait, TraitCollection, LiteralTrait, DomainTrait, ImmutableTrait
 
 
 T = TypeVar("T", bound="BaseType")
@@ -17,6 +17,16 @@ class BaseType:
     """Base type for all Simile types."""
 
     trait_collection: TraitCollection = field(default_factory=TraitCollection)
+
+    valid_traits: ClassVar[set[Type[Trait]]] = {
+        LiteralTrait,
+        DomainTrait,
+        ImmutableTrait,
+    }
+    """Any trait not within this set is invalid for this type."""
+
+    def __post_init__(self):
+        self.populate_mandatory_traits()
 
     # Actual type methods
     def cast(self, caster: T, add_trait_collection: TraitCollection | None = None) -> T:
@@ -145,6 +155,13 @@ class BaseType:
 
         raise SimileTypeError(f"Cannot perform operation {class_name}.{method_name} with incompatible type: {other} (expected a (sub)type of one of {is_subtype_of})")
 
+    def populate_mandatory_traits(self) -> None:
+        self._populate_mandatory_traits()
+        self.trait_collection._fill_implicit_traits()
+
+    def _populate_mandatory_traits(self) -> None:
+        raise NotImplementedError
+
 
 @dataclass
 class BoolType(BaseType):
@@ -176,3 +193,8 @@ class BoolType(BaseType):
     def or_(self, other: BaseType) -> BoolType:
         self._is_subtype_or_error(other, BoolType())
         return BoolType()
+
+    def _populate_mandatory_traits(self) -> None:
+        from src.mod.ast_ import True_, False_
+
+        self.trait_collection.domain_trait = DomainTrait(values=[True_(), False_()])

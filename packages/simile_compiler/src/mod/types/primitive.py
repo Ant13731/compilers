@@ -1,9 +1,27 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Type, ClassVar
 
 from src.mod.types.error import SimileTypeError
-from src.mod.types.traits import Trait, OrderableTrait
+from src.mod.types.traits import (
+    Trait,
+    TraitCollection,
+    OrderableTrait,
+    IterableTrait,
+    LiteralTrait,
+    DomainTrait,
+    MinTrait,
+    MaxTrait,
+    SizeTrait,
+    ImmutableTrait,
+    TotalOnDomainTrait,
+    TotalOnRangeTrait,
+    ManyToOneTrait,
+    OneToManyTrait,
+    EmptyTrait,
+    TotalTrait,
+    UniqueElementsTrait,
+)
 from src.mod.types.base import BaseType, BoolType
 
 if TYPE_CHECKING:
@@ -20,27 +38,52 @@ class NoneType_(BaseType):
     def _is_subtype(self, other: BaseType) -> bool:
         return isinstance(other, NoneType_)
 
+    def _populate_mandatory_traits(self) -> None:
+        from src.mod.ast_ import None_
+
+        self.trait_collection.literal_trait = LiteralTrait(value=None_())
+
 
 @dataclass
 class StringType(BaseType):
+    valid_traits: ClassVar[set[Type[Trait]]] = {
+        *BaseType.valid_traits,
+        EmptyTrait,
+        SizeTrait,
+        UniqueElementsTrait,
+        IterableTrait,
+        OrderableTrait,
+    }
+
     def _is_eq_type(self, other: BaseType) -> bool:
         return isinstance(other, StringType)
 
     def _is_subtype(self, other: BaseType) -> bool:
         return isinstance(other, StringType)
 
+    def _populate_mandatory_traits(self) -> None:
+        self.iterable_trait = IterableTrait()
+        self.orderable_trait = OrderableTrait()
+
 
 @dataclass
 class IntType(BaseType):
-
-    def __post_init__(self):
-        self.trait_collection.orderable_trait = OrderableTrait()
+    valid_traits: ClassVar[set[Type[Trait]]] = {
+        *BaseType.valid_traits,
+        MinTrait,
+        MaxTrait,
+        SizeTrait,
+        OrderableTrait,
+    }
 
     def _is_eq_type(self, other: BaseType) -> bool:
         return isinstance(other, IntType)
 
     def _is_subtype(self, other: BaseType) -> bool:
         return isinstance(other, IntType) or isinstance(other, FloatType)
+
+    def _populate_mandatory_traits(self) -> None:
+        self.trait_collection.orderable_trait = OrderableTrait()
 
     # Comparison
     def greater_than(self, other: BaseType) -> BoolType:
@@ -117,15 +160,25 @@ class IntType(BaseType):
 
 @dataclass
 class FloatType(BaseType):
+    valid_traits: ClassVar[set[Type[Trait]]] = {
+        *BaseType.valid_traits,
+        MinTrait,
+        MaxTrait,
+        SizeTrait,
+        OrderableTrait,
+    }
 
     def __post_init__(self):
-        self.trait_collection.orderable_trait = OrderableTrait()
+        self.populate_mandatory_traits()
 
     def _is_eq_type(self, other: BaseType) -> bool:
         return isinstance(other, FloatType)
 
     def _is_subtype(self, other: BaseType) -> bool:
         return isinstance(other, FloatType)
+
+    def _populate_mandatory_traits(self) -> None:
+        self.trait_collection.orderable_trait = OrderableTrait()
 
     def greater_than(self, other: BaseType) -> BoolType:
         self._is_subtype_or_error(other, (IntType(), FloatType()))

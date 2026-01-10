@@ -1,9 +1,29 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from collections import OrderedDict
+from typing import ClassVar, Type
 
 from src.mod.types.error import SimileTypeError
-from src.mod.types.traits import Trait, DomainTrait, LiteralTrait, ImmutableTrait
+from src.mod.types.traits import (
+    Trait,
+    TraitCollection,
+    OrderableTrait,
+    IterableTrait,
+    LiteralTrait,
+    DomainTrait,
+    MinTrait,
+    MaxTrait,
+    SizeTrait,
+    ImmutableTrait,
+    TotalOnDomainTrait,
+    TotalOnRangeTrait,
+    ManyToOneTrait,
+    OneToManyTrait,
+    EmptyTrait,
+    TotalTrait,
+    UniqueElementsTrait,
+)
+
 from src.mod.types.set_ import SetType
 from src.mod.types.base import BaseType
 from src.mod.types.primitive import StringType
@@ -13,6 +33,13 @@ from src.mod.types.primitive import StringType
 class RecordType(BaseType):
     # Internally a (many-to-one) (total on defined fields) function
     fields: OrderedDict[str, BaseType]
+    valid_traits: ClassVar[set[Type[Trait]]] = {
+        *BaseType.valid_traits,
+        ManyToOneTrait,
+        SizeTrait,
+        TotalOnDomainTrait,
+        IterableTrait,
+    }
 
     def _is_eq_type(self, other: BaseType) -> bool:
         if not isinstance(other, RecordType):
@@ -39,6 +66,16 @@ class RecordType(BaseType):
                 return False
 
         return True
+
+    def _populate_mandatory_traits(self) -> None:
+        from src.mod.ast_ import String
+
+        self.trait_collection.domain_trait = DomainTrait([String(field_name) for field_name in self.fields.keys()])
+
+        self.trait_collection.size_trait = SizeTrait(len(self.fields))
+        self.trait_collection.many_to_one_trait = ManyToOneTrait()
+        self.trait_collection.iterable_trait = IterableTrait()
+        self.trait_collection.total_on_domain_trait = TotalOnDomainTrait()
 
     def access(self, field_name: str) -> BaseType:
         if field_name not in self.fields:
