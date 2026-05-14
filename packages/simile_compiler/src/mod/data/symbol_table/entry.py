@@ -29,6 +29,9 @@ class SymbolTableIdentifierEntry:
     """How was this symbol table entry (identifier) declared? Ex. as a variable or as the name of a procedure?"""
     context: IdentifierContext
 
+    def __hash__(self) -> int:
+        return hash((self.id_, self.scope))
+
 
 class ScopeContext(Enum):
     BASE = auto()

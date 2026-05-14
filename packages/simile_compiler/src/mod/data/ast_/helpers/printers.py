@@ -25,7 +25,7 @@ from src.mod.data.ast_.common import (
     Enumeration,
     Type_,
     LambdaDef,
-    StructAccess,
+    RecordAccess,
     Call,
     TypedName,
     Image,
@@ -166,9 +166,9 @@ def _(ast: LambdaDef, indent: int) -> str:
     return f"λ {args_str} · {predicate_str} | {expression_str}"
 
 
-@_ast_to_source.register(StructAccess)
-def _(ast: StructAccess, indent: int) -> str:
-    return f"{_ast_to_source(ast.struct, indent)}.{_ast_to_source(ast.field_name, indent)}"
+@_ast_to_source.register(RecordAccess)
+def _(ast: RecordAccess, indent: int) -> str:
+    return f"{_ast_to_source(ast.record, indent)}.{_ast_to_source(ast.field_name, indent)}"
 
 
 @_ast_to_source.register(Call)

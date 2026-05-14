@@ -745,7 +745,7 @@ class Parser:
                     self.advance()
                     t = self.peek()
                     self.consume(TokenType.IDENTIFIER, "Access only allowed through an identifier")
-                    atom = ast_.StructAccess(atom, ast_.Identifier(t.value))
+                    atom = ast_.RecordAccess(atom, ast_.Identifier(t.value))
                 case TokenType.L_PAREN:
                     self.advance()
                     args = []

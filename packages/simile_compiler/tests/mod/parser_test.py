@@ -100,12 +100,10 @@ SIMPLE_STATEMENT_CASES = [
 
 COMPOUND_STATEMENT_CASES = [
     (
-        normalize_source(
-            """
+        normalize_source("""
 					for i in [1, 2, 3]:
 						print(i)
-					"""
-        ),
+					"""),
         For(
             TupleIdentifier((Identifier("i"),)),
             SequenceEnumeration([Int("1"), Int("2"), Int("3")]),
@@ -113,26 +111,22 @@ COMPOUND_STATEMENT_CASES = [
         ),
     ),
     (
-        normalize_source(
-            """
+        normalize_source("""
 					while True:
 						print("Hello")
-					"""
-        ),
+					"""),
         While(
             True_(),
             Statements([Call(Identifier("print"), [String("Hello")])]),
         ),
     ),
     (
-        normalize_source(
-            """
+        normalize_source("""
 					if a > b:
 						print("a is greater")
 					else:
 						print("b is greater")
-					"""
-        ),
+					"""),
         If(
             GreaterThan(Identifier("a"), Identifier("b")),
             Statements([Call(Identifier("print"), [String("a is greater")])]),
@@ -142,16 +136,14 @@ COMPOUND_STATEMENT_CASES = [
         ),
     ),
     (
-        normalize_source(
-            """
+        normalize_source("""
 					if a > b:
 						print("a")
 					else if a = b:
 						print("eq")
 					else:
 						print("b")
-					"""
-        ),
+					"""),
         If(
             GreaterThan(Identifier("a"), Identifier("b")),
             Statements([Call(Identifier("print"), [String("a")])]),
@@ -371,15 +363,15 @@ ADVANCED_EXPRESSION_CASES = [
     ("-a", Negative(Identifier("a"))),
     ("a ^ b ^ c", Exponent(Identifier("a"), Exponent(Identifier("b"), Identifier("c")))),
     ("R~", Inverse(Identifier("R"))),
-    ("obj.field", StructAccess(Identifier("obj"), Identifier("field"))),
+    ("obj.field", RecordAccess(Identifier("obj"), Identifier("field"))),
     (
         "obj.field.subfield",
-        StructAccess(StructAccess(Identifier("obj"), Identifier("field")), Identifier("subfield")),
+        RecordAccess(RecordAccess(Identifier("obj"), Identifier("field")), Identifier("subfield")),
     ),
     ("R[x]", Image(Identifier("R"), Identifier("x"))),
     (
         "R[x].field",
-        StructAccess(Image(Identifier("R"), Identifier("x")), Identifier("field")),
+        RecordAccess(Image(Identifier("R"), Identifier("x")), Identifier("field")),
     ),
     (
         "{x + 1 | x in S}",
@@ -402,23 +394,19 @@ ADVANCED_EXPRESSION_CASES = [
 
 ADVANCED_STATEMENT_CASES = [
     (
-        normalize_source(
-            """
+        normalize_source("""
             record Empty:
                 skip
-            """
-        ),
+            """),
         RecordDef(Identifier("Empty"), []),
     ),
     (
-        normalize_source(
-            """
+        normalize_source("""
             if a:
                 skip
             else if b:
                 skip
-            """
-        ),
+            """),
         If(
             Identifier("a"),
             Statements([Skip()]),
@@ -426,8 +414,7 @@ ADVANCED_STATEMENT_CASES = [
         ),
     ),
     (
-        normalize_source(
-            """
+        normalize_source("""
             if a:
                 skip
             else if b:
@@ -436,8 +423,7 @@ ADVANCED_STATEMENT_CASES = [
                 skip
             else:
                 skip
-            """
-        ),
+            """),
         If(
             Identifier("a"),
             Statements([Skip()]),
@@ -453,8 +439,7 @@ ADVANCED_STATEMENT_CASES = [
         ),
     ),
     (
-        normalize_source(
-            """
+        normalize_source("""
             if a:
                 if b:
                     skip
@@ -462,8 +447,7 @@ ADVANCED_STATEMENT_CASES = [
                     skip
             else:
                 skip
-            """
-        ),
+            """),
         If(
             Identifier("a"),
             Statements(
@@ -499,13 +483,11 @@ QUANTIFICATION_AND_TYPING_CASES = [
         ),
     ),
     (
-        normalize_source(
-            """
+        normalize_source("""
             record Pair:
                 left: int
                 right: int
-            """
-        ),
+            """),
         RecordDef(
             Identifier("Pair"),
             [
@@ -515,13 +497,11 @@ QUANTIFICATION_AND_TYPING_CASES = [
         ),
     ),
     (
-        normalize_source(
-            """
+        normalize_source("""
             a: int := v
                 with a > 0
                 with a < 10
-            """
-        ),
+            """),
         Assignment(
             target=TypedName(Identifier("a"), Type_(Identifier("int"))),
             value=Identifier("v"),
@@ -552,33 +532,27 @@ PARSER_ERROR_CASES_ASSIGNMENT_AND_TYPING = [
         "Expected assignment after an expression not ending with a newline",
     ),
     (
-        normalize_source(
-            """
+        normalize_source("""
             a: int := v
                 a > 0
-            """
-        ),
+            """),
         "Each refinement line in an assignment block must start with 'with'",
     ),
 ]
 
 PARSER_ERROR_CASES_CONTROL_FLOW = [
     (
-        normalize_source(
-            """
+        normalize_source("""
             if a
                 skip
-            """
-        ),
+            """),
         "Expected colon after IF condition",
     ),
     (
-        normalize_source(
-            """
+        normalize_source("""
             if a:
             skip
-            """
-        ),
+            """),
         "Expected indentation for block",
     ),
 ]
@@ -619,21 +593,17 @@ PARSER_ERROR_CASES_STRUCTURED = [
         "Expected newline after RECORD definition",
     ),
     (
-        normalize_source(
-            """
+        normalize_source("""
             procedure f(a: int -> bool:
                 skip
-            """
-        ),
+            """),
         "Expected closing parenthesis for procedure parameters",
     ),
     (
-        normalize_source(
-            """
+        normalize_source("""
             procedure f(a: int) bool:
                 skip
-            """
-        ),
+            """),
         "Expected right arrow after procedure parameters",
     ),
 ]

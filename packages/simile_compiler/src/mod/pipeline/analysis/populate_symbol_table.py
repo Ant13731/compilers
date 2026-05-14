@@ -7,6 +7,7 @@ from src.mod.data import ast_
 from src.mod.data.ast_.operators import BinaryOperator
 from src.mod.data.symbol_table import SymbolTableError, get_primitive_types
 from src.mod.data.symbol_table import SymbolTable, IdentifierContext, ScopeContext
+from src.mod.data.symbol_table.entry import SymbolTableIdentifierEntry
 from src.mod.data.types import (
     BaseType,
     BoolType,
@@ -173,14 +174,8 @@ class PopulateSymbolTable:
                 return ast_.QualifiedQuantifier(_iterable_symbols, _predicate, _expression, op_type), False
 
             case ast_.ProcedureDef(name, params, body, return_type):
-                params_dict: dict[str, BaseType] = OrderedDict()
-                for param in params:
-                    if not isinstance(param.name, ast_.Identifier):
-                        raise SimileTypeError(f"Invalid procedure parameter name (must be an identifier): {param.name}", param)
-                    param_type = self._ast_to_type(param.type_)
-                    assert isinstance(param_type, BaseType), "Procedure parameters must have a valid type annotation"
-                    params_dict[param.name.name] = param_type
-
+                # NOTE: params_dict is populated *after* the procedure type definition since symbols must be added within the scope of the procedure
+                params_dict: dict[SymbolTableIdentifierEntry, BaseType] = OrderedDict()
                 return_type_ = self._ast_to_type(return_type)
                 assert isinstance(return_type_, BaseType), "Procedure return type must have a valid type annotation"
                 self.symbol_table.add_symbol(
@@ -193,14 +188,22 @@ class PopulateSymbolTable:
                 self.symbol_table.add_scope(ScopeContext.PROCEDURE)
 
                 _params_symbols: list[ast_.Symbol] = []
-                for param_name, param_type in params_dict.items():
+                for param in params:
+                    if not isinstance(param.name, ast_.Identifier):
+                        raise SimileTypeError(f"Invalid procedure parameter name (must be an identifier): {param.name}", param)
+
+                    param_type = self._ast_to_type(param.type_)
+                    if not isinstance(param_type, BaseType):
+                        raise SimileTypeError(f"Invalid procedure parameter type (must be a valid type): {param.type_}", param)
+
                     self.symbol_table.add_symbol(
-                        param_name,
+                        param.name.name,
                         IdentifierContext.PROCEDURE_PARAMETER,
                         param_type,
                     )
-                    param_symbol = self._convert_identifier_to_symbol(ast_.Identifier(param_name))
+                    param_symbol = self._convert_identifier_to_symbol(param.name)
                     assert isinstance(param_symbol, ast_.Symbol)
+                    params_dict[param_symbol.symbol_table_entry] = param_type
                     _params_symbols.append(param_symbol)
 
                 _body = self.populate(body)
@@ -223,25 +226,25 @@ class PopulateSymbolTable:
                     RecordType(fields=fields),
                 )
 
-                record_scope = self.symbol_table.add_scope(ScopeContext.RECORD)
+                # record_scope = self.symbol_table.add_scope(ScopeContext.RECORD)
 
-                field_symbols: list[ast_.Symbol] = []
-                for field_name, field_type in fields.items():
-                    self.symbol_table.add_symbol(
-                        field_name,
-                        IdentifierContext.RECORD_FIELD,
-                        field_type,
-                    )
+                # field_symbols: list[ast_.Symbol] = []
+                # for field_name, field_type in fields.items():
+                #     self.symbol_table.add_symbol(
+                #         field_name,
+                #         IdentifierContext.RECORD_FIELD,
+                #         field_type,
+                #     )
 
-                    field_symbol = self._convert_identifier_to_symbol(ast_.Identifier(field_name))
-                    assert isinstance(field_symbol, ast_.Symbol)
-                    field_symbols.append(field_symbol)
+                #     field_symbol = self._convert_identifier_to_symbol(ast_.Identifier(field_name))
+                #     assert isinstance(field_symbol, ast_.Symbol)
+                #     field_symbols.append(field_symbol)
 
-                self.symbol_table.pop_scope_level()
+                # self.symbol_table.pop_scope_level()
 
                 _symbol = self._convert_identifier_to_symbol(ast_.Identifier(name))
                 assert isinstance(_symbol, ast_.Symbol)
-                return ast_.RecordDefSymbol(_symbol, field_symbols, record_scope), False
+                return ast_.RecordDefSymbol(_symbol, fields), False
             case ast_.LambdaDef(params, predicate, expression):
                 assert isinstance(params, ast_.IdentifierListTypes)
 

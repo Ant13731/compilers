@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from collections import OrderedDict
-from typing import ClassVar, Type
+from typing import ClassVar, Type, TYPE_CHECKING
 
 from src.mod.data.types.error import SimileTypeError
 from src.mod.data.types.traits import (
@@ -27,6 +27,9 @@ from src.mod.data.types.traits import (
 from src.mod.data.types.set_ import SetType
 from src.mod.data.types.base import BaseType
 from src.mod.data.types.primitive import StringType
+
+if TYPE_CHECKING:
+    from src.mod.data.symbol_table.entry import SymbolTableIdentifierEntry
 
 
 @dataclass
@@ -85,7 +88,7 @@ class RecordType(BaseType):
 
 @dataclass
 class ProcedureType(BaseType):
-    arg_types: dict[tuple[int, int], BaseType]
+    arg_types: dict[SymbolTableIdentifierEntry, BaseType]
     return_type: BaseType
 
     def _is_eq_type(self, other: BaseType) -> bool:

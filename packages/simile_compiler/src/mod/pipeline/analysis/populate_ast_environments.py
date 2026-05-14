@@ -226,23 +226,23 @@ def _populate_from_assignment(node: ast_.ASTNode, target: ast_.ASTNode, value: a
             else:
                 node._env.put(name, explicit_type.get_type)
 
-        case ast_.StructAccess(struct, field):
+        case ast_.RecordAccess(struct, field):
             assign_names = [field.name]
-            while isinstance(struct, ast_.StructAccess):
+            while isinstance(struct, ast_.RecordAccess):
                 assign_names = [struct.field_name.name] + assign_names
-                struct = struct.struct
+                struct = struct.record
             if not isinstance(struct, ast_.Identifier):
                 raise SimileTypeError(f"Invalid struct access for assignment (can only assign to identifiers): {struct}", struct)
 
             node._env.put_nested_struct(assign_names, value.get_type)
-        case ast_.TypedName(ast_.StructAccess(struct, field), explicit_type):
+        case ast_.TypedName(ast_.RecordAccess(struct, field), explicit_type):
             if value.get_type != explicit_type.get_type:
                 raise SimileTypeError(f"Type mismatch: cannot assign value of type {value.get_type} to explicit type {explicit_type}", value)
 
             assign_names = [field.name]
-            while isinstance(struct, ast_.StructAccess):
+            while isinstance(struct, ast_.RecordAccess):
                 assign_names = [struct.field_name.name] + assign_names
-                struct = struct.struct
+                struct = struct.record
             if not isinstance(struct, ast_.Identifier):
                 raise SimileTypeError(f"Invalid struct access for assignment (can only assign to identifiers): {struct}", struct)
 

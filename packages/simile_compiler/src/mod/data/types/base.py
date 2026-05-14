@@ -7,7 +7,6 @@ import inspect
 from src.mod.data.types.error import SimileTypeError
 from src.mod.data.types.traits import Trait, TraitCollection, LiteralTrait, DomainTrait, ImmutableTrait
 
-
 T = TypeVar("T", bound="BaseType")
 
 

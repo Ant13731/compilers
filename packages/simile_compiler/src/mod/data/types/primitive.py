@@ -106,7 +106,7 @@ class IntType(BaseType):
     def negate(self) -> IntType:
         return IntType()
 
-    def int_division(self, other: BaseType) -> IntType:
+    def int_divide(self, other: BaseType) -> IntType:
         self._is_subtype_or_error(other, (IntType(), FloatType()))
 
         return IntType()
@@ -130,7 +130,7 @@ class IntType(BaseType):
             return other.subtract(self)
         return IntType()
 
-    def division(self, other: BaseType) -> FloatType:
+    def divide(self, other: BaseType) -> FloatType:
         self._is_subtype_or_error(other, (IntType(), FloatType()))
 
         return FloatType()
@@ -207,7 +207,7 @@ class FloatType(BaseType):
         self._is_subtype_or_error(other, (IntType(), FloatType()))
         return FloatType()
 
-    def division(self, other: BaseType) -> FloatType:
+    def divide(self, other: BaseType) -> FloatType:
         self._is_subtype_or_error(other, (IntType(), FloatType()))
         return FloatType()
 

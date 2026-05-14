@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, field, Field, fields, is_dataclass
-from typing import Callable, ClassVar, Any, Self, Container
+from typing import Callable, ClassVar, Any, Self, Container, TYPE_CHECKING
 
 
 from src.mod.data.ast_.base import ASTNode
@@ -41,6 +41,9 @@ from src.mod.data.ast_.symbol_table_types import (
     RelationSubTypeMask,
 )
 from src.mod.data.symbol_table.entry import ScopeTableEntry
+
+if TYPE_CHECKING:
+    from src.mod.data.types.base import BaseType
 
 
 # TODO generate constructors for the typed dataclasses as a sort of shorthand, especially useful for matching/TRS rule creation
@@ -811,17 +814,17 @@ class LambdaDef(ASTNode):
 
 
 @dataclass
-class StructAccess(ASTNode):
-    struct: ASTNode
+class RecordAccess(ASTNode):
+    record: ASTNode
     field_name: Identifier
 
     def _get_type(self) -> SimileType:
-        if not isinstance(self.struct.get_type, StructTypeDef):
-            raise SimileTypeError(f"Struct access target must be a struct type, got {self.struct.get_type}", self)
-        if self.struct.get_type.fields.get(self.field_name.name) is None:
+        if not isinstance(self.record.get_type, StructTypeDef):
+            raise SimileTypeError(f"Struct access target must be a struct type, got {self.record.get_type}", self)
+        if self.record.get_type.fields.get(self.field_name.name) is None:
             raise SimileTypeError(f"Field '{self.field_name.name}' not found in struct type", self)
 
-        return self.struct.get_type.fields.get(self.field_name.name, BaseSimileType.None_)
+        return self.record.get_type.fields.get(self.field_name.name, BaseSimileType.None_)
 
 
 @dataclass
@@ -1020,8 +1023,7 @@ class RecordDef(ASTNode):
 @dataclass
 class RecordDefSymbol(ASTNode):
     name: Symbol
-    fields: list[Symbol]
-    record_scope: ScopeTableEntry
+    fields: dict[str, BaseType]
 
 
 # @dataclass
@@ -1082,7 +1084,7 @@ class Start(ASTNode):
 
 Literal = Int | Float | String | True_ | False_ | None_
 Predicate = Quantifier | BinaryOp | UnaryOp | True_ | False_
-Primary = StructAccess | Call | Image | Literal | Enumeration | Quantifier | Identifier
+Primary = RecordAccess | Call | Image | Literal | Enumeration | Quantifier | Identifier
 Expr = LambdaDef | Quantifier | Predicate | BinaryOp | UnaryOp | ListOp | Primary | Identifier
 SimpleStmt = Expr | Assignment | ControlFlowStmt | Import
 CompoundStmt = If | For | RecordDef | ProcedureDef
