@@ -262,16 +262,6 @@ Structural Match
 Structural Match with Tuple
 
 
-
-
-
-
-Relation Operations - Overriding
-Relation Operations - Composition
-Relation Operations - Domain Restriction
-Relation Operations - Domain Subtraction
-Relation Operations - Range Restriction
-Relation Operations - Range Subtraction
 Relational Subtype - Domain Restriction
 Relational Subtype - Domain Subtraction
 Relational Subtype - Range Restriction
@@ -279,7 +269,6 @@ Relational Subtype - Range Subtraction
 Relational Subtype - Inverse
 Relational Subtype - Overriding
 Relational Subtype - Composition
-Sequence Operations - Concatenation
 Integer Operations - Division
 Integer Operations - Modulo
 Numerical Operations - Addition

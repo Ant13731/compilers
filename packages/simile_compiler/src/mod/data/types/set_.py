@@ -142,9 +142,10 @@ class SetType(BaseType):
         """Return the number of elements in the set."""
         return IntType()
 
-    def powerset(self) -> SetType:
+    @classmethod
+    def powerset(cls, element_type: BaseType) -> SetType:
         """Return the powerset of the set."""
-        return SetType(element_type=self)
+        return SetType(element_type=element_type)
 
     def map(self, func: ProcedureType) -> SetType:
         """Apply a function to each element in the set."""
