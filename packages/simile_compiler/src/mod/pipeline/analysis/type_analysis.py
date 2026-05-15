@@ -423,7 +423,9 @@ class TypeSynthesizer:
 
     @typing_rule("Maplet")
     @synthesize_type.register
-    def _(self, ast: ast_.Maplet) -> types.BaseType: ...
+    def _(self, ast: ast_.Maplet) -> types.BaseType:
+        return types.PairType.maplet(self.synthesize_type(ast.left), self.synthesize_type(ast.right))
+
     @typing_rule("Relation Operations - Overriding")
     @synthesize_type.register
     def _(self, ast: ast_.RelationOverriding) -> types.BaseType:
@@ -627,16 +629,27 @@ class TypeSynthesizer:
 
     @typing_rule()
     @synthesize_type.register
-    def _(self, ast: ast_.SequenceEnumeration) -> types.BaseType: ...
+    def _(self, ast: ast_.SequenceEnumeration) -> types.BaseType:
+        item_types = list(map(self.synthesize_type, ast.items))
+        return types.SequenceType.enumeration(item_types)
+
     @typing_rule()
     @synthesize_type.register
-    def _(self, ast: ast_.SetEnumeration) -> types.BaseType: ...
+    def _(self, ast: ast_.SetEnumeration) -> types.BaseType:
+        item_types = list(map(self.synthesize_type, ast.items))
+        return types.SetType.enumeration(item_types)
+
     @typing_rule()
     @synthesize_type.register
-    def _(self, ast: ast_.RelationEnumeration) -> types.BaseType: ...
+    def _(self, ast: ast_.RelationEnumeration) -> types.BaseType:
+        item_types = list(map(self.synthesize_type, ast.items))
+        return types.RelationType.enumeration(item_types)
+
     @typing_rule()
     @synthesize_type.register
-    def _(self, ast: ast_.BagEnumeration) -> types.BaseType: ...
+    def _(self, ast: ast_.BagEnumeration) -> types.BaseType:
+        item_types = list(map(self.synthesize_type, ast.items))
+        return types.BagType.enumeration(item_types)
 
     # @typing_rule()
     # @synthesize_type.register

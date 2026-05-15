@@ -205,84 +205,95 @@ class SetType(BaseType):
         return self.element_type
 
     # Binary operations
-    def union(self, other: SetType) -> SetType:
+    def union(self, other: BaseType) -> SetType:
         """Return the union of this set and another set."""
-        self._is_subtype_or_error(other, (SetType(AnyType_()),))
+        self._is_subtype_or_error(other, (SetType(AnyType_())))
+        assert isinstance(other, SetType)
 
         new_element_type = BaseType.max_type([self.element_type, other.element_type])
         return SetType(element_type=new_element_type)
 
-    def intersection(self, other: SetType) -> SetType:
+    def intersection(self, other: BaseType) -> SetType:
         """Return the intersection of this set and another set."""
-        self._is_subtype_or_error(other, (SetType(AnyType_()),))
+        self._is_subtype_or_error(other, (SetType(AnyType_())))
+        assert isinstance(other, SetType)
 
         new_element_type = BaseType.max_type([self.element_type, other.element_type])
         return SetType(element_type=new_element_type)
 
-    def difference(self, other: SetType) -> SetType:
+    def difference(self, other: BaseType) -> SetType:
         """Return the difference of this set and another set."""
-        self._is_subtype_or_error(other, (SetType(AnyType_()),))
+        self._is_subtype_or_error(other, (SetType(AnyType_())))
+        assert isinstance(other, SetType)
 
         new_element_type = BaseType.max_type([self.element_type, other.element_type])
         return SetType(element_type=new_element_type)
 
-    def symmetric_difference(self, other: SetType) -> SetType:
+    def symmetric_difference(self, other: BaseType) -> SetType:
         """Return the symmetric difference of this set and another set."""
-        self._is_subtype_or_error(other, (SetType(AnyType_()),))
+        self._is_subtype_or_error(other, (SetType(AnyType_())))
+        assert isinstance(other, SetType)
 
         new_element_type = BaseType.max_type([self.element_type, other.element_type])
         return SetType(element_type=new_element_type)
 
-    def cartesian_product(self, other: SetType) -> RelationType:
+    def cartesian_product(self, other: BaseType) -> RelationType:
         """Return the cartesian product of this set and another set."""
+        self._is_subtype_or_error(other, (SetType(AnyType_())))
+        assert isinstance(other, SetType)
         return RelationType(
             left=self.element_type,
             right=other.element_type,
         )
 
-    def is_disjoint(self, other: SetType) -> BoolType:
+    def is_disjoint(self, other: BaseType) -> BoolType:
         """Check if this set and another set are disjoint."""
-        self._is_subtype_or_error(other, (SetType(AnyType_()),))
+        self._is_subtype_or_error(other, (SetType(AnyType_())))
+        assert isinstance(other, SetType)
         # Check that element types are compatible but throw away the result
         BaseType.max_type([self.element_type, other.element_type])
         return BoolType()
 
-    def is_subset(self, other: SetType) -> BoolType:
+    def is_subset(self, other: BaseType) -> BoolType:
         """Check if this set is a subset of another set."""
-        self._is_subtype_or_error(other, (SetType(AnyType_()),))
+        self._is_subtype_or_error(other, (SetType(AnyType_())))
+        assert isinstance(other, SetType)
         # Check that element types are compatible but throw away the result
         BaseType.max_type([self.element_type, other.element_type])
         return BoolType()
 
-    def is_subset_equals(self, other: SetType) -> BoolType:
-        self._is_subtype_or_error(other, (SetType(AnyType_()),))
+    def is_subset_equals(self, other: BaseType) -> BoolType:
+        self._is_subtype_or_error(other, SetType(AnyType_()))
+        assert isinstance(other, SetType)
         # Check that element types are compatible but throw away the result
         BaseType.max_type([self.element_type, other.element_type])
         return BoolType()
 
-    def is_superset(self, other: SetType) -> BoolType:
+    def is_superset(self, other: BaseType) -> BoolType:
         """Check if this set is a superset of another set."""
-        self._is_subtype_or_error(other, (SetType(AnyType_()),))
+        self._is_subtype_or_error(other, (SetType(AnyType_())))
+        assert isinstance(other, SetType)
         # Check that element types are compatible but throw away the result
         BaseType.max_type([self.element_type, other.element_type])
         return BoolType()
 
-    def is_superset_equals(self, other: SetType) -> BoolType:
-        self._is_subtype_or_error(other, (SetType(AnyType_()),))
+    def is_superset_equals(self, other: BaseType) -> BoolType:
+        self._is_subtype_or_error(other, (SetType(AnyType_())))
+        assert isinstance(other, SetType)
         # Check that element types are compatible but throw away the result
         BaseType.max_type([self.element_type, other.element_type])
         return BoolType()
 
-    def not_is_subset(self, other: SetType) -> BoolType:
+    def not_is_subset(self, other: BaseType) -> BoolType:
         return self.is_subset(other).not_()
 
-    def not_is_subset_equals(self, other: SetType) -> BoolType:
+    def not_is_subset_equals(self, other: BaseType) -> BoolType:
         return self.is_subset_equals(other).not_()
 
-    def not_is_superset(self, other: SetType) -> BoolType:
+    def not_is_superset(self, other: BaseType) -> BoolType:
         return self.is_superset(other).not_()
 
-    def not_is_superset_equals(self, other: SetType) -> BoolType:
+    def not_is_superset_equals(self, other: BaseType) -> BoolType:
         return self.is_superset_equals(other).not_()
 
     # TODO N-ary operations
@@ -373,7 +384,10 @@ class RelationType(SetType):
 
         return new_type
 
-    def composition(self, other: RelationType) -> RelationType:
+    def composition(self, other: BaseType) -> RelationType:
+        self._is_subtype_or_error(other, RelationType(AnyType_(), AnyType_()))
+        assert isinstance(other, RelationType)
+
         try:
             BaseType.max_type([self.right, other.left])
         except SimileTypeError as e:
@@ -399,7 +413,10 @@ class RelationType(SetType):
         # TODO transfer empty trait
         return SetType(element_type=self.right)
 
-    def overriding(self, other: RelationType) -> RelationType:
+    def overriding(self, other: BaseType) -> RelationType:
+        self._is_subtype_or_error(other, RelationType(AnyType_(), AnyType_()))
+        assert isinstance(other, RelationType)
+
         max_left_type = BaseType.max_type([self.left, other.left])
         max_right_type = BaseType.max_type([self.right, other.right])
         possible_types: list[BaseType] = [
@@ -432,29 +449,33 @@ class RelationType(SetType):
     def range_(self) -> SetType:
         return SetType(element_type=self.right)
 
-    def domain_restriction(self, domain_set: SetType) -> RelationType:
+    def domain_restriction(self, domain_set: BaseType) -> RelationType:
         self._is_subtype_or_error(domain_set, (self.domain(),))
+        assert isinstance(domain_set, SetType)
 
         new_type = deepcopy(self)
         new_type.trait_collection.total_on_domain_trait = None
         return new_type
 
-    def domain_subtraction(self, domain_set: SetType) -> RelationType:
+    def domain_subtraction(self, domain_set: BaseType) -> RelationType:
         self._is_subtype_or_error(domain_set, (self.domain(),))
+        assert isinstance(domain_set, SetType)
 
         new_type = deepcopy(self)
         new_type.trait_collection.total_on_domain_trait = None
         return new_type
 
-    def range_restriction(self, range_set: SetType) -> RelationType:
+    def range_restriction(self, range_set: BaseType) -> RelationType:
         self._is_subtype_or_error(range_set, (self.range_(),))
+        assert isinstance(range_set, SetType)
 
         new_type = deepcopy(self)
         new_type.trait_collection.total_on_range_trait = None
         return new_type
 
-    def range_subtraction(self, range_set: SetType) -> RelationType:
+    def range_subtraction(self, range_set: BaseType) -> RelationType:
         self._is_subtype_or_error(range_set, (self.range_(),))
+        assert isinstance(range_set, SetType)
 
         new_type = deepcopy(self)
         new_type.trait_collection.total_on_range_trait = None
@@ -483,22 +504,26 @@ class BagType(RelationType):
         self.trait_collection.many_to_one_trait = ManyToOneTrait()
 
     def bag_union(self, other: BagType) -> BagType:
-        self._is_subtype_or_error(other, (BagType(AnyType_()),))
+        self._is_subtype_or_error(other, BagType(AnyType_()))
+        assert isinstance(other, BagType)
         new_element_type = BaseType.max_type([self.element_type_, other.element_type_])
         return BagType(element_type=new_element_type)
 
     def bag_intersection(self, other: BagType) -> BagType:
-        self._is_subtype_or_error(other, (BagType(AnyType_()),))
+        self._is_subtype_or_error(other, BagType(AnyType_()))
+        assert isinstance(other, BagType)
         new_element_type = BaseType.max_type([self.element_type_, other.element_type_])
         return BagType(element_type=new_element_type)
 
     def bag_add(self, other: BagType) -> BagType:
-        self._is_subtype_or_error(other, (BagType(AnyType_()),))
+        self._is_subtype_or_error(other, BagType(AnyType_()))
+        assert isinstance(other, BagType)
         new_element_type = BaseType.max_type([self.element_type_, other.element_type_])
         return BagType(element_type=new_element_type)
 
     def bag_difference(self, other: BagType) -> BagType:
-        self._is_subtype_or_error(other, (BagType(AnyType_()),))
+        self._is_subtype_or_error(other, BagType(AnyType_()))
+        assert isinstance(other, BagType)
         new_element_type = BaseType.max_type([self.element_type_, other.element_type_])
         return BagType(element_type=new_element_type)
 
@@ -522,8 +547,10 @@ class SequenceType(RelationType):
         super()._populate_mandatory_traits()
         self.trait_collection.many_to_one_trait = ManyToOneTrait()
 
-    def concat(self, other: SequenceType) -> SequenceType:
-        self._is_subtype_or_error(other, (SequenceType(AnyType_()),))
+    def concat(self, other: BaseType) -> SequenceType:
+        self._is_subtype_or_error(other, SequenceType(AnyType_()))
+        assert isinstance(other, SequenceType)
+
         new_element_type = BaseType.max_type([self.element_type_, other.element_type_])
         return SequenceType(element_type=new_element_type)
 

@@ -150,7 +150,7 @@ class IntType(BaseType):
         return IntType()
 
     # Sets
-    def upto(self, other: IntType) -> SetType:
+    def upto(self, other: BaseType) -> SetType:
         from src.mod.data.types.set_ import SetType
 
         self._is_subtype_or_error(other, (IntType(), FloatType()))
