@@ -19,6 +19,22 @@ from src.mod.data.ast_.parser_only import (
     TupleIdentifier,
     IdentifierListTypes,
 )
+from src.mod.data.ast_.builtin import (
+    BuiltinFunctionBase,
+    BuiltinFuncMin,
+    BuiltinFuncMapMin,
+    BuiltinFuncMax,
+    BuiltinFuncMapMax,
+    BuiltinFuncChoice,
+    BuiltinFuncDom,
+    BuiltinFuncRan,
+    BuiltinFuncCard,
+    BuiltinFuncSize,
+    BuiltinFuncSum,
+    BuiltinFuncCast,
+    BuiltinFuncCastWith,
+    BuiltinFuncPrint,
+)
 from src.mod.data.ast_.symbol_table_only import (
     Symbol,
     TupleSymbol,

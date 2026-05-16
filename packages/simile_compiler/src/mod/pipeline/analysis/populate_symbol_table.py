@@ -5,7 +5,7 @@ from typing_extensions import OrderedDict
 
 from src.mod.data import ast_
 from src.mod.data.ast_.operators import BinaryOperator
-from src.mod.data.symbol_table import SymbolTableError, get_primitive_types
+from src.mod.data.symbol_table import SymbolTableError
 from src.mod.data.symbol_table import SymbolTable, IdentifierContext, ScopeContext
 from src.mod.data.symbol_table.entry import SymbolTableIdentifierEntry
 from src.mod.data.types import (
@@ -68,13 +68,133 @@ def populate_symbol_table(ast: ast_.ASTNode) -> SymbolTable:
     return symbol_table
 
 
+class TypeAnnotationResolver:
+    # limited form of the below type synthesizer (which should not need to encounter type annotations)
+    # this should be accessible to populate_symbol_table though
+    @classmethod
+    def resolve_type_annotation(cls, ast: ast_.Type_ | ast_.ASTNode | ast_.None_, symbol_table: SymbolTable) -> BaseType:
+        params = []
+        if isinstance(ast, ast_.Type_):
+            params = ast.generics
+            ast = ast.type_
+
+        match ast:
+            # Built in types
+            case ast_.Identifier("int"):
+                return IntType()
+            case ast_.Identifier("float"):
+                return FloatType()
+            case ast_.Identifier("string"):
+                return StringType()
+            case ast_.Identifier("bool"):
+                return BoolType()
+            case ast_.Identifier("ℤ"):
+                return SetType(IntType())
+            case ast_.Identifier("ℕ"):
+                return SetType(IntType(trait_collection=TraitCollection(min_trait=MinTrait(ast_.Int("0")))))
+            case ast_.Identifier("ℕ₁"):
+                return SetType(IntType(trait_collection=TraitCollection(min_trait=MinTrait(ast_.Int("1")))))
+            case ast_.Identifier("set"):
+                if len(params) != 1:
+                    raise SimileTypeError(f"Set type annotation must have exactly 1 parameter, got {len(params)}: {params}", ast)
+                param_type = cls.resolve_type_annotation(params[0], symbol_table)
+                return SetType(param_type)
+            case ast_.Identifier("sequence"):
+                if len(params) != 1:
+                    raise SimileTypeError(f"Sequence type annotation must have exactly 1 parameter, got {len(params)}: {params}", ast)
+                param_type = cls.resolve_type_annotation(params[0], symbol_table)
+                return SequenceType(param_type)
+            case ast_.Identifier("bag"):
+                if len(params) != 1:
+                    raise SimileTypeError(f"Bag type annotation must have exactly 1 parameter, got {len(params)}: {params}", ast)
+                param_type = cls.resolve_type_annotation(params[0], symbol_table)
+                return BagType(param_type)
+            case ast_.Identifier("relation"):
+                if len(params) != 2:
+                    raise SimileTypeError(f"Relation type annotation must have exactly 2 parameters, got {len(params)}: {params}", ast)
+                left_param_type = cls.resolve_type_annotation(params[0], symbol_table)
+                right_param_type = cls.resolve_type_annotation(params[1], symbol_table)
+                return RelationType(left_param_type, right_param_type)
+            case ast_.Identifier("generic"):
+                return GenericType()
+            case ast_.Identifier("tuple"):
+                params_as_types = list(map(lambda param: cls.resolve_type_annotation(param, symbol_table), params))
+                return TupleType(tuple(params_as_types))
+            # TODO Built in functions?
+            # User-identified types (presumably)
+            case ast_.Identifier(symbol_table_name):
+                symbol_table_entry = symbol_table.lookup_identifier_in_current_scope(symbol_table_name)
+                params_as_types = list(map(lambda param: cls.resolve_type_annotation(param, symbol_table), params))
+                return DeferToSymbolTable(symbol_table_entry, params_as_types)
+            # Special notation for relation types
+            case ast_.RelationOp(left, right, op):
+                if len(params) != 0:
+                    raise SimileTypeError(f"Infix relation operator type annotation cannot have parameters, got {len(params)}: {params}", ast)
+                left_type = cls.resolve_type_annotation(left, symbol_table)
+                right_type = cls.resolve_type_annotation(right, symbol_table)
+                rel_type = RelationType(left_type, right_type)
+                rel_type.apply_traits_from_relation_operator(op)
+                return rel_type
+
+        raise SimileTypeError(f"Failed to resolve type annotation", ast)
+
+    @classmethod
+    def resolve_trait_annotation(cls, with_clause: ast_.ASTNode, symbol_table: SymbolTable) -> Trait:
+        flag_only_traits = [
+            OrderableTrait(),
+            IterableTrait(),
+            ImmutableTrait(),
+            TotalOnDomainTrait(),
+            TotalOnRangeTrait(),
+            ManyToOneTrait(),
+            OneToManyTrait(),
+            EmptyTrait(),
+            TotalTrait(),
+            UniqueElementsTrait(),
+        ]
+
+        match with_clause:
+            case ast_.Identifier(name):
+                for trait_type in flag_only_traits:
+                    if trait_type.name == name:
+                        return trait_type
+            # case BinaryOp(left, right, BinaryOperator.EQUAL):
+            case ast_.BinaryOp(ast_.Identifier(LiteralTrait.name), right, ast_.BinaryOperator.EQUAL):
+                return LiteralTrait(right)
+            case ast_.BinaryOp(ast_.Identifier(DomainTrait.name), ast_.Enumeration(items, ast_.CollectionOperator.SET), ast_.BinaryOperator.EQUAL):
+                return DomainTrait(items)
+            case ast_.BinaryOp(ast_.Identifier(MinTrait.name), right, ast_.BinaryOperator.EQUAL):
+                return MinTrait(right)
+            case ast_.BinaryOp(ast_.Identifier(MaxTrait.name), right, ast_.BinaryOperator.EQUAL):
+                return MaxTrait(right)
+            case ast_.BinaryOp(ast_.Identifier(SizeTrait.name), ast_.Int(right), ast_.BinaryOperator.EQUAL):
+                return SizeTrait(int(right))
+            case ast_.BinaryOp(ast_.Identifier(GenericBoundTrait.name), right, ast_.BinaryOperator.EQUAL):
+                generic_bound_type = cls.resolve_type_annotation(right, symbol_table)
+                if generic_bound_type is None:
+                    raise SimileTypeError(f"Generic bound trait must have a valid type annotation, got None", right)
+                return GenericBoundTrait([generic_bound_type])
+
+        raise SimileTypeError(f"Unknown trait in with clause: {with_clause} (failed to convert ASTNode to Trait)", with_clause)
+
+    @classmethod
+    def resolve_trait_collection(cls, with_clauses: list[ast_.ASTNode], symbol_table: SymbolTable) -> TraitCollection:
+        trait_collection = TraitCollection()
+        seen_with_clause_trait_classes: list[type[Trait]] = []
+        for clause in with_clauses:
+            trait = cls.resolve_trait_annotation(clause, symbol_table)
+            if not isinstance(trait, GenericBoundTrait) and any(isinstance(trait, seen_trait) for seen_trait in seen_with_clause_trait_classes):
+                raise SimileTypeError(f"Trait {trait} cannot be defined twice. Already seen traits: {seen_with_clause_trait_classes}", clause)
+            trait_collection.set_trait(trait)
+            seen_with_clause_trait_classes.append(trait.__class__)
+        return trait_collection
+
+
+@dataclass
 class PopulateSymbolTable:
-    def __init__(self, symbol_table: SymbolTable):
-        self.symbol_table = symbol_table
-        self._parents: list[ast_.ASTNode] = []
+    symbol_table: SymbolTable
 
     def populate(self, ast: ast_.ASTNode) -> ast_.ASTNode:
-        self._parents.append(ast)
         new_ast_node, continue_populating = self._populate_aux(ast)
         if new_ast_node is not None:
             ast = new_ast_node
@@ -91,7 +211,6 @@ class PopulateSymbolTable:
                 setattr(ast, f.name, new_list)
             else:
                 setattr(ast, f.name, self.populate(field_value))
-        self._parents.pop()
         return ast
 
     def _populate_aux(self, ast: ast_.ASTNode) -> tuple[ast_.ASTNode | None, bool]:
@@ -176,7 +295,7 @@ class PopulateSymbolTable:
             case ast_.ProcedureDef(name, params, body, return_type):
                 # NOTE: params_dict is populated *after* the procedure type definition since symbols must be added within the scope of the procedure
                 params_dict: dict[SymbolTableIdentifierEntry, BaseType] = OrderedDict()
-                return_type_ = self._ast_to_type(return_type)
+                return_type_ = TypeAnnotationResolver.resolve_type_annotation(return_type, self.symbol_table)
                 assert isinstance(return_type_, BaseType), "Procedure return type must have a valid type annotation"
                 self.symbol_table.add_symbol(
                     name.name,
@@ -192,7 +311,7 @@ class PopulateSymbolTable:
                     if not isinstance(param.name, ast_.Identifier):
                         raise SimileTypeError(f"Invalid procedure parameter name (must be an identifier): {param.name}", param)
 
-                    param_type = self._ast_to_type(param.type_)
+                    param_type = TypeAnnotationResolver.resolve_type_annotation(param.type_, self.symbol_table)
                     if not isinstance(param_type, BaseType):
                         raise SimileTypeError(f"Invalid procedure parameter type (must be a valid type): {param.type_}", param)
 
@@ -216,7 +335,7 @@ class PopulateSymbolTable:
                 for item in items:
                     if not isinstance(item.name, ast_.Identifier):
                         raise SimileTypeError(f"Invalid struct field name (must be an identifier): {item.name}", item)
-                    field_type = self._ast_to_type(item.type_)
+                    field_type = TypeAnnotationResolver.resolve_type_annotation(item.type_, self.symbol_table)
                     assert isinstance(field_type, BaseType)
                     fields[item.name.name] = field_type
 
@@ -284,7 +403,7 @@ class PopulateSymbolTable:
                         raise SimileTypeError(f"Enum item name {_item.name} already exists in current scope, cannot be used as enum item name", _item)
                     members.add(_item.name)
 
-                trait_collection = self._with_clauses_to_trait_collection(with_clauses)
+                trait_collection = TypeAnnotationResolver.resolve_trait_collection(with_clauses, self.symbol_table)
                 self.symbol_table.add_symbol(
                     name,
                     IdentifierContext.ENUM,
@@ -302,8 +421,8 @@ class PopulateSymbolTable:
                     )
 
             case ast_.Assignment(ast_.TypedName(ast_.Identifier(name), ast_.Type_(ast_.Identifier("type"), [])), value, with_clauses, _):
-                trait_collection = self._with_clauses_to_trait_collection(with_clauses)
-                type_value = self._ast_to_type(value)
+                trait_collection = TypeAnnotationResolver.resolve_trait_collection(with_clauses, self.symbol_table)
+                type_value = TypeAnnotationResolver.resolve_type_annotation(value, self.symbol_table)
                 if type_value is None:
                     raise SimileTypeError(f"Type definitions must have a valid type annotation, got None", value)
                 type_value.trait_collection = type_value.trait_collection.merge(trait_collection, True)
@@ -313,8 +432,8 @@ class PopulateSymbolTable:
                     type_value,
                 )
             case ast_.Assignment(ast_.TypedName(ast_.Identifier(name), declared_type), value, with_clauses, _):
-                trait_collection = self._with_clauses_to_trait_collection(with_clauses)
-                _declared_type = self._ast_to_type(declared_type)
+                trait_collection = TypeAnnotationResolver.resolve_trait_collection(with_clauses, self.symbol_table)
+                _declared_type = TypeAnnotationResolver.resolve_type_annotation(declared_type, self.symbol_table)
                 if _declared_type is None:
                     raise SimileTypeError(f"Variable definitions must have a valid type annotation, got None", declared_type)
                 _declared_type.trait_collection = _declared_type.trait_collection.merge(trait_collection, True)
@@ -332,116 +451,6 @@ class PopulateSymbolTable:
             case ast_.Identifier(_) | ast_.MapletIdentifier(_) | ast_.TupleIdentifier(_):
                 return self._convert_identifier_to_symbol(ast), False
         return None, True
-
-    def _with_clauses_to_trait_collection(self, with_clauses: list[ast_.ASTNode]) -> TraitCollection:
-        trait_collection = TraitCollection()
-        seen_with_clause_trait_classes: list[type[Trait]] = []
-        for clause in with_clauses:
-            trait = self._ast_to_trait(clause)
-            if not isinstance(trait, GenericBoundTrait) and any(isinstance(trait, seen_trait) for seen_trait in seen_with_clause_trait_classes):
-                raise SimileTypeError(f"Trait {trait} cannot be defined twice. Already seen traits: {seen_with_clause_trait_classes}", clause)
-            trait_collection.set_trait(trait)
-            seen_with_clause_trait_classes.append(trait.__class__)
-        return trait_collection
-
-    def _ast_to_trait(self, with_clause: ast_.ASTNode) -> Trait:
-        flag_only_traits = [
-            OrderableTrait(),
-            IterableTrait(),
-            ImmutableTrait(),
-            TotalOnDomainTrait(),
-            TotalOnRangeTrait(),
-            ManyToOneTrait(),
-            OneToManyTrait(),
-            EmptyTrait(),
-            TotalTrait(),
-            UniqueElementsTrait(),
-        ]
-
-        match with_clause:
-            case ast_.Identifier(name):
-                for trait_type in flag_only_traits:
-                    if trait_type.name == name:
-                        return trait_type
-            # case BinaryOp(left, right, BinaryOperator.EQUAL):
-            case ast_.BinaryOp(ast_.Identifier(LiteralTrait.name), right, ast_.BinaryOperator.EQUAL):
-                return LiteralTrait(right)
-            case ast_.BinaryOp(ast_.Identifier(DomainTrait.name), ast_.Enumeration(items, ast_.CollectionOperator.SET), ast_.BinaryOperator.EQUAL):
-                return DomainTrait(items)
-            case ast_.BinaryOp(ast_.Identifier(MinTrait.name), right, ast_.BinaryOperator.EQUAL):
-                return MinTrait(right)
-            case ast_.BinaryOp(ast_.Identifier(MaxTrait.name), right, ast_.BinaryOperator.EQUAL):
-                return MaxTrait(right)
-            case ast_.BinaryOp(ast_.Identifier(SizeTrait.name), ast_.Int(right), ast_.BinaryOperator.EQUAL):
-                return SizeTrait(int(right))
-            case ast_.BinaryOp(ast_.Identifier(GenericBoundTrait.name), right, ast_.BinaryOperator.EQUAL):
-                generic_bound_type = self._ast_to_type(right)
-                if generic_bound_type is None:
-                    raise SimileTypeError(f"Generic bound trait must have a valid type annotation, got None", right)
-                return GenericBoundTrait([generic_bound_type])
-
-        raise SimileTypeError(f"Unknown trait in with clause: {with_clause} (failed to convert ASTNode to Trait)", with_clause)
-
-    def _ast_to_type(self, ast_type: ast_.Type_ | ast_.ASTNode | ast_.None_) -> BaseType | None:
-        if isinstance(ast_type, ast_.None_):
-            return None
-
-        params = []
-        if isinstance(ast_type, ast_.Type_):
-            params = ast_type.generics
-            ast_type = ast_type.type_
-
-        primitive_types = get_primitive_types()
-
-        match ast_type:
-            case ast_.Identifier(name) if name in primitive_types:
-                return primitive_types[name]
-            case ast_.Identifier("set"):
-                if len(params) != 1:
-                    raise SimileTypeError(f"Set type annotation must have exactly 1 parameter, got {len(params)}: {params}", ast_type)
-                param_type = self._ast_to_type_err_on_none(params[0])
-                return SetType(param_type)
-            case ast_.Identifier("sequence"):
-                if len(params) != 1:
-                    raise SimileTypeError(f"Sequence type annotation must have exactly 1 parameter, got {len(params)}: {params}", ast_type)
-                param_type = self._ast_to_type_err_on_none(params[0])
-                return SequenceType(param_type)
-            case ast_.Identifier("bag"):
-                if len(params) != 1:
-                    raise SimileTypeError(f"Bag type annotation must have exactly 1 parameter, got {len(params)}: {params}", ast_type)
-                param_type = self._ast_to_type_err_on_none(params[0])
-                return BagType(param_type)
-            case ast_.Identifier("relation"):
-                if len(params) != 2:
-                    raise SimileTypeError(f"Relation type annotation must have exactly 2 parameters, got {len(params)}: {params}", ast_type)
-                left_param_type = self._ast_to_type_err_on_none(params[0])
-                right_param_type = self._ast_to_type_err_on_none(params[1])
-                return RelationType(left_param_type, right_param_type)
-            case ast_.Identifier("generic"):
-                return GenericType()
-            case ast_.Identifier("tuple"):
-                params_as_types = list(map(self._ast_to_type_err_on_none, params))
-                return TupleType(tuple(params_as_types))
-            case ast_.Identifier(symbol_table_name):
-                symbol_table_entry = self.symbol_table.lookup_identifier_in_current_scope(symbol_table_name)
-                params_as_types = list(map(self._ast_to_type_err_on_none, params))
-                return DeferToSymbolTable(symbol_table_entry, params_as_types)
-            case ast_.RelationOp(left, right, op):
-                if len(params) != 0:
-                    raise SimileTypeError(f"Infix relation operator type annotation cannot have parameters, got {len(params)}: {params}", ast_type)
-                left_type = self._ast_to_type_err_on_none(left)
-                right_type = self._ast_to_type_err_on_none(right)
-                rel_type = RelationType(left_type, right_type)
-                rel_type.apply_traits_from_relation_operator(op)
-                return rel_type
-
-        raise SimileTypeError(f"Unknown type annotation: {ast_type} (failed to convert ASTNode to type)", ast_type)
-
-    def _ast_to_type_err_on_none(self, param: ast_.ASTNode) -> BaseType:
-        param_as_type = self._ast_to_type(param)
-        if param_as_type is None:
-            raise SimileTypeError(f"Failed to parse type param {param}", param)
-        return param_as_type
 
     def _convert_identifier_to_symbol(self, ast: ast_.IdentifierListTypes) -> ast_.SymbolListTypes:
         match ast:

@@ -194,6 +194,7 @@ class SetType(BaseType):
         if len(func.arg_types) != 1:
             raise SimileTypeError(f"Function passed to Set.map must take exactly one argument, got {len(func.arg_types)}")
 
+        # TODO check that func actually resolves to an int/orderable?
         func_arg_type = next(iter(func.arg_types.values()))
         self._is_subtype_or_error(self.element_type, (func_arg_type,))
         return self.element_type

@@ -5,6 +5,7 @@ from typing import Callable, Generic, OrderedDict, ParamSpec, TypeVar, Protocol,
 from functools import singledispatch, singledispatchmethod, wraps, reduce
 
 from src.mod.data.symbol_table.entry import SymbolTableIdentifierEntry
+from src.mod.pipeline.analysis.populate_symbol_table import TypeAnnotationResolver
 from src.mod.pipeline.scanner import Location
 from src.mod.pipeline.parser import parse, ParseError
 from src.mod.data import ast_
@@ -153,6 +154,8 @@ class TypeSynthesizer:
     @typing_rule("Command - Procedure Call", "Relation Operations - Function Call")
     @synthesize_type.register
     def _(self, ast: ast_.Call) -> types.BaseType:
+        if isinstance(ast, ast_.BuiltinFunctionBase):
+            return self.synthesize_type_builtin_function_call(ast)
         ast_type = self.synthesize_type(ast.target)
         if isinstance(ast_type, types.ProcedureType):
             return ast_type.call([self.synthesize_type(arg) for arg in ast.args])
@@ -464,18 +467,17 @@ class TypeSynthesizer:
     def _(self, ast: ast_.RangeRestriction) -> types.BaseType:
         return self.synthesize_type_binary(ast, types.RelationType, types.RelationType.range_restriction)
 
-    def create_relation_type(self, ast: ast_.RelationOp, relation_operator: ast_.RelationOperator | None) -> types.BaseType:
+    def create_relation_type(self, ast: ast_.RelationOp, relation_operator: ast_.RelationOperator) -> types.BaseType:
         left_type = self.synthesize_type(ast.left)
         right_type = self.synthesize_type(ast.right)
         relation_type = types.RelationType(left_type, right_type)
-        if relation_operator:
-            relation_type.apply_traits_from_relation_operator(relation_operator)
+        relation_type.apply_traits_from_relation_operator(relation_operator)
         return relation_type
 
     @typing_rule()
     @synthesize_type.register
     def _(self, ast: ast_.Relation) -> types.BaseType:
-        return self.create_relation_type(ast, None)
+        return self.create_relation_type(ast, ast_.RelationOperator.RELATION)
 
     @typing_rule("Relation Subtype - Total Relation")
     @synthesize_type.register
@@ -588,6 +590,8 @@ class TypeSynthesizer:
     # @typing_rule("Exists")
     # @synthesize_type.register
     # def _(self, ast: ast_.Exists) -> types.BaseType: ...
+    # @typing_rule("Binds (with generator)", "Binds with OR", "Binds with AND")
+
     @typing_rule("Quantification Body")
     def _synthesize_type_quantification_body(self, ast: ast_.QualifiedQuantifier) -> types.QuantificationBodyIntermediary:
         predicate_type = self.synthesize_type(ast.predicate)
@@ -714,3 +718,164 @@ class TypeSynthesizer:
     def _(self, ast: ast_.QualifiedBagComprehension) -> types.BaseType:
         quantification_body = self._synthesize_type_quantification_body(ast)
         return quantification_body.bag_comprehension()
+
+    @singledispatchmethod
+    def synthesize_type_builtin_function_call(self, ast: ast_.BuiltinFunctionBase) -> types.BaseType:
+        raise NotImplementedError(f"Type synthesis not implemented for builtin function {type(ast)} at location {ast.get_location()}")
+
+    @typing_rule("Built-in - Minimum")
+    @synthesize_type_builtin_function_call.register
+    def _(self, ast: ast_.BuiltinFuncMin) -> types.BaseType:
+        if len(ast.args) != 1:
+            raise types.SimileTypeError(f"Minimum function takes exactly 1 argument. Got {len(ast.args)}", ast)
+
+        collection_type = self.synthesize_type(ast.args[0])
+        if not isinstance(collection_type, types.SetType):
+            raise types.SimileTypeError(f"Argument to minimum must be a set. Got {collection_type}", ast.args[0])
+        if collection_type.trait_collection.orderable_trait is None:
+            raise types.SimileTypeError(f"Argument to minimum must be of an orderable type. Got {collection_type}", ast.args[0])
+        return collection_type.min()
+
+    @typing_rule("Built-in - Mapped Minimum")
+    @synthesize_type_builtin_function_call.register
+    def _(self, ast: ast_.BuiltinFuncMapMin) -> types.BaseType:
+        if len(ast.args) != 2:
+            raise types.SimileTypeError(f"Minimum-with-map function takes exactly 2 arguments. Got {len(ast.args)}", ast)
+
+        collection_type = self.synthesize_type(ast.args[0])
+        if not isinstance(collection_type, types.SetType):
+            raise types.SimileTypeError(f"Argument 1 to mapped minimum must be a set. Got {collection_type}", ast.args[0])
+
+        mapping_func = self.synthesize_type(ast.args[1])
+        if not isinstance(mapping_func, types.ProcedureType):
+            raise types.SimileTypeError(f"Argument 2 to mapped minimum must be a procedure. Got {mapping_func}", ast.args[1])
+
+        return collection_type.map_min(mapping_func)
+
+    @typing_rule("Built-in - Maximum")
+    @synthesize_type_builtin_function_call.register
+    def _(self, ast: ast_.BuiltinFuncMax) -> types.BaseType:
+        if len(ast.args) != 1:
+            raise types.SimileTypeError(f"Maximum function takes exactly 1 argument. Got {len(ast.args)}", ast)
+
+        collection_type = self.synthesize_type(ast.args[0])
+        if not isinstance(collection_type, types.SetType):
+            raise types.SimileTypeError(f"Argument to maximum must be a set. Got {collection_type}", ast.args[0])
+        if collection_type.trait_collection.orderable_trait is None:
+            raise types.SimileTypeError(f"Argument to maximum must be of an orderable type. Got {collection_type}", ast.args[0])
+        return collection_type.max()
+
+    @typing_rule("Built-in - Mapped Maximum")
+    @synthesize_type_builtin_function_call.register
+    def _(self, ast: ast_.BuiltinFuncMapMax) -> types.BaseType:
+        if len(ast.args) != 2:
+            raise types.SimileTypeError(f"Maximum-with-map function takes exactly 2 arguments. Got {len(ast.args)}", ast)
+
+        collection_type = self.synthesize_type(ast.args[0])
+        if not isinstance(collection_type, types.SetType):
+            raise types.SimileTypeError(f"Argument 1 to mapped maximum must be a set. Got {collection_type}", ast.args[0])
+
+        mapping_func = self.synthesize_type(ast.args[1])
+        if not isinstance(mapping_func, types.ProcedureType):
+            raise types.SimileTypeError(f"Argument 2 to mapped maximum must be a procedure. Got {mapping_func}", ast.args[1])
+
+        return collection_type.map_max(mapping_func)
+
+    @typing_rule("Built-in - Choice")
+    @synthesize_type_builtin_function_call.register
+    def _(self, ast: ast_.BuiltinFuncChoice) -> types.BaseType:
+        if len(ast.args) != 1:
+            raise types.SimileTypeError(f"Choice function takes exactly 1 argument. Got {len(ast.args)}", ast)
+
+        collection_type = self.synthesize_type(ast.args[0])
+        if not isinstance(collection_type, types.SetType):
+            raise types.SimileTypeError(f"Argument to choice must be a set. Got {collection_type}", ast.args[0])
+        return collection_type.choice()
+
+    @typing_rule("Built-in - Domain")
+    @synthesize_type_builtin_function_call.register
+    def _(self, ast: ast_.BuiltinFuncDom) -> types.BaseType:
+        if len(ast.args) != 1:
+            raise types.SimileTypeError(f"Domain function takes exactly 1 argument. Got {len(ast.args)}", ast)
+
+        relation_type = self.synthesize_type(ast.args[0])
+        if not isinstance(relation_type, types.RelationType):
+            raise types.SimileTypeError(f"Argument to domain must be a relation. Got {relation_type}", ast.args[0])
+        return relation_type.domain()
+
+    @typing_rule("Built-in - Range")
+    @synthesize_type_builtin_function_call.register
+    def _(self, ast: ast_.BuiltinFuncRan) -> types.BaseType:
+        if len(ast.args) != 1:
+            raise types.SimileTypeError(f"Range function takes exactly 1 argument. Got {len(ast.args)}", ast)
+
+        relation_type = self.synthesize_type(ast.args[0])
+        if not isinstance(relation_type, types.RelationType):
+            raise types.SimileTypeError(f"Argument to range must be a relation. Got {relation_type}", ast.args[0])
+        return relation_type.range_()
+
+    @typing_rule("Built-in - Cardinality")
+    @synthesize_type_builtin_function_call.register
+    def _(self, ast: ast_.BuiltinFuncCard) -> types.BaseType:
+        if len(ast.args) != 1:
+            raise types.SimileTypeError(f"Cardinality function takes exactly 1 argument. Got {len(ast.args)}", ast)
+
+        collection_type = self.synthesize_type(ast.args[0])
+        if not isinstance(collection_type, types.SetType):
+            raise types.SimileTypeError(f"Argument to cardinality must be a set. Got {collection_type}", ast.args[0])
+        return collection_type.cardinality()
+
+    @typing_rule("Built-in - Bag Size")
+    @synthesize_type_builtin_function_call.register
+    def _(self, ast: ast_.BuiltinFuncSize) -> types.BaseType:
+        if len(ast.args) != 1:
+            raise types.SimileTypeError(f"Size function takes exactly 1 argument. Got {len(ast.args)}", ast)
+
+        collection_type = self.synthesize_type(ast.args[0])
+        if not isinstance(collection_type, types.BagType):
+            raise types.SimileTypeError(f"Argument to size must be a bag. Got {collection_type}", ast.args[0])
+        return collection_type.size()
+
+    @typing_rule("Built-in - Sum")
+    @synthesize_type_builtin_function_call.register
+    def _(self, ast: ast_.BuiltinFuncSum) -> types.BaseType:
+        if len(ast.args) != 1:
+            raise types.SimileTypeError(f"Sum function takes exactly one argument. Got {len(ast.args)}", ast)
+
+        collection_type = self.synthesize_type(ast.args[0])
+        if not isinstance(collection_type, types.SetType):
+            raise types.SimileTypeError(f"Argument to sum must be a set. Got {collection_type}", ast.args[0])
+        return collection_type.sum()
+
+    @typing_rule("Built-in - Cast")
+    @synthesize_type_builtin_function_call.register
+    def _(self, ast: ast_.BuiltinFuncCast) -> types.BaseType:
+        if len(ast.args) != 2:
+            raise types.SimileTypeError(f"Cast function takes exactly 2 arguments. Got {len(ast.args)}", ast)
+
+        caster_type = self.synthesize_type(ast.args[0])
+        value_type = self.synthesize_type(ast.args[1])
+        return value_type.cast(caster_type)
+
+    @typing_rule("Built-in - Cast With")
+    @synthesize_type_builtin_function_call.register
+    def _(self, ast: ast_.BuiltinFuncCastWith) -> types.BaseType:
+        if len(ast.args) != 3:
+            raise types.SimileTypeError(f"Cast-with function takes exactly 3 arguments. Got {len(ast.args)}", ast)
+
+        caster_type = self.synthesize_type(ast.args[0])
+        value_type = self.synthesize_type(ast.args[1])
+        traits_ast = ast.args[2]
+        if not isinstance(traits_ast, ast_.SetEnumeration):
+            raise types.SimileTypeError(f"Third argument to cast-with must be a set enumeration of traits. Got {type(traits_ast)}", traits_ast)
+
+        traits = TypeAnnotationResolver.resolve_trait_collection(traits_ast.items, self.symbol_table)
+        return value_type.cast(caster_type, traits)
+
+    @typing_rule("Built-in - Print")
+    @synthesize_type_builtin_function_call.register
+    def _(self, ast: ast_.BuiltinFuncPrint) -> types.BaseType:
+        if len(ast.args) != 1:
+            raise types.SimileTypeError(f"Print function takes exactly 1 argument. Got {len(ast.args)}", ast)
+        self.synthesize_type(ast.args[0])  # Just check that the argument is well-typed
+        return types.NoneType_()
