@@ -25,6 +25,7 @@ from src.mod.data.types.set_ import (
     BagType,
     RelationType,
     SequenceType,
+    QuantificationBodyIntermediary,
 )
 from src.mod.data.types.traits import (
     Trait,

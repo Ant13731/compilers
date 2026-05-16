@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from copy import deepcopy
-from typing import Callable, TypeVar, Type, ClassVar
+from typing import TYPE_CHECKING, Callable, TypeVar, Type, ClassVar
 
 from src.mod.data.ast_.operators import (
     CollectionOperator,
@@ -30,10 +30,13 @@ from src.mod.data.types.traits import (
     UniqueElementsTrait,
 )
 from src.mod.data.types.base import BaseType, BoolType
-from src.mod.data.types.primitive import NoneType_, IntType, StringType
+from src.mod.data.types.primitive import FloatType, NoneType_, IntType, StringType
 from src.mod.data.types.tuple_ import PairType
 from src.mod.data.types.meta import AnyType_
 from src.mod.data.types.composite import ProcedureType
+
+if TYPE_CHECKING:
+    from src.mod.data.symbol_table.entry import SymbolTableIdentifierEntry
 
 # TODO we basically need a SetSimulator that will return the expected type, element type, and traits when executing a set operation
 # Then we need a code generator that will follow through on the simulator's typed promise - maybe make a mirror class that outputs generated code instead of types?
@@ -295,8 +298,6 @@ class SetType(BaseType):
 
     def not_is_superset_equals(self, other: BaseType) -> BoolType:
         return self.is_superset_equals(other).not_()
-
-    # TODO N-ary operations
 
 
 @dataclass
@@ -570,3 +571,59 @@ class EnumType(SetType):
         self.trait_collection.size_trait = SizeTrait(len(self.members))
 
         self.element_type.trait_collection.immutable_trait = ImmutableTrait()
+
+
+@dataclass
+class QuantificationBodyIntermediary(BaseType):
+    bound_identifiers: dict[SymbolTableIdentifierEntry, BaseType]
+    return_type: BaseType
+
+    def forall(self) -> BoolType:
+        self._is_subtype_or_error(self.return_type, BoolType())
+        assert isinstance(self.return_type, BoolType)
+        return self.return_type
+
+    def exists(self) -> BoolType:
+        self._is_subtype_or_error(self.return_type, BoolType())
+        assert isinstance(self.return_type, BoolType)
+        return self.return_type
+
+    def union_all(self) -> SetType:
+        self._is_subtype_or_error(self.return_type, SetType(AnyType_()))
+        assert isinstance(self.return_type, SetType)
+        return self.return_type
+
+    def intersection_all(self) -> SetType:
+        self._is_subtype_or_error(self.return_type, SetType(AnyType_()))
+        assert isinstance(self.return_type, SetType)
+        return self.return_type
+
+    def set_comprehension(self) -> SetType:
+        self._is_subtype_or_error(self.return_type, SetType(AnyType_()))
+        assert isinstance(self.return_type, SetType)
+        return self.return_type
+
+    def relation_comprehension(self) -> RelationType:
+        self._is_subtype_or_error(self.return_type, RelationType(AnyType_(), AnyType_()))
+        assert isinstance(self.return_type, RelationType)
+        return self.return_type
+
+    def bag_comprehension(self) -> BagType:
+        self._is_subtype_or_error(self.return_type, BagType(AnyType_()))
+        assert isinstance(self.return_type, BagType)
+        return self.return_type
+
+    def sequence_comprehension(self) -> SequenceType:
+        self._is_subtype_or_error(self.return_type, SequenceType(AnyType_()))
+        assert isinstance(self.return_type, SequenceType)
+        return self.return_type
+
+    def sum(self) -> IntType | FloatType:
+        self._is_subtype_or_error(self.return_type, (IntType(), FloatType()))
+        assert isinstance(self.return_type, IntType | FloatType)
+        return self.return_type
+
+    def product(self) -> IntType | FloatType:
+        self._is_subtype_or_error(self.return_type, (IntType(), FloatType()))
+        assert isinstance(self.return_type, IntType | FloatType)
+        return self.return_type

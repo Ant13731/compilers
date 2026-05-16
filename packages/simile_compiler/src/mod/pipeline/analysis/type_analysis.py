@@ -1,9 +1,10 @@
 from __future__ import annotations
 from dataclasses import dataclass, field, is_dataclass
 import pathlib
-from typing import Callable, ParamSpec, TypeVar, Protocol, cast, Any, Sequence
+from typing import Callable, Generic, OrderedDict, ParamSpec, TypeVar, Protocol, cast, Any, Sequence
 from functools import singledispatch, singledispatchmethod, wraps, reduce
 
+from src.mod.data.symbol_table.entry import SymbolTableIdentifierEntry
 from src.mod.pipeline.scanner import Location
 from src.mod.pipeline.parser import parse, ParseError
 from src.mod.data import ast_
@@ -20,18 +21,10 @@ P = ParamSpec("P")
 R_co = TypeVar("R_co", covariant=True)
 
 
-class TypeJudgementFunction(Protocol[P, R_co]):
-    typing_rule_ids: tuple[str, ...]
-
-    # TODO: register each function and typing rule in a central dictionary so we can make sure we have all typing rules implemented!
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R_co: ...
-
-
-def typing_rule(*ids: str) -> Callable[[Callable[P, R_co]], TypeJudgementFunction[P, R_co]]:
-    def decorator(func: Callable[P, R_co]) -> TypeJudgementFunction[P, R_co]:
-        typed_func = cast(TypeJudgementFunction[P, R_co], func)
-        typed_func.typing_rule_ids = ids
-        return typed_func
+def typing_rule(*ids: str) -> Callable[[Callable[P, R_co]], Callable[P, R_co]]:
+    def decorator(func: Callable[P, R_co]) -> Callable[P, R_co]:
+        func.typing_rule_ids = ids  # type: ignore
+        return func
 
     return decorator
 
@@ -595,12 +588,36 @@ class TypeSynthesizer:
     # @typing_rule("Exists")
     # @synthesize_type.register
     # def _(self, ast: ast_.Exists) -> types.BaseType: ...
+    @typing_rule("Quantification Body")
+    def _synthesize_type_quantification_body(self, ast: ast_.QualifiedQuantifier) -> types.QuantificationBodyIntermediary:
+        predicate_type = self.synthesize_type(ast.predicate)
+        if not isinstance(predicate_type, types.BoolType):
+            raise types.SimileTypeError(f"Predicate of quantifier must be of type BoolType. Got {predicate_type}", ast.predicate)
+
+        expression_type = self.synthesize_type(ast.expression)
+        bound_variables_with_types: dict[SymbolTableIdentifierEntry, types.BaseType] = OrderedDict()
+        for var in ast.bound_identifiers.flatten():
+            if not isinstance(var, ast_.Symbol):
+                raise types.SimileTypeError(f"Bound variables of quantifiers must be Symbols or TupleSymbols. Got {type(var)}", var)
+            var_type = self.synthesize_type(var)
+            bound_variables_with_types[var.symbol_table_entry] = var_type
+
+        return types.QuantificationBodyIntermediary(
+            bound_identifiers=bound_variables_with_types,
+            return_type=expression_type,
+        )
+
     @typing_rule("Forall")
     @synthesize_type.register
-    def _(self, ast: ast_.QualifiedForall) -> types.BaseType: ...
+    def _(self, ast: ast_.QualifiedForall) -> types.BaseType:
+        quantification_body = self._synthesize_type_quantification_body(ast)
+        return quantification_body.forall()
+
     @typing_rule("Exists")
     @synthesize_type.register
-    def _(self, ast: ast_.QualifiedExists) -> types.BaseType: ...
+    def _(self, ast: ast_.QualifiedExists) -> types.BaseType:
+        quantification_body = self._synthesize_type_quantification_body(ast)
+        return quantification_body.exists()
 
     # @typing_rule()
     # @synthesize_type.register
@@ -616,16 +633,27 @@ class TypeSynthesizer:
     # def _(self, ast: ast_.Product) -> types.BaseType: ...
     @typing_rule("General Union")
     @synthesize_type.register
-    def _(self, ast: ast_.QualifiedUnionAll) -> types.BaseType: ...
+    def _(self, ast: ast_.QualifiedUnionAll) -> types.BaseType:
+        quantification_body = self._synthesize_type_quantification_body(ast)
+        return quantification_body.union_all()
+
     @typing_rule("General Intersection")
     @synthesize_type.register
-    def _(self, ast: ast_.QualifiedIntersectionAll) -> types.BaseType: ...
+    def _(self, ast: ast_.QualifiedIntersectionAll) -> types.BaseType:
+        quantification_body = self._synthesize_type_quantification_body(ast)
+        return quantification_body.intersection_all()
+
     @typing_rule()
     @synthesize_type.register
-    def _(self, ast: ast_.QualifiedSum) -> types.BaseType: ...
+    def _(self, ast: ast_.QualifiedSum) -> types.BaseType:
+        quantification_body = self._synthesize_type_quantification_body(ast)
+        return quantification_body.sum()
+
     @typing_rule()
     @synthesize_type.register
-    def _(self, ast: ast_.QualifiedProduct) -> types.BaseType: ...
+    def _(self, ast: ast_.QualifiedProduct) -> types.BaseType:
+        quantification_body = self._synthesize_type_quantification_body(ast)
+        return quantification_body.product()
 
     @typing_rule()
     @synthesize_type.register
@@ -665,13 +693,24 @@ class TypeSynthesizer:
     # def _(self, ast: ast_.BagComprehension) -> types.BaseType: ...
     @typing_rule("Sequence Comprehension")
     @synthesize_type.register
-    def _(self, ast: ast_.QualifiedSequenceComprehension) -> types.BaseType: ...
+    def _(self, ast: ast_.QualifiedSequenceComprehension) -> types.BaseType:
+        quantification_body = self._synthesize_type_quantification_body(ast)
+        return quantification_body.sequence_comprehension()
+
     @typing_rule("Set Comprehension")
     @synthesize_type.register
-    def _(self, ast: ast_.QualifiedSetComprehension) -> types.BaseType: ...
+    def _(self, ast: ast_.QualifiedSetComprehension) -> types.BaseType:
+        quantification_body = self._synthesize_type_quantification_body(ast)
+        return quantification_body.set_comprehension()
+
     @typing_rule()
     @synthesize_type.register
-    def _(self, ast: ast_.QualifiedRelationComprehension) -> types.BaseType: ...
+    def _(self, ast: ast_.QualifiedRelationComprehension) -> types.BaseType:
+        quantification_body = self._synthesize_type_quantification_body(ast)
+        return quantification_body.relation_comprehension()
+
     @typing_rule("Bag Comprehension")
     @synthesize_type.register
-    def _(self, ast: ast_.QualifiedBagComprehension) -> types.BaseType: ...
+    def _(self, ast: ast_.QualifiedBagComprehension) -> types.BaseType:
+        quantification_body = self._synthesize_type_quantification_body(ast)
+        return quantification_body.bag_comprehension()
