@@ -27,6 +27,7 @@ from src.mod.data.types.traits import (
 from src.mod.data.types.set_ import SetType
 from src.mod.data.types.base import BaseType
 from src.mod.data.types.primitive import StringType
+from src.mod.data.types.typing_rule_decorator import typing_rule
 
 if TYPE_CHECKING:
     from src.mod.data.symbol_table.entry import SymbolTableIdentifierEntry
@@ -55,6 +56,7 @@ class RecordType(BaseType):
             )
         )
 
+    @typing_rule("Sub Record")
     def _is_subtype(self, other: BaseType) -> bool:
         if not isinstance(other, RecordType):
             return False
@@ -104,18 +106,20 @@ class ProcedureType(BaseType):
             other.return_type,
         )
 
+    @typing_rule("Sub Function")
     def _is_subtype(self, other: BaseType) -> bool:
         if not isinstance(other, ProcedureType):
             return False
-        return all(
-            other_arg.is_eq_type(self_arg)
+
+        args_are_supertype = all(
+            other_arg.is_subtype(self_arg)
             for self_arg, other_arg in zip(
                 self.arg_types.values(),
                 other.arg_types.values(),
             )
-        ) and self.return_type.is_subtype(
-            other.return_type,
         )
+
+        return args_are_supertype and self.return_type.is_subtype(other.return_type)
 
     def call(self, arg_types: list[BaseType]) -> BaseType:
         if len(arg_types) != len(self.arg_types):

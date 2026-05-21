@@ -6,6 +6,7 @@ import inspect
 
 from src.mod.data.types.error import SimileTypeError
 from src.mod.data.types.traits import Trait, TraitCollection, LiteralTrait, DomainTrait, ImmutableTrait
+from src.mod.data.types.typing_rule_decorator import typing_rule
 
 T = TypeVar("T", bound="BaseType")
 
@@ -67,6 +68,7 @@ class BaseType:
         """Check whether the type would be equal when considering traits."""
         return self.trait_collection == other.trait_collection
 
+    @typing_rule("Reflexive Subtype", "Transitive Subtype", "Sub Top Type")
     def is_subtype(self, other: BaseType, check_traits: bool = False) -> bool:
         """Check if self is a sub-type of other (in formal type theory, whether self <= other)."""
         from src.mod.data.types.meta import GenericType, AnyType_
@@ -98,6 +100,7 @@ class BaseType:
     def _is_subtype(self, other: BaseType) -> bool:
         raise NotImplementedError
 
+    @typing_rule("Type Refinement")
     def _is_sub_traits(self, other: BaseType) -> bool:
         """Check whether the type is a sub-type when considering traits."""
         raise NotImplementedError

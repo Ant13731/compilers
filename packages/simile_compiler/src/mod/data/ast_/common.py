@@ -1026,6 +1026,11 @@ class RecordDefSymbol(ASTNode):
     fields: dict[str, BaseType]
 
 
+@dataclass
+class TupleLiteral(ASTNode):
+    items: list[ASTNode]
+
+
 # @dataclass
 # class EnumDef(ASTNode):
 #     name: Identifier

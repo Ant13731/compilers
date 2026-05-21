@@ -23,6 +23,7 @@ from src.mod.data.types.traits import (
     TotalTrait,
     UniqueElementsTrait,
 )
+from src.mod.data.types.typing_rule_decorator import typing_rule
 
 
 @dataclass
@@ -56,6 +57,7 @@ class TupleType(BaseType):
                 return False
         return True
 
+    @typing_rule("Sub Product")
     def _is_subtype(self, other: BaseType) -> bool:
         if not isinstance(other, TupleType):
             return False

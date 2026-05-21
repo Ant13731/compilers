@@ -83,6 +83,7 @@ from src.mod.data.ast_.common import (
     While,
     RecordDef,
     RecordDefSymbol,
+    TupleLiteral,
     ProcedureDef,
     ProcedureDefSymbol,
     ImportAll,

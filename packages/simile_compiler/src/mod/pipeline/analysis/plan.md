@@ -11,6 +11,36 @@ type checker
 - some type checking is interspersed through the symbol table and resolver functions...
 - should just combine this then
 
+
+
+
+
+
+# Type analysis
+- reserved_keywords_check: AST -> bool
+- symb_table = populate_symbol_table
+    - populate_base_types
+    - populate_builtin_functions
+    - populate
+        - scope
+        - insert_symbols
+        - ast_to_type
+        - ast_to_trait
+- AST = normalize_ast: AST
+- assert_no_identifiers (parser_only nodes): AST -> bool
+- synthesize_types: AST, symb_table -> type
+- type_check: AST, symb_table -> bool (either pass/fail)
+
+
+
+
+
+
+
+
+
+
+
 # Abstract Data Types to concrete data types
 - what are the restrictions and requirements?
 
@@ -216,20 +246,13 @@ Env $\emptyset$
 Env $I$
 
 <!-- For the types themselves -->
-Reflexive Subtype
-Transitive Subtype
 Subsumption
 Top Type
-Sub Top Type
-Sub Function
-Sub Set
-Sub Product
-Sub Record
-Type Refinement
 Powerset
 Emptyset
+
 Emptyset Bottom
-Set Enumeration
+
 Primitives - bool
 Primitives - int
 Primitives - float
@@ -360,3 +383,40 @@ Total domain
 Total range
 Concat with Size
 
+# ONPLS
+15 minutes
+
+Current state
+1. Programming with Abstract Data Types
+2. Ex. Visitor Information System - need to change the workshop names
+3. Ex. Warehouse Inventory System
+4. Abstract Data Types in programming + modelling languages
+5. Goals
+6. Related work
+7. Ex. Optimizing data type operations in python
+8. Concrete types within Visitor Info System
+9. Naive Implementation of the VIS
+10. Designing Optimizations
+11. Term Rewriting for Hash-based Sets and Relations
+12. Visitor Information System - Translation
+13. Preliminary Results
+14. Operation Running Time
+15. Roadmap
+
+Shortened version
+16. Programming with Abstract Data Types
+17. Ex. Visitor Information System - need to change the workshop names
+19. Abstract Data Types in programming + modelling languages
+20. Goals
+21. Related work
+22. Ex. Optimizing data type operations in python
+23. Concrete types within Visitor Info System
+24. Naive Implementation of the VIS
+25. Designing Optimizations
+26. Term Rewriting for Hash-based Sets and Relations
+27. Visitor Information System - Translation
+28. Preliminary Results
+29. Operation Running Time
+30. Roadmap
+Extra slides
+31. Ex. Warehouse Inventory System

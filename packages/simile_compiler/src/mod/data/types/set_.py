@@ -34,6 +34,7 @@ from src.mod.data.types.primitive import FloatType, NoneType_, IntType, StringTy
 from src.mod.data.types.tuple_ import PairType
 from src.mod.data.types.meta import AnyType_
 from src.mod.data.types.composite import ProcedureType
+from src.mod.data.types.typing_rule_decorator import typing_rule
 
 if TYPE_CHECKING:
     from src.mod.data.symbol_table.entry import SymbolTableIdentifierEntry
@@ -81,6 +82,7 @@ class SetType(BaseType):
             return False
         return self.element_type.is_eq_type(other.element_type)
 
+    @typing_rule("Sub Set")
     def _is_subtype(self, other: BaseType) -> bool:
         if not isinstance(other, SetType):
             return False

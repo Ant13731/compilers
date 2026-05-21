@@ -824,10 +824,24 @@ class Parser:
             #     second = self.expr()
             #     self.consume(TokenType.R_PAREN, "Need to close parenthesis")
             #     return ast_.Call(ast_.Identifier("*second"), [second])
+            # TODO tuple??
             case TokenType.L_PAREN:
+                if self.peek().type_ == TokenType.R_PAREN:
+                    self.advance()
+                    return ast_.TupleLiteral([])
+
                 expr = self.expr()
-                self.consume(TokenType.R_PAREN, "Need to close parenthesis")
-                return expr
+
+                if self.peek().type_ != TokenType.COMMA:
+                    self.consume(TokenType.R_PAREN, "Need to close parenthesis")
+                    return expr
+
+                exprs = [expr]
+                while self.match(TokenType.COMMA):
+                    exprs.append(self.expr())
+                self.consume(TokenType.R_PAREN, "Need to close tuple literal")
+                return ast_.TupleLiteral(exprs)
+
             case TokenType.IDENTIFIER:
                 return ast_.Identifier(t.value)
             case _:

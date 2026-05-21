@@ -11,23 +11,12 @@ from src.mod.pipeline.parser import parse, ParseError
 from src.mod.data import ast_
 from src.mod.data.symbol_table import SymbolTable
 from src.mod.data import types
+from src.mod.data.types.typing_rule_decorator import typing_rule
 
 
 def type_check(ast: ast_.ASTNode) -> None:
     # TODO resolve types for assignments and the like
     return None
-
-
-P = ParamSpec("P")
-R_co = TypeVar("R_co", covariant=True)
-
-
-def typing_rule(*ids: str) -> Callable[[Callable[P, R_co]], Callable[P, R_co]]:
-    def decorator(func: Callable[P, R_co]) -> Callable[P, R_co]:
-        func.typing_rule_ids = ids  # type: ignore
-        return func
-
-    return decorator
 
 
 @dataclass
@@ -659,7 +648,7 @@ class TypeSynthesizer:
         quantification_body = self._synthesize_type_quantification_body(ast)
         return quantification_body.product()
 
-    @typing_rule()
+    @typing_rule("Set Enumeration")
     @synthesize_type.register
     def _(self, ast: ast_.SequenceEnumeration) -> types.BaseType:
         item_types = list(map(self.synthesize_type, ast.items))
