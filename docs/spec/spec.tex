@@ -22,6 +22,7 @@
 \usepackage{longtable}
 \usepackage{syntax}
 \usepackage{ebproof}
+\usepackage[left=1.5cm, right=1.5cm]{geometry}
 \usepackage{hyperref}
 
 % NOTE:
@@ -411,9 +412,47 @@ The following list of symbols and identifiers are reserved for programming const
 \begin{tabular}{c c c c c c}
 true & false & if & else & for\\
 while & record & enum & procedure & is\\
-is not & return & break & continue \\
-from & import & skip & with & type  \\
-min & max & choice &  &  &
+is not & return & break & continue & from\\
+import & skip & with & type
+\end{tabular}
+\end{center}
+
+And for built-in types:
+\begin{center}
+\begin{tabular}{c c c c c c}
+int &
+float &
+string &
+bool &
+$\mathbb{Z}$ &
+$\mathbb{N}$ \\
+$\mathbb{N}_1$ &
+set &
+sequence &
+bag &
+relation &
+generic \\
+tuple &
+\end{tabular}
+\end{center}
+
+And built-in procedures:
+
+\begin{center}
+\begin{tabular}{c c c c c c}
+min &
+map\_min &
+max &
+map\_max &
+choice &
+dom \\
+ran &
+card &
+size &
+sum &
+cast &
+cast\_with \\
+print &
 \end{tabular}
 \end{center}
 
@@ -984,43 +1023,85 @@ Type refinements may be applicable to types with certain traits (ex., min/max va
 \begin{gather}
 \tag{Lambda Expression}
 \begin{prooftree}
-\hypo{\Gamma \vdash E:A, P: bool}
-\hypo{I_1:T_1, ..., I_n: T_n \text{ are vars in } E}
-\infer2{\Gamma \vdash (\lambda I_1, ..., I_n \cdot P \mid E): (T_1, ..., T_n) \tfun A}
+\hypo{\Gamma, I_1:T_1, ..., I_n: T_n \vdash E:A, P: bool}
+\hypo{I_i \notin dom(\Gamma)}
+\hypo{i \neq j \implies I_i \neq I_j}
+\infer3{\Gamma \vdash (\lambda I_1, ..., I_n \cdot P \mid E): (T_1, ..., T_n) \pfun A}
 \end{prooftree}
 \\
 \tag{Quantification Body \footnote{where $TupleIdentifier$ is a recursive tuple of either $Identifier$s or nested $TupleIdentifiers$, $structuralMatch(e,T)$ is a recursive match between identifiers in $e$ and the set type $T$, $hasGenerator(P,e \in g)$ means the expression $e \in g$ occurs in one of the top-level OR/AND clauses, and $structuralMatchInAllORs(e, T, P)$ means all top-level OR clauses must see $e \in g$ for any $g$ with type $T$. For now, we may just force the generator to appear in the first clause of the predicate, where the predicate is a top-level AND.}}
 \begin{prooftree}
-\hypo{\begin{matrix}
-\Gamma \vdash E:A, P:bool\\
-I_1, ..., I_n: TupleIdentifier\\
-% M_1, ..., M_n: MapletIdentifier\\
-% L_1, ..., L_n: TupleIdentifier\\
-Ids = \bagT{identifiers(I_i)}{0 \leq i \leq n}\\%identifier(L_i) \rrbracket\\ % \llbracket identifier(M_i) \rrbracket
-\forall e \mapsto count \in Ids \cdot count = 1 \land e \not\in dom(\Gamma)\\
-{\begin{split}
-M = \{I_i \mapsto T \cdot &0 \leq i \leq n \\
-    &\land \exists g \cdot \Gamma \vdash g: set[T] \\
-    &\land structuralMatch(e, T) \\
-    &\land hasGenerator(P, e \in g) \\
-    &\land structuralMatchInAllORs(e, T, P)\}
-\end{split}}\\
-% \forall e \in I \cdot \exists (\Gamma \vdash g: set[T]) \cdot structuralMatch(e, T) \land appearsInTopLevelOrOf(e \in g, P)\\
-% \forall I_i \cdot \exists g \cdot \Gamma \vdash g:set[T] \land P = ... \land I_i \in g \land ...\\
-% \forall M_i \cdot (\exists g \cdot \Gamma \vdash T_1 \rel T_2 \land M_i \in g)\\
-% \forall L_i \cdot \exists g \cdot \Gamma \vdash g: T_1 \rel ... \rel T_n \land P = ... L_i \in g ... \land n = len(L_i)
-\end{matrix}}
-\infer1{\Gamma \vdash (I_1, ..., I_n \cdot P \mid E): QuantificationBody[M,A]
-% {\begin{split}
-% \Gamma \vdash &(I_1, ..., I_n \cdot P \mid E): QuantificationBody[\\ %\cup M_i
-% &\bSetT{e \mapsto T}{
-% %(e\in I \land T = T_i)
-% % \lor (e \in M_i \land T = T_i \rel T_j)
-% e \in  \land T = T_i \rel ... \rel T_n}, A]
-% \end{split}
-% }
-}
+\hypo{I = x_1:T_1, ..., x_n:T_n}
+\hypo{\Gamma \vdash binds(P, I)}
+\hypo{\Gamma, I \vdash P:bool, E:A}
+\infer3{\Gamma \vdash (x_1, ..., x_n \cdot P \mid E): QuantificationBody[I, A]}
 \end{prooftree}
+\\
+\tag{Binds (with generator)}
+\begin{prooftree}
+\hypo{\Gamma \vdash g : set[T]}
+\hypo{\Gamma \vdash structuralMatch(I, T)}
+\infer2{\Gamma \vdash binds(I \in g, I)}
+\end{prooftree}
+\\
+\tag{Binds with OR}
+\begin{prooftree}
+\hypo{\Gamma \vdash binds(P_1, I), ..., binds(P_n, I)}
+\infer1{\Gamma \vdash binds(\bigvee P_i, I)}
+\end{prooftree}
+\\
+\tag{Binds with AND}
+\begin{prooftree}
+\hypo{\Gamma, I \vdash Q: bool}
+\hypo{\Gamma \vdash binds(P, I)}
+\infer2{\Gamma \vdash binds(P \land Q, I)}
+\end{prooftree}
+\\
+\tag{Structural Match}
+\begin{prooftree}
+\hypo{\Gamma \vdash T}
+\hypo{x \notin dom(\Gamma)}
+\infer2{\Gamma \vdash structuralMatch(x, T)}
+\end{prooftree}
+\\
+\tag{Structural Match with Tuple}
+\begin{prooftree}
+\hypo{\Gamma \vdash structuralMatch(x_1, T_1), ..., structuralMatch(x_n, T_n)}
+\infer1{\Gamma \vdash structuralMatch((x_1, ..., x_n), (T_1, ..., T_n))}
+\end{prooftree}
+\\
+% \tag{Quantification Body \footnote{where $TupleIdentifier$ is a recursive tuple of either $Identifier$s or nested $TupleIdentifiers$, $structuralMatch(e,T)$ is a recursive match between identifiers in $e$ and the set type $T$, $hasGenerator(P,e \in g)$ means the expression $e \in g$ occurs in one of the top-level OR/AND clauses, and $structuralMatchInAllORs(e, T, P)$ means all top-level OR clauses must see $e \in g$ for any $g$ with type $T$. For now, we may just force the generator to appear in the first clause of the predicate, where the predicate is a top-level AND.}}
+% \begin{prooftree}
+% \hypo{\begin{matrix}
+% \Gamma \vdash E:A, P:bool\\
+% I_1, ..., I_n: TupleIdentifier\\
+% % M_1, ..., M_n: MapletIdentifier\\
+% % L_1, ..., L_n: TupleIdentifier\\
+% Ids = \bagT{identifiers(I_i)}{0 \leq i \leq n}\\%identifier(L_i) \rrbracket\\ % \llbracket identifier(M_i) \rrbracket
+% \forall e \mapsto count \in Ids \cdot count = 1 \land e \not\in dom(\Gamma)\\
+% {\begin{split}
+% M = \{I_i \mapsto T \cdot &0 \leq i \leq n \\
+%     &\land \exists g \cdot \Gamma \vdash g: set[T] \\
+%     &\land structuralMatch(e, T) \\
+%     &\land hasGenerator(P, e \in g) \\
+%     &\land structuralMatchInAllORs(e, T, P)\}
+% \end{split}}\\
+% % \forall e \in I \cdot \exists (\Gamma \vdash g: set[T]) \cdot structuralMatch(e, T) \land appearsInTopLevelOrOf(e \in g, P)\\
+% % \forall I_i \cdot \exists g \cdot \Gamma \vdash g:set[T] \land P = ... \land I_i \in g \land ...\\
+% % \forall M_i \cdot (\exists g \cdot \Gamma \vdash T_1 \rel T_2 \land M_i \in g)\\
+% % \forall L_i \cdot \exists g \cdot \Gamma \vdash g: T_1 \rel ... \rel T_n \land P = ... L_i \in g ... \land n = len(L_i)
+% \end{matrix}}
+% \infer1{\Gamma \vdash (I_1, ..., I_n \cdot P \mid E): QuantificationBody[M,A]
+% % {\begin{split}
+% % \Gamma \vdash &(I_1, ..., I_n \cdot P \mid E): QuantificationBody[\\ %\cup M_i
+% % &\bSetT{e \mapsto T}{
+% % %(e\in I \land T = T_i)
+% % % \lor (e \in M_i \land T = T_i \rel T_j)
+% % e \in  \land T = T_i \rel ... \rel T_n}, A]
+% % \end{split}
+% % }
+% }
+% \end{prooftree}
 % \frac{
 % \splitfrac{
 % \Gamma \vdash E:A, P:bool \ruleSpace I_1, ..., I_n: Identifier \ruleSpace M_1, ..., M_n: MapletIdentifier
@@ -1048,7 +1129,7 @@ M = \{I_i \mapsto T \cdot &0 \leq i \leq n \\
 % \splitfrac{
 % \Gamma \vdash (I_i \cup M_i \cup L_i \cdot P \mid E): QuantificationBody[\{e \mapsto T \cdot (e\in I_i \land T = T_i)}{ \lor (e \in M_i \land T = T_i \rel T_j) \lor (e \in  L_i \land T = T_i \rel T_j \rel ... \rel T_n)\}, A]}
 % }
-\\
+% \\
 \tag{General Union}
 \begin{prooftree}
 \hypo{\Gamma \vdash (I \cdot P \mid E): QuantificationBody[M,A]}
@@ -1151,7 +1232,7 @@ Let $\otimes = \{\in, \not\in \}$
 Let $\otimes = \{\subset, \subseteq, \supset, \supseteq, \not\subset, \not\subseteq, \not\supset, \not\supseteq \}$
 
 \begin{gather}
-\tag{Set Operations}
+\tag{Set Ordering Operations}
 \begin{prooftree}
 \hypo{\Gamma \vdash a_1: set[T_1], a_2: set[T_2]}
 \infer1{\Gamma \vdash a_1 \otimes a_2: bool}
@@ -1198,7 +1279,7 @@ Let $\otimes = \{\cup, \cap, \setminus \}$
 
 Let $\otimes = \{\cup, \cap, +, -\}$
 \begin{gather}
-\tag{Bag Operations - (Max) Union}
+\tag{Bag Operations}
 \begin{prooftree}
 \hypo{\Gamma \vdash a_1, a_2: bag[T]}
 \infer1{\Gamma \vdash a_1 \otimes a_2: bag[T]}
@@ -1241,25 +1322,25 @@ Let $\otimes = \{\cup, \cap, +, -\}$
 \\
 \tag{Relation Operations - Domain Restriction}
 \begin{prooftree}
-\hypo{\Gamma \vdash a_1: T_1, a_2: T_1 \rel T_2}
+\hypo{\Gamma \vdash a_1: set[T_1], a_2: T_1 \rel T_2}
 \infer1{\Gamma \vdash a_1 \domres a_2: T_1 \rel T_2}
 \end{prooftree}
 \\
 \tag{Relation Operations - Domain Subtraction}
 \begin{prooftree}
-\hypo{\Gamma \vdash a_1: T_1, a_2: T_1 \rel T_2}
+\hypo{\Gamma \vdash a_1: set[T_1], a_2: T_1 \rel T_2}
 \infer1{\Gamma \vdash a_1 \domsub a_2: T_1 \rel T_2}
 \end{prooftree}
 \\
 \tag{Relation Operations - Range Restriction}
 \begin{prooftree}
-\hypo{\Gamma \vdash a_1: T_1 \rel T_2, a_2: T_2}
+\hypo{\Gamma \vdash a_1: T_1 \rel T_2, a_2: set[T_2]}
 \infer1{\Gamma \vdash a_1 \ranres a_2: T_1 \rel T_2}
 \end{prooftree}
 \\
 \tag{Relation Operations - Range Subtraction}
 \begin{prooftree}
-\hypo{\Gamma \vdash a_1: T_1 \rel T_2, a_2: T_2}
+\hypo{\Gamma \vdash a_1: T_1 \rel T_2, a_2: set[T_2]}
 \infer1{\Gamma \vdash a_1 \ransub a_2: T_1 \rel T_2}
 \end{prooftree}
 \end{gather}
@@ -1444,46 +1525,53 @@ For simplicity, we implement subtype changes in a few binary operators as a bool
 \\
 \tag{Command - Procedure Definition}
 \begin{prooftree}
-\hypo{\Gamma \vdash C, E, A_1, ..., A_n}
-\infer1{\Gamma \vdash \text{ procedure }I=C \therefore I: procedure[A_1, ..., A_n, E]}
+% Read this as: make a new scope, place the procedure I and params x_* to create the body C:R.
+% Then, the current scope produces a symbol I with type procedure[...]
+\hypo{\Gamma, I: procedure[A_1, ..., A_n, R], x_1: A_1, ..., x_n: A_n \vdash C: R}
+\hypo{I, x_1, ..., x_n \notin dom(\Gamma)}
+\hypo{i \neq j \implies x_i \neq x_j}
+\infer3{\Gamma \vdash \text{ procedure }I=C : procedure[A_1, ..., A_n, R]}
 \end{prooftree}
 \\
 \tag{Command - Procedure Call}
 \begin{prooftree}
-\hypo{\Gamma \vdash procedure[A_1, ..., A_n, E], a_1: A_1, ..., a_n:A_n}
-\infer1{\Gamma \vdash I(a_1, ..., a_n): E}
+\hypo{\Gamma \vdash procedure[A_1, ..., A_n, R], a_1: A_1, ..., a_n:A_n}
+\infer1{\Gamma \vdash I(a_1, ..., a_n): R}
 \end{prooftree}
 \\
 \tag{Command - If}
 \begin{prooftree}
-\hypo{\Gamma \vdash C, b: bool}
+% C is a new scope (block) but doesnt necessarily define new bindings
+\hypo{\Gamma \vdash b: bool, \text{block }C}
 \infer1{\Gamma \vdash \text{if } b: C}
 \end{prooftree}
 \\
 \tag{Command - If Else}
 \begin{prooftree}
-\hypo{\Gamma \vdash C_1, C_2, b: bool}
+\hypo{\Gamma \vdash b: bool, \text{block }C_1, \text{block }C_2}
 \infer1{\Gamma \vdash \text{if } b: C_1 \text{ else}: C_2}
 \end{prooftree}
 \\
 \tag{Command - While}
 \begin{prooftree}
-\hypo{\Gamma \vdash C, b: bool}
+\hypo{\Gamma \vdash b: bool, \text{block }C}
 \infer1{\Gamma \vdash \text{while } b: C}
 \end{prooftree}
 \\
 \tag{Command - For}
 \begin{prooftree}
-\hypo{\Gamma \vdash C, p: bool}
-\hypo{p = i \in G}
-\infer2{\Gamma \vdash \text{for } p: C}
+\hypo{\Gamma \vdash G: set[T]}
+\hypo{\Gamma, i: T \vdash C}
+\hypo{i \notin dom(\Gamma)}
+\infer3{\Gamma \vdash \text{for } i \in G: C}
 \end{prooftree}
 \\
 \tag{Command - Block}
 \begin{prooftree}
-\hypo{\Gamma \vdash D \therefore I:A}
-\hypo{\Gamma, I:A \vdash C}
-\infer2{\Gamma \vdash C \text{ substitute vars in } D}
+% Declarations D produce a new environment in C
+\hypo{\Gamma \vdash D \therefore \Gamma'}
+\hypo{\Gamma' \vdash C}
+\infer2{\Gamma \vdash \text{block }D \text{ \textbackslash n } C}
 \end{prooftree}
 \end{gather}
 
