@@ -10,23 +10,27 @@ The repository is organized as follows:
     - `ADT`: A Survey of Abstract Data Types (in several languages)
     - `implementation_v2`: Revised report for a prototype set-theory based compiler. Corresponding implementation is in `.archive/implementation` but has since been superseded by Simile.
     - `term_rewriting`: A Survey of Term Rewriting for Compiler Optimization
-  - `spec`: Complete Language Specification for the Simile Compiler (a WIP on Overleaf; this version is updated rarely).
-  - `thesis`: Masters thesis on Simile (WIP on Overleaf, rarely updated on here).
+  - `simile`: Documentation for the Simile compiler (that does not fit into the language specification).
+  - `spec`: Complete language specification for the Simile compiler (a WIP on Overleaf; this version is updated rarely).
+  - `thesis`: Masters thesis on Simile (not started).
   - `workshops`: Abstracts and presentations about the underlying ideas behind Simile, delivered at various workshops.
     - `cdp_2025`: [CDP 2025](https://cdp-workshop.github.io/CDP/program/), co-located with [CASCON 2025](https://conf.researchr.org/home/cascon-2025)
+    - `onpls_2026`: [ONPLS 2026](https://www.cas.mcmaster.ca/~carette/onpls2026.html)
     - `synt_2025`: [SYNT 2025](https://synt2025.github.io/program.html), co-located with [CAV 2025](https://conferences.i-cav.org/2025/)
 - `meetings`: Meeting notes for discussions involving Simile
 - `notes`: Research notes, important information is incorporated into `docs`
   - `examples`: Gathered/derived model simulation examples that make use of set theory
 - `packages`: Python packages for Simile
   - `simile_compiler`: Actual contents of the compiler, from lexer to code generation
+    - `...data`: Collection of data structures used by Simile
+    - `...pipeline`: Data flow and execution of Simile
   - `simile_jupyter_extention`: TODO, a jupyter extension to recognize Simile syntax
   - `simile_jupyter_kernel`: TODO, a jupyter kernel to execute Simile
 - `proposals`: Proposals discussing the problems and justification of our work (outdated)
 
 <!-- Name idea: Simile (or facsimile) - kind of like simulation, also similar to modelling languages -->
 
-# Running Simile in Jupyter
+<!-- # Running Simile in Jupyter
 
 **DOES NOT WORK YET**
 
@@ -43,7 +47,7 @@ Check that the kernel is installed properly by running the following command wit
 
 ```powershell
 jupyter console --kernel simile_kernel
-```
+``` -->
 
 # Generating API Documentation
 
