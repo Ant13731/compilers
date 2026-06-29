@@ -377,7 +377,7 @@ return dfs(0, [])
 ### page1
 Tree - skip
 ### page8
-fib(n) =
+fib(n) = ...
 
 # synduce
 ## combine
@@ -398,3 +398,15 @@ fib(n) =
 ## treepaths
 ## unimodal_lists
 ## zipper
+
+# Rosetta code
+## Birthday problem
+Problem: What is the probability that 2 people share a common birthday?
+Alt: Do two people share a common birthday? Equivalent to asking if a total functional relation is a bijection
+
+Nice form:
+birthdays: People -> Date
+possible_birthdays = card({p |-> d . p |-> d in 1..n -> 1..365 | p |-> d})
+possible_birthdays_without_collisions = card(i,j . i in 0..card(bdays) and j in 0..card(bdays) and i != j ==> bdays[i] != bdays[j] | i |-> bdays[i])
+birthday_problem(birthdays) = 1 - possible_birthdays_without_collisions / possible_birthdays
+
