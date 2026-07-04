@@ -381,23 +381,61 @@ fib(n) = ...
 
 # synduce
 ## combine
+### mss_with_sum
+max (map sum (segments xs))
 ## compressed_list
 ## constraints
+### alist/count_eq
+Problem: count the number of occurrences of a number in a list if it is unique
+
+Nice form (can specifically optimize this existence question to sets very well):
+if is_unique xs then contains w xs else 0
+contains w = w in xs
+
+This problem may be specifically about exiting loops early (it stops recursing when we know that w in xs)
+
+Extend to finding the index of an element and exiting early
+
+### alist/most_frequent
+Problem: Return the value with the longest run length (given an input list like list[run length, value]) (assuming values are unique)
+### alist/sum
+Problem: Return the sum of matching values assuming the value is unique (this should always short-circuit and return the target if target in xs or 0)
+
+### sorted_and_indexed
+Problem: Given a sorted list, find the number of values < target minus number of values > target
+
+Most of the files in this section are about exiting early assuming some property on the underlying collection
+
 ## expressions
+### max_subexpr_sum
+Problem: find the max value of an expression subtree
+max { evaluate(x) | x is a subtree of xs}
+
 ## indexed_list
 ## list
 ## list_to_tree
 ## misc
 ## nested_list
+### mtss
+Problem: Find the maximum running sum achievable by accumulating segment sums from a nested list of lists
+max{max sum (segments xs) | xs in xss}
+
+### pyramid_intervals
+Problem: Return true if max - min of a list within a list of lists is in order
+forall i . i in 1..xss and max(xss[i-1]) - min(xss[i-1]) < max(xss[i]) - min(xss[i])
+
 ## numbers
 ## ptree
 ## sorted_list
 ## tailopt
+Optimize simple tail recursion
 ## terms
 ## tree
 ## treepaths
 ## unimodal_lists
 ## zipper
+
+Rest of above are mostly tree based, which is not really the intended use case of sets anyhow. Perhaps we should consider nested sets as trees in this case? Half of these tree optimizations require constraints on the repr too, like a BST
 
 # Rosetta code
 ## Birthday problem
