@@ -114,7 +114,7 @@ return True
 ```
 
 Derivation:
-.# This one would require a reverse iteration (len(xs) .. 0) if we wanted to follow the above derivation. Alternatively, we could try reversing the indices
+This one would require a reverse iteration (len(xs) .. 0) if we wanted to follow the above derivation. Alternatively, we could try reversing the indices:
 ```
 all i . i in 0 .. len(xs) and (xs[i] == 1) ==> 0 not in xs[:i]
 ~>
@@ -133,7 +133,9 @@ return not does_one_occur_after_zero
 Problem: Find the second minimum of a set (list) of elements
 
 Nice form:
+```
 min(S - {min(S)})
+```
 
 Optimized form:
 ```python
@@ -149,6 +151,7 @@ for x in S:
 ```
 
 Derivation:
+```
 min(S - {min(S)})
 ~>
 min x . x in S and x != min(S)
@@ -198,6 +201,7 @@ for x in S:
     if x < min2:
         min2 = x # x != min1 guaranteed since we have uniqueness and min1 would have been caught by the prior if statement
 return min2
+```
 
 But how useful is this to generalization? We need to be able to write tuple transformations within our set comprehension. We should be asking how min(S - {min(S)}) relates to min(S)
 
@@ -205,6 +209,7 @@ Trying another derivation:
 min(S - {min(S)})
 
 Tupled form of minimum:
+```
 min(S) = m where m = choice(S) and forall x . x in S | m <= x
 ~>
 m1 = inf
@@ -212,7 +217,9 @@ for x in S:
     if x <= m1:
         m1 = x
 return m1
+```
 
+```
 sndmin(S) = (m1, m2)[1] where m1 = choice(S) and m2 = choice(S) and forall x . x in S and m1 <= x and (x > m1 ==> m1 < m2 <= x)
 ~>
 m1, m2 = inf, inf
@@ -221,13 +228,17 @@ for x in S:
         m1, m2 = x, m1 # but how can we know to compute snd min if the fst min changes
     else if m1 < x < m2:
         m1, m2 = m1, x
+```
 After reading the Tupling Calculation Eliminates Multiple Data Traversals paper, it seems like the function we really want is:
+```
 fold(f, xs) where f =
     if x < m1: (x, m1)
     elif x < m2: (m1, x)
     else: (m1, m2)
+```
 
 With f, then we can do:
+```
 min(S - min(S))
 ~>
 fold(min, S - fold(min,S))
@@ -239,14 +250,20 @@ fold(min, S - fold(min,S))
 for x in S:
     m1 = best min known yet
     m2 = best min known yet that is greater than m1
+```
 
 It really seems like for 2nd min, 3rd min, etc, the general problem might be easier. So instead we can do:
+```
 min(n, S) = sort(S)[n]
+```
 
-nth min is fundamentally recursive
+The nth min is fundamentally recursive:
+```
 min(n,S) = min(S - union i in 0..n | min(i,S)
+```
 this would use a list as our accumulator - sort the nth minimum elems
-
+Optimized form:
+```
 accumulator = []
 for x in S:
     for i in 0..acc:
@@ -254,6 +271,7 @@ for x in S:
             acc[i], acc[i+1:n-1] := x, acc[i:n-2] # chop off the last elem when we push the new min
             exit inner loop
 return acc[n-1]
+```
 
 - this is 0(nlen(S)), we sort the first n elems through insertion sort
 - min(n,S) = sort(S)[n] # but we only have to sort up to n or |S|-n elems (can estimate direction to iterate based on traits). sort elements lazily as needed. TODO figure out how to write sort(S) as a set theory expr then apply n to get this rewrite. sort(S) will necessarily create a new list since a set cannot be ordered
@@ -290,7 +308,9 @@ Extension: n-min?
 Problem: Convert an array of single-digit ints into a number (ex. [1,2,3] -> 123)
 
 Nice form:
+```
 sum i . i in 0 .. len(xs) | xs[i] * (10 ** i)
+```
 
 Optimized form:
 ```python
@@ -304,7 +324,17 @@ return ret
 Problem: Calculate the average of a set of numbers
 
 Nice form:
+```
 sum(S) / card(S)
+```
+
+Derivation:
+```
+(sum x . x in S) / (count x . x in S)
+~>
+sum_, count_ := 0, 0
+(iter x . x in S | sum_ += x) / (iter x . x in S | count += 1)
+```
 
 Optimized form:
 ```python
