@@ -6,7 +6,9 @@ The following examples were taken from the SuFu repository
 Problem: Does a list contain a 0 that appears after at least 1
 
 Nice form:
+```
 exists i . i in 0 .. len(xs) and xs[i] == 0 and 1 in xs[:i]
+```
 
 Optimized form:
 ```python
@@ -20,6 +22,7 @@ return False
 ```
 
 Derivation:
+```
 exists i . i in 0 .. len(xs) and xs[i] == 0 and 1 in xs[i:]
 ~>
 for i in 0 .. len(xs):
@@ -63,7 +66,7 @@ for x in xs:
     if x == 1 and if_statement_activated:
         return True
 return False
-
+```
 
 Optimized form (bitvector):
 ```python
@@ -75,9 +78,11 @@ return not xs and xs << 1
 Problem: Do all 1s occur before all 0s in a list xs: list[0 | 1]
 
 Nice form:
+```
 all i . i in 0 .. len(xs) and (xs[i] == 0) ==> 1 not in xs[i:]
 == not (exists i . i in 0 .. len(xs) and x[i] == 0 and 1 in x[i:])
 all i . i in 0 .. len(xs) and (xs[i] == 1) ==> 0 not in xs[:i]
+```
 
 Optimized form (iterative):
 ```python
@@ -92,6 +97,7 @@ return True
 ```
 
 Derivation:
+```
 all i . i in 0 .. len(xs) and (xs[i] == 0) ==> 1 not in xs[i:]
 ~>
 not exists i . i in 0 .. len(xs) and not ((xs[i] == 0) ==> 1 not in xs[i:])
@@ -105,13 +111,15 @@ for i in 0 .. len(xs):
         return False
 return True
 ~> ... follow steps above
+```
 
 Derivation:
 .# This one would require a reverse iteration (len(xs) .. 0) if we wanted to follow the above derivation. Alternatively, we could try reversing the indices
+```
 all i . i in 0 .. len(xs) and (xs[i] == 1) ==> 0 not in xs[:i]
 ~>
 all i . i in 0 .. len(xs) and (xs[i] == 0) ==> 1 not in xs[i:] # prefer the xs[i:] form for forward iteration
-
+```
 
 
 Optimized form (bitvector):
