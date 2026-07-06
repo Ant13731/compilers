@@ -19,6 +19,52 @@ for x in xs:
 return False
 ```
 
+Derivation:
+exists i . i in 0 .. len(xs) and xs[i] == 0 and 1 in xs[i:]
+~>
+for i in 0 .. len(xs):
+    if xs[i] == 0 and 1 in xs[i:]: # efficient only if we can reinterpret xs as a set (which is probably costly...)
+        return True
+return False
+~>
+for i in 0 .. len(xs):
+    if xs[i] == 0:
+        if 1 in xs[i:]:
+            return True
+return False
+~>
+for i in 0 .. len(xs):
+    if xs[i] == 0: # Observation: when we enter this if statement, we don't really need to check future iterations of i (we already loop over the rest of the list inside the if statement)
+        for x in xs[i:]:
+            if x == 1:
+                return True
+return False
+~>
+for i in 0 .. len(xs):
+    if xs[i] == 0:
+        for x in xs[i:]:
+            if x == 1:
+                return True
+        return False # this derivation is now linear instead of quadratic
+return False
+~>
+if_statement_activated = False
+for i in 0 .. len(xs):
+    if xs[i] == 0:
+        if_statement_activated = True
+    if xs[i] == 1 and if_statement_activated:
+        return True
+return False
+~>
+if_statement_activated = False
+for x in xs:
+    if x == 0:
+        if_statement_activated = True
+    if x == 1 and if_statement_activated:
+        return True
+return False
+
+
 Optimized form (bitvector):
 ```python
 # if this condition is satisfied, there would be a 01 next to each other in that order
@@ -29,19 +75,44 @@ return not xs and xs << 1
 Problem: Do all 1s occur before all 0s in a list xs: list[0 | 1]
 
 Nice form:
-all i . i in 0 .. len(xs) and (xs[i] == 1) ==> 0 xs[i:]
+all i . i in 0 .. len(xs) and (xs[i] == 0) ==> 1 not in xs[i:]
+== not (exists i . i in 0 .. len(xs) and x[i] == 0 and 1 in x[i:])
+all i . i in 0 .. len(xs) and (xs[i] == 1) ==> 0 not in xs[:i]
 
 Optimized form (iterative):
 ```python
 seen_zero = False
 for x in xs:
-    if x == 1 and seen_zero:
-        return False
     # Only care about numbers once we see a zero
     if x == 0:
         seen_zero = True
+    if x == 1 and seen_zero:
+        return False
 return True
 ```
+
+Derivation:
+all i . i in 0 .. len(xs) and (xs[i] == 0) ==> 1 not in xs[i:]
+~>
+not exists i . i in 0 .. len(xs) and not ((xs[i] == 0) ==> 1 not in xs[i:])
+~>
+not exists i . i in 0 .. len(xs) and not not ((xs[i] == 0) and not 1 not in xs[i:])
+~>
+not exists i . i in 0 .. len(xs) and xs[i] == 0 and 1 in xs[i:]
+~>
+for i in 0 .. len(xs):
+    if xs[i] == 0 and 1 in xs[i:]:
+        return False
+return True
+~> ... follow steps above
+
+Derivation:
+.# This one would require a reverse iteration (len(xs) .. 0) if we wanted to follow the above derivation. Alternatively, we could try reversing the indices
+all i . i in 0 .. len(xs) and (xs[i] == 1) ==> 0 not in xs[:i]
+~>
+all i . i in 0 .. len(xs) and (xs[i] == 0) ==> 1 not in xs[i:] # prefer the xs[i:] form for forward iteration
+
+
 
 Optimized form (bitvector):
 ```python
@@ -68,6 +139,99 @@ for x in S:
     if x < min2:
         min2 = x
 ```
+
+Derivation:
+min(S - {min(S)})
+~>
+min x . x in S and x != min(S)
+~>
+min2 = inf
+for x in S:
+    if x < min2 and x != min(S):
+        min2 = x
+return min2
+~>
+min2 = inf
+for x in S:
+    if x < min2:
+        if x != min(S)
+            min2 = x
+return min2
+~>
+min2 = inf
+for x in S:
+    if x < min2:
+        min1 = inf
+        for x_ in S:
+            if x_ < min1:
+                min1 = x_
+        if x != min1:
+            min2 = x
+return min2
+~>
+min1 = inf
+min2 = inf
+for x in S:
+    for x_ in S:
+        if x_ < min1:
+            min1 = x_
+    if x < min2:
+        if x != min1:
+            min2 = x
+return min2
+~>
+min1 = inf
+min2 = inf
+for x in S:
+    if x < min1:
+        min2 = min1 # x != min1 guaranteed since we reassign it later
+        min1 = x
+        continue
+    if x < min2:
+        min2 = x # x != min1 guaranteed since we have uniqueness and min1 would have been caught by the prior if statement
+return min2
+
+But how useful is this to generalization? We need to be able to write tuple transformations within our set comprehension. We should be asking how min(S - {min(S)}) relates to min(S)
+
+Trying another derivation:
+min(S - {min(S)})
+
+Tupled form of minimum:
+min(S) = m where m = choice(S) and forall x . x in S | m <= x
+~>
+m1 = inf
+for x in S:
+    if x <= m1:
+        m1 = x
+return m1
+
+sndmin(S) = (m1, m2)[1] where m1 = choice(S) and m2 = choice(S) and forall x . x in S and m1 <= x and (x > m1 ==> m1 < m2 <= x)
+~>
+m1, m2 = inf, inf
+for x in S:
+    if x < m1:
+        m1, m2 = x, m1 # but how can we know to compute snd min if the fst min changes
+    else if m1 < x < m2:
+        m1, m2 = m1, x
+After reading the Tupling Calculation Eliminates Multiple Data Traversals paper, it seems like the function we really want is:
+fold(f, xs) where f =
+    if x < m1: (x, m1)
+    elif x < m2: (m1, x)
+    else: (m1, m2)
+
+With f, then we can do:
+min(S - min(S))
+~>
+fold(min, S - fold(min,S))
+~> # How do we bridge this gap?
+fold(f, S)
+
+fold(min, S - fold(min,S))
+~>
+for x in S:
+    m1 = best min known yet
+    m2 = best min known yet that is greater than m1
+
 
 ### 3rd-min.f
 Problem: Find the third minimum of a set (list) of elements
@@ -448,3 +612,18 @@ possible_birthdays = card({p |-> d . p |-> d in 1..n -> 1..365 | p |-> d})
 possible_birthdays_without_collisions = card(i,j . i in 0..card(bdays) and j in 0..card(bdays) and i != j ==> bdays[i] != bdays[j] | i |-> bdays[i])
 birthday_problem(birthdays) = 1 - possible_birthdays_without_collisions / possible_birthdays
 
+# Misc
+## Graph problems
+Common problems related to graphs:
+- find a cycle in a graph
+- topological sort
+- find connected components
+- BFS, DFS
+- Is a graph bipartite?
+- Shortest path
+- Max flow of a weighted directed graph
+
+Notation:
+- just use relations for directed graphs (bidirectional hashmap): {0 |-> 1, 1 |-> 0, 2 |-> 3}
+- undirected graphs (can always rewrite to only use one-direction hashmap): {0 |-> 1, 2 |-> 3}
+- weighted directed graph could tag weight metadataa onto the bihashmap (like 0 |-> (1, 5)) or use a set of records
