@@ -232,6 +232,24 @@ for x in S:
     m1 = best min known yet
     m2 = best min known yet that is greater than m1
 
+It really seems like for 2nd min, 3rd min, etc, the general problem might be easier. So instead we can do:
+min(n, S) = sort(S)[n]
+
+nth min is fundamentally recursive
+min(n,S) = min(S - union i in 0..n | min(i,S)
+this would use a list as our accumulator - sort the nth minimum elems
+
+accumulator = []
+for x in S:
+    for i in 0..acc:
+        if x < acc[i]:
+            acc[i], acc[i+1:n-1] := x, acc[i:n-2] # chop off the last elem when we push the new min
+            exit inner loop
+return acc[n-1]
+
+- this is 0(nlen(S)), we sort the first n elems through insertion sort
+- min(n,S) = sort(S)[n] # but we only have to sort up to n or |S|-n elems (can estimate direction to iterate based on traits). sort elements lazily as needed. TODO figure out how to write sort(S) as a set theory expr then apply n to get this rewrite. sort(S) will necessarily create a new list since a set cannot be ordered
+- n < log(len(S)) otherwise sorting the entire list is probably better for runtime (but not for memory if input is a set since we would need to create a new obj)
 
 ### 3rd-min.f
 Problem: Find the third minimum of a set (list) of elements
