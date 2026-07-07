@@ -334,6 +334,8 @@ Derivation:
 ~>
 sum_, count_ := 0, 0
 (iter x . x in S | sum_ += x) / (iter x . x in S | count += 1)
+~> # can extract two iters separated by an effectless expr?
+fold(division, iter x . x in S | sum_,count += x,1)
 ```
 
 Optimized form:
