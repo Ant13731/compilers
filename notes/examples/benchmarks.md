@@ -332,10 +332,21 @@ Derivation:
 ```
 (sum x . x in S) / (count x . x in S)
 ~>
-sum_, count_ := 0, 0
-(iter x . x in S | sum_ += x) / (iter x . x in S | count += 1)
-~> # can extract two iters separated by an effectless expr?
-fold(division, iter x . x in S | sum_,count += x,1)
+(iter x in S : c := 0 | c += x) // iterator : initializer | updater
+/
+(iter x in S : c := 0 | c += 1)
+~>
+sum_, count_ := iter x in S : c_1, c_2 := 0,0 | c_1, c_2 += x, 1
+sum_ / count_
+~>
+c_1 := 0
+c_2 := 0
+for x in S:
+    c_1 += x
+    c_2 += 1
+sum_ = c_1
+count_ = c_2
+sum_ / count_
 ```
 
 Optimized form:
@@ -352,9 +363,53 @@ return sum_ / card_
 Problem: Does the balance of numbers ever dip below zero when iterating in order?
 
 Nice form:
+```
 all(map \x -> x > 0 (map sum (heads xs)))       // map sum heads is basically scan sum
 ==
-forall i . i in 0 .. len(xs) and sum(xs[i]) > 0
+forall i . i in 0 .. len(xs) and sum(xs[:i]) > 0
+```
+
+Derivation:
+```
+all(map \x -> x > 0 (map sum (heads xs)))
+~>
+forall x in heads(S) | sum(x) > 0
+~>
+forall i in 0 .. len(S) | sum(S[:i]) > 0
+~>
+forall i in 0 .. len(S) | sum x in S[:i] > 0
+~>
+forall i in 0 .. len(S) | sum_fc x in S[:i] > 0
+```
+
+Derivation (attempt with iter init update form):
+```
+all(map \x -> x > 0 (map sum (heads xs)))
+~>
+forall x in heads(S) | sum(x) > 0
+~>
+forall i in 0 .. len(S) | sum(S[:i]) > 0
+~>
+forall i in 0 .. len(S) | sum x in S[:i] > 0
+~> // also mark r as the return value we care about (so we know to exit early whenever it becomes false)
+iter i in 0 .. len(S) : r := true | (iter x in S[:i] : c := 0 | c += x) > 0
+~>
+iter i in 0 .. len(S) : r := true | (iter j in 0 .. i : c := 0 | c += S[i]) > 0
+~> // j is a subset of i, and r is updated only after the latest c is calculated
+iter i in 0 .. len(S): c,r := 0, true | c += S[i]; r := r and c > 0
+~>
+iter x in S: c,r := 0, true | c += x; r := r and c > 0
+~>
+c := 0
+r := true
+for x in S:
+    c += x
+    r := r and c > 0
+    // How can we make the exit-early observation? We know r is the only return value we really care about
+    // and if r is false, the rest of the iterations will always be false...
+
+```
+
 
 Optimized form:
 ```python
@@ -371,10 +426,16 @@ Does this benchmark have a bug? `f h cnt t` instead of `f h pre t`?
 Problem: Count the number of times 0,1 appears in the list
 
 Nice form:
+```
 // count == count the number of true values there are, from gries science of programming
 count(i . i in 1 .. len(xs) and (xs[i-1], xs[i]) == (0,1))
+// This translates pretty directly
+```
 
-Haskell way would be: length [() | (0,1) <- zip xs (tail xs)]
+Haskell way would be:
+```
+length [() | (0,1) <- zip xs (tail xs)]
+```
 
 Optimized form:
 ```python
@@ -400,7 +461,17 @@ Likely another flag/FSM
 Problem: Count the number of positive elements before the first negative element
 
 Nice form:
+```
 count i . i in 0 .. len(xs) and (forall x . x in xs[:i] and x > 0)
+~>
+count i . i in 0 .. len(xs) and (forall j in 0 .. i | xs[i] > 0)
+~>
+iter i in 0 .. len(xs) : c := 0 | if (iter j in 0 .. i : r := true | r := r and xs[i] > 0): c += 1
+~>
+iter i in 0 .. len(xs) : r, c := true, 0 | r := r and xs[i] > 0; if r: c += 1
+~>
+iter i in 0 .. len(xs) : c := 0 | if xs[i] < 0: return c else: c += 1
+```
 
 Optimized form:
 ```python
@@ -416,7 +487,16 @@ return positive_nums_before_first_negative
 Problem: Check if a list is sorted (strictly increasing each element though)
 
 Nice form:
+```
 forall i . i in 1..len(xs) and xs[i-1] < xs[i]
+// Need a rule that knows when iters should terminate early... could explore cases of possible options?
+~>
+iter i in 1..len(xs) : r := true | r := true and xs[i-1] < xs[i]
+~>
+iter i in 1..len(xs) : r := true | if xs[i-1] > xs[i]: r := False
+~> // and if r is false, then iteration terminates
+iter i in 1..len(xs) : r := true | if xs[i-1] > xs[i]: (r := false; return)
+```
 
 Optimized form:
 ```python
@@ -432,6 +512,7 @@ How can we know to exit early...
 Problem: Find the maximum sum of contiguous positive numbers
 
 Nice form:
+```
 max(
     map(
         sum,
@@ -443,6 +524,7 @@ max(
 )
 ==
 max(s . s in inits(tails(xs)) and is_sorted(x) and all_positive(x) | sum(s))
+```
 
 Optimized form:
 ```python
@@ -455,6 +537,26 @@ for x in xs:
         current_sum = 0
     max_sum = max(max_sum, current_sum)
 return max_sum
+```
+
+More general form (without positive restriction)
+Problem: Find the max sum of contiguous numbers
+
+Nice form:
+```
+max(map sum inits(tails xs))
+==
+max s in inits(tails(xs)) | sum(s)
+```
+
+Optimized form:
+```python
+current = xs[0]
+best = xs[0]
+for x in xs[1:]:
+    current = max(x, current + x)
+    best = max(best, current)
+return best
 ```
 
 ### length.f
