@@ -543,10 +543,46 @@ More general form (without positive restriction)
 Problem: Find the max sum of contiguous numbers
 
 Nice form:
-```
-max(map sum inits(tails xs))
+<!-- max(map sum inits(tails xs))
 ==
 max s in inits(tails(xs)) | sum(s)
+==
+max s in segments(xs) | sum(s)
+~>
+iter s in segments(xs) : m := -inf | m := max(m, sum(s))
+~>
+iter s in inits(tails(xs)) : m := -inf | m := max(m, sum(s))
+~>
+iter i in 0..len(tails(xs)) : m := -inf | m := max(m, sum(tails(xs)[:i]))
+
+// Somehow we need to make the observation that we dont really want to consider all heads of tails - only the best head from each tail
+max i in 0..len(xs), j in 0..len(xs) | (sum k in i..j | xs[k])
+~>
+
+...
+max i in 0..len(xs) | max(xs[i], (max j in 0..i | sum(xs[j:i])) + xs[i])
+~>
+max i in 0..len(xs) | max(xs[i], mss(xs[:i]) + xs[i]) // are we sure this is right?
+~>
+max x in xs : c := -inf | c := max(x, c + x); c
+~>
+iter x in xs : current, best := -inf, -inf | c := max(x, c + x); b = max(b, c)
+
+max s in tails(heads(xs)) | sum(s)
+~>
+max i in len(xs)..0 | max s in heads(xs) | sum(s)
+~> -->
+
+```
+max i in 0..len(xs), j in 0..i | sum(xs[j:i])
+~>
+max i in 0..len(xs) | (max j in 0..i | sum(xs[j:i]))
+~> // max prefix sum up to i, over all i. use mts-like derivation
+max i in 0..len(xs) | (iter j in 0..i: r := -inf | r := max(xs[j],r + xs[j]))
+~> // j is iterating over the same values as i, with potential repeated computations
+// well theres no actual reason j needs to start at 0 every time - can just compute the j instance along the way as the outer max. it can be represented by one number
+// we essentially want to save the best value of this j sum (on the fly) - best suffix over all prefixes
+max i in 0..len(xs) : r,m := -inf, -inf | r := max(xs[j], r + xs[j]); m := max(m, r)
 ```
 
 Optimized form:
@@ -578,6 +614,7 @@ max_with_function(
 Problem: max len of segment if the segment length is odd
 
 Nice form:
+```
 max(
     map(sum,
         filter(
@@ -586,9 +623,12 @@ max(
         )
     )
 )
+```
 
 // From chatgpt
+```
 max { sum(S) | S ⊆ xs, S is a subsequence, |S| is odd }
+```
 
 ### Skipping from logest00s to mps_p
 ### mps/mss?
@@ -597,7 +637,9 @@ Problem: maximum subarray sum (similar to mts)
 Problem: max of any subsequence product from any position in the list
 
 Nice form:
+```
 max (map product (tails xs))
+```
 
 The other max subseq/prefix benchmarks seem to follow this style - Kadane's algorithm
 ## lsp?
@@ -605,10 +647,12 @@ Longest Subsequence Property search
 - longest subsequence satisfying a predicate
 
 Nice form:
+```
 maxWith(
     lambda t: number to judge t's longest/maximum,
     subsequences(xs)
 )
+```
 
 ## segment-tree
 Reiterations of the previous problems but using a segment tree to divvy up info about the collection (basically a data structure/tree of subsections of the list that allow for faster querying on part of the list)
