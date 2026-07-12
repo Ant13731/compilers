@@ -668,18 +668,44 @@ Problem: max achievable subarray sum. has two separate counters (like relu but f
 Problem: tri-sum
 
 Nice form:
-// [a,b,c]
+```
+// [a,b,c] becomes
 // [(a,0) (a,1) (a,2) (b,1) (b,2) (c,2)]
 tri xs = flatmap (\x,ts -> map \t -> (t, x) ts) (enumerate (tails xs))
 sum (map product (tri xs))
 ==
 tri xs = {i,d . i in 0..len(xs) and depth in 0..i | (xs[i], d)}
 trisum xs = sum i,d . i in 0..len(xs) and depth in 0..i | xs[i] * d
+```
+
+Derivation:
+```
+sum i,d . i in 0..len(xs) and depth in 0..i | xs[i] * d
+~>
+sum i,d . i in 0..len(xs) | (sum d in 0 .. i | xs[i] * d)
+~> // d can be replaced with closed form series values since multiplication distributes addition
+sum i,d . i in 0..len(xs) | xs[i] * (sum d in 0 .. i | d)
+~>
+sum i . i in 0..len(xs) | xs[i] * (i * (i + 1) / 2)
+```
+
+Optimized form:
+```python
+total = 0
+i = 0
+for x in xs:
+    total += x * i * (i + 1) // 2
+    i += 1
+return total
+```
 
 ### page58
+
+```
 tri_op f xs = {i,d . i in 0..len(xs) and depth in 0..i | f(xs[i], d)}
 ==
 sum i,d . i in 0..len(xs) and depth in 0..i | f(xs[i], d)
+```
 
 ### page60
 finding height of a tree structure
@@ -689,34 +715,48 @@ Same as atoi with validation
 
 ## deforestation
 ### page7-1
+```
 sum(map square (1..n))
+```
 ### page7-2
 sum square but tree version
 
 ## identities
 ### page3
+```
 min (map max xs)
+```
 
 ### page5
+```
 sum (map product (tails xs))
+```
 
 ### page6
+```
 segments = flatmap inits (tails xs)
 max(map sum (segments xs))
+```
 
 ## shortcut
 ### page1
+```
 all (map p xs)
+```
 ### page3
+```
 sum(a..b)
+```
 
 ### page7
 basically average
 
 ### page8
+```
 // placement is the solution set
 queens n = {placement . placement in powerset(n >< n) and card(placement)==n and is_bijection(placement) and safe(placement) | placement}
 safe placement = forall pos1, pos2 in placement | pos1 != pos2 ==> abs(pos1.row - pos2.row) != abs(pos1.col - pos2.col)
+```
 
 Optimized form:
 ```python
@@ -750,15 +790,19 @@ fib(n) = ...
 # synduce
 ## combine
 ### mss_with_sum
+```
 max (map sum (segments xs))
+```
 ## compressed_list
 ## constraints
 ### alist/count_eq
 Problem: count the number of occurrences of a number in a list if it is unique
 
 Nice form (can specifically optimize this existence question to sets very well):
+```
 if is_unique xs then contains w xs else 0
 contains w = w in xs
+```
 
 This problem may be specifically about exiting loops early (it stops recursing when we know that w in xs)
 
@@ -777,7 +821,9 @@ Most of the files in this section are about exiting early assuming some property
 ## expressions
 ### max_subexpr_sum
 Problem: find the max value of an expression subtree
+```
 max { evaluate(x) | x is a subtree of xs}
+```
 
 ## indexed_list
 ## list
@@ -786,11 +832,15 @@ max { evaluate(x) | x is a subtree of xs}
 ## nested_list
 ### mtss
 Problem: Find the maximum running sum achievable by accumulating segment sums from a nested list of lists
+```
 max{max sum (segments xs) | xs in xss}
+```
 
 ### pyramid_intervals
 Problem: Return true if max - min of a list within a list of lists is in order
+```
 forall i . i in 1..xss and max(xss[i-1]) - min(xss[i-1]) < max(xss[i]) - min(xss[i])
+```
 
 ## numbers
 ## ptree
@@ -811,10 +861,12 @@ Problem: What is the probability that 2 people share a common birthday?
 Alt: Do two people share a common birthday? Equivalent to asking if a total functional relation is a bijection
 
 Nice form:
+```
 birthdays: People -> Date
 possible_birthdays = card({p |-> d . p |-> d in 1..n -> 1..365 | p |-> d})
 possible_birthdays_without_collisions = card(i,j . i in 0..card(bdays) and j in 0..card(bdays) and i != j ==> bdays[i] != bdays[j] | i |-> bdays[i])
 birthday_problem(birthdays) = 1 - possible_birthdays_without_collisions / possible_birthdays
+```
 
 # Misc
 ## Graph problems
@@ -828,6 +880,6 @@ Common problems related to graphs:
 - Max flow of a weighted directed graph
 
 Notation:
-- just use relations for directed graphs (bidirectional hashmap): {0 |-> 1, 1 |-> 0, 2 |-> 3}
-- undirected graphs (can always rewrite to only use one-direction hashmap): {0 |-> 1, 2 |-> 3}
-- weighted directed graph could tag weight metadataa onto the bihashmap (like 0 |-> (1, 5)) or use a set of records
+- just use relations for directed graphs (bidirectional hashmap): `{0 |-> 1, 1 |-> 0, 2 |-> 3}`
+- undirected graphs (can always rewrite to only use one-direction hashmap): `{0 |-> 1, 2 |-> 3}`
+- weighted directed graph could tag weight metadata onto the bihashmap (like `0 |-> (1, 5)`) or use a set of records
