@@ -707,19 +707,19 @@ tri_op f xs = {i,d . i in 0..len(xs) and depth in 0..i | f(xs[i], d)}
 sum i,d . i in 0..len(xs) and depth in 0..i | f(xs[i], d)
 ```
 
-### page60
+<!-- ### page60
 finding height of a tree structure
 
 ### page62
-Same as atoi with validation
+Same as atoi with validation -->
 
 ## deforestation
 ### page7-1
 ```
 sum(map square (1..n))
 ```
-### page7-2
-sum square but tree version
+<!-- ### page7-2
+sum square but tree version -->
 
 ## identities
 ### page3
@@ -755,10 +755,151 @@ basically average
 ```
 // placement is the solution set
 queens n = {placement . placement in powerset(n >< n) and card(placement)==n and is_bijection(placement) and safe(placement) | placement}
-safe placement = forall pos1, pos2 in placement | pos1 != pos2 ==> abs(pos1.row - pos2.row) != abs(pos1.col - pos2.col)
+safe placement = forall pos1, pos2 in placement >< placement | pos1 != pos2 ==> abs(pos1.row - pos2.row) != abs(pos1.col - pos2.col)
 ```
 
-Optimized form:
+<!--
+forall pos1, pos2 in placement | pos1 != pos2 ==> abs(pos1.row - pos2.row) != abs(pos1.col - pos2.col)
+
+
+{placement . placement in powerset(n >< n) and card(placement)==n and is_bijection(placement) and safe(placement) | placement}
+~> // cardinality == n, so placement must be a subset of {_ |-> _} of len n
+{placement . placement in powerset_with_size(n, 0..n >< 0..n) and is_bijection(placement) and safe(placement) | placement}
+~>
+{placement . placement in powerset_with_size(n, 0..n >< 0..n) and is_bijection(placement) and safe(placement) | placement}
+
+~> // now lets tackle safety pruning
+{placement . placement in 0..n <- -> 0..n and (forall pos1, pos2 in placement | pos1 != pos2 ==> abs(pos1.row - pos2.row) != abs(pos1.col - pos2.col)) | placement}
+
+
+...
+~> // the optimal solution is built on the observation that we can start with a valid n-1 partial placement and attempt to extend it
+nqueens(n, current_row=0, placement={}) =
+    if current_row == n:
+        return {placement}
+    else:
+        return union c in 0..n and safe(placement \/ {(current_row, c)}) | nqueens(n, current_row+1, placement \/ {(current_row, c)})
+~>
+
+
+
+{x | x in P(0..n) and card(x) == n}
+~>
+{x | x in powerset_with_size(n, 0..n)}
+// eg. let n == 3: then powerset_with_size(3, 0..3 >< 0..3) ==
+(0,0) (0,1) (0,2)
+(0,0) (0,1) (1,0)
+(0,0) (0,1) (1,1)
+(0,0) (0,1) (1,2)
+...
+powerset_with_size = {x in P(S) and card(x) == n | x}
+powerset_with_size(n, S) = {x in S and y in powerset_with_size(n-1, S - {x}) | {x} \/ y} \/ powerset_with_size(n-1, S - {x})
+-->
+
+Derivation:
+
+Maybe we cant generate the backtracking solution directly, but we can surely improve upon generating all powersets of (n >< n). We know that the solution has to have the constraints on cardinality and bijection at a minimum, so, lets first define a form for bijection:
+```
+0..n <--> 0..n
+~>
+bijection(x: int=n, Y: set=0..n, current_bijection: set[<-/->]={}) =
+    if x == 0: // no xs left
+        return {current_bijection}
+
+    return union y in Y | bijection(x-1, Y - {y}, current_bijection \/ {(n,y)})
+
+X <--> Y
+~>
+bijection(X, Y, current_bijection={}) =
+    if X == {}:
+        return {current_bijection}
+    x = choose(X)
+    return union y in Y | bijection(X - {x}, Y - {y}, current_bijection \/ {(x,y)})
+==
+bijection(X, Y, current_bijection={}) =
+    if X == {}:
+        return {current_bijection}
+
+    x = choose(X)
+    extended_current_bijections = {}
+    for y in Y:
+        result = result \/ bijection(X - {x}, Y - {y}, current_bijection \/ {(x,y)})
+    return result
+```
+
+Then a possible derivation:
+```c
+{placement . placement in powerset(n >< n) and is_bijection(placement) and safe(placement) | placement}
+~> // cardinality implied by bijection's totality. <--> generates bijections between two sets. although niche, we can always observe this relationship between powerset, cartesian product, and bijection
+{placement . placement in 0..n <--> 0..n and safe(placement) | placement}
+~> // we need to partially consider only valid solutions - use a recursive formulation of bijection to build partial solutions
+bijection_with_constraints(X=0..n, Y=0..n, current_bijection={}) =
+    if X == {}:
+        return {current_bijection}
+    x = choose(X)
+    return union y in Y and safe(current_bijection \/ {(x,y)})| bijection(X - {x}, Y - {y}, current_bijection \/ {(x,y)})
+- OR -
+bijection_ordered_with_constraints(x=n, Y=0..n, current_bijection={}) =
+    if x == 0:
+        return {current_bijection}
+    return union y in Y and safe(current_bijection \/ {(n,y)})| bijection(n-1, Y - {y}, current_bijection \/ {(n,y)})
+~>
+bijection_ordered_with_constraints(x=n, Y=0..n, current_bijection={}) =
+    if x == 0:
+        return {current_bijection}
+    return union y in Y and (forall pos1, pos2 in current_bijection \/ {(n,y)} >< current_bijection \/ {(n,y)} | pos1 != pos2 ==> abs(pos1.row - pos2.row) != abs(pos1.col - pos2.col)) | bijection(m-1, Y - {y}, current_bijection \/ {(n,y)})
+~> // but we really only need to check safety of the latest placement, since we can assume all previous placements are already safe...
+bijection_ordered_with_constraints(x=n, Y=0..n, current_bijection={}) =
+    if x == 0:
+        return {current_bijection}
+    return union y in Y and (forall (old_x, old_y) in current_bijection | abs(old_x - x) != abs(old_y - y)) | bijection(m-1, Y - {y}, current_bijection \/ {(n,y)})
+~>
+bijection_ordered_with_constraints(x=n, Y=0..n, current_bijection={}) =
+    if x == 0:
+        return {current_bijection}
+    return union y in Y and (forall (old_x, old_y) in current_bijection | old_x + old_y != x + y or old_x - old_y != x - y) | bijection(m-1, Y - {y}, current_bijection \/ {(n,y)})
+~> // instead of iterating over all the old values, we can store them in a set
+bijection_ordered_with_constraints(x=n, Y=0..n, current_bijection={}, plus_diag={}, minus_diag={}) =
+    if x == 0:
+        return {current_bijection}
+    return union y in Y and x+y not in plus_diag and x-y not in minus_diag | bijection(m-1, Y - {y}, current_bijection \/ {(n,y)}, plus_diag \/ {x+y}, minus_diag \/ {x-y})
+~> // no need to actually hold a set for y. can instead hold a set for the inverse (visited_columns == visited_ys). Do we actually need this though?
+bijection_ordered_with_constraints(x=n, visited_ys={}, current_bijection={}, plus_diag={}, minus_diag={}) =
+    if x == 0:
+        return {current_bijection}
+    return union y in 0..n and y not in visited_ys and x+y not in plus_diag and x-y not in minus_diag | bijection(m-1, visited_ys \/ {y}, current_bijection \/ {(n,y)}, plus_diag \/ {x+y}, minus_diag \/ {x-y})
+==
+nqueens(n, current_row=0, placement={}, cols={}, diag1={}, diag2={}) =
+    if current_row == n:
+        return {placement}
+    return union c in 0..n and c not in cols and current_row + c not in diag1 and current_row - c not in diag2 | nqueens(n, current_row+1, placement \/ {(current_row, c)}, cols \/ {c}, diag1 \/ {row+c}, diag2 \/ {row-c})
+```
+
+Optimized form (all solutions):
+```python
+def queens(row, n, placement, cols, diag1, diag2):
+    if row == n:
+        return [placement]
+    solutions = []
+    for c in range(n):
+        if c not in cols and \
+           row + c not in diag1 and \
+           row - c not in diag2:
+            solutions.extend(
+                queens(
+                    row + 1,
+                    n,
+                    placement | {(row,c)},
+                    cols | {c},
+                    diag1 | {row+c},
+                    diag2 | {row-c}
+                )
+            )
+    return solutions
+```
+
+
+Optimized form (but this only finds one soln of nqueens - we want to look for all solutions):
 ```python
 def safe(cols, r, c):
     for r2, c2 in enumerate(cols):
@@ -787,14 +928,14 @@ Tree - skip
 ### page8
 fib(n) = ...
 
-# synduce
-## combine
+<!-- # synduce
+## combine -->
 ### mss_with_sum
 ```
 max (map sum (segments xs))
 ```
-## compressed_list
-## constraints
+<!-- ## compressed_list
+## constraints -->
 ### alist/count_eq
 Problem: count the number of occurrences of a number in a list if it is unique
 
@@ -825,11 +966,11 @@ Problem: find the max value of an expression subtree
 max { evaluate(x) | x is a subtree of xs}
 ```
 
-## indexed_list
+<!-- ## indexed_list
 ## list
 ## list_to_tree
 ## misc
-## nested_list
+## nested_list -->
 ### mtss
 Problem: Find the maximum running sum achievable by accumulating segment sums from a nested list of lists
 ```
@@ -842,7 +983,7 @@ Problem: Return true if max - min of a list within a list of lists is in order
 forall i . i in 1..xss and max(xss[i-1]) - min(xss[i-1]) < max(xss[i]) - min(xss[i])
 ```
 
-## numbers
+<!-- ## numbers
 ## ptree
 ## sorted_list
 ## tailopt
@@ -851,8 +992,8 @@ Optimize simple tail recursion
 ## tree
 ## treepaths
 ## unimodal_lists
+-->
 ## zipper
-
 Rest of above are mostly tree based, which is not really the intended use case of sets anyhow. Perhaps we should consider nested sets as trees in this case? Half of these tree optimizations require constraints on the repr too, like a BST
 
 # Rosetta code
