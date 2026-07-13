@@ -22,7 +22,7 @@ return False
 ```
 
 Derivation:
-```
+```c
 exists i . i in 0 .. len(xs) and xs[i] == 0 and 1 in xs[i:]
 ~>
 for i in 0 .. len(xs):
@@ -37,7 +37,7 @@ for i in 0 .. len(xs):
 return False
 ~>
 for i in 0 .. len(xs):
-    if xs[i] == 0: # Observation: when we enter this if statement, we don't really need to check future iterations of i (we already loop over the rest of the list inside the if statement)
+    if xs[i] == 0: // Observation: when we enter this if statement, we don't really need to check future iterations of i (we already loop over the rest of the list inside the if statement)
         for x in xs[i:]:
             if x == 1:
                 return True
@@ -48,7 +48,7 @@ for i in 0 .. len(xs):
         for x in xs[i:]:
             if x == 1:
                 return True
-        return False # this derivation is now linear instead of quadratic
+        return False // this derivation is now linear instead of quadratic
 return False
 ~>
 if_statement_activated = False
@@ -97,7 +97,7 @@ return True
 ```
 
 Derivation:
-```
+```c
 all i . i in 0 .. len(xs) and (xs[i] == 0) ==> 1 not in xs[i:]
 ~>
 not exists i . i in 0 .. len(xs) and not ((xs[i] == 0) ==> 1 not in xs[i:])
@@ -151,7 +151,7 @@ for x in S:
 ```
 
 Derivation:
-```
+```c
 min(S - {min(S)})
 ~>
 min x . x in S and x != min(S)
@@ -195,11 +195,11 @@ min1 = inf
 min2 = inf
 for x in S:
     if x < min1:
-        min2 = min1 # x != min1 guaranteed since we reassign it later
+        min2 = min1 // x != min1 guaranteed since we reassign it later
         min1 = x
         continue
     if x < min2:
-        min2 = x # x != min1 guaranteed since we have uniqueness and min1 would have been caught by the prior if statement
+        min2 = x // x != min1 guaranteed since we have uniqueness and min1 would have been caught by the prior if statement
 return min2
 ```
 
@@ -209,7 +209,7 @@ Trying another derivation:
 min(S - {min(S)})
 
 Tupled form of minimum:
-```
+```c
 min(S) = m where m = choice(S) and forall x . x in S | m <= x
 ~>
 m1 = inf
@@ -219,7 +219,7 @@ for x in S:
 return m1
 ```
 
-```
+```c
 sndmin(S) = (m1, m2)[1] where m1 = choice(S) and m2 = choice(S) and forall x . x in S and m1 <= x and (x > m1 ==> m1 < m2 <= x)
 ~>
 m1, m2 = inf, inf
@@ -230,7 +230,7 @@ for x in S:
         m1, m2 = m1, x
 ```
 After reading the Tupling Calculation Eliminates Multiple Data Traversals paper, it seems like the function we really want is:
-```
+```c
 fold(f, xs) where f =
     if x < m1: (x, m1)
     elif x < m2: (m1, x)
@@ -238,7 +238,7 @@ fold(f, xs) where f =
 ```
 
 With f, then we can do:
-```
+```c
 min(S - min(S))
 ~>
 fold(min, S - fold(min,S))
@@ -263,7 +263,7 @@ min(n,S) = min(S - union i in 0..n | min(i,S)
 ```
 this would use a list as our accumulator - sort the nth minimum elems
 Optimized form:
-```
+```python
 accumulator = []
 for x in S:
     for i in 0..acc:
@@ -329,7 +329,7 @@ sum(S) / card(S)
 ```
 
 Derivation:
-```
+```c
 (sum x . x in S) / (count x . x in S)
 ~>
 (iter x in S : c := 0 | c += x) // iterator : initializer | updater
@@ -370,7 +370,7 @@ forall i . i in 0 .. len(xs) and sum(xs[:i]) > 0
 ```
 
 Derivation:
-```
+```c
 all(map \x -> x > 0 (map sum (heads xs)))
 ~>
 forall x in heads(S) | sum(x) > 0
@@ -383,7 +383,7 @@ forall i in 0 .. len(S) | sum_fc x in S[:i] > 0
 ```
 
 Derivation (attempt with iter init update form):
-```
+```c
 all(map \x -> x > 0 (map sum (heads xs)))
 ~>
 forall x in heads(S) | sum(x) > 0
@@ -426,7 +426,7 @@ Does this benchmark have a bug? `f h cnt t` instead of `f h pre t`?
 Problem: Count the number of times 0,1 appears in the list
 
 Nice form:
-```
+```c
 // count == count the number of true values there are, from gries science of programming
 count(i . i in 1 .. len(xs) and (xs[i-1], xs[i]) == (0,1))
 // This translates pretty directly
@@ -461,7 +461,7 @@ Likely another flag/FSM
 Problem: Count the number of positive elements before the first negative element
 
 Nice form:
-```
+```c
 count i . i in 0 .. len(xs) and (forall x . x in xs[:i] and x > 0)
 ~>
 count i . i in 0 .. len(xs) and (forall j in 0 .. i | xs[i] > 0)
@@ -487,7 +487,7 @@ return positive_nums_before_first_negative
 Problem: Check if a list is sorted (strictly increasing each element though)
 
 Nice form:
-```
+```c
 forall i . i in 1..len(xs) and xs[i-1] < xs[i]
 // Need a rule that knows when iters should terminate early... could explore cases of possible options?
 ~>
@@ -573,7 +573,7 @@ max s in tails(heads(xs)) | sum(s)
 max i in len(xs)..0 | max s in heads(xs) | sum(s)
 ~> -->
 
-```
+```c
 max i in 0..len(xs), j in 0..i | sum(xs[j:i])
 ~>
 max i in 0..len(xs) | (max j in 0..i | sum(xs[j:i]))
@@ -679,7 +679,7 @@ trisum xs = sum i,d . i in 0..len(xs) and depth in 0..i | xs[i] * d
 ```
 
 Derivation:
-```
+```c
 sum i,d . i in 0..len(xs) and depth in 0..i | xs[i] * d
 ~>
 sum i,d . i in 0..len(xs) | (sum d in 0 .. i | xs[i] * d)
@@ -799,7 +799,7 @@ powerset_with_size(n, S) = {x in S and y in powerset_with_size(n-1, S - {x}) | {
 Derivation:
 
 Maybe we cant generate the backtracking solution directly, but we can surely improve upon generating all powersets of (n >< n). We know that the solution has to have the constraints on cardinality and bijection at a minimum, so, lets first define a form for bijection:
-```
+```c
 0..n <--> 0..n
 ~>
 bijection(x: int=n, Y: set=0..n, current_bijection: set[<-/->]={}) =
@@ -1024,3 +1024,49 @@ Notation:
 - just use relations for directed graphs (bidirectional hashmap): `{0 |-> 1, 1 |-> 0, 2 |-> 3}`
 - undirected graphs (can always rewrite to only use one-direction hashmap): `{0 |-> 1, 2 |-> 3}`
 - weighted directed graph could tag weight metadata onto the bihashmap (like `0 |-> (1, 5)`) or use a set of records
+
+# Maximum Tail Sum
+Nice form:
+```
+max(map sum (tails xs))
+==
+{i . i in 1..n | sum xs[i:n]}
+```
+
+Library:
+```
+tails(S) = { i . i in 0 .. n | i..n <| S}
+sum(xs) = sum ran(xs) // xs are treated as a relation. Sum doesnt care about order
+```
+
+Derivation:
+```c
+max(map sum tails(xs))
+~>
+max x in tails(xs) | sum(x)
+~>
+max x in {i . i in len(xs)..0 | xs[i:]} | sum(x)
+~>
+max i in len(xs)..0 | sum(xs[i:])
+~>
+max i in len(xs)..0 | sum(j in i..len(xs) | xs[j])
+~>
+max i in len(xs)..0 | sum(j in len(xs)..i | xs[j])
+~>
+max i in len(xs)..0 | (iter j in len(xs)..i : s := 0 | s += xs[j])
+~>
+max i in len(xs)..0 | (iter j in len(xs)..i : s := 0 | s += xs[j])
+~> // overlapping ranges in the same direction
+iter i in len(xs)..0 : s := 0, m := -inf | s += xs[j]; m := max(m, s)
+
+```
+
+Optimized form:
+```python
+mts = 0
+cts = 0
+for i in n..1:
+    cts += xs[i]
+    mts = max(mts, cts)
+return mts
+```
