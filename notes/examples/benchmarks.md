@@ -1070,3 +1070,8 @@ for i in n..1:
     mts = max(mts, cts)
 return mts
 ```
+
+# What did we learn from these benchmarks?
+- tuple folding category of optimizations
+- search space/constraint dynamic programming (n queens)
+- we should try to share nested iterators whenever possible. How can we generalize these rules?
