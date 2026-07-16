@@ -1125,3 +1125,220 @@ Nice form:
 is_input_in_grammar = input_str in {w | S =>* w}
 grammar is a map from input str + var to output str + var
 ``` -->
+
+# Rewrite rules from these examples
+
+Definition of map
+```
+map(f, S)
+~>
+{x . x in S | f(x)}
+```
+
+Definition of fold
+```
+fold(<+>, S)
+~>
+<+> x . x in S | f(x)
+```
+
+Definition of tails
+```
+tails(S)
+~>
+{i . i in len(S)..0 | S[i:]}
+```
+
+List slicing
+```
+xs[i:]
+~>
+domain_subtraction(xs, 0..i)
+```
+
+List slicing
+```
+xs[:i]
+~>
+domain_subtraction(xs, i..len(xs))
+```
+
+Fold implementation with accumulators
+```c
+<+> x . x in S | f(x)
+~>
+iter x in S : c := identity(<+>) | c := <+>(c, f(x))
+// c is the value returned from the iter expression
+```
+
+Comprehension iteration
+```
+<+> x . x in S | f(x)
+~>
+<+> i . i in 0..len(S) | f(S[i])
+```
+
+Collapsing accumulators
+```
+iter i in 0..len(S) : c1 := id(<+>) | c1 <+>=
+    (iter j in 0..i : c2 := id(<x>) | c2 <x>= f(S[j]))
+~>
+iter i in 0..len(S) : c2 := id(<x>); c1 := id(<+>) | c2 <x>= f(S[i]); c1 <+>= c2
+```
+
+Collapsing accumulators
+```
+iter i in 0..len(S) : c1 := id(<+>) | c1 <+>= f(S[i]) <?>
+    (iter j in i..len(S) : c2 := id(<x>) | c2 <x>= g(S[j]))
+~>
+iter i in 0..len(S) : c1 := id(<+>); c2 := id(<x>) | c1 <+>= f(S[i]); c2 <x>= c1 <?> g(S[i])
+```
+
+Set membership with list
+```
+e in S
+~>
+exists x . x in S | e = x
+```
+
+Early return for exists impl
+```
+iter x in S : r := False | r := r or f(x)
+~>
+iter x in S : r := False | if f(x): return True
+```
+
+forall negation
+```
+forall x in S and f(x)
+~>
+not exists x in S and not f(x)
+```
+
+implication negation
+```
+not (p ==> q)
+~>
+p and not q
+```
+
+Membership negation
+```
+not e not in S
+~>
+e in S
+```
+
+Lazy sort
+```c
+sort(S)[n] where n < log(len(S)) // need condition otherwise plain sorting might be better? uses n extra space
+~>
+acc = array of length n //accumulator
+for x in S:
+    for i in 0..n:
+        if x < acc[i]:
+            acc[i], acc[i+1:n-1] := x, acc[i:n-2]
+            exit inner loop
+return acc[n-1]
+```
+
+Couple independent operations
+```
+(iter x in S : c1 := id(<+>) | c1 <+>= f(x)) <xx> (iter x in S : c2 := id(<x>) | c2 <x>= f(x))
+~>
+c1, c2 := (iter x in S : c1 := id(<+>); c2 := id(<x>) | c1 <+>= f(x); c2 <x>= f(x))
+c1 <xx> c2
+```
+
+Length
+```
+len(S)
+~>
+count x in S
+~>
+iter x in S : c := 0 | c += 1
+```
+
+Summation identities
+```c
+sum c in 0..i | c
+~>
+i (i + 1) / 2
+// and other identities...
+```
+
+De-distribute product over sum
+```
+sum c in 0..i | (c * d)
+~>
+(sum c in 0..i | c) * d
+```
+
+Bijection generator
+```c
+X <--> Y
+~>
+procedure bijection(X, Y, current={}):
+    if X == {}:
+        return {current}
+    x :in X // x := choose(X)
+    return union y in Y | bijection(X - {x}, Y - {y}, current \/ {(x, y)})
+// and other generators
+```
+
+Bijection generator with upto
+```c
+0..n <--> 0..n
+~>
+procedure bijection(x: int = n, Y=0..n, current={}):
+    if x == 0:
+        return {current}
+    return union y in Y | bijection(n-1, Y - {y}, current \/ {(n, y)})
+```
+
+Powerset promotion to bijection
+```
+<+> r in powerset(n >< n) and is_bijection(r)
+~>
+<+> r in 0..n <--> 0..n
+```
+
+Absolute value inequal
+```
+|a - b| != |c-d|
+~>
+a+c != b+d or a-c != b-d
+```
+
+Nqueens safety condition (too niche? can we generalize?)
+```
+forall p,q in S \/ {(x,y)} >< S \/ {(x,y)} | p != q ==> |p.0 - q.0| != |p.1 - q.1|
+~>
+forall (p,q) in S | |p - x| != |q - y|
+```
+
+Nqueens safety condition as part of generator (also too niche?)
+```c
+procedure bijection(X, Y, current={}):
+    if x == 0:
+        return {current}
+    return union y in Y and (forall (p,q) in S | |p - x| != |q - y|) | bijection(X - {x}, Y - {y}, current \/ {(n, y)})
+~>
+procedure bijection(X, Y, current={}, pdiag={}, ndiag={}):
+    if x == 0:
+        return {current}
+    return union y in Y and x+y not in pdiag and x-y not in ndiag | bijection(X - {x}, Y - {y}, current \/ {(n, y)}, pdiag \/ {x+y}, ndiag \/ {x-y})
+```
+
+Nqueens visiting optimization (too niche, but prevents sets from being piled on the recursion stack)
+```c
+procedure bijection(x: int = n, Y=0..n, current={}):
+    if x == 0:
+        return {current}
+    return union y in Y | bijection(n-1, Y - {y}, current \/ {(n, y)})
+~>
+procedure bijection(x: int = n, visited_ys={}, current={}):
+    if x == 0:
+        return {current}
+    return union y in 0..n and y not in visited_ys | bijection(n-1, visited_ys \/ {y}, current \/ {(n, y)})
+```
