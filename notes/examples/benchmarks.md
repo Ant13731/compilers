@@ -26,7 +26,7 @@ Derivation:
 exists i . i in 0 .. len(xs) and xs[i] == 0 and 1 in xs[i:]
 ~>
 for i in 0 .. len(xs):
-    if xs[i] == 0 and 1 in xs[i:]: # efficient only if we can reinterpret xs as a set (which is probably costly...)
+    if xs[i] == 0 and 1 in xs[i:]: // efficient only if we can reinterpret xs as a set (which is probably costly...)
         return True
 return False
 ~>
@@ -72,6 +72,47 @@ Optimized form (bitvector):
 ```python
 # if this condition is satisfied, there would be a 01 next to each other in that order
 return not xs and xs << 1
+```
+
+Derivation (comprehension like):
+<!-- rough work
+exists i . i in 0 .. len(xs) and xs[i] == 0 | (iter j in i .. len(xs) : r_ := False | if xs[j] == 1 return True)
+~>
+iter i in 0 .. len(xs) : r := False | r := r or xs[i] == 0 and (iter j in i .. len(xs) : r_ := False | r_ := r_ or xs[j] == 1)
+~>
+iter i in 0 .. len(xs) : r := False | r := r or xs[i] == 0; if r return (iter j in i .. len(xs) : r_ := False | r_ := r_ or xs[j] == 1) else return False
+~>
+iter i in 0 .. len(xs) : r := False | r := r or xs[i] == 0; if r return (iter j in i .. len(xs) : r_ := False | if xs[j] == 1 else return False)
+
+
+
+exists i . i in 0 .. len(xs) : r := False | if xs[i] == 0 return (iter j in i .. len(xs) : r_ := False | if xs[j] == 1 return True)
+~> // how can we strengthen this if condition to return False in the else case
+exists i . i in 0 .. len(xs) : r := False | if xs[i] == 0 return (iter j in i .. len(xs) : r_ := False | if xs[j] == 1 return True) -->
+```c
+exists i . i in 0 .. len(xs) and xs[i] == 0 and 1 in xs[i:]
+~>
+exists i . i in 0 .. len(xs) and xs[i] == 0 | (exists j . j in i .. len(xs) | xs[j] == 1)
+~>
+iter i in 0 .. len(xs) : r := False | r := r or xs[i] == 0 | (iter j in i .. len(xs) : r_ := False | r_ := r_ or xs[j] == 1)
+~>
+iter i in 0 .. len(xs) : r := False; r_ := False | r := r or xs[i] == 0; r_ := r_ or r and xs[i] == 1
+// ~>
+// r := False
+// r_ := False
+// for x in xs:
+//     r := r or xs[i] == 0
+//     r_ := r_ or r and xs[i] == 1
+// return r_
+~> // memorylessness/idempotency of existential - remember the "high level op" - we only need to find one thing true
+iter i in 0 .. len(xs) : r := False | r := r or xs[i] == 0; if r and xs[i] == 1 return True
+~>
+r := False
+r_ := False
+for x in xs:
+    r := r or xs[i] == 0
+    if r and xs[i] == 1: return True
+return r_
 ```
 
 ### 0s1s.f
@@ -259,7 +300,7 @@ min(n, S) = sort(S)[n]
 
 The nth min is fundamentally recursive:
 ```
-min(n,S) = min(S - union i in 0..n | min(i,S)
+min(n,S) = min(S - union i in 0..n | min(i,S))
 ```
 this would use a list as our accumulator - sort the nth minimum elems
 Optimized form:
@@ -805,7 +846,6 @@ Maybe we cant generate the backtracking solution directly, but we can surely imp
 bijection(x: int=n, Y: set=0..n, current_bijection: set[<-/->]={}) =
     if x == 0: // no xs left
         return {current_bijection}
-
     return union y in Y | bijection(x-1, Y - {y}, current_bijection \/ {(n,y)})
 
 X <--> Y
@@ -1075,3 +1115,13 @@ return mts
 - tuple folding category of optimizations
 - search space/constraint dynamic programming (n queens)
 - we should try to share nested iterators whenever possible. How can we generalize these rules?
+
+<!-- # Earley Parser
+Parsing means:
+input string x in L(G) (language of the grammar)
+
+Nice form:
+```
+is_input_in_grammar = input_str in {w | S =>* w}
+grammar is a map from input str + var to output str + var
+``` -->
