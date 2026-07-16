@@ -1229,7 +1229,7 @@ not e not in S
 e in S
 ```
 
-Lazy sort
+<!-- Lazy sort
 ```c
 sort(S)[n] where n < log(len(S)) // need condition otherwise plain sorting might be better? uses n extra space
 ~>
@@ -1240,6 +1240,13 @@ for x in S:
             acc[i], acc[i+1:n-1] := x, acc[i:n-2]
             exit inner loop
 return acc[n-1]
+``` -->
+
+Order statistics
+```c
+sort(S)[n]
+~>
+quickselect(n, S) // same idea as quicksort, but we just keep track of the partition containing the minimum value
 ```
 
 Couple independent operations
