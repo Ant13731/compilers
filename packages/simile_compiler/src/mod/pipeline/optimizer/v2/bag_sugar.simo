@@ -1,0 +1,69 @@
+# image
+## Vars
+R: relation[T1, T2]
+B: bag[T1]
+## Rewrite
+R[B] ~> R ^ -1 circ B
+
+# Union
+## Vars
+S: bag[T1]
+T: bag[T1]
+## Rewrite
+S \/ T ~> [[x . x in dom(S) \/ dom(T) and n = max(S[x] \/ T[x]) | x |-> n]]
+
+# Intersection
+## Vars
+S: bag[T1]
+T: bag[T1]
+## Rewrite
+S /\ T ~> [[x . x in dom(S) /\ dom(T) and n = min(S[x] \/ T[x]) and n > 0 | x |-> n]]
+
+# Sum
+## Vars
+S: bag[T1]
+T: bag[T1]
+## Rewrite
+S + T ~> [[x . x in dom(S) \/ dom(T) and n = sum(S[x] \/ T[x]) | x |-> n]]
+
+# Intersection
+## Vars
+S: bag[T1]
+T: bag[T1]
+## Rewrite
+S - T ~> [[x . x in dom(S) and n = S(x) - (T \/ [[x |-> 0]])(x) and n > 0 | x |-> n]]
+
+# Map
+## Vars
+B: bag[T1]
+f: procedure[T1, T2]
+## Rewrite
+map(f, B) ~> [[x |-> n . x |-> n in B | f(x) |-> n]]
+
+# Fold 1
+## Vars
+B: bag[T1]
+f: procedure[T1, T1, T2]
+i: T1 // identity element of f
+## Rewrite
+fold(f, i, B)
+~>
+fold x |-> n . x |-> n in B : i | f
+
+# Fold 2
+## Vars
+B: bag[T1]
+f: procedure[T1, T1, T2]
+i: T1 // identity element of f
+r: T2 // result
+## Rewrite
+fold x |-> n . x |-> n in B : i | f
+~>
+iter x |-> n . x |-> n in B : r := i |
+    r := f(r, fold j in 0..n : i | x)
+
+# Size
+## Vars
+B: bag[T1]
+## Rewrite
+size(B) ~> sum x |-> n . x |-> n in B | n

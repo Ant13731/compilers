@@ -1,0 +1,17 @@
+# Count
+## Vars
+f: relation[T1, T2]
+x: T1
+E: T2
+## Rewrite
+f(x) := E ~> f := f <+> {x |-> E}
+
+# Count
+## Vars
+R: relation[T1, T2]
+Q: relation[T1, T2]
+## Rewrite
+R <+> Q ~> Q \/ (dom(Q) <<| R)
+
+# Cast
+# Cast With

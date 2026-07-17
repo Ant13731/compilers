@@ -1,0 +1,101 @@
+# Count
+## Vars
+S: set[T1]
+## Rewrite
+count x . x in X ~> iter x in S : c := 0 | c := c + 1
+
+# Cardinality
+## Vars
+S: set[T1]
+## Rewrite
+card(S) ~> count x . x in X
+
+# Domain
+## Vars
+R: relation[T1, T2]
+## Rewrite
+dom(R) ~> {x |-> y . x |-> y in R | x}
+
+# Range
+## Vars
+R: relation[T1, T2]
+## Rewrite
+ran(R) ~> {x |-> y . x |-> y in R | y}
+
+# Domain Restriction
+## Vars
+R: relation[T1, T2]
+S: set[T1]
+## Rewrite
+S <| R ~> {x |-> y . x |-> y in R and x in S | x |-> y}
+
+# Domain Subtraction
+## Vars
+R: relation[T1, T2]
+S: set[T1]
+## Rewrite
+S <<| R ~> {x |-> y . x |-> y in R and x not in S | x |-> y}
+
+# Range Restriction
+## Vars
+R: relation[T1, T2]
+S: set[T2]
+## Rewrite
+S |> R ~> {x |-> y . x |-> y in R and y in S | x |-> y}
+
+# Range Subtraction
+## Vars
+R: relation[T1, T2]
+S: set[T2]
+## Rewrite
+S |>> R ~> {x |-> y . x |-> y in R and y not in S | x |-> y}
+
+# Min
+## Vars
+S: set[T1]
+## Rewrite
+
+# Min Map
+## Vars
+S: set[T1]
+## Rewrite
+
+# Max
+## Vars
+S: set[T1]
+## Rewrite
+
+# Max Map
+## Vars
+S: set[T1]
+## Rewrite
+
+# Choice
+## Vars
+S: set[T1]
+## Rewrite
+
+# Sum
+## Vars
+S: set[T1]
+## Rewrite
+
+# Product
+## Vars
+S: set[T1]
+## Rewrite
+
+# Print
+## Vars
+S: set[T1]
+## Rewrite
+
+# Map
+## Vars
+S: set[T1]
+## Rewrite
+
+# Fold
+## Vars
+S: set[T1]
+## Rewrite
