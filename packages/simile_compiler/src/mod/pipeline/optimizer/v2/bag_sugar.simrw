@@ -1,9 +1,10 @@
-# image
-## Vars
-R: relation[T1, T2]
-B: bag[T1]
-## Rewrite
-R[B] ~> R ^ -1 circ B
+rule image:
+    vars:
+        R: relation[T1, T2]
+        B: bag[T1]
+    rewrite:
+        R[B] ~> R ^ -1 circ B
+    when:
 
 # Union
 ## Vars
@@ -44,7 +45,7 @@ map(f, B) ~> [[x |-> n . x |-> n in B | f(x) |-> n]]
 ## Vars
 B: bag[T1]
 f: procedure[T1, T1, T2]
-i: T1 // identity element of f
+i: T1 # identity element of f
 ## Rewrite
 fold(f, i, B)
 ~>
@@ -54,8 +55,8 @@ fold x |-> n . x |-> n in B : i | f
 ## Vars
 B: bag[T1]
 f: procedure[T1, T1, T2]
-i: T1 // identity element of f
-r: T2 // result
+i: T1 # identity element of f
+r: T2 # result
 ## Rewrite
 fold x |-> n . x |-> n in B : i | f
 ~>

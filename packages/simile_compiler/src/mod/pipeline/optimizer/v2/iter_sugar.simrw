@@ -2,7 +2,7 @@
 ## Vars
 S: set[T1]
 ## Rewrite
-count x . x in X ~> iter x in S : c := 0 | c := c + 1
+count x . x in X ~> sum x . x in X | 1
 
 # Cardinality
 ## Vars
@@ -54,48 +54,51 @@ S |>> R ~> {x |-> y . x |-> y in R and y not in S | x |-> y}
 ## Vars
 S: set[T1]
 ## Rewrite
+min(S) ~> min x . x in S | x
 
 # Min Map
 ## Vars
 S: set[T1]
+f: procedure[T1, T2]
 ## Rewrite
+min_map(f, S) ~> min x . x in S | f(x)
 
 # Max
 ## Vars
 S: set[T1]
 ## Rewrite
+max(S) ~> max x . x in S | x
 
 # Max Map
 ## Vars
 S: set[T1]
+f: procedure[T1, T2]
 ## Rewrite
-
-# Choice
-## Vars
-S: set[T1]
-## Rewrite
+max_map(f, S) ~> max x . x in S | f(x)
 
 # Sum
 ## Vars
 S: set[T1]
 ## Rewrite
+sum(S) ~> sum x . x in S | x
 
 # Product
 ## Vars
 S: set[T1]
 ## Rewrite
-
-# Print
-## Vars
-S: set[T1]
-## Rewrite
+product(S) ~> product x . x in S | x
 
 # Map
 ## Vars
 S: set[T1]
+f: procedure[T1, T2]
 ## Rewrite
+map(f, S) ~> {x . x in S | f(x)}
 
 # Fold
 ## Vars
 S: set[T1]
+f: procedure[T1, T1, T2]
+i: T1
 ## Rewrite
+fold(f, i, S) ~> fold x . x in S : i | f
