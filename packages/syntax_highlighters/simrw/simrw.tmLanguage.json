@@ -55,21 +55,13 @@
             "end": "^(?=\\s*(rewrite|when):)",
             "patterns": [
                 {
-                    "match": "^\\s*([A-Za-z_][A-Za-z0-9_]*)",
-                    "captures": {
-                        "1": {
-                            "name": "variable.parameter.simrw"
-                        }
-                    }
-                },
-                {
                     "include": "source.sim"
                 }
             ]
         },
         "rewrite": {
             "begin": "^\\s*rewrite:",
-            "end": "^(?=\\s*when:)",
+            "end": "^((?=\\s*when:)|(?=rule\\s))",
             "beginCaptures": {
                 "0": {
                     "name": "keyword.control.simrw"
