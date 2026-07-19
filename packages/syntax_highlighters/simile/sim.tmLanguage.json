@@ -1,0 +1,204 @@
+{
+    "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+    "name": "Simile",
+    "scopeName": "source.sim",
+    "fileTypes": [
+        "sim"
+    ],
+    "patterns": [
+        {
+            "include": "#interpretIdentifiersAsTypes"
+        },
+        {
+            "include": "#types"
+        },
+        {
+            "include": "#keywords"
+        },
+        {
+            "include": "#builtins"
+        },
+        {
+            "include": "#quantifiers"
+        },
+        {
+            "include": "#operators"
+        },
+        {
+            "include": "#literals"
+        },
+        {
+            "include": "#comments"
+        },
+        {
+            "include": "#boolean"
+        },
+        {
+            "include": "#setOperators"
+        },
+        {
+            "include": "#relations"
+        },
+        {
+            "include": "#logicOperators"
+        },
+        {
+            "include": "#identifiers"
+        }
+    ],
+    "repository": {
+        "comments": {
+            "patterns": [
+                {
+                    "match": "#.*$",
+                    "name": "comment.line.number-sign.simile"
+                }
+            ]
+        },
+        "keywords": {
+            "patterns": [
+                {
+                    "match": "\\b(if|else|for|while|record|enum|procedure|return|break|continue|from|import|skip|trait|type|iter)\\b",
+                    "name": "keyword.control.simile"
+                }
+            ]
+        },
+        "boolean": {
+            "patterns": [
+                {
+                    "match": "\\b(True|False)\\b",
+                    "name": "constant.language.boolean.simile"
+                }
+            ]
+        },
+        "types": {
+            "patterns": [
+                {
+                    "match": "\\b(int|float|string|bool|set|sequence|bag|relation|tuple|generic|Z|N|N1)\\b",
+                    "name": "storage.type.simile"
+                }
+            ]
+        },
+        "interpretIdentifiersAsTypes": {
+            "begin": "\\b[a-zA-Z_][a-zA-Z0-9_]*:[ \t]*",
+            "end": "$",
+            "patterns": [
+                {
+                    "include": "#proceduresAsTypes"
+                },
+                {
+                    "include": "#types"
+                },
+                {
+                    "include": "#keywords"
+                },
+                {
+                    "include": "#builtins"
+                },
+                {
+                    "include": "#quantifiers"
+                },
+                {
+                    "include": "#operators"
+                },
+                {
+                    "include": "#literals"
+                },
+                {
+                    "include": "#comments"
+                },
+                {
+                    "include": "#boolean"
+                },
+                {
+                    "include": "#setOperators"
+                },
+                {
+                    "include": "#relations"
+                },
+                {
+                    "include": "#logicOperators"
+                },
+                {
+                    "include": "#identifiers"
+                }
+            ]
+        },
+        "proceduresAsTypes": {
+            "patterns": [
+                {
+                    "match": "\\b(procedure)\\b",
+                    "name": "storage.type.simile"
+                }
+            ]
+        },
+        "builtins": {
+            "patterns": [
+                {
+                    "match": "\\b(min|map_min|max|map_max|choice|dom|ran|card|size|sum|cast|cast_with|print|map|heads|tails|fold)\\b",
+                    "name": "support.function.simile"
+                }
+            ]
+        },
+        "quantifiers": {
+            "patterns": [
+                {
+                    "match": "\\b(lambda|forall|exists|union|intersection|sum|product|min|max)\\b",
+                    "name": "keyword.control.quantifier.simile"
+                }
+            ]
+        },
+        "operators": {
+            "patterns": [
+                {
+                    "match": "(\\|->|:=|::|->|=>|!==|==|!=|<=|>=|<|>|\\+|\\-|\\*|/|\\^)",
+                    "name": "keyword.operator.simile"
+                }
+            ]
+        },
+        "setOperators": {
+            "patterns": [
+                {
+                    "match": "(∪|∩|×|⊕|∘|\\/|\\/\\\\|><|<\\+>|circ)",
+                    "name": "keyword.operator.set.simile"
+                }
+            ]
+        },
+        "relations": {
+            "patterns": [
+                {
+                    "match": "(<->|<<->|<->>|<<->>|\\+->|-\\->|>\\+>|>->|->>)",
+                    "name": "keyword.operator.relation.simile"
+                }
+            ]
+        },
+        "literals": {
+            "patterns": [
+                {
+                    "match": "\\b[0-9]+(\\.[0-9]+)?\\b",
+                    "name": "constant.numeric.simile"
+                },
+                {
+                    "match": "\"([^\"\\\\]|\\\\.)*\"",
+                    "name": "string.quoted.double.simile"
+                }
+            ]
+        },
+        "logicOperators": {
+            "patterns": [
+                {
+                    "match": "\\b(and|or|not|in)\\b",
+                    "name": "keyword.operator.logical.simile"
+                }
+            ]
+        },
+        "identifiers": {
+            "patterns": [
+                {
+                    "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b",
+                    "name": "variable.other.simile"
+                }
+            ]
+        }
+    }
+}

@@ -1,0 +1,52 @@
+{
+    "name": "sim",
+    "displayName": "Simile",
+    "description": "Syntax highlighting for Simile",
+    "version": "0.0.1",
+    "publisher": "ant13731",
+    "repository": "https://github.com/Ant13731/simile",
+    "engines": {
+        "vscode": "^1.85.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "sim",
+                "aliases": [
+                    "Simile",
+                    "sim"
+                ],
+                "extensions": [
+                    ".sim"
+                ],
+                "configuration": "./simile/language-configuration.json"
+            },
+            {
+                "id": "simrw",
+                "aliases": [
+                    "Simile Rewrite",
+                    "simrw"
+                ],
+                "extensions": [
+                    ".simrw"
+                ],
+                "configuration": "./simrw/language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "sim",
+                "scopeName": "source.sim",
+                "path": "./simile/sim.tmLanguage.json"
+            },
+            {
+                "language": "simrw",
+                "scopeName": "source.simrw",
+                "path": "./simrw/simrw.tmLanguage.json"
+            }
+        ]
+    }
+}
