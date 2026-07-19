@@ -1,47 +1,47 @@
-# Count
-## Vars
-f: relation[T1, T2]
-x: T1
-E: T2
-## Rewrite
-f(x) := E ~> f := f <+> {x |-> E}
+rule count:
+    vars:
+        f: relation[T1, T2]
+        x: T1
+        E: T2
+    rewrite:
+        f(x) := E ~> f := f <+> {x |-> E}
 
-# Count
-## Vars
-R: relation[T1, T2]
-Q: relation[T1, T2]
-## Rewrite
-R <+> Q ~> Q \/ (dom(Q) <<| R)
+rule count:
+    vars:
+        R: relation[T1, T2]
+        Q: relation[T1, T2]
+    rewrite:
+        R <+> Q ~> Q \/ (dom(Q) <<| R)
 
-# Cast
-## Vars
-X: T1
-T: type[T2]
-## Rewrite
-cast(X, T) ~> X
+rule cast:
+    vars:
+        X: T1
+        T: type[T2]
+    rewrite:
+        cast(X, T) ~> X
 
-# Cast With
-## Vars
-X: T1
-T: type[T2]
-Ts: set[trait]
-## Rewrite
-cast_with(X, T, Ts) ~> X[with Ts]
+rule cast_with:
+    vars:
+        X: T1
+        T: type[T2]
+        Ts: set[trait]
+    rewrite:
+        cast_with(X, T, Ts) ~> X[with Ts]
 
-# Choice
-## Vars
-S: set[T1]
-## Rewrite
-choice(S) ~> ?
+rule choice:
+    vars:
+        S: set[T1]
+    rewrite:
+        choice(S) ~> ?
 
-# Print
-## Vars
-x: T1
-## Rewrite
-print(x) ~> ?
+rule print:
+    vars:
+        x: T1
+    rewrite:
+        print(x) ~> ?
 
-# Functional Image
-## Vars
-R: relation[T1, T2]
-x: T1
-## Rewrite
+rule functional_image:
+    vars:
+        R: relation[T1, T2]
+        x: T1
+    rewrite:

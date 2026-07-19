@@ -89,7 +89,7 @@
             },
             "patterns": [
                 {
-                    "include": "#proceduresAsTypes"
+                    "include": "#keywordsAsTypes"
                 },
                 {
                     "include": "#types"
@@ -129,10 +129,10 @@
                 }
             ]
         },
-        "proceduresAsTypes": {
+        "keywordsAsTypes": {
             "patterns": [
                 {
-                    "match": "\\b(procedure)\\b",
+                    "match": "\\b(procedure|trait|type)\\b",
                     "name": "storage.type.simile"
                 }
             ]

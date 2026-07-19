@@ -4,67 +4,66 @@ rule image:
         B: bag[T1]
     rewrite:
         R[B] ~> R ^ -1 circ B
-    when:
 
-# Union
-## Vars
-S: bag[T1]
-T: bag[T1]
-## Rewrite
-S \/ T ~> [[x . x in dom(S) \/ dom(T) and n = max(S[x] \/ T[x]) | x |-> n]]
+rule union:
+    vars:
+        S: bag[T1]
+        T: bag[T1]
+    rewrite:
+        S \/ T ~> [[x . x in dom(S) \/ dom(T) and n = max(S[x] \/ T[x]) | x |-> n]]
 
-# Intersection
-## Vars
-S: bag[T1]
-T: bag[T1]
-## Rewrite
-S /\ T ~> [[x . x in dom(S) /\ dom(T) and n = min(S[x] \/ T[x]) and n > 0 | x |-> n]]
+rule intersection:
+    vars:
+        S: bag[T1]
+        T: bag[T1]
+    rewrite:
+        S /\ T ~> [[x . x in dom(S) /\ dom(T) and n = min(S[x] \/ T[x]) and n > 0 | x |-> n]]
 
-# Sum
-## Vars
-S: bag[T1]
-T: bag[T1]
-## Rewrite
-S + T ~> [[x . x in dom(S) \/ dom(T) and n = sum(S[x] \/ T[x]) | x |-> n]]
+rule sum:
+    vars:
+        S: bag[T1]
+        T: bag[T1]
+    rewrite:
+        S + T ~> [[x . x in dom(S) \/ dom(T) and n = sum(S[x] \/ T[x]) | x |-> n]]
 
-# Intersection
-## Vars
-S: bag[T1]
-T: bag[T1]
-## Rewrite
-S - T ~> [[x . x in dom(S) and n = S(x) - (T \/ [[x |-> 0]])(x) and n > 0 | x |-> n]]
+rule intersection:
+    vars:
+        S: bag[T1]
+        T: bag[T1]
+    rewrite:
+        S - T ~> [[x . x in dom(S) and n = S(x) - (T \/ [[x |-> 0]])(x) and n > 0 | x |-> n]]
 
-# Map
-## Vars
-B: bag[T1]
-f: procedure[T1, T2]
-## Rewrite
-map(f, B) ~> [[x |-> n . x |-> n in B | f(x) |-> n]]
+rule map:
+    vars:
+        B: bag[T1]
+        f: procedure[T1, T2]
+    rewrite:
+        map(f, B) ~> [[x |-> n . x |-> n in B | f(x) |-> n]]
 
-# Fold 1
-## Vars
-B: bag[T1]
-f: procedure[T1, T1, T2]
-i: T1 # identity element of f
-## Rewrite
-fold(f, i, B)
-~>
-fold x |-> n . x |-> n in B : i | f
+rule fold: 1
+    vars:
+        B: bag[T1]
+        f: procedure[T1, T1, T2]
+        i: T1 # identity element of f
+    rewrite:
+        fold(f, i, B)
+        ~>
+        fold x |-> n . x |-> n in B : i | f
 
-# Fold 2
-## Vars
-B: bag[T1]
-f: procedure[T1, T1, T2]
-i: T1 # identity element of f
-r: T2 # result
-## Rewrite
-fold x |-> n . x |-> n in B : i | f
-~>
-iter x |-> n . x |-> n in B : r := i |
-    r := f(r, fold j in 0..n : i | x)
+rule fold: 2
+    vars:
+        B: bag[T1]
+        f: procedure[T1, T1, T2]
+        i: T1 # identity element of f
+        r: T2 # result
+    rewrite:
+        fold x |-> n . x |-> n in B : i | f
+        ~>
+        iter x |-> n . x |-> n in B : r := i |
+            r := f(r, fold j in 0..n : i | x)
 
-# Size
-## Vars
-B: bag[T1]
-## Rewrite
-size(B) ~> sum x |-> n . x |-> n in B | n
+rule size:
+    vars:
+        B: bag[T1]
+    rewrite:
+        size(B) ~> sum x |-> n . x |-> n in B | n

@@ -1,90 +1,90 @@
-# Concatenation
-## Vars
-L: seq[T1]
-M: seq[T1]
-## Rewrite
-L ++ M
-~>
-L \/ {x |-> y . x |-> y in M | x + max(dom(L)) |-> y}
+rule concatenation:
+    vars:
+        L: seq[T1]
+        M: seq[T1]
+    rewrite:
+        L ++ M
+        ~>
+        L \/ {x |-> y . x |-> y in M | x + max(dom(L)) |-> y}
 
-# Flatten
-## Vars
-XS: seq[seq[T1]]
-## Rewrite
-flatten(XS) ~> fold(++, [], XS)
+rule flatten:
+    vars:
+        XS: seq[seq[T1]]
+    rewrite:
+        flatten(XS) ~> fold(++, [], XS)
 
-# Fold
-## Vars
-X: seq[T1]
-f: procedure[T1, T1, T2]
-i: T2
-## Rewrite
-fold(f, i, X) ~> fold x . x in ran(X) : i | f
+rule fold:
+    vars:
+        X: seq[T1]
+        f: procedure[T1, T1, T2]
+        i: T2
+    rewrite:
+        fold(f, i, X) ~> fold x . x in ran(X) : i | f
 
-# First
-## Vars
-X: seq[T1]
-## Rewrite
-first(X) ~> X(0)
+rule first:
+    vars:
+        X: seq[T1]
+    rewrite:
+        first(X) ~> X(0)
 
-# Tail
-## Vars
-X: seq[T1]
-## Rewrite
-tail(X) ~> {i |-> x . i |-> x in X and i != 0 | i - 1 |-> x}
+rule tail:
+    vars:
+        X: seq[T1]
+    rewrite:
+        tail(X) ~> {i |-> x . i |-> x in X and i != 0 | i - 1 |-> x}
 
-# Append
-## Vars
-X: seq[T1]
-y: T1
-## Rewrite
-append(X, y) ~> X \/ {max(dom(X)) |-> y}
+rule append:
+    vars:
+        X: seq[T1]
+        y: T1
+    rewrite:
+        append(X, y) ~> X \/ {max(dom(X)) |-> y}
 
-# Prepend
-## Vars
-X: seq[T1]
-y: T1
-## Rewrite
-prepend(X, y) ~> {i |-> x . i |-> x in X | i+1 |-> x} \/ {0 |-> y}
+rule prepend:
+    vars:
+        X: seq[T1]
+        y: T1
+    rewrite:
+        prepend(X, y) ~> {i |-> x . i |-> x in X | i+1 |-> x} \/ {0 |-> y}
 
-# Tails
-## Vars
-X: seq[T1]
-## Rewrite
-tails(X) ~> {i . i in len(X)..0 | X[i:]}
+rule tails:
+    vars:
+        X: seq[T1]
+    rewrite:
+        tails(X) ~> {i . i in len(X)..0 | X[i:]}
 
-# Heads
-## Vars
-X: seq[T1]
-## Rewrite
-heads(X) ~> {i . i in 0..len(X) | X[:i]}
+rule heads:
+    vars:
+        X: seq[T1]
+    rewrite:
+        heads(X) ~> {i . i in 0..len(X) | X[:i]}
 
-# Slice from Bottom
-## Vars
-X: seq[T1]
-i: int
-## Rewrite
-X[i:] ~> 0..i <<| X
+rule slice_from_bottom:
+    vars:
+        X: seq[T1]
+        i: int
+    rewrite:
+        X[i:] ~> 0..i <<| X
 
-# Slice from Bottom
-## Vars
-X: seq[T1]
-i: int
-## Rewrite
-X[:i] ~> i..len(X) <<| X
+rule slice_from_top:
+    vars:
+        X: seq[T1]
+        i: int
+    rewrite:
+        X[:i] ~> i..len(X) <<| X
 
-# Set Membership
-## Vars
-X: seq[T1]
-e: T1
-## Rewrite
-e in X ~> exists x . x in S and e = x
+rule set_membership:
+    vars:
+        X: seq[T1]
+        e: T1
+    rewrite:
+        e in X ~> exists x . x in S and e = x
 
-# Length
-## Vars
-X: seq[T1]
-## Rewrite
-len(X) ~> count x . x in X
+rule length:
+    vars:
+        X: seq[T1]
+    rewrite:
+        len(X) ~> count x . x in X
 
 
 
