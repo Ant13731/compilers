@@ -1,0 +1,71 @@
+rule left_associative_and:
+    vars:
+        x: bool
+        y: bool
+        z: bool
+    rewrite:
+        x and (y and z) ~> (x and y) and z
+
+rule left_associative_or:
+    vars:
+        x: bool
+        y: bool
+        z: bool
+    rewrite:
+        x or (y or z) ~> (x or y) or z
+
+rule flatten_nested_and:
+    vars:
+        x: bool
+        y: bool
+        z: bool
+    rewrite:
+        (x and y) and z ~> x and y and z
+
+rule flatten_nested_or:
+    vars:
+        x: bool
+        y: bool
+        z: bool
+    rewrite:
+        (x or y) or z ~> x or y or z
+
+rule double_negation:
+    vars:
+        x: bool
+    rewrite:
+        not not x ~> x
+
+rule distribute_de_morgan_and:
+    vars:
+        x: bool
+        y: bool
+    rewrite:
+        not (x and y) ~> not x or not y
+
+rule distribute_de_morgan_or:
+    vars:
+        x: bool
+        y: bool
+    rewrite:
+        not (x or y) ~> not x and not y
+
+rule distribute_and_over_or_l:
+    vars:
+        x: bool
+        y: bool
+        z: bool
+    rewrite:
+        x and (y or z) ~> (x and y) or (x and z)
+    when:
+        expression_in_comprehension_predicate
+
+rule distribute_and_over_or_r:
+    vars:
+        x: bool
+        y: bool
+        z: bool
+    rewrite:
+        (y or z) and x ~> (y and x) or (z and x)
+    when:
+        expression_in_comprehension_predicate

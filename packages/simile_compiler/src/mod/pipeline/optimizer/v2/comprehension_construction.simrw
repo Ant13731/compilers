@@ -1,0 +1,91 @@
+rule image:
+    vars:
+        R: relation[T1, T2]
+        S: set[T1]
+    rewrite:
+        R[S] ~> {x |-> y . x |-> y in R and x in S | y}
+
+rule product:
+    vars:
+        x: T1
+        y: T2
+        S: set[T1]
+        T: set[T2]
+    rewrite:
+        x |-> y in S >< T
+        ~>
+        x in S and y in T
+
+rule inverse:
+    vars:
+        x: T1
+        y: T2
+        R: relation[T2, T1]
+    rewrite:
+        x |-> y in R ^ -1
+        ~>
+        y |-> x in R
+
+rule composition:
+    vars:
+        x: T1
+        y: T3
+        z1: T2
+        z2: T2
+        Q: relation[T1, T2]
+        R: set[T2, T3]
+    rewrite:
+        x |-> y in (Q <> R)
+        ~>
+        x |-> z1 in Q and z2 |-> y in R and z1 = z2
+
+rule union:
+    vars:
+        S: set[T1]
+        T: set[T1]
+    rewrite:
+        S \/ T ~> {x . x in S or x in T}
+
+rule intersection:
+    vars:
+        S: set[T1]
+        T: set[T1]
+    rewrite:
+        S /\ T ~> {x . x in S and x in T}
+
+rule difference:
+    vars:
+        S: set[T1]
+        T: set[T1]
+    rewrite:
+        S \ T ~> {x . x in S and x not in T}
+
+rule membership_collapse:
+    vars:
+        x: T1
+        E: T1
+        P: bool
+    rewrite:
+        x in {E | P} ~> P and x = E
+    when:
+        expression_in_comprehension_predicate
+
+rule membership_collapse_general_union:
+    vars:
+        x: T1
+        E: T1
+        P: bool
+    rewrite:
+        x in union E | P ~> P and x = E
+    when:
+        expression_in_comprehension_predicate
+
+rule membership_collapse_general_intersection:
+    vars:
+        x: T1
+        E: T1
+        P: bool
+    rewrite:
+        x in intersection E | P ~> P and x = E
+    when:
+        expression_in_comprehension_predicate

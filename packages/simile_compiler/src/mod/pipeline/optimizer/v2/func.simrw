@@ -41,7 +41,13 @@ rule print:
         print(x) ~> ?
 
 rule functional_image:
+    notes:
+        - may fail if R is not total
     vars:
         R: relation[T1, T2]
         x: T1
     rewrite:
+        R(x) ~> choice(R[x])
+    when:
+
+

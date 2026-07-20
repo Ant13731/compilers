@@ -1,0 +1,26 @@
+rule implication_negation:
+    vars:
+        p: bool
+        q: bool
+    rewrite:
+        not (p ==> q)
+        ~>
+        p and not q
+
+rule forall_negation:
+    vars:
+        S: set[T1]
+        f: procedure[tuple[T1], T2]
+    rewrite:
+        forall x in S | f(x)
+        ~>
+        not exists in S | not f(x)
+
+rule membership_negation:
+    vars:
+        e: T1
+        S: set[T1]
+    rewrite:
+        not e not in S
+        ~>
+        e in S
