@@ -33,10 +33,10 @@ from src.mod.data.types.base import BaseType, BoolType
 from src.mod.data.types.primitive import FloatType, NoneType_, IntType, StringType
 from src.mod.data.types.tuple_ import PairType
 from src.mod.data.types.meta import AnyType_
-from src.mod.data.types.composite import ProcedureType
 from src.mod.data.types.typing_rule_decorator import typing_rule
 
 if TYPE_CHECKING:
+    from src.mod.data.types.composite import ProcedureType
     from src.mod.data.symbol_table.entry import SymbolTableIdentifierEntry
 
 # TODO we basically need a SetSimulator that will return the expected type, element type, and traits when executing a set operation

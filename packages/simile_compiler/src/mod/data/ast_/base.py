@@ -28,20 +28,20 @@ class ASTNode:
         """Check if the variables in expressions are well-formed (i.e., no clashes between :attr:`bound` and :attr:`free` variables)."""
         return True
 
-    @deprecated("Well-formedness checks are being moved to a separate analysis pass")
     @property
+    @deprecated("Well-formedness checks are being moved to a separate analysis pass")
     def bound(self) -> set:
         """Returns the set of bound variables in the AST node."""
         return set()
 
-    @deprecated("Well-formedness checks are being moved to a separate analysis pass")
     @property
+    @deprecated("Well-formedness checks are being moved to a separate analysis pass")
     def free(self) -> set:
         """Returns the set of free variables in the AST node."""
         return set()
 
-    @deprecated("Moving to trait-based external type system")
     @property
+    @deprecated("Moving to trait-based external type system")
     def get_type(self) -> SimileType:
         """Returns the type of the AST node.
 

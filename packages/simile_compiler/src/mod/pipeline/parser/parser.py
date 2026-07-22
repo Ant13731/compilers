@@ -150,6 +150,7 @@ class Parser:
             TokenType.TRUE,
             TokenType.FALSE,
             TokenType.NONE,
+            TokenType.PROCEDURE,  # Hack, for when we use procedures as types
             "collections",
             "builtin_functions",
         },
@@ -757,9 +758,17 @@ class Parser:
                     atom = ast_.Call(atom, args)
                 case TokenType.L_BRACKET:
                     self.advance()
-                    expr = self.expr()
+                    exprs = []
+                    if self.peek() != TokenType.R_BRACKET:
+                        exprs.append(self.expr())
+                        while self.match(TokenType.COMMA):
+                            exprs.append(self.expr())
                     self.consume(TokenType.R_BRACKET, "Expected closing bracket")
-                    atom = ast_.Image(atom, expr)
+                    if len(exprs) == 1:
+                        # Type annotations that have one argument will be converted later - see replace_image_with_generic_type_
+                        atom = ast_.Image(atom, exprs[0])
+                    else:
+                        atom = ast_.Type_(atom, exprs)
                 case _:
                     self.error("Unreachable state")
         return atom
@@ -843,6 +852,8 @@ class Parser:
                 return ast_.TupleLiteral(exprs)
 
             case TokenType.IDENTIFIER:
+                return ast_.Identifier(t.value)
+            case TokenType.PROCEDURE:
                 return ast_.Identifier(t.value)
             case _:
                 self.error("Failed to interpret first token of expected atom")

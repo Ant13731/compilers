@@ -1,11 +1,13 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Type, ClassVar
+from typing import TYPE_CHECKING, Type, ClassVar
 
-from src.mod.data.symbol_table.entry import SymbolTableIdentifierEntry
 from src.mod.data.types.error import SimileTypeError
 from src.mod.data.types.base import BaseType
 from src.mod.data.types.traits import Trait, GenericBoundTrait
+
+if TYPE_CHECKING:
+    from src.mod.data.symbol_table.entry import SymbolTableIdentifierEntry
 
 
 @dataclass

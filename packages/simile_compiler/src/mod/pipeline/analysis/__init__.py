@@ -8,7 +8,7 @@ from src.mod.pipeline.analysis.reserved_keywords import (
     ReservedKeywordErr,
 )
 from src.mod.pipeline.analysis.type_analysis import (
-    synthesize_type,
+    TypeSynthesizer,
 )
 
 from src.mod.pipeline.analysis.analysis import (

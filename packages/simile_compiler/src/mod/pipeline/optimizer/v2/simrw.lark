@@ -1,0 +1,32 @@
+start: _NEWLINE* rule*
+
+rule: "rule" IDENTIFIER ":" _NEWLINE _INDENT vars_and_rest _DEDENT
+vars_and_rest: "vars" ":" _NEWLINE _INDENT vars _DEDENT rewrite_and_rest
+rewrite_and_rest: "rewrite" ":" _NEWLINE _INDENT _rewrite _DEDENT [when_and_rest]
+when_and_rest: "when" ":" _NEWLINE _INDENT when _DEDENT
+
+// vars: (IDENTIFIER ":" type _NEWLINE [traits])+
+// type: IDENTIFIER | "[" type "]"
+// traits: _INDENT (trait)+ _DEDENT _NEWLINE
+// trait: "with" ANYTHING
+vars: _any_line+
+_rewrite: rewrite_left _REWRITE_ARROW [_NEWLINE] rewrite_right
+when: _any_line+
+
+rewrite_left: _any_line+
+rewrite_right: _any_line+
+
+_REWRITE_ARROW.1: "~>"
+_any_line.0: /((?!~>)[^\n])+/ [_NEWLINE]
+_NEWLINE: ( /\r?\n[\t ]*/ | COMMENT )+
+COMMENT: /#[^\n]*/
+IDENTIFIER: /[_a-zA-Z][_a-zA-Z0-9]*/
+
+%ignore /[\t \f]+/  // WS
+%ignore /\\[\t \f]*\r?\n/   // LINE_CONT
+%ignore COMMENT
+%declare _INDENT _DEDENT
+
+// from src.mod.pipeline.optimizer.v2 import simrw
+// from importlib import reload
+// simrw.convert_simrw_to_rewrite_rules(simrw.parse_simrw_file("packages/simile_compiler/src/mod/pipeline/optimizer/v2/bool.simrw"))

@@ -6,7 +6,7 @@ from src.mod.data import ast_
 from src.mod.pipeline.analysis.normalize_ast import assert_no_parser_only_nodes, normalize_ast
 from src.mod.pipeline.analysis.populate_symbol_table import populate_symbol_table
 from src.mod.pipeline.analysis.reserved_keywords import reserved_keywords_check
-from src.mod.pipeline.analysis.type_analysis import synthesize_type
+from src.mod.pipeline.analysis.type_analysis import TypeSynthesizer
 
 
 def semantic_analysis(ast: ast_.ASTNode) -> ast_.ASTNode:
@@ -26,6 +26,9 @@ def semantic_analysis(ast: ast_.ASTNode) -> ast_.ASTNode:
     #  - make sure the values of types match their declarations
     #  - move get_type out into a standalone function
     # well-definedness check? anything else needed?
-    resolve_deferred_symbol_table_types(symbol_table)
-    type_check(ast, symbol_table)
+
+    # TODO
+    # resolve_deferred_symbol_table_types(symbol_table)
+    # type_check(ast, symbol_table)
+
     return ast

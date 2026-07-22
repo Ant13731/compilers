@@ -40,27 +40,28 @@ rule map:
     rewrite:
         map(f, B) ~> [[x |-> n . x |-> n in B | f(x) |-> n]]
 
-rule fold: 1
+rule fold1:
     vars:
         B: bag[T1]
         f: procedure[T1, T1, T2]
-        i: T1 # identity element of f
+        # i is the identity element of f
+        i: T1
     rewrite:
         fold(f, i, B)
         ~>
         fold x |-> n . x |-> n in B : i | f
 
-rule fold: 2
+rule fold2:
     vars:
         B: bag[T1]
         f: procedure[T1, T1, T2]
-        i: T1 # identity element of f
-        r: T2 # result
+        i: T1
+        # fold result
+        r: T2
     rewrite:
         fold x |-> n . x |-> n in B : i | f
         ~>
-        iter x |-> n . x |-> n in B : r := i |
-            r := f(r, fold j in 0..n : i | x)
+        iter x |-> n . x |-> n in B : r := i | r := f(r, fold j in 0..n : i | x)
 
 rule size:
     vars:

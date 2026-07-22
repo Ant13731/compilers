@@ -6,9 +6,8 @@ from dataclasses import dataclass, fields, field
 from loguru import logger
 
 from src.mod.data import ast_
-from src.mod.pipeline import analysis
+import src.mod.pipeline.analysis as analysis
 from src.mod.pipeline.scanner import Location
-
 
 _fresh_var_counter = 0
 
