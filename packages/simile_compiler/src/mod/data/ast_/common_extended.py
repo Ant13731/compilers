@@ -306,16 +306,6 @@ class Negative(UnaryOp):
 
 
 @dataclass
-class Powerset(UnaryOp):
-    op_type: UnaryOperator = UnaryOperator.POWERSET
-
-
-@dataclass
-class NonemptyPowerset(UnaryOp):
-    op_type: UnaryOperator = UnaryOperator.NONEMPTY_POWERSET
-
-
-@dataclass
 class Inverse(UnaryOp):
     op_type: UnaryOperator = UnaryOperator.INVERSE
 

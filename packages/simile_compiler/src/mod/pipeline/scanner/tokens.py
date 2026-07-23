@@ -39,7 +39,6 @@ class TokenType(Enum):
 
     # Keywords
     IF = auto()
-    # ELIF = auto()
     ELSE = auto()
     FOR = auto()  # purposefully no while loop?
     WHILE = auto()
@@ -55,7 +54,7 @@ class TokenType(Enum):
     BREAK = auto()
     CONTINUE = auto()
     SKIP = auto()
-    WITH = auto()
+    TRAIT = auto()
 
     # Brackets
     L_PAREN = auto()
@@ -83,6 +82,10 @@ class TokenType(Enum):
 
     FORALL = auto()
     EXISTS = auto()
+    SUM = auto()
+    PRODUCT = auto()
+    GENERAL_UNION = auto()
+    GENERAL_INTERSECTION = auto()
 
     # Numbers
     PLUS = auto()
@@ -106,8 +109,6 @@ class TokenType(Enum):
     SET_DIFFERENCE = auto()  # set difference
 
     CARTESIAN_PRODUCT = auto()
-    POWERSET = auto()
-    NONEMPTY_POWERSET = auto()
 
     SUBSET = auto()
     SUBSET_EQ = auto()
@@ -118,9 +119,6 @@ class TokenType(Enum):
     NOT_SUPERSET = auto()
     NOT_SUBSET_EQ = auto()
     NOT_SUPERSET_EQ = auto()
-
-    GENERAL_UNION = auto()
-    GENERAL_INTERSECTION = auto()
 
     # Relations
     MAPLET = auto()
@@ -189,16 +187,10 @@ OPERATOR_TOKEN_TABLE = {
     "∨": TokenType.OR,
     "⇒": TokenType.IMPLIES,
     "==>": TokenType.IMPLIES,
-    # "⇐": TokenType.REV_IMPLIES,
-    # "<==": TokenType.REV_IMPLIES,
-    # "⇔": TokenType.EQUIVALENT,
-    # "<==>": TokenType.EQUIVALENT,
     "≡": TokenType.EQUIVALENT,
     "==": TokenType.EQUIVALENT,
     "≢": TokenType.NOT_EQUIVALENT,
     "!==": TokenType.NOT_EQUIVALENT,
-    "∀": TokenType.FORALL,
-    "∃": TokenType.EXISTS,
     "+": TokenType.PLUS,
     "-": TokenType.MINUS,
     "*": TokenType.MULT,
@@ -237,13 +229,12 @@ OPERATOR_TOKEN_TABLE = {
     "!:>>": TokenType.NOT_SUPERSET,
     "⊉": TokenType.NOT_SUPERSET_EQ,
     "!:>": TokenType.NOT_SUPERSET_EQ,
-    "⋃": TokenType.GENERAL_UNION,
-    "⋂": TokenType.GENERAL_INTERSECTION,
     "↦": TokenType.MAPLET,
     "|->": TokenType.MAPLET,
     "⊕": TokenType.RELATION_OVERRIDING,
     "<+>": TokenType.RELATION_OVERRIDING,
     "∘": TokenType.COMPOSITION,
+    "<>": TokenType.COMPOSITION,
     "⧺": TokenType.CONCAT,
     "++": TokenType.CONCAT,
     "⁻¹": TokenType.INVERSE,
@@ -279,11 +270,17 @@ OPERATOR_TOKEN_TABLE = {
     "⤖": TokenType.BIJECTION,
     ">->>": TokenType.BIJECTION,
     "..": TokenType.UPTO,
-    "ℙ": TokenType.POWERSET,
-    "ℙ₁": TokenType.NONEMPTY_POWERSET,
+    "ℙ": TokenType.IDENTIFIER,
+    "ℙ₁": TokenType.IDENTIFIER,
     "ℤ": TokenType.IDENTIFIER,
     "ℕ": TokenType.IDENTIFIER,
     "ℕ₁": TokenType.IDENTIFIER,
+    "∀": TokenType.FORALL,
+    "∃": TokenType.EXISTS,
+    "∑": TokenType.SUM,
+    "∏": TokenType.PRODUCT,
+    "⋃": TokenType.GENERAL_UNION,
+    "⋂": TokenType.GENERAL_INTERSECTION,
     "≔": TokenType.ASSIGN,
     ":=": TokenType.ASSIGN,
     ":∈": TokenType.CHOICE_ASSIGN,
@@ -313,21 +310,23 @@ KEYWORD_TABLE = {
     "from": TokenType.FROM,
     "import": TokenType.IMPORT,
     "skip": TokenType.SKIP,
-    "with": TokenType.WITH,
+    "trait": TokenType.TRAIT,
     # Aliases for above symbols
     "lambda": TokenType.LAMBDA,
     "not": TokenType.NOT,
     "and": TokenType.AND,
     "or": TokenType.OR,
-    "forall": TokenType.FORALL,
-    "exists": TokenType.EXISTS,
     "div": TokenType.INT_DIV,
     "mod": TokenType.MOD,
     "in": TokenType.IN,
     "not in": TokenType.NOT_IN,
+    "forall": TokenType.FORALL,
+    "exists": TokenType.EXISTS,
+    "sum": TokenType.SUM,
+    "product": TokenType.PRODUCT,
     "union": TokenType.GENERAL_UNION,
     "intersection": TokenType.GENERAL_INTERSECTION,
-    "circ": TokenType.COMPOSITION,
-    "powerset": TokenType.POWERSET,
-    "powerset1": TokenType.NONEMPTY_POWERSET,
+    # "circ": TokenType.COMPOSITION,
+    # "powerset": TokenType.POWERSET,
+    # "powerset1": TokenType.NONEMPTY_POWERSET,
 }

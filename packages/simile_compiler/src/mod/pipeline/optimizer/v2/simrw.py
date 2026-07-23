@@ -103,7 +103,7 @@ def unwrap_start_nodes(ast_node: ast_.ASTNode) -> ast_.ASTNode:
     if isinstance(ast_node, ast_.Assignment):
         return unwrap_start_nodes(ast_node.target)
     match ast_node:
-        case ast_.Start(ast_.Statements([ast_.Assignment(target, _, _, _)]), _):
+        case ast_.Start(ast_.Statements([ast_.Assignment(target, _, _)]), _):
             return target
         # case ast_.Start(ast_.Statements([child]), _):
         #     return child

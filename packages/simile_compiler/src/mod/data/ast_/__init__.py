@@ -74,6 +74,7 @@ from src.mod.data.ast_.common import (
     TypedName,
     Image,
     Assignment,
+    TraitApplication,
     Return,
     Statements,
     Else,

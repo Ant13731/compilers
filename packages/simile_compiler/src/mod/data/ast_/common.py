@@ -922,11 +922,17 @@ class TypedName(ASTNode):
 class Assignment(ASTNode):
     target: ASTNode
     value: ASTNode
-    with_clauses: list[ASTNode]
+    # with_clauses: list[ASTNode]
     choice_assignment: bool
 
     def _get_type(self) -> SimileType:
         return BaseSimileType.None_
+
+
+@dataclass
+class TraitApplication(ASTNode):
+    target: ASTNode
+    traits: list[ASTNode]
 
 
 @dataclass
@@ -1088,7 +1094,7 @@ class Start(ASTNode):
 
 
 Literal = Int | Float | String | True_ | False_ | None_
-Predicate = Quantifier | BinaryOp | UnaryOp | True_ | False_
+Predicate = BinaryOp | UnaryOp | True_ | False_
 Primary = RecordAccess | Call | Image | Literal | Enumeration | Quantifier | Identifier
 Expr = LambdaDef | Quantifier | Predicate | BinaryOp | UnaryOp | ListOp | Primary | Identifier
 SimpleStmt = Expr | Assignment | ControlFlowStmt | Import

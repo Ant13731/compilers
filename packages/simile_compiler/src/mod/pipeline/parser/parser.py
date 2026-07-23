@@ -106,13 +106,15 @@ class Parser:
     # (ie. using strings instead of TokenTypes)
     first_sets: ClassVar[dict[str, set[str | TokenType]]] = {
         "start": {TokenType.EOF, "statements"},
-        "statements": {TokenType.COMMENT, "simple_stmt", "compound_stmt"},
-        "simple_stmt": {"expr", "assignment", "control_flow_stmt", "import_stmt"},
-        "predicate": {"bool_quantification", "unquantified_predicate"},
-        "bool_quantification": {TokenType.FORALL, TokenType.EXISTS},
+        "statements": {TokenType.COMMENT, "simple_statements", "compound_stmt"},
+        "simple_statements": {"assignment_or_expr", "control_flow_stmt", "import_stmt"},
+        "simple_stmt": {"assignment_or_expr", "control_flow_stmt", "import_stmt"},
+        "trait_stmt": {TokenType.INDENT},
+        "assignment_or_expr": {"expr"},
+        "type_expr": {TokenType.IDENTIFIER, TokenType.L_PAREN, TokenType.PROCEDURE, TokenType.RECORD, TokenType.ENUM},
+        "predicate": {"implication"},
         "ident_list": {"ident_pattern"},
         "ident_pattern": {TokenType.IDENTIFIER, TokenType.L_PAREN},
-        "unquantified_predicate": {"implication"},
         "implication": {"impl", "rev_impl", "disjunction"},
         "impl": {"disjunction"},
         "rev_impl": {"disjunction"},
@@ -122,7 +124,15 @@ class Parser:
         "atom_bool": {TokenType.TRUE, TokenType.FALSE, TokenType.L_PAREN, "pair_expr"},
         "expr": {"quantification", "pair_expr", "predicate"},
         "quantification": {"lambdadef", "quantification_op"},
-        "quantification_op": {TokenType.GENERAL_UNION, TokenType.GENERAL_INTERSECTION},
+        "quantification_op": {
+            TokenType.GENERAL_UNION,
+            TokenType.GENERAL_INTERSECTION,
+            TokenType.FORALL,
+            TokenType.EXISTS,
+            TokenType.PRODUCT,
+            TokenType.SUM,
+            TokenType.IDENTIFIER,
+        },
         "quantification_body": {"ident_list", "expr"},
         "lambdadef": {TokenType.LAMBDA},
         "pair_expr": {"rel_set_expr"},
@@ -152,13 +162,11 @@ class Parser:
             TokenType.NONE,
             TokenType.PROCEDURE,  # Hack, for when we use procedures as types
             "collections",
-            "builtin_functions",
         },
         "collections": {"set", "sequence", "bag"},  # handle relation inside the parsing function
         "set": {TokenType.L_BRACE},
         "sequence": {TokenType.L_BRACKET},
         "bag": {TokenType.L_DOUBLE_BRACKET},
-        "builtin_functions": {TokenType.POWERSET, TokenType.NONEMPTY_POWERSET},  # , TokenType.CARDINALITY, TokenType.FIRST, TokenType.SECOND},
         "control_flow_stmt": {TokenType.RETURN, TokenType.BREAK, TokenType.CONTINUE, TokenType.SKIP},
         "assignment": {"struct_access"},
         "typed_name": {TokenType.IDENTIFIER},
@@ -283,8 +291,9 @@ class Parser:
                 if self.match(TokenType.COMMENT):
                     continue
 
-                if self.peek().type_ in self.get_first_set("simple_stmt"):
-                    statements.append(self.simple_stmt())
+                if self.peek().type_ in self.get_first_set("simple_statements"):
+                    simple_statements = self.simple_statements()
+                    statements.extend(simple_statements.items)
                 elif self.peek().type_ in self.get_first_set("compound_stmt"):
                     statements.append(self.compound_stmt())
                 else:
@@ -295,89 +304,117 @@ class Parser:
         return ast_.Statements(statements)
 
     @store_derivation
+    def simple_statements(self) -> ast_.Statements:
+        if self.peek().type_ in self.get_first_set("assignment_or_expr"):
+            assignment_or_expr = self.assignment_or_expr()
+            if self.peek().type_ == TokenType.SEMICOLON:
+                statements = self.simple_statements_continuation()
+                return ast_.Statements([assignment_or_expr] + statements)
+            self.consume(TokenType.NEWLINE, "Expected NEWLINE after parsing assignment or expression (and before possible traits)")
+            if self.peek().type_ in self.get_first_set("trait_stmt"):
+                trait_stmts = self.trait_stmt()
+                return ast_.Statements([ast_.TraitApplication(target=assignment_or_expr, traits=trait_stmts)])
+            return ast_.Statements([assignment_or_expr])
+        elif self.peek().type_ in self.get_first_set("control_flow_stmt"):
+            control_flow_stmt = self.control_flow_stmt()
+            statements = self.simple_statements_continuation()
+            return ast_.Statements([control_flow_stmt] + statements)
+        elif self.peek().type_ in self.get_first_set("import_stmt"):
+            import_stmt = self.import_stmt()
+            statements = self.simple_statements_continuation()
+            return ast_.Statements([import_stmt] + statements)
+        else:
+            self.error("Unexpected statement starter")
+
+    @store_derivation
+    def simple_statements_continuation(self) -> list[ast_.ASTNode]:
+        statements = []
+        while self.match(TokenType.SEMICOLON):
+            statements.append(self.simple_stmt())
+        self.consume(TokenType.NEWLINE, "Expected end of simple statements continuation")
+        return statements
+
+    @store_derivation
+    def trait_stmt(self) -> list[ast_.ASTNode]:
+        self.consume(TokenType.INDENT, "Expected indent after assignment or expression newline before trait statement")
+        with_clauses = []
+        while not self.match(TokenType.DEDENT):
+            self.consume(TokenType.TRAIT, "Each refinement line in an assignment block must start with 'trait'")
+            with_clauses.append(self.expr())
+            self.consume(TokenType.NEWLINE, "Expected newline after with clause expression")
+        return with_clauses
+
+    @store_derivation
     def simple_stmt(self) -> ast_.SimpleStmt | ast_.ASTNode:
         t = self.peek()
-        if t.type_ in self.get_first_set("expr"):
-            expr = self.expr()
-            if self.peek().type_ not in [TokenType.COLON, TokenType.ASSIGN, TokenType.CHOICE_ASSIGN]:
-                self.consume(TokenType.NEWLINE, "Expected end of simple statement or assignment after parsing expression")
-                return expr
-
-            # now in assignment rule - could either see a type annotation or not
-            if self.match(TokenType.COLON):
-                type_ = self.expr()
-
-                def replace_image_with_generic_type_(node: ast_.ASTNode | Any) -> ast_.ASTNode | None:
-                    match node:
-                        case ast_.Image(ast_.Identifier(_) as target, index):
-                            return ast_.Type_(target, [index])
-                    return None
-
-                rewritten_type_ = ast_.Type_(type_.find_and_replace_with_func(replace_image_with_generic_type_))
-                expr = ast_.TypedName(expr, rewritten_type_)
-
-            if self.match(TokenType.CHOICE_ASSIGN):
-                choice_assignment = True
-            else:
-                choice_assignment = False
-                self.consume(TokenType.ASSIGN, "Expected assignment after an expression not ending with a newline")
-
-            # Since first of assignment and expr are shared, check if next token is an assignment
-            value = self.expr()
-            self.consume(TokenType.NEWLINE, "Expected end of simple statement after assignment")
-
-            # handle type restrictions, datatype refinements, etc.
-            with_clauses = []
-            if self.peek().type_ == TokenType.INDENT:
-                self.advance()
-                while not self.match(TokenType.DEDENT):
-                    self.consume(TokenType.WITH, "Each refinement line in an assignment block must start with 'with'")
-                    with_clauses.append(self.expr())
-                    self.consume(TokenType.NEWLINE, "Expected newline after with clause expression")
-
-            return ast_.Assignment(target=expr, value=value, with_clauses=with_clauses, choice_assignment=choice_assignment)
+        if t.type_ in self.get_first_set("assignment_or_expr"):
+            return self.assignment_or_expr()
         if t.type_ in self.get_first_set("control_flow_stmt"):
-            stmt = self.control_flow_stmt()
-            self.consume(TokenType.NEWLINE, "Expected end of simple statement after control flow statement")
-            return stmt
+            return self.control_flow_stmt()
         if t.type_ in self.get_first_set("import_stmt"):
-            stmt = self.import_stmt()
-            self.consume(TokenType.NEWLINE, "Expected end of simple statement after import statement")
-            return stmt
+            return self.import_stmt()
         self.error("Invalid start to simple_stmt")
 
     @store_derivation
+    def assignment_or_expr(self) -> ast_.ASTNode:
+        expr = self.expr()
+        if self.peek().type_ not in [TokenType.COLON, TokenType.ASSIGN, TokenType.CHOICE_ASSIGN]:
+            self.consume(TokenType.NEWLINE, "Expected end of simple statement or assignment after parsing expression")
+            return expr
+
+        # now in assignment rule - could either see a type annotation or not
+        if self.match(TokenType.COLON):
+            type_ = self.type_expr()
+            expr = ast_.TypedName(expr, type_)
+
+        if self.match(TokenType.CHOICE_ASSIGN):
+            choice_assignment = True
+        else:
+            choice_assignment = False
+            self.consume(TokenType.ASSIGN, "Expected assignment after an expression not ending with a newline")
+
+        # Since first of assignment and expr are shared, check if next token is an assignment
+        value = self.expr()
+        return ast_.Assignment(target=expr, value=value, choice_assignment=choice_assignment)
+
+    @store_derivation
+    def type_expr(self) -> ast_.Type_:
+        t = self.advance()
+        if t.type_ in {TokenType.IDENTIFIER, TokenType.PROCEDURE, TokenType.RECORD, TokenType.ENUM}:
+            base = ast_.Identifier(t.value)
+            if not self.match(TokenType.L_BRACKET):
+                return ast_.Type_(base)
+
+            generic_parameters: list[ast_.ASTNode] = [self.type_expr()]
+            while self.match(TokenType.COMMA):
+                generic_parameters.append(self.type_expr())
+            self.consume(TokenType.R_BRACKET, "Expected closing bracket when parsing generic type parameters")
+            return ast_.Type_(base, generic_parameters)
+
+        if t.type_ == TokenType.L_PAREN:
+            if self.match(TokenType.R_PAREN):
+                return ast_.Type_(ast_.None_())
+
+            types: list[ast_.ASTNode] = [self.type_expr()]
+            self.consume(TokenType.COMMA, "Expected comma when parsing tuple type (required even for single tuple types)")
+            if self.peek().type_ in self.get_first_set("type_expr"):
+                types.append(self.type_expr())
+                while self.match(TokenType.COMMA):
+                    types.append(self.type_expr())
+            self.consume(TokenType.R_PAREN, "Expected closing parenthesis when parsing generic type parameters")
+            return ast_.Type_(ast_.TupleLiteral(types))
+
+        self.error("Unexpected token when parsing type_expr (not a tuple or identifier)")
+
+    @store_derivation
     def predicate(self) -> ast_.Predicate | ast_.ASTNode:
-        t = self.peek()
-        match t.type_:
-            case TokenType.FORALL:
-                self.advance()
-                ident_list = self.ident_list()
-                if not self.match(TokenType.DOT):
-                    self.consume(TokenType.CDOT, "Expected FORALL quantification separator")
-                predicate = self.predicate()
-                if not isinstance(predicate, ast_.ListOp):
-                    predicate = ast_.And([predicate])
-
-                forall = ast_.Forall(predicate)
-                forall._bound_identifiers = set(ident_list.flatten_until_leaf_node())
-                return forall
-            case TokenType.EXISTS:
-                self.advance()
-                ident_list = self.ident_list()
-                if not self.match(TokenType.DOT):
-                    self.consume(TokenType.CDOT, "Expected EXISTS quantification separator")
-                predicate = self.predicate()
-                if not isinstance(predicate, ast_.ListOp):
-                    predicate = ast_.And([predicate])
-
-                exists = ast_.Exists(predicate)
-                exists._bound_identifiers = set(ident_list.flatten_until_leaf_node())
-                return exists
-            case _ if t.type_ in self.get_first_set("unquantified_predicate"):
-                return self.unquantified_predicate()
-            case _:
-                self.error("Predicate token not found")
+        return self.left_associative_optional_parse(
+            self.implication,
+            {
+                TokenType.EQUIVALENT: ast_.Equivalent,
+                TokenType.NOT_EQUIVALENT: ast_.NotEquivalent,
+            },
+        )
 
     @store_derivation
     def ident_list(self) -> ast_.TupleIdentifier:
@@ -407,16 +444,6 @@ class Parser:
             case _:
                 self.error("No identifier or sub-pattern found")
         return item
-
-    @store_derivation
-    def unquantified_predicate(self) -> ast_.ASTNode:
-        return self.left_associative_optional_parse(
-            self.implication,
-            {
-                TokenType.EQUIVALENT: ast_.Equivalent,
-                TokenType.NOT_EQUIVALENT: ast_.NotEquivalent,
-            },
-        )
 
     @store_derivation
     def implication(self) -> ast_.ASTNode:
@@ -535,6 +562,7 @@ class Parser:
                 predicate = self.predicate()
                 self.consume(TokenType.VBAR, "Expected LAMBDA quantification predicate separator")
                 return ast_.LambdaDef(params, predicate, self.expr())
+            # TODO fix up according to grammar - should be able to take any identifier? Then fix up quant body, generator, etc...
             case TokenType.GENERAL_UNION:
                 ident_list, predicate, expression = self.quantification_body()
                 union_all: ast_.ASTNode = ast_.UnionAll(predicate, expression)
@@ -549,6 +577,30 @@ class Parser:
                     intersection_all = ast_.QualifiedIntersectionAll(ident_list, predicate, expression)
                 # intersection_all._bound_identifiers = set(ident_list.flatten_until_leaf_node())
                 return intersection_all
+            case TokenType.FORALL:
+                self.advance()
+                ident_list = self.ident_list()
+                if not self.match(TokenType.DOT):
+                    self.consume(TokenType.CDOT, "Expected FORALL quantification separator")
+                predicate = self.predicate()
+                if not isinstance(predicate, ast_.ListOp):
+                    predicate = ast_.And([predicate])
+
+                forall = ast_.Forall(predicate)
+                forall._bound_identifiers = set(ident_list.flatten_until_leaf_node())
+                return forall
+            case TokenType.EXISTS:
+                self.advance()
+                ident_list = self.ident_list()
+                if not self.match(TokenType.DOT):
+                    self.consume(TokenType.CDOT, "Expected EXISTS quantification separator")
+                predicate = self.predicate()
+                if not isinstance(predicate, ast_.ListOp):
+                    predicate = ast_.And([predicate])
+
+                exists = ast_.Exists(predicate)
+                exists._bound_identifiers = set(ident_list.flatten_until_leaf_node())
+                return exists
             case _:
                 self.error("Invalid start to quantification")
 
@@ -739,6 +791,7 @@ class Parser:
 
     @store_derivation
     def primary(self) -> ast_.ASTNode:
+        # TODO match grammar - attempt to parse primary as left recursive?
         atom = self.atom()
         while self.peek().type_ in [TokenType.DOT, TokenType.L_PAREN, TokenType.L_BRACKET]:
             match self.peek().type_:
@@ -793,47 +846,12 @@ class Parser:
                 return ast_.True_()
             case TokenType.FALSE:
                 return ast_.False_()
-            # case TokenType.NONE:
-            #     return ast_.None_()
             case TokenType.L_BRACE:
                 return self.set_()
             case TokenType.L_BRACKET:
                 return self.sequence()
             case TokenType.L_DOUBLE_BRACKET:
                 return self.bag()
-            case TokenType.POWERSET:
-                self.consume(TokenType.L_PAREN, "Powerset requires object call notation")
-                powerset = self.expr()
-                self.consume(TokenType.R_PAREN, "Need to close parenthesis")
-                return ast_.Powerset(powerset)
-            case TokenType.NONEMPTY_POWERSET:
-                self.consume(TokenType.L_PAREN, "Nonempty Powerset requires object call notation")
-                powerset = self.expr()
-                self.consume(TokenType.R_PAREN, "Need to close parenthesis")
-                return ast_.NonemptyPowerset(powerset)
-            # case TokenType.CARDINALITY:
-            #     self.consume(TokenType.L_PAREN, "Cardinality requires object call notation")
-            #     cardinality = self.expr()
-            #     self.consume(TokenType.R_PAREN, "Need to close parenthesis")
-            #     fresh_variable = ast_.Identifier(f"*fresh_var_card{self.current_index}")
-            #     # Inlined rewrite rule - Cardinality
-            #     ast_sum = ast_.Sum(
-            #         ast_.And([ast_.In(fresh_variable, cardinality)]),
-            #         ast_.Int("1"),
-            #     )
-            #     ast_sum._bound_identifiers = {fresh_variable}
-            #     return ast_sum
-            # case TokenType.FIRST:
-            #     self.consume(TokenType.L_PAREN, "First requires object call notation")
-            #     first = self.expr()
-            #     self.consume(TokenType.R_PAREN, "Need to close parenthesis")
-            #     return ast_.Call(ast_.Identifier("*first"), [first])
-            # case TokenType.SECOND:
-            #     self.consume(TokenType.L_PAREN, "Second requires object call notation")
-            #     second = self.expr()
-            #     self.consume(TokenType.R_PAREN, "Need to close parenthesis")
-            #     return ast_.Call(ast_.Identifier("*second"), [second])
-            # TODO tuple??
             case TokenType.L_PAREN:
                 if self.peek().type_ == TokenType.R_PAREN:
                     self.advance()
