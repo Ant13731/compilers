@@ -811,27 +811,12 @@ class Parser:
                     atom = ast_.Call(atom, args)
                 case TokenType.L_BRACKET:
                     self.advance()
-                    exprs = []
-                    if self.peek() != TokenType.R_BRACKET:
-                        exprs.append(self.expr())
-                        while self.match(TokenType.COMMA):
-                            exprs.append(self.expr())
+                    expr = self.expr()
                     self.consume(TokenType.R_BRACKET, "Expected closing bracket")
-                    if len(exprs) == 1:
-                        # Type annotations that have one argument will be converted later - see replace_image_with_generic_type_
-                        atom = ast_.Image(atom, exprs[0])
-                    else:
-                        atom = ast_.Type_(atom, exprs)
+                    atom = ast_.Image(atom, expr)
                 case _:
                     self.error("Unreachable state")
         return atom
-
-    # @store_derivation
-    # def inversable_atom(self) -> ast_.ASTNode:
-    #     atom = self.atom()
-    #     while self.match(TokenType.INVERSE):
-    #         atom = ast_.Inverse(atom)
-    #     return atom
 
     @store_derivation
     def atom(self) -> ast_.ASTNode:

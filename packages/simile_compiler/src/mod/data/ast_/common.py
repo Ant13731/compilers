@@ -719,6 +719,36 @@ class QualifiedQuantifier(ASTNode):
 
 
 @dataclass(eq=False)
+class Quantifier2(ASTNode):
+    generator: ListOp
+    """Reusing ListOp here since generators can be combined with And or Or combinations.
+    Only Generator nodes should be passed to this parameter"""
+    expression: ASTNode
+    op_type: QuantifierOperator
+
+
+@dataclass
+class Generator(ASTNode):
+    generator: BinaryOp
+    predicate: ASTNode | None_
+
+
+@dataclass
+class Fold(ASTNode):
+    generator: ListOp
+    accumulator_init: Assignment
+    accumulate_expr: ASTNode
+
+
+@dataclass
+class Iter(ASTNode):
+    generator: ListOp
+    accumulator_inits: Statements
+    return_identifiers: TupleIdentifier | None_
+    body: Statements
+
+
+@dataclass(eq=False)
 class Enumeration(InheritedEqMixin, ASTNode):
     items: list[ASTNode]
     op_type: CollectionOperator
