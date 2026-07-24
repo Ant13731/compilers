@@ -733,7 +733,7 @@ class Quantifier2(ASTNode):
 @dataclass
 class Generator(ASTNode):
     generator: BinaryOp
-    predicate: ASTNode | None_
+    predicate: ASTNode | True_
 
 
 @dataclass

@@ -674,7 +674,7 @@ class Parser:
         bound_identifiers = self.ident_list()
         self.consume(TokenType.IN, "Expected IN token after identifiers in generator")
         expr = self.expr()
-        predicate: ast_.ASTNode = ast_.None_()
+        predicate: ast_.ASTNode = ast_.True_()
         if self.match(TokenType.DOT) or self.match(TokenType.CDOT):
             predicate = self.expr()
         return ast_.Generator(ast_.In(bound_identifiers, expr), predicate)

@@ -27,10 +27,8 @@ def ast_promoter(node: ast_.ASTNode) -> ast_.ASTNode | None:
         return _promote_unary_op(node)
     if isinstance(node, ast_.ControlFlowStmt):
         return _promote_control_flow_stmt(node)
-    if isinstance(node, ast_.Quantifier):
+    if isinstance(node, ast_.Quantifier2):
         return _promote_quantifier(node)
-    if isinstance(node, ast_.QualifiedQuantifier):
-        return _promote_qualified_quantifier(node)
     if isinstance(node, ast_.Enumeration):
         return _promote_enumeration(node)
     if isinstance(node, ast_.Call) and isinstance(node.target, ast_.Identifier):
@@ -192,10 +190,6 @@ def _promote_unary_op(node: ast_.UnaryOp) -> ast_.ASTNode:
             return ast_.Not(node.value)
         case ast_.UnaryOperator.NEGATIVE:
             return ast_.Negative(node.value)
-        case ast_.UnaryOperator.POWERSET:
-            return ast_.Powerset(node.value)
-        case ast_.UnaryOperator.NONEMPTY_POWERSET:
-            return ast_.NonemptyPowerset(node.value)
         case ast_.UnaryOperator.INVERSE:
             return ast_.Inverse(node.value)
     return node
@@ -212,53 +206,28 @@ def _promote_control_flow_stmt(node: ast_.ControlFlowStmt) -> ast_.ASTNode:
     return node
 
 
-def _promote_quantifier(node: ast_.Quantifier) -> ast_.ASTNode:
+def _promote_quantifier(node: ast_.Quantifier2) -> ast_.ASTNode:
     match node.op_type:
         case ast_.QuantifierOperator.UNION_ALL:
-            return ast_.UnionAll(node.predicate, node.expression)
+            return ast_.UnionAll(node.generator, node.expression)
         case ast_.QuantifierOperator.INTERSECTION_ALL:
-            return ast_.IntersectionAll(node.predicate, node.expression)
+            return ast_.IntersectionAll(node.generator, node.expression)
         case ast_.QuantifierOperator.SUM:
-            return ast_.Sum(node.predicate, node.expression)
+            return ast_.Sum(node.generator, node.expression)
         case ast_.QuantifierOperator.PRODUCT:
-            return ast_.Product(node.predicate, node.expression)
+            return ast_.Product(node.generator, node.expression)
         case ast_.QuantifierOperator.SEQUENCE:
-            return ast_.SequenceComprehension(node.predicate, node.expression)
+            return ast_.SequenceComprehension(node.generator, node.expression)
         case ast_.QuantifierOperator.SET:
-            return ast_.SetComprehension(node.predicate, node.expression)
+            return ast_.SetComprehension(node.generator, node.expression)
         case ast_.QuantifierOperator.RELATION:
-            return ast_.RelationComprehension(node.predicate, node.expression)
+            return ast_.RelationComprehension(node.generator, node.expression)
         case ast_.QuantifierOperator.BAG:
-            return ast_.BagComprehension(node.predicate, node.expression)
+            return ast_.BagComprehension(node.generator, node.expression)
         case ast_.QuantifierOperator.FORALL:
-            return ast_.Forall(node.predicate, node.expression)
+            return ast_.Forall(node.generator, node.expression)
         case ast_.QuantifierOperator.EXISTS:
-            return ast_.Exists(node.predicate, node.expression)
-    return node
-
-
-def _promote_qualified_quantifier(node: ast_.QualifiedQuantifier) -> ast_.ASTNode:
-    match node.op_type:
-        case ast_.QuantifierOperator.UNION_ALL:
-            return ast_.QualifiedUnionAll(node.bound_identifiers, node.predicate, node.expression)
-        case ast_.QuantifierOperator.INTERSECTION_ALL:
-            return ast_.QualifiedIntersectionAll(node.bound_identifiers, node.predicate, node.expression)
-        case ast_.QuantifierOperator.SUM:
-            return ast_.QualifiedSum(node.bound_identifiers, node.predicate, node.expression)
-        case ast_.QuantifierOperator.PRODUCT:
-            return ast_.QualifiedProduct(node.bound_identifiers, node.predicate, node.expression)
-        case ast_.QuantifierOperator.SEQUENCE:
-            return ast_.QualifiedSequenceComprehension(node.bound_identifiers, node.predicate, node.expression)
-        case ast_.QuantifierOperator.SET:
-            return ast_.QualifiedSetComprehension(node.bound_identifiers, node.predicate, node.expression)
-        case ast_.QuantifierOperator.RELATION:
-            return ast_.QualifiedRelationComprehension(node.bound_identifiers, node.predicate, node.expression)
-        case ast_.QuantifierOperator.BAG:
-            return ast_.QualifiedBagComprehension(node.bound_identifiers, node.predicate, node.expression)
-        case ast_.QuantifierOperator.FORALL:
-            return ast_.QualifiedForall(node.bound_identifiers, node.predicate, node.expression)
-        case ast_.QuantifierOperator.EXISTS:
-            return ast_.QualifiedExists(node.bound_identifiers, node.predicate, node.expression)
+            return ast_.Exists(node.generator, node.expression)
     return node
 
 
