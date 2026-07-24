@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field, Field, fields, is_dataclass
 from typing import Callable, ClassVar, Any, Self, Container, TYPE_CHECKING
+from warnings import deprecated
 
 
 from src.mod.data.ast_.base import ASTNode
@@ -555,6 +556,7 @@ class ListOp(InheritedEqMixin, ASTNode):
 
 
 # TODO move to parser_only file (once typing/semantic analysis is sorted out)
+@deprecated("use v2")
 @dataclass(eq=False)
 class Quantifier(ASTNode):
     predicate: ListOp  # includes generators
@@ -678,6 +680,7 @@ class Quantifier(ASTNode):
         return identifiers
 
 
+@deprecated("use v2")
 @dataclass(eq=False)
 class QualifiedQuantifier(ASTNode):
     bound_identifiers: TupleIdentifier | TupleSymbol
@@ -743,8 +746,8 @@ class Fold(ASTNode):
 @dataclass
 class Iter(ASTNode):
     generator: ListOp
-    accumulator_inits: Statements
-    return_identifiers: TupleIdentifier | None_
+    accumulator_inits: list[Assignment]
+    return_identifiers: TupleIdentifier | Identifier | None_
     body: Statements
 
 

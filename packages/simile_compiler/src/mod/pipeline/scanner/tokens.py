@@ -31,6 +31,7 @@ class TokenType(Enum):
     CDOT = auto()
     DOT = auto()
     COMMA = auto()
+    BACKTICK = auto()
     COLON = auto()
     SEMICOLON = auto()
     VBAR = auto()
@@ -86,6 +87,8 @@ class TokenType(Enum):
     PRODUCT = auto()
     GENERAL_UNION = auto()
     GENERAL_INTERSECTION = auto()
+    FOLD = auto()
+    ITER = auto()
 
     # Numbers
     PLUS = auto()
@@ -158,6 +161,7 @@ OPERATOR_TOKEN_TABLE = {
     "·": TokenType.CDOT,
     ".": TokenType.DOT,
     ",": TokenType.COMMA,
+    "`": TokenType.BACKTICK,
     ":": TokenType.COLON,
     ";": TokenType.SEMICOLON,
     "|": TokenType.VBAR,
@@ -311,6 +315,8 @@ KEYWORD_TABLE = {
     "import": TokenType.IMPORT,
     "skip": TokenType.SKIP,
     "trait": TokenType.TRAIT,
+    "fold": TokenType.FOLD,
+    "iter": TokenType.ITER,
     # Aliases for above symbols
     "lambda": TokenType.LAMBDA,
     "not": TokenType.NOT,
@@ -326,6 +332,9 @@ KEYWORD_TABLE = {
     "product": TokenType.PRODUCT,
     "union": TokenType.GENERAL_UNION,
     "intersection": TokenType.GENERAL_INTERSECTION,
+    # Little odd, but needed to make generator parsing work
+    "iter_or": TokenType.BACKTICK,
+    "iter_and": TokenType.COMMA,
     # "circ": TokenType.COMPOSITION,
     # "powerset": TokenType.POWERSET,
     # "powerset1": TokenType.NONEMPTY_POWERSET,

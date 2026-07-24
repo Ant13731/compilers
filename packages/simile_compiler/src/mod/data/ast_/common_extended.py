@@ -17,8 +17,7 @@ from src.mod.data.ast_.common import (
     RelationOp,
     ListOp,
     UnaryOp,
-    Quantifier,
-    QualifiedQuantifier,
+    Quantifier2,
     ControlFlowStmt,
     Enumeration,
 )
@@ -326,82 +325,42 @@ class Skip(ControlFlowStmt):
 
 
 @dataclass
-class UnionAll(Quantifier):
+class UnionAll(Quantifier2):
     op_type: QuantifierOperator = QuantifierOperator.UNION_ALL
 
 
 @dataclass
-class IntersectionAll(Quantifier):
+class IntersectionAll(Quantifier2):
     op_type: QuantifierOperator = QuantifierOperator.INTERSECTION_ALL
 
 
 @dataclass
-class Sum(Quantifier):
+class Sum(Quantifier2):
     op_type: QuantifierOperator = QuantifierOperator.SUM
 
 
 @dataclass
-class Product(Quantifier):
+class Product(Quantifier2):
     op_type: QuantifierOperator = QuantifierOperator.PRODUCT
 
 
 @dataclass
-class SequenceComprehension(Quantifier):
+class SequenceComprehension(Quantifier2):
     op_type: QuantifierOperator = QuantifierOperator.SEQUENCE
 
 
 @dataclass
-class SetComprehension(Quantifier):
+class SetComprehension(Quantifier2):
     op_type: QuantifierOperator = QuantifierOperator.SET
 
 
 @dataclass
-class RelationComprehension(Quantifier):
+class RelationComprehension(Quantifier2):
     op_type: QuantifierOperator = QuantifierOperator.RELATION
 
 
 @dataclass
-class BagComprehension(Quantifier):
-    op_type: QuantifierOperator = QuantifierOperator.BAG
-
-
-@dataclass
-class QualifiedUnionAll(QualifiedQuantifier):
-    op_type: QuantifierOperator = QuantifierOperator.UNION_ALL
-
-
-@dataclass
-class QualifiedIntersectionAll(QualifiedQuantifier):
-    op_type: QuantifierOperator = QuantifierOperator.INTERSECTION_ALL
-
-
-@dataclass
-class QualifiedSum(QualifiedQuantifier):
-    op_type: QuantifierOperator = QuantifierOperator.SUM
-
-
-@dataclass
-class QualifiedProduct(QualifiedQuantifier):
-    op_type: QuantifierOperator = QuantifierOperator.PRODUCT
-
-
-@dataclass
-class QualifiedSequenceComprehension(QualifiedQuantifier):
-    op_type: QuantifierOperator = QuantifierOperator.SEQUENCE
-
-
-@dataclass
-class QualifiedSetComprehension(QualifiedQuantifier):
-    op_type: QuantifierOperator = QuantifierOperator.SET
-
-
-@dataclass
-class QualifiedRelationComprehension(QualifiedQuantifier):
-    op_type: QuantifierOperator = QuantifierOperator.RELATION
-
-
-@dataclass
-class QualifiedBagComprehension(QualifiedQuantifier):
+class BagComprehension(Quantifier2):
     op_type: QuantifierOperator = QuantifierOperator.BAG
 
 
@@ -426,24 +385,10 @@ class BagEnumeration(Enumeration):
 
 
 @dataclass
-class Forall(Quantifier):
-    expression: ASTNode = field(default_factory=True_)
+class Forall(Quantifier2):
     op_type: QuantifierOperator = QuantifierOperator.FORALL
 
 
 @dataclass
-class Exists(Quantifier):
-    expression: ASTNode = field(default_factory=True_)
-    op_type: QuantifierOperator = QuantifierOperator.EXISTS
-
-
-@dataclass
-class QualifiedForall(QualifiedQuantifier):
-    expression: ASTNode = field(default_factory=True_)
-    op_type: QuantifierOperator = QuantifierOperator.FORALL
-
-
-@dataclass
-class QualifiedExists(QualifiedQuantifier):
-    expression: ASTNode = field(default_factory=True_)
+class Exists(Quantifier2):
     op_type: QuantifierOperator = QuantifierOperator.EXISTS

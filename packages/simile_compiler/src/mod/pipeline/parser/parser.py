@@ -106,25 +106,14 @@ class Parser:
     # (ie. using strings instead of TokenTypes)
     first_sets: ClassVar[dict[str, set[str | TokenType]]] = {
         "start": {TokenType.EOF, "statements"},
-        "statements": {TokenType.COMMENT, "simple_statements", "compound_stmt"},
+        "statements": {"simple_statements", "compound_stmt"},
         "simple_statements": {"assignment_or_expr", "control_flow_stmt", "import_stmt"},
         "simple_stmt": {"assignment_or_expr", "control_flow_stmt", "import_stmt"},
-        "trait_stmt": {TokenType.INDENT},
         "assignment_or_expr": {"expr"},
-        "type_expr": {TokenType.IDENTIFIER, TokenType.L_PAREN, TokenType.PROCEDURE, TokenType.RECORD, TokenType.ENUM},
-        "predicate": {"implication"},
-        "ident_list": {"ident_pattern"},
-        "ident_pattern": {TokenType.IDENTIFIER, TokenType.L_PAREN},
-        "implication": {"impl", "rev_impl", "disjunction"},
-        "impl": {"disjunction"},
-        "rev_impl": {"disjunction"},
-        "disjunction": {"conjunction"},
-        "conjunction": {"negation"},
-        "negation": {TokenType.NOT, "atom_bool"},
-        "atom_bool": {TokenType.TRUE, TokenType.FALSE, TokenType.L_PAREN, "pair_expr"},
-        "expr": {"quantification", "pair_expr", "predicate"},
-        "quantification": {"lambdadef", "quantification_op"},
-        "quantification_op": {
+        "trait_stmt": {TokenType.INDENT},
+        "expr": {"quantification", "predicate"},
+        "quantification": {
+            TokenType.LAMBDA,
             TokenType.GENERAL_UNION,
             TokenType.GENERAL_INTERSECTION,
             TokenType.FORALL,
@@ -132,50 +121,58 @@ class Parser:
             TokenType.PRODUCT,
             TokenType.SUM,
             TokenType.IDENTIFIER,
+            TokenType.FOLD,
+            TokenType.ITER,
         },
-        "quantification_body": {"ident_list", "expr"},
-        "lambdadef": {TokenType.LAMBDA},
+        "assignment": {"expr"},
+        "or_generator": {"and_generator"},
+        "and_generator": {"paren_generator"},
+        "paren_generator": {"generator", TokenType.L_PAREN},
+        "generator": {"ident_list"},
+        "ident_list": {"ident_list_item"},
+        "ident_list_identifier": {TokenType.IDENTIFIER, TokenType.L_PAREN},
+        "predicate": {"implication"},
+        "implication": {"disjunction"},
+        "disjunction": {"conjunction"},
+        "conjunction": {"negation"},
+        "negation": {TokenType.NOT, "atom_bool"},
+        "atom_bool": {"pair_expr"},
         "pair_expr": {"rel_set_expr"},
         "rel_set_expr": {"set_expr"},
-        "set_expr": {"interval_expr", "rel_expr"},
-        "rel_expr": {"interval_expr"},
-        "rel_sub_expr": {"range_modifier", TokenType.SET_DIFFERENCE},
-        "range_modifier": {TokenType.RANGE_RESTRICTION, TokenType.RANGE_SUBTRACTION},
+        "set_expr": {"interval_expr"},
+        "rel_sub_expr": {TokenType.SET_DIFFERENCE, TokenType.RANGE_RESTRICTION, TokenType.RANGE_SUBTRACTION},
         "interval_expr": {"arithmetic_expr"},
         "arithmetic_expr": {"term"},
         "term": {"factor"},
         "factor": {TokenType.PLUS, TokenType.MINUS, "power"},
         "power": {"primary"},
-        "primary": {"struct_access", "call", "image"},
-        # "inversable_atom": {"atom"},
-        "struct_access": {"atom"},
-        "call": {"atom"},
-        "image": {"atom"},
+        "primary": {"atom"},
+        "atom_follow": {TokenType.DOT, TokenType.L_BRACKET, TokenType.L_PAREN},
         "atom": {
-            TokenType.IDENTIFIER,
-            TokenType.L_PAREN,
             TokenType.INTEGER,
             TokenType.FLOAT,
             TokenType.STRING,
             TokenType.TRUE,
             TokenType.FALSE,
-            TokenType.NONE,
-            TokenType.PROCEDURE,  # Hack, for when we use procedures as types
-            "collections",
+            # TokenType.NONE,
+            TokenType.IDENTIFIER,
+            "set",
+            "sequence",
+            "bag",
+            "tuple",
+            TokenType.L_PAREN,
         },
-        "collections": {"set", "sequence", "bag"},  # handle relation inside the parsing function
         "set": {TokenType.L_BRACE},
-        "sequence": {TokenType.L_BRACKET},
         "bag": {TokenType.L_DOUBLE_BRACKET},
-        "control_flow_stmt": {TokenType.RETURN, TokenType.BREAK, TokenType.CONTINUE, TokenType.SKIP},
-        "assignment": {"struct_access"},
-        "typed_name": {TokenType.IDENTIFIER},
+        "sequence": {TokenType.L_BRACKET},
+        "tuple": {TokenType.L_PAREN},
+        "collection_body": {"or_generator", "enumeration_body"},
+        "enumeration_body": {TokenType.NEWLINE, "expr"},
         "compound_stmt": {
             "if_stmt",
             "for_stmt",
             "while_stmt",
             "record_stmt",
-            # "enum_stmt",
             "procedure_stmt",
         },
         "if_stmt": {TokenType.IF},
@@ -183,12 +180,20 @@ class Parser:
         "for_stmt": {TokenType.FOR},
         "while_stmt": {TokenType.WHILE},
         "record_stmt": {TokenType.RECORD},
-        # "enum_stmt": {TokenType.ENUM},
         "procedure_stmt": {TokenType.PROCEDURE},
-        "block": {"simple_stmt", TokenType.INDENT},
+        "block": {"simple_statements", TokenType.INDENT},
+        "typed_name": {TokenType.IDENTIFIER},
+        "type_expr": {
+            TokenType.IDENTIFIER,
+            TokenType.L_PAREN,
+            TokenType.PROCEDURE,  # Hack, for when we use procedures as types
+            TokenType.RECORD,
+            TokenType.ENUM,
+        },
+        "tuple_type_expr_body": {"type_expr"},
+        "control_flow_stmt": {TokenType.RETURN, TokenType.BREAK, TokenType.CONTINUE, TokenType.SKIP},
         "import_stmt": {TokenType.IMPORT, TokenType.FROM},
-        "import_name": {TokenType.DOT, TokenType.IDENTIFIER},
-        "import_list": {TokenType.MULT, TokenType.IDENTIFIER, TokenType.L_PAREN},
+        "import_list": {TokenType.MULT, "flat_tuple_identifier"},
         "flat_tuple_identifier": {TokenType.IDENTIFIER, TokenType.L_PAREN},
         "ident_list_item_non_maplet": {TokenType.IDENTIFIER, TokenType.L_PAREN},
     }
@@ -309,6 +314,7 @@ class Parser:
             assignment_or_expr = self.assignment_or_expr()
             if self.peek().type_ == TokenType.SEMICOLON:
                 statements = self.simple_statements_continuation()
+                self.consume(TokenType.NEWLINE, "Expected NEWLINE after parsing multiple assignments/expressions")
                 return ast_.Statements([assignment_or_expr] + statements)
             self.consume(TokenType.NEWLINE, "Expected NEWLINE after parsing assignment or expression (and before possible traits)")
             if self.peek().type_ in self.get_first_set("trait_stmt"):
@@ -318,10 +324,12 @@ class Parser:
         elif self.peek().type_ in self.get_first_set("control_flow_stmt"):
             control_flow_stmt = self.control_flow_stmt()
             statements = self.simple_statements_continuation()
+            self.consume(TokenType.NEWLINE, "Expected NEWLINE after parsing control flow statement")
             return ast_.Statements([control_flow_stmt] + statements)
         elif self.peek().type_ in self.get_first_set("import_stmt"):
             import_stmt = self.import_stmt()
             statements = self.simple_statements_continuation()
+            self.consume(TokenType.NEWLINE, "Expected NEWLINE after parsing import statement")
             return ast_.Statements([import_stmt] + statements)
         else:
             self.error("Unexpected statement starter")
@@ -359,7 +367,6 @@ class Parser:
     def assignment_or_expr(self) -> ast_.ASTNode:
         expr = self.expr()
         if self.peek().type_ not in [TokenType.COLON, TokenType.ASSIGN, TokenType.CHOICE_ASSIGN]:
-            self.consume(TokenType.NEWLINE, "Expected end of simple statement or assignment after parsing expression")
             return expr
 
         # now in assignment rule - could either see a type annotation or not
@@ -367,11 +374,36 @@ class Parser:
             type_ = self.type_expr()
             expr = ast_.TypedName(expr, type_)
 
-        if self.match(TokenType.CHOICE_ASSIGN):
-            choice_assignment = True
-        else:
-            choice_assignment = False
-            self.consume(TokenType.ASSIGN, "Expected assignment after an expression not ending with a newline")
+        if self.peek().type_ not in [TokenType.ASSIGN, TokenType.CHOICE_ASSIGN]:
+            return expr  # can type an expression without making it an assignment
+
+        match self.advance().type_:
+            case TokenType.CHOICE_ASSIGN:
+                choice_assignment = True
+            case TokenType.ASSIGN:
+                choice_assignment = False
+            case _:
+                self.error("Unexpected token after type annotation in assignment or expr rule")
+
+        value = self.expr()
+        return ast_.Assignment(target=expr, value=value, choice_assignment=choice_assignment)
+
+    @store_derivation
+    def assignment(self) -> ast_.Assignment:
+        expr = self.expr()
+
+        # now in assignment rule - could either see a type annotation or not
+        if self.match(TokenType.COLON):
+            type_ = self.type_expr()
+            expr = ast_.TypedName(expr, type_)
+
+        match self.advance().type_:
+            case TokenType.CHOICE_ASSIGN:
+                choice_assignment = True
+            case TokenType.ASSIGN:
+                choice_assignment = False
+            case _:
+                self.error("Expected assignment symbol after type annotation or expression in assignment rule")
 
         # Since first of assignment and expr are shared, check if next token is an assignment
         value = self.expr()
@@ -562,75 +594,90 @@ class Parser:
                 predicate = self.predicate()
                 self.consume(TokenType.VBAR, "Expected LAMBDA quantification predicate separator")
                 return ast_.LambdaDef(params, predicate, self.expr())
-            # TODO fix up according to grammar - should be able to take any identifier? Then fix up quant body, generator, etc...
-            case TokenType.GENERAL_UNION:
-                ident_list, predicate, expression = self.quantification_body()
-                union_all: ast_.ASTNode = ast_.UnionAll(predicate, expression)
-                if ident_list:
-                    union_all = ast_.QualifiedUnionAll(ident_list, predicate, expression)
-                # union_all._bound_identifiers = set(ident_list.flatten_until_leaf_node())
-                return union_all
-            case TokenType.GENERAL_INTERSECTION:
-                ident_list, predicate, expression = self.quantification_body()
-                intersection_all: ast_.ASTNode = ast_.IntersectionAll(predicate, expression)
-                if ident_list:
-                    intersection_all = ast_.QualifiedIntersectionAll(ident_list, predicate, expression)
-                # intersection_all._bound_identifiers = set(ident_list.flatten_until_leaf_node())
-                return intersection_all
-            case TokenType.FORALL:
-                self.advance()
-                ident_list = self.ident_list()
-                if not self.match(TokenType.DOT):
-                    self.consume(TokenType.CDOT, "Expected FORALL quantification separator")
-                predicate = self.predicate()
-                if not isinstance(predicate, ast_.ListOp):
-                    predicate = ast_.And([predicate])
-
-                forall = ast_.Forall(predicate)
-                forall._bound_identifiers = set(ident_list.flatten_until_leaf_node())
-                return forall
-            case TokenType.EXISTS:
-                self.advance()
-                ident_list = self.ident_list()
-                if not self.match(TokenType.DOT):
-                    self.consume(TokenType.CDOT, "Expected EXISTS quantification separator")
-                predicate = self.predicate()
-                if not isinstance(predicate, ast_.ListOp):
-                    predicate = ast_.And([predicate])
-
-                exists = ast_.Exists(predicate)
-                exists._bound_identifiers = set(ident_list.flatten_until_leaf_node())
-                return exists
+            case TokenType.FOLD:
+                generator = self.or_generator()
+                self.consume(TokenType.COLON, "Expected FOLD quantification separator `:' between generator and initializing assignment")
+                initializing_assignment = self.assignment()
+                self.consume(TokenType.VBAR, "Expected FOLD quantification separator `|' between initializing assignment and expression")
+                return ast_.Fold(generator, initializing_assignment, self.expr())
+            case TokenType.ITER:
+                generator = self.or_generator()
+                self.consume(TokenType.COLON, "Expected ITER quantification separator `:' between generator and initializing assignments")
+                initializing_assignments = [self.assignment()]
+                while self.match(TokenType.SEMICOLON):
+                    initializing_assignments.append(self.assignment())
+                returning_tuple: ast_.TupleIdentifier | ast_.Identifier | ast_.None_ = ast_.None_()
+                if self.match(TokenType.RIGHTARROW):
+                    returning_tuple = self.ident_list()
+                self.consume(TokenType.VBAR, "Expected ITER quantification separator `|' between returning tuple and expression")
+                body = self.block()
+                return ast_.Iter(generator, initializing_assignments, returning_tuple, body)
+            case _ if t.type_ in {
+                TokenType.GENERAL_UNION,
+                TokenType.GENERAL_INTERSECTION,
+                TokenType.FORALL,
+                TokenType.EXISTS,
+                TokenType.SUM,
+                TokenType.PRODUCT,
+            }:
+                op_type: ast_.QuantifierOperator | None = None
+                match t.type_:
+                    case TokenType.GENERAL_UNION:
+                        op_type = ast_.QuantifierOperator.UNION_ALL
+                    case TokenType.GENERAL_INTERSECTION:
+                        op_type = ast_.QuantifierOperator.INTERSECTION_ALL
+                    case TokenType.FORALL:
+                        op_type = ast_.QuantifierOperator.FORALL
+                    case TokenType.EXISTS:
+                        op_type = ast_.QuantifierOperator.EXISTS
+                    case TokenType.SUM:
+                        op_type = ast_.QuantifierOperator.SUM
+                    case TokenType.PRODUCT:
+                        op_type = ast_.QuantifierOperator.PRODUCT
+                assert op_type is not None, "op_type should have been defined in above mapping"
+                generator = self.or_generator()
+                self.consume(TokenType.VBAR, "Expected quantification separator between generator/predicate and expr")
+                expr = self.expr()
+                return ast_.Quantifier2(generator, expr, op_type)
             case _:
                 self.error("Invalid start to quantification")
 
     @store_derivation
-    def quantification_body(self) -> tuple[ast_.TupleIdentifier | None, ast_.ListOp, ast_.ASTNode]:
-        # expr should cover the first entry in a list of identifiers,
-        starting_index = self.current_index
-        first_part = self.expr()
-        # but in the case that we see a comma or single identifier list (via cdot),
-        # backtrack and reparse as an identifier
-        if self.peek().type_ in [TokenType.COMMA, TokenType.CDOT, TokenType.DOT]:
-            self.current_index = starting_index
-            first_part = self.ident_list()
+    def or_generator(self) -> ast_.ListOp:
+        and_generators: list[ast_.ASTNode] = [self.and_generator()]
+        while self.match(TokenType.BACKTICK):
+            and_generators.append(self.and_generator())
+        return ast_.Or(and_generators)
 
+    @store_derivation
+    def and_generator(self) -> ast_.ListOp:
+        paren_generators: list[ast_.ASTNode] = [self.paren_generator()]
+        while self.match(TokenType.COMMA):
+            paren_generators.append(self.paren_generator())
+        return ast_.And(paren_generators)
+
+    @store_derivation
+    def paren_generator(self) -> ast_.Generator | ast_.ListOp:
+        match t := self.peek().type_:
+            case _ if t in self.get_first_set("generator"):
+                return self.generator()
+            case TokenType.L_PAREN:
+                self.advance()
+                or_generator = self.or_generator()
+                self.consume(TokenType.R_PAREN, "Expected closing parenthesis for or_generator (within paren_generator)")
+                return or_generator
+            case _:
+                self.error("Invalid start to generator")
+
+    @store_derivation
+    def generator(self) -> ast_.Generator:
+        bound_identifiers = self.ident_list()
+        self.consume(TokenType.IN, "Expected IN token after identifiers in generator")
+        expr = self.expr()
+        predicate: ast_.ASTNode = ast_.None_()
         if self.match(TokenType.DOT) or self.match(TokenType.CDOT):
-            predicate = self.predicate()
-            if not isinstance(predicate, ast_.ListOp):
-                predicate = ast_.And([predicate])
-
-            self.consume(TokenType.VBAR, "Expected quantification predicate separator")
-            expression = self.expr()
-            if not isinstance(first_part, ast_.TupleIdentifier):
-                self.error("Failed to parse quantification body - the identifier list in long form is not of type IdentList")
-            return first_part, predicate, expression
-
-        self.consume(TokenType.VBAR, "Expected quantification predicate separator (shorthand)")
-        predicate = self.predicate()
-        if not isinstance(predicate, ast_.ListOp):
-            predicate = ast_.And([predicate])
-        return None, predicate, first_part
+            predicate = self.expr()
+        return ast_.Generator(ast_.In(bound_identifiers, expr), predicate)
 
     @store_derivation
     def pair_expr(self) -> ast_.ASTNode:
@@ -856,8 +903,6 @@ class Parser:
 
             case TokenType.IDENTIFIER:
                 return ast_.Identifier(t.value)
-            case TokenType.PROCEDURE:
-                return ast_.Identifier(t.value)
             case _:
                 self.error("Failed to interpret first token of expected atom")
 
@@ -889,17 +934,14 @@ class Parser:
 
         # backtrack - this is not an enumeration, rather a quantification
         self.current_index = starting_index
-        ident_list, predicate, expression = self.quantification_body()
+        generator = self.or_generator()
+        self.consume(TokenType.VBAR, "Expected quantification predicate separator")
+        expr = self.expr()
+
         quantification_operator = ast_.QuantifierOperator.from_collection_operator(collection_operator)
         if quantification_operator is None:
             self.error(f"Failed to convert collection operator {collection_operator} to quantification operator")
-
-        ret: ast_.ASTNode = ast_.Quantifier(predicate, expression, quantification_operator)
-        if ident_list:
-            ret = ast_.QualifiedQuantifier(ident_list, predicate, expression, quantification_operator)
-        # ret._bound_identifiers = set(ident_list.flatten_until_leaf_node()) # TODO remove
-        self.consume(closing_symbol, f"Expected closing symbol for collection")
-        return ret
+        return ast_.Quantifier2(generator, expr, quantification_operator)
 
     @store_derivation
     def set_(self) -> ast_.ASTNode:
@@ -920,31 +962,17 @@ class Parser:
             # otherwise, promote it to a relation
             return ast_.RelationEnumeration(collection.items)  # type: ignore
 
-        if isinstance(collection, ast_.Quantifier):
-            # Test only the identifiers for maplets. If no identifiers, test the (single) expression
-            # for identifier in collection.bound_identifiers.items:
-            #     if not isinstance(identifier, ast_.Maplet):
-            #         return collection
-
-            # # List is empty => shorthand version using the expression
-            # if not collection.bound_identifiers.items:
-            #     if not isinstance(collection.expression, ast_.Maplet):
-            #         return collection
-
-            # Maplet should always be top level in the expression
+        if isinstance(collection, ast_.Quantifier2):
+            # Maplet should always be top level in the expression.
+            # FIXME but this is not 100% reliable since an identifier or other expr could produce a maplet
             if not isinstance(collection.expression, ast_.BinaryOp):
                 return collection
             if collection.expression.op_type != ast_.BinaryOperator.MAPLET:
                 # If the expression is not a maplet, we cannot promote the whole set to a relation
                 return collection
 
-            # Otherwise, promote
-            ret = ast_.RelationComprehension(
-                collection.predicate,
-                collection.expression,
-            )
-            ret._bound_identifiers = collection._bound_identifiers
-            return ret
+            collection.op_type = ast_.QuantifierOperator.RELATION
+            return collection
         self.error("Unreachable state in set derivation. The type of the parsed value should be either a SetEnumeration or SetComprehension")
 
     @store_derivation
@@ -1195,7 +1223,7 @@ class Parser:
     @store_derivation
     def block(self) -> ast_.Statements:
         if self.peek().type_ != TokenType.NEWLINE:
-            return ast_.Statements([self.simple_stmt()])
+            return ast_.Statements([self.simple_statements()])
 
         self.consume(TokenType.NEWLINE, "Expected newline for block")
         self.consume(TokenType.INDENT, "Expected indentation for block")
