@@ -124,13 +124,16 @@ class Parser:
             TokenType.FOLD,
             TokenType.ITER,
         },
-        "assignment": {"expr"},
-        "or_generator": {"and_generator"},
-        "and_generator": {"paren_generator"},
-        "paren_generator": {"generator", TokenType.L_PAREN},
+        "quantification_body": {"branch_quantification_body", "generator"},
+        "branch_quantification_body": {TokenType.L_PAREN},
         "generator": {"ident_list"},
+        "iter_quantification_body": {"branch_iter_quantification_body", "generator_with_assignments"},
+        "branch_iter_quantification_body": {TokenType.L_PAREN},
+        "generator_with_assignments": {"generator"},
+        "assignment": {"expr"},
+        "iter_block": {"simple_stmt", TokenType.NEWLINE},
         "ident_list": {"ident_list_item"},
-        "ident_list_identifier": {TokenType.IDENTIFIER, TokenType.L_PAREN},
+        "ident_list_item": {TokenType.IDENTIFIER, TokenType.L_PAREN},
         "predicate": {"implication"},
         "implication": {"disjunction"},
         "disjunction": {"conjunction"},
@@ -166,7 +169,7 @@ class Parser:
         "bag": {TokenType.L_DOUBLE_BRACKET},
         "sequence": {TokenType.L_BRACKET},
         "tuple": {TokenType.L_PAREN},
-        "collection_body": {"or_generator", "enumeration_body"},
+        "collection_body": {"quantification_body", "enumeration_body"},
         "enumeration_body": {TokenType.NEWLINE, "expr"},
         "compound_stmt": {
             "if_stmt",
@@ -517,14 +520,6 @@ class Parser:
 
     @store_derivation
     def atom_bool(self) -> ast_.ASTNode:
-        # if self.match(TokenType.TRUE):
-        #     return ast_.True_()
-        # if self.match(TokenType.FALSE):
-        #     return ast_.False_()
-        # if self.match(TokenType.L_PAREN):
-        #     predicate = self.predicate()
-        #     self.consume(TokenType.R_PAREN, "Missing closing parenthesis")
-        #     return predicate
         pair_expr = self.pair_expr()
         match self.peek().type_:
             case TokenType.EQUALS:
@@ -595,23 +590,12 @@ class Parser:
                 self.consume(TokenType.VBAR, "Expected LAMBDA quantification predicate separator")
                 return ast_.LambdaDef(params, predicate, self.expr())
             case TokenType.FOLD:
-                generator = self.or_generator()
-                self.consume(TokenType.COLON, "Expected FOLD quantification separator `:' between generator and initializing assignment")
                 initializing_assignment = self.assignment()
-                self.consume(TokenType.VBAR, "Expected FOLD quantification separator `|' between initializing assignment and expression")
-                return ast_.Fold(generator, initializing_assignment, self.expr())
+                self.consume(TokenType.COLON, "Expected FOLD quantification separator `:' between generator and initializing assignment")
+                body = self.quantification_body()
+                return ast_.Fold(initializing_assignment, body)
             case TokenType.ITER:
-                generator = self.or_generator()
-                self.consume(TokenType.COLON, "Expected ITER quantification separator `:' between generator and initializing assignments")
-                initializing_assignments = [self.assignment()]
-                while self.match(TokenType.SEMICOLON):
-                    initializing_assignments.append(self.assignment())
-                returning_tuple: ast_.TupleIdentifier | ast_.Identifier | ast_.None_ = ast_.None_()
-                if self.match(TokenType.RIGHTARROW):
-                    returning_tuple = self.ident_list()
-                self.consume(TokenType.VBAR, "Expected ITER quantification separator `|' between returning tuple and expression")
-                body = self.block()
-                return ast_.Iter(generator, initializing_assignments, returning_tuple, body)
+                return self.iter_quantification_body()
             case _ if t.type_ in {
                 TokenType.GENERAL_UNION,
                 TokenType.GENERAL_INTERSECTION,
@@ -635,39 +619,83 @@ class Parser:
                     case TokenType.PRODUCT:
                         op_type = ast_.QuantifierOperator.PRODUCT
                 assert op_type is not None, "op_type should have been defined in above mapping"
-                generator = self.or_generator()
-                self.consume(TokenType.VBAR, "Expected quantification separator between generator/predicate and expr")
-                expr = self.expr()
-                return ast_.Quantifier2(generator, expr, op_type)
+                body = self.quantification_body()
+                return ast_.Quantifier3(body, op_type)
             case _:
                 self.error("Invalid start to quantification")
 
     @store_derivation
-    def or_generator(self) -> ast_.ListOp:
-        and_generators: list[ast_.ASTNode] = [self.and_generator()]
-        while self.match(TokenType.BACKTICK):
-            and_generators.append(self.and_generator())
-        return ast_.Or(and_generators)
-
-    @store_derivation
-    def and_generator(self) -> ast_.ListOp:
-        paren_generators: list[ast_.ASTNode] = [self.paren_generator()]
+    def quantification_body(self) -> ast_.QuantifierBody:
+        if self.peek().type_ in self.get_first_set("branch_quantification_body"):
+            return ast_.QuantifierBody([], self.branch_quantification_body())
+        generators = [self.generator()]
         while self.match(TokenType.COMMA):
-            paren_generators.append(self.paren_generator())
-        return ast_.And(paren_generators)
+            if self.peek().type_ in self.get_first_set("branch_quantification_body"):
+                return ast_.QuantifierBody(generators, self.branch_quantification_body())
+            generators.append(self.generator())
+        self.consume(TokenType.VBAR, "Expected pipe symbol after generators in quantification body")
+        expr = self.expr()
+        return ast_.QuantifierBody(generators, expr)
 
     @store_derivation
-    def paren_generator(self) -> ast_.Generator | ast_.ListOp:
-        match t := self.peek().type_:
-            case _ if t in self.get_first_set("generator"):
-                return self.generator()
-            case TokenType.L_PAREN:
-                self.advance()
-                or_generator = self.or_generator()
-                self.consume(TokenType.R_PAREN, "Expected closing parenthesis for or_generator (within paren_generator)")
-                return or_generator
-            case _:
-                self.error("Invalid start to generator")
+    def branch_quantification_body(self) -> list[ast_.QuantifierBody]:
+        self.consume(TokenType.L_PAREN, "Expected opening parenthesis for branch_quantification_body")
+        quantifier_bodies: list[ast_.QuantifierBody] = [self.quantification_body()]
+        self.consume(TokenType.R_PAREN, "Expected closing parenthesis for branch_quantification_body")
+        while self.match(TokenType.BACKTICK):
+            self.consume(TokenType.L_PAREN, "Expected opening parenthesis for branch_quantification_body")
+            quantifier_bodies.append(self.quantification_body())
+            self.consume(TokenType.R_PAREN, "Expected closing parenthesis for branch_quantification_body")
+        return quantifier_bodies
+
+    @store_derivation
+    def iter_quantification_body(self) -> ast_.Iter:
+        if self.peek().type_ in self.get_first_set("branch_iter_quantification_body"):
+            return ast_.Iter([], self.branch_iter_quantification_body())
+        generators = [self.generator_with_assignments()]
+        while self.match(TokenType.COMMA):
+            if self.peek().type_ in self.get_first_set("branch_iter_quantification_body"):
+                return ast_.Iter(generators, self.branch_iter_quantification_body())
+            generators.append(self.generator_with_assignments())
+        self.consume(TokenType.RIGHTARROW, "Expected right arrow with return values after iter quantification generators")
+        return_list = self.ident_list()
+        self.consume(TokenType.VBAR, "Expected pipe symbol after return values in iter quantification")
+        body = self.iter_block()
+        return ast_.Iter(generators, ast_.IterBody(body, return_list))
+
+    @store_derivation
+    def branch_iter_quantification_body(self):
+        self.consume(TokenType.L_PAREN, "Expected opening parenthesis for branch_iter_quantification_body")
+        quantifier_bodies: list[ast_.Iter] = [self.iter_quantification_body()]
+        self.consume(TokenType.R_PAREN, "Expected closing parenthesis for branch_iter_quantification_body")
+        while self.match(TokenType.BACKTICK):
+            self.consume(TokenType.L_PAREN, "Expected opening parenthesis for branch_iter_quantification_body")
+            quantifier_bodies.append(self.iter_quantification_body())
+            self.consume(TokenType.R_PAREN, "Expected closing parenthesis for branch_iter_quantification_body")
+        return quantifier_bodies
+
+    @store_derivation
+    def generator_with_assignments(self):
+        generator = self.generator()
+        self.consume(TokenType.COLON, "Expected colon after generator in iter_quantification_body")
+        initializing_assignments: list[ast_.Assignment] = [self.assignment()]
+        while self.match(TokenType.SEMICOLON):
+            initializing_assignments.append(self.assignment())
+        return ast_.IterGenerator(generator, initializing_assignments)
+
+    @store_derivation
+    def iter_block(self):
+        if self.peek().type_ != TokenType.NEWLINE:
+            simple_stmts = [self.simple_stmt()]
+            while self.match(TokenType.SEMICOLON):
+                simple_stmts.append(self.simple_stmt())
+            return ast_.Statements(simple_stmts)
+
+        self.consume(TokenType.NEWLINE, "Expected newline for block")
+        self.consume(TokenType.INDENT, "Expected indentation for block")
+        statements = self.statements()
+        self.consume(TokenType.DEDENT, "Expected dedentation for block")
+        return statements
 
     @store_derivation
     def generator(self) -> ast_.Generator:
@@ -677,7 +705,7 @@ class Parser:
         predicate: ast_.ASTNode = ast_.True_()
         if self.match(TokenType.DOT) or self.match(TokenType.CDOT):
             predicate = self.expr()
-        return ast_.Generator(ast_.In(bound_identifiers, expr), predicate)
+        return ast_.Generator(bound_identifiers, expr, predicate)
 
     @store_derivation
     def pair_expr(self) -> ast_.ASTNode:
@@ -934,14 +962,12 @@ class Parser:
 
         # backtrack - this is not an enumeration, rather a quantification
         self.current_index = starting_index
-        generator = self.or_generator()
-        self.consume(TokenType.VBAR, "Expected quantification predicate separator")
-        expr = self.expr()
+        body = self.quantification_body()
 
         quantification_operator = ast_.QuantifierOperator.from_collection_operator(collection_operator)
         if quantification_operator is None:
             self.error(f"Failed to convert collection operator {collection_operator} to quantification operator")
-        return ast_.Quantifier2(generator, expr, quantification_operator)
+        return ast_.Quantifier3(body, quantification_operator)
 
     @store_derivation
     def set_(self) -> ast_.ASTNode:

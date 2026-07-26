@@ -556,7 +556,7 @@ class ListOp(InheritedEqMixin, ASTNode):
 
 
 # TODO move to parser_only file (once typing/semantic analysis is sorted out)
-@deprecated("use v2")
+@deprecated("use v3")
 @dataclass(eq=False)
 class Quantifier(ASTNode):
     predicate: ListOp  # includes generators
@@ -680,7 +680,7 @@ class Quantifier(ASTNode):
         return identifiers
 
 
-@deprecated("use v2")
+@deprecated("use v3")
 @dataclass(eq=False)
 class QualifiedQuantifier(ASTNode):
     bound_identifiers: TupleIdentifier | TupleSymbol
@@ -721,6 +721,7 @@ class QualifiedQuantifier(ASTNode):
         return True
 
 
+@deprecated("use v3")
 @dataclass(eq=False)
 class Quantifier2(ASTNode):
     generator: ListOp
@@ -730,25 +731,47 @@ class Quantifier2(ASTNode):
     op_type: QuantifierOperator
 
 
+@dataclass(eq=False)
+class Quantifier3(ASTNode):
+    body: QuantifierBody
+    op_type: QuantifierOperator
+
+
 @dataclass
 class Generator(ASTNode):
-    generator: BinaryOp
+    identifiers: TupleIdentifier | Identifier | TupleSymbol | Symbol
+    set_: ASTNode
     predicate: ASTNode | True_
 
 
 @dataclass
+class QuantifierBody(ASTNode):
+    generators: list[Generator]
+    expr_or_branch: ASTNode | list[QuantifierBody]
+
+
+@dataclass
 class Fold(ASTNode):
-    generator: ListOp
     accumulator_init: Assignment
-    accumulate_expr: ASTNode
+    quantifier_body: QuantifierBody
+
+
+@dataclass
+class IterGenerator(ASTNode):
+    generator: Generator
+    assignment: list[Assignment]
+
+
+@dataclass
+class IterBody(ASTNode):
+    body: ASTNode
+    return_value: TupleIdentifier | Identifier | TupleSymbol | Symbol
 
 
 @dataclass
 class Iter(ASTNode):
-    generator: ListOp
-    accumulator_inits: list[Assignment]
-    return_identifiers: TupleIdentifier | Identifier | None_
-    body: Statements
+    generators: list[IterGenerator]
+    body_or_branch: IterBody | list[Iter]
 
 
 @dataclass(eq=False)

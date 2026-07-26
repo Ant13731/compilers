@@ -17,7 +17,7 @@ from src.mod.data.ast_.common import (
     RelationOp,
     ListOp,
     UnaryOp,
-    Quantifier2,
+    Quantifier3,
     ControlFlowStmt,
     Enumeration,
 )
@@ -325,42 +325,42 @@ class Skip(ControlFlowStmt):
 
 
 @dataclass
-class UnionAll(Quantifier2):
+class UnionAll(Quantifier3):
     op_type: QuantifierOperator = QuantifierOperator.UNION_ALL
 
 
 @dataclass
-class IntersectionAll(Quantifier2):
+class IntersectionAll(Quantifier3):
     op_type: QuantifierOperator = QuantifierOperator.INTERSECTION_ALL
 
 
 @dataclass
-class Sum(Quantifier2):
+class Sum(Quantifier3):
     op_type: QuantifierOperator = QuantifierOperator.SUM
 
 
 @dataclass
-class Product(Quantifier2):
+class Product(Quantifier3):
     op_type: QuantifierOperator = QuantifierOperator.PRODUCT
 
 
 @dataclass
-class SequenceComprehension(Quantifier2):
+class SequenceComprehension(Quantifier3):
     op_type: QuantifierOperator = QuantifierOperator.SEQUENCE
 
 
 @dataclass
-class SetComprehension(Quantifier2):
+class SetComprehension(Quantifier3):
     op_type: QuantifierOperator = QuantifierOperator.SET
 
 
 @dataclass
-class RelationComprehension(Quantifier2):
+class RelationComprehension(Quantifier3):
     op_type: QuantifierOperator = QuantifierOperator.RELATION
 
 
 @dataclass
-class BagComprehension(Quantifier2):
+class BagComprehension(Quantifier3):
     op_type: QuantifierOperator = QuantifierOperator.BAG
 
 
@@ -385,10 +385,10 @@ class BagEnumeration(Enumeration):
 
 
 @dataclass
-class Forall(Quantifier2):
+class Forall(Quantifier3):
     op_type: QuantifierOperator = QuantifierOperator.FORALL
 
 
 @dataclass
-class Exists(Quantifier2):
+class Exists(Quantifier3):
     op_type: QuantifierOperator = QuantifierOperator.EXISTS

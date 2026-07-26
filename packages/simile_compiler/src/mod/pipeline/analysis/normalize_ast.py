@@ -27,7 +27,7 @@ def ast_promoter(node: ast_.ASTNode) -> ast_.ASTNode | None:
         return _promote_unary_op(node)
     if isinstance(node, ast_.ControlFlowStmt):
         return _promote_control_flow_stmt(node)
-    if isinstance(node, ast_.Quantifier2):
+    if isinstance(node, ast_.Quantifier3):
         return _promote_quantifier(node)
     if isinstance(node, ast_.Enumeration):
         return _promote_enumeration(node)
@@ -206,28 +206,28 @@ def _promote_control_flow_stmt(node: ast_.ControlFlowStmt) -> ast_.ASTNode:
     return node
 
 
-def _promote_quantifier(node: ast_.Quantifier2) -> ast_.ASTNode:
+def _promote_quantifier(node: ast_.Quantifier3) -> ast_.ASTNode:
     match node.op_type:
         case ast_.QuantifierOperator.UNION_ALL:
-            return ast_.UnionAll(node.generator, node.expression)
+            return ast_.UnionAll(node.body)
         case ast_.QuantifierOperator.INTERSECTION_ALL:
-            return ast_.IntersectionAll(node.generator, node.expression)
+            return ast_.IntersectionAll(node.body)
         case ast_.QuantifierOperator.SUM:
-            return ast_.Sum(node.generator, node.expression)
+            return ast_.Sum(node.body)
         case ast_.QuantifierOperator.PRODUCT:
-            return ast_.Product(node.generator, node.expression)
+            return ast_.Product(node.body)
         case ast_.QuantifierOperator.SEQUENCE:
-            return ast_.SequenceComprehension(node.generator, node.expression)
+            return ast_.SequenceComprehension(node.body)
         case ast_.QuantifierOperator.SET:
-            return ast_.SetComprehension(node.generator, node.expression)
+            return ast_.SetComprehension(node.body)
         case ast_.QuantifierOperator.RELATION:
-            return ast_.RelationComprehension(node.generator, node.expression)
+            return ast_.RelationComprehension(node.body)
         case ast_.QuantifierOperator.BAG:
-            return ast_.BagComprehension(node.generator, node.expression)
+            return ast_.BagComprehension(node.body)
         case ast_.QuantifierOperator.FORALL:
-            return ast_.Forall(node.generator, node.expression)
+            return ast_.Forall(node.body)
         case ast_.QuantifierOperator.EXISTS:
-            return ast_.Exists(node.generator, node.expression)
+            return ast_.Exists(node.body)
     return node
 
 
