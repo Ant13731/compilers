@@ -14,6 +14,8 @@ from src.mod.data import ast_
 T = TypeVar("T")
 A = TypeVar("A")
 B = TypeVar("B")
+WHITESPACE_TOKENS = {TokenType.NEWLINE, TokenType.INDENT, TokenType.DEDENT}
+
 just_fix_windows_console()
 
 
@@ -215,8 +217,17 @@ class Parser:
     def eof(self) -> bool:
         return self.peek().type_ == TokenType.EOF
 
+    ignore_whitespace_: bool = False
+
     def peek(self, offset: int = 0) -> Token:
-        return self.tokens[self.current_index + offset]
+        if not self.ignore_whitespace_:
+            return self.tokens[self.current_index + offset]
+
+        current_token = self.tokens[self.current_index + offset]
+        while self.current_index + offset < len(self.tokens) and current_token.type_ in WHITESPACE_TOKENS:
+            self.current_index += 1
+            current_token = self.tokens[self.current_index + offset]
+        return current_token
 
     def advance(self) -> Token:
         """Advance to the next token."""
@@ -255,6 +266,7 @@ class Parser:
 
     def synchronize(self) -> None:
         """Skip tokens until we reach a token that can start a new statement."""
+        self.ignore_whitespace_ = False
         first_set = self.get_first_set("compound_stmt")
         while not self.eof:
             if self.peek().type_ in first_set or self.peek().type_ == TokenType.NEWLINE:
@@ -276,6 +288,11 @@ class Parser:
             self.advance()  # TODO check this?
             left = tokens_and_types[t.type_](left, func())
         return left
+
+    def ignore_whitespace(self, set_to: bool) -> bool:
+        set_value_back_to = self.ignore_whitespace_
+        self.ignore_whitespace_ = set_to
+        return set_value_back_to
 
     # Parsing based (loosely) on the grammar in the specification
     @store_derivation
@@ -419,15 +436,19 @@ class Parser:
             base = ast_.Identifier(t.value)
             if not self.match(TokenType.L_BRACKET):
                 return ast_.Type_(base)
+            set_whitespace_back_to = self.ignore_whitespace(True)
 
             generic_parameters: list[ast_.ASTNode] = [self.type_expr()]
             while self.match(TokenType.COMMA):
                 generic_parameters.append(self.type_expr())
             self.consume(TokenType.R_BRACKET, "Expected closing bracket when parsing generic type parameters")
+            self.ignore_whitespace(set_whitespace_back_to)
             return ast_.Type_(base, generic_parameters)
 
         if t.type_ == TokenType.L_PAREN:
+            set_whitespace_back_to = self.ignore_whitespace(True)
             if self.match(TokenType.R_PAREN):
+                self.ignore_whitespace(set_whitespace_back_to)
                 return ast_.Type_(ast_.None_())
 
             types: list[ast_.ASTNode] = [self.type_expr()]
@@ -437,6 +458,7 @@ class Parser:
                 while self.match(TokenType.COMMA):
                     types.append(self.type_expr())
             self.consume(TokenType.R_PAREN, "Expected closing parenthesis when parsing generic type parameters")
+            self.ignore_whitespace(set_whitespace_back_to)
             return ast_.Type_(ast_.TupleLiteral(types))
 
         self.error("Unexpected token when parsing type_expr (not a tuple or identifier)")
@@ -473,9 +495,11 @@ class Parser:
             case TokenType.IDENTIFIER:
                 item: ast_.IdentifierListTypes = ast_.Identifier(t.value)
             case TokenType.L_PAREN:
+                set_whitespace_back_to = self.ignore_whitespace(True)
                 self.advance()
                 item = self.ident_list()
                 self.consume(TokenType.R_PAREN, "Expected end to identifier item sub-list")
+                self.ignore_whitespace(set_whitespace_back_to)
             case _:
                 self.error("No identifier or sub-pattern found")
         return item
@@ -640,12 +664,16 @@ class Parser:
     @store_derivation
     def branch_quantification_body(self) -> list[ast_.QuantifierBody]:
         self.consume(TokenType.L_PAREN, "Expected opening parenthesis for branch_quantification_body")
+        set_whitespace_back_to = self.ignore_whitespace(True)
         quantifier_bodies: list[ast_.QuantifierBody] = [self.quantification_body()]
         self.consume(TokenType.R_PAREN, "Expected closing parenthesis for branch_quantification_body")
+        self.ignore_whitespace(set_whitespace_back_to)
         while self.match(TokenType.BACKTICK):
             self.consume(TokenType.L_PAREN, "Expected opening parenthesis for branch_quantification_body")
+            set_whitespace_back_to = self.ignore_whitespace(True)
             quantifier_bodies.append(self.quantification_body())
             self.consume(TokenType.R_PAREN, "Expected closing parenthesis for branch_quantification_body")
+            self.ignore_whitespace(set_whitespace_back_to)
         return quantifier_bodies
 
     @store_derivation
@@ -666,12 +694,16 @@ class Parser:
     @store_derivation
     def branch_iter_quantification_body(self):
         self.consume(TokenType.L_PAREN, "Expected opening parenthesis for branch_iter_quantification_body")
+        set_whitespace_back_to = self.ignore_whitespace(True)
         quantifier_bodies: list[ast_.Iter] = [self.iter_quantification_body()]
         self.consume(TokenType.R_PAREN, "Expected closing parenthesis for branch_iter_quantification_body")
+        self.ignore_whitespace(set_whitespace_back_to)
         while self.match(TokenType.BACKTICK):
             self.consume(TokenType.L_PAREN, "Expected opening parenthesis for branch_iter_quantification_body")
+            set_whitespace_back_to = self.ignore_whitespace(True)
             quantifier_bodies.append(self.iter_quantification_body())
             self.consume(TokenType.R_PAREN, "Expected closing parenthesis for branch_iter_quantification_body")
+            self.ignore_whitespace(set_whitespace_back_to)
         return quantifier_bodies
 
     @store_derivation
@@ -876,6 +908,7 @@ class Parser:
                     self.consume(TokenType.IDENTIFIER, "Access only allowed through an identifier")
                     atom = ast_.RecordAccess(atom, ast_.Identifier(t.value))
                 case TokenType.L_PAREN:
+                    set_whitespace_back_to = self.ignore_whitespace(True)
                     self.advance()
                     args = []
                     if self.peek() != TokenType.R_PAREN:
@@ -883,11 +916,14 @@ class Parser:
                         while self.match(TokenType.COMMA):
                             args.append(self.expr())
                     self.consume(TokenType.R_PAREN, "Expected closing parenthesis")
+                    self.ignore_whitespace(set_whitespace_back_to)
                     atom = ast_.Call(atom, args)
                 case TokenType.L_BRACKET:
+                    set_whitespace_back_to = self.ignore_whitespace(True)
                     self.advance()
                     expr = self.expr()
                     self.consume(TokenType.R_BRACKET, "Expected closing bracket")
+                    self.ignore_whitespace(set_whitespace_back_to)
                     atom = ast_.Image(atom, expr)
                 case _:
                     self.error("Unreachable state")
@@ -907,26 +943,39 @@ class Parser:
             case TokenType.FALSE:
                 return ast_.False_()
             case TokenType.L_BRACE:
-                return self.set_()
+                set_whitespace_back_to = self.ignore_whitespace(True)
+                set_ = self.set_()
+                self.ignore_whitespace(set_whitespace_back_to)
+                return set_
             case TokenType.L_BRACKET:
-                return self.sequence()
+                set_whitespace_back_to = self.ignore_whitespace(True)
+                sequence = self.sequence()
+                self.ignore_whitespace(set_whitespace_back_to)
+                return sequence
             case TokenType.L_DOUBLE_BRACKET:
-                return self.bag()
+                set_whitespace_back_to = self.ignore_whitespace(True)
+                bag = self.bag()
+                self.ignore_whitespace(set_whitespace_back_to)
+                return bag
             case TokenType.L_PAREN:
+                set_whitespace_back_to = self.ignore_whitespace(True)
                 if self.peek().type_ == TokenType.R_PAREN:
                     self.advance()
+                    self.ignore_whitespace(set_whitespace_back_to)
                     return ast_.TupleLiteral([])
 
                 expr = self.expr()
 
                 if self.peek().type_ != TokenType.COMMA:
                     self.consume(TokenType.R_PAREN, "Need to close parenthesis")
+                    self.ignore_whitespace(set_whitespace_back_to)
                     return expr
 
                 exprs = [expr]
                 while self.match(TokenType.COMMA):
                     exprs.append(self.expr())
                 self.consume(TokenType.R_PAREN, "Need to close tuple literal")
+                self.ignore_whitespace(set_whitespace_back_to)
                 return ast_.TupleLiteral(exprs)
 
             case TokenType.IDENTIFIER:
@@ -1072,6 +1121,9 @@ class Parser:
     @store_derivation
     def flat_tuple_identifier(self) -> ast_.TupleIdentifier:
         matched_paren = self.match(TokenType.L_PAREN)
+        set_whitespace_back_to = self.ignore_whitespace_
+        if matched_paren:
+            set_whitespace_back_to = self.ignore_whitespace(True)
 
         t = self.peek()
         self.consume(TokenType.IDENTIFIER, "Expected identifier tuple identifier")
@@ -1085,6 +1137,7 @@ class Parser:
 
         if matched_paren:
             self.consume(TokenType.R_PAREN, "Expected closing parenthesis for tuple identifier")
+            self.ignore_whitespace(set_whitespace_back_to)
         return ast_.TupleIdentifier(tuple(items))
 
     @store_derivation
@@ -1222,12 +1275,15 @@ class Parser:
         name = ast_.Identifier(t.value)
 
         self.consume(TokenType.L_PAREN, "Expected opening parenthesis for procedure parameters")
+        set_whitespace_back_to = self.ignore_whitespace(True)
         params = []
         if self.peek().type_ != TokenType.R_PAREN:
             params.append(self.typed_name())
             while self.match(TokenType.COMMA):
                 params.append(self.typed_name())
         self.consume(TokenType.R_PAREN, "Expected closing parenthesis for procedure parameters")
+        self.ignore_whitespace(set_whitespace_back_to)
+
         self.consume(TokenType.RIGHTARROW, "Expected right arrow after procedure parameters")
         return_type = ast_.Type_(self.expr())
         self.consume(TokenType.COLON, "Expected colon after procedure type")
