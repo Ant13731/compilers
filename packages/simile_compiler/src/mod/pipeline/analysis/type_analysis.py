@@ -534,11 +534,11 @@ class TypeSynthesizer:
             raise types.SimileTypeError(f"Operand of negative must be of type IntType or BoolType. Got {val_type}", ast.value)
         return val_type.negate()
 
-    @typing_rule("Set Operations - Powerset")
-    @synthesize_type.register
-    def _(self, ast: ast_.Powerset) -> types.BaseType:
-        val_type = self.synthesize_type(ast.value)
-        return types.SetType.powerset(val_type)
+    # @typing_rule("Set Operations - Powerset")
+    # @synthesize_type.register
+    # def _(self, ast: ast_.Powerset) -> types.BaseType:
+    #     val_type = self.synthesize_type(ast.value)
+    #     return types.SetType.powerset(val_type)
 
     # @typing_rule()
     # @synthesize_type.register
@@ -581,71 +581,113 @@ class TypeSynthesizer:
     # def _(self, ast: ast_.Exists) -> types.BaseType: ...
     # @typing_rule("Binds (with generator)", "Binds with OR", "Binds with AND")
 
-    @typing_rule("Quantification Body")
-    def _synthesize_type_quantification_body(self, ast: ast_.QualifiedQuantifier) -> types.QuantificationBodyIntermediary:
+    @typing_rule("Quantifier", "Branching Quantifier")
+    @synthesize_type.register
+    def _(self, ast: ast_.QuantifierBody) -> types.BaseType:
+        self._synthesize_type_generator_nest(ast.generators)
+
+        if isinstance(ast.expr_or_branch, ast_.ASTNode):
+            return_type = self.synthesize_type(ast.expr_or_branch)
+            return types.QuantificationBodyIntermediary(return_type)
+
+        branch_types: list[types.BaseType] = []
+        for branch in ast.expr_or_branch:
+            branch_type = self.synthesize_type(branch)
+            if not isinstance(branch_type, types.QuantificationBodyIntermediary):
+                raise types.SimileTypeError(f"Branch of quantifier must be of type QuantificationBodyIntermediary. Got {branch_type}", branch)
+            branch_types.append(branch_type.return_type)
+
+        return_type = types.BaseType.max_type(branch_types)
+        return types.QuantificationBodyIntermediary(return_type)
+
+    @typing_rule("Generator nest")
+    def _synthesize_type_generator_nest(self, generators: list[ast_.Generator]) -> types.BaseType:
+        if len(generators) == []:
+            return types.NoneType_()
+
+        generator_types = []
+        for generator in generators:
+            generator_types.append(self.synthesize_type(generator))
+
+        return types.GeneratorIntermediary(types.TupleType(tuple(generator_types)))
+
+    @typing_rule("Generator")
+    @synthesize_type.register
+    def _(self, ast: ast_.Generator) -> types.BaseType:
+        set_type = self.synthesize_type(ast.set_)
+        if not isinstance(set_type, types.SetType):
+            raise types.SimileTypeError(f"Generator set must be of type SetType. Got {set_type}", ast.set_)
+
+        self._structural_match(ast.identifiers, set_type.element_type)
+
         predicate_type = self.synthesize_type(ast.predicate)
         if not isinstance(predicate_type, types.BoolType):
             raise types.SimileTypeError(f"Predicate of quantifier must be of type BoolType. Got {predicate_type}", ast.predicate)
 
-        expression_type = self.synthesize_type(ast.expression)
-        bound_variables_with_types: dict[SymbolTableIdentifierEntry, types.BaseType] = OrderedDict()
-        for var in ast.bound_identifiers.flatten():
-            if not isinstance(var, ast_.Symbol):
-                raise types.SimileTypeError(f"Bound variables of quantifiers must be Symbols or TupleSymbols. Got {type(var)}", var)
-            var_type = self.synthesize_type(var)
-            bound_variables_with_types[var.symbol_table_entry] = var_type
+        return types.GeneratorIntermediary(set_type.element_type)
 
-        return types.QuantificationBodyIntermediary(
-            bound_identifiers=bound_variables_with_types,
-            return_type=expression_type,
-        )
+    @typing_rule("Iter Generator")
+    @synthesize_type.register
+    def _(self, ast: ast_.IterGenerator) -> types.BaseType: ...
+
+    @typing_rule("Iter (body)")
+    @synthesize_type.register
+    def _(self, ast: ast_.IterBody) -> types.BaseType: ...  # typecheck body, then return return_value's type
+
+    @typing_rule("Iter Quantifier")
+    @synthesize_type.register
+    def _(self, ast: ast_.Iter) -> types.BaseType: ...
+
+    @typing_rule("Fold")
+    @synthesize_type.register
+    def _(self, ast: ast_.Iter) -> types.BaseType: ...
 
     @typing_rule("Forall")
     @synthesize_type.register
-    def _(self, ast: ast_.QualifiedForall) -> types.BaseType:
-        quantification_body = self._synthesize_type_quantification_body(ast)
+    def _(self, ast: ast_.Forall) -> types.BaseType:
+        quantification_body = self.synthesize_type(ast.body)
+        if not isinstance(quantification_body, types.QuantificationBodyIntermediary):
+            raise types.SimileTypeError(f"Body of forall must be a quantification body. Got {quantification_body}", ast.body)
         return quantification_body.forall()
 
     @typing_rule("Exists")
     @synthesize_type.register
-    def _(self, ast: ast_.QualifiedExists) -> types.BaseType:
-        quantification_body = self._synthesize_type_quantification_body(ast)
+    def _(self, ast: ast_.Exists) -> types.BaseType:
+        quantification_body = self.synthesize_type(ast.body)
+        if not isinstance(quantification_body, types.QuantificationBodyIntermediary):
+            raise types.SimileTypeError(f"Body of exists must be a quantification body. Got {quantification_body}", ast.body)
         return quantification_body.exists()
 
-    # @typing_rule()
-    # @synthesize_type.register
-    # def _(self, ast: ast_.UnionAll) -> types.BaseType: ...
-    # @typing_rule()
-    # @synthesize_type.register
-    # def _(self, ast: ast_.IntersectionAll) -> types.BaseType: ...
-    # @typing_rule()
-    # @synthesize_type.register
-    # def _(self, ast: ast_.Sum) -> types.BaseType: ...
-    # @typing_rule()
-    # @synthesize_type.register
-    # def _(self, ast: ast_.Product) -> types.BaseType: ...
     @typing_rule("General Union")
     @synthesize_type.register
-    def _(self, ast: ast_.QualifiedUnionAll) -> types.BaseType:
-        quantification_body = self._synthesize_type_quantification_body(ast)
+    def _(self, ast: ast_.UnionAll) -> types.BaseType:
+        quantification_body = self.synthesize_type(ast.body)
+        if not isinstance(quantification_body, types.QuantificationBodyIntermediary):
+            raise types.SimileTypeError(f"Body of exists must be a quantification body. Got {quantification_body}", ast.body)
         return quantification_body.union_all()
 
     @typing_rule("General Intersection")
     @synthesize_type.register
-    def _(self, ast: ast_.QualifiedIntersectionAll) -> types.BaseType:
-        quantification_body = self._synthesize_type_quantification_body(ast)
+    def _(self, ast: ast_.IntersectionAll) -> types.BaseType:
+        quantification_body = self.synthesize_type(ast.body)
+        if not isinstance(quantification_body, types.QuantificationBodyIntermediary):
+            raise types.SimileTypeError(f"Body of exists must be a quantification body. Got {quantification_body}", ast.body)
         return quantification_body.intersection_all()
 
     @typing_rule()
     @synthesize_type.register
-    def _(self, ast: ast_.QualifiedSum) -> types.BaseType:
-        quantification_body = self._synthesize_type_quantification_body(ast)
+    def _(self, ast: ast_.Sum) -> types.BaseType:
+        quantification_body = self.synthesize_type(ast.body)
+        if not isinstance(quantification_body, types.QuantificationBodyIntermediary):
+            raise types.SimileTypeError(f"Body of exists must be a quantification body. Got {quantification_body}", ast.body)
         return quantification_body.sum()
 
     @typing_rule()
     @synthesize_type.register
-    def _(self, ast: ast_.QualifiedProduct) -> types.BaseType:
-        quantification_body = self._synthesize_type_quantification_body(ast)
+    def _(self, ast: ast_.Product) -> types.BaseType:
+        quantification_body = self.synthesize_type(ast.body)
+        if not isinstance(quantification_body, types.QuantificationBodyIntermediary):
+            raise types.SimileTypeError(f"Body of exists must be a quantification body. Got {quantification_body}", ast.body)
         return quantification_body.product()
 
     @typing_rule("Set Enumeration")
@@ -686,26 +728,34 @@ class TypeSynthesizer:
     # def _(self, ast: ast_.BagComprehension) -> types.BaseType: ...
     @typing_rule("Sequence Comprehension")
     @synthesize_type.register
-    def _(self, ast: ast_.QualifiedSequenceComprehension) -> types.BaseType:
-        quantification_body = self._synthesize_type_quantification_body(ast)
+    def _(self, ast: ast_.SequenceComprehension) -> types.BaseType:
+        quantification_body = self.synthesize_type(ast.body)
+        if not isinstance(quantification_body, types.QuantificationBodyIntermediary):
+            raise types.SimileTypeError(f"Body of exists must be a quantification body. Got {quantification_body}", ast.body)
         return quantification_body.sequence_comprehension()
 
     @typing_rule("Set Comprehension")
     @synthesize_type.register
-    def _(self, ast: ast_.QualifiedSetComprehension) -> types.BaseType:
-        quantification_body = self._synthesize_type_quantification_body(ast)
+    def _(self, ast: ast_.SetComprehension) -> types.BaseType:
+        quantification_body = self.synthesize_type(ast.body)
+        if not isinstance(quantification_body, types.QuantificationBodyIntermediary):
+            raise types.SimileTypeError(f"Body of exists must be a quantification body. Got {quantification_body}", ast.body)
         return quantification_body.set_comprehension()
 
-    @typing_rule()
+    @typing_rule("Relation Comprehension")  # TODO FIXME?
     @synthesize_type.register
-    def _(self, ast: ast_.QualifiedRelationComprehension) -> types.BaseType:
-        quantification_body = self._synthesize_type_quantification_body(ast)
+    def _(self, ast: ast_.RelationComprehension) -> types.BaseType:
+        quantification_body = self.synthesize_type(ast.body)
+        if not isinstance(quantification_body, types.QuantificationBodyIntermediary):
+            raise types.SimileTypeError(f"Body of exists must be a quantification body. Got {quantification_body}", ast.body)
         return quantification_body.relation_comprehension()
 
     @typing_rule("Bag Comprehension")
     @synthesize_type.register
-    def _(self, ast: ast_.QualifiedBagComprehension) -> types.BaseType:
-        quantification_body = self._synthesize_type_quantification_body(ast)
+    def _(self, ast: ast_.BagComprehension) -> types.BaseType:
+        quantification_body = self.synthesize_type(ast.body)
+        if not isinstance(quantification_body, types.QuantificationBodyIntermediary):
+            raise types.SimileTypeError(f"Body of exists must be a quantification body. Got {quantification_body}", ast.body)
         return quantification_body.bag_comprehension()
 
     @singledispatchmethod

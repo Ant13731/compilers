@@ -65,7 +65,6 @@ from src.mod.data.ast_.common import (
     ListOp,
     Quantifier,
     QualifiedQuantifier,
-    Quantifier2,
     Quantifier3,
     Generator,
     QuantifierBody,

@@ -266,32 +266,32 @@ class PopulateSymbolTable:
                 assert isinstance(_iterable_symbols, ast_.TupleSymbol)
                 return ast_.For(_iterable_symbols, _iterable, _body), False
 
-            case ast_.QualifiedQuantifier(bound_identifiers, predicate, expression, op_type):
-                assert isinstance(bound_identifiers, ast_.IdentifierListTypes)
+            # case ast_.QualifiedQuantifier(bound_identifiers, predicate, expression, op_type):
+            #     assert isinstance(bound_identifiers, ast_.IdentifierListTypes)
 
-                self.symbol_table.add_scope(ScopeContext.QUANTIFICATION)
-                self._populate_loop_parameters(bound_identifiers)
-                _iterable_symbols = self._convert_identifier_to_symbol(bound_identifiers)
-                _predicate = self.populate(predicate)
-                _expression = self.populate(expression)
-                self.symbol_table.pop_scope_level()
+            #     self.symbol_table.add_scope(ScopeContext.QUANTIFICATION)
+            #     self._populate_loop_parameters(bound_identifiers)
+            #     _iterable_symbols = self._convert_identifier_to_symbol(bound_identifiers)
+            #     _predicate = self.populate(predicate)
+            #     _expression = self.populate(expression)
+            #     self.symbol_table.pop_scope_level()
 
-                assert isinstance(_predicate, ast_.ListOp)
-                assert isinstance(_iterable_symbols, ast_.TupleSymbol)
-                return ast_.QualifiedQuantifier(_iterable_symbols, _predicate, _expression, op_type), False
+            #     assert isinstance(_predicate, ast_.ListOp)
+            #     assert isinstance(_iterable_symbols, ast_.TupleSymbol)
+            #     return ast_.QualifiedQuantifier(_iterable_symbols, _predicate, _expression, op_type), False
 
-            case ast_.Quantifier(predicate, expression, op_type):
-                self.symbol_table.add_scope(ScopeContext.QUANTIFICATION)
-                unbound_identifiers = self._find_unbound_identifiers(ast)
-                self._populate_loop_parameters(unbound_identifiers)
-                _iterable_symbols = self._convert_identifier_to_symbol(unbound_identifiers)
-                _predicate = self.populate(predicate)
-                _expression = self.populate(expression)
-                self.symbol_table.pop_scope_level()
+            # case ast_.Quantifier(predicate, expression, op_type):
+            #     self.symbol_table.add_scope(ScopeContext.QUANTIFICATION)
+            #     unbound_identifiers = self._find_unbound_identifiers(ast)
+            #     self._populate_loop_parameters(unbound_identifiers)
+            #     _iterable_symbols = self._convert_identifier_to_symbol(unbound_identifiers)
+            #     _predicate = self.populate(predicate)
+            #     _expression = self.populate(expression)
+            #     self.symbol_table.pop_scope_level()
 
-                assert isinstance(_predicate, ast_.ListOp)
-                assert isinstance(_iterable_symbols, ast_.TupleSymbol)
-                return ast_.QualifiedQuantifier(_iterable_symbols, _predicate, _expression, op_type), False
+            #     assert isinstance(_predicate, ast_.ListOp)
+            #     assert isinstance(_iterable_symbols, ast_.TupleSymbol)
+            #     return ast_.QualifiedQuantifier(_iterable_symbols, _predicate, _expression, op_type), False
 
             case ast_.Quantifier3(body, op_type):
                 _body = self._populate_loop_parameters_from_generators(body)
@@ -468,10 +468,7 @@ class PopulateSymbolTable:
                 return (
                     ast_.TraitApplication(
                         ast_.Assignment(
-                            ast_.TypedName(
-                                _name,
-                                ast_.Type_(ast_.Identifier("type"), []),
-                            ),
+                            ast_.TypedName(_name, ast_.Type_(ast_.Identifier("type"), [])),
                             _value,
                             is_choice,
                         ),

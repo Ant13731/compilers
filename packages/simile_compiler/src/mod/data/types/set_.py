@@ -578,7 +578,6 @@ class EnumType(SetType):
 
 @dataclass
 class QuantificationBodyIntermediary(BaseType):
-    bound_identifiers: dict[SymbolTableIdentifierEntry, BaseType]
     return_type: BaseType
 
     def forall(self) -> BoolType:
@@ -630,3 +629,8 @@ class QuantificationBodyIntermediary(BaseType):
         self._is_subtype_or_error(self.return_type, (IntType(), FloatType()))
         assert isinstance(self.return_type, IntType | FloatType)
         return self.return_type
+
+
+@dataclass
+class GeneratorIntermediary(BaseType):
+    iterator_type: BaseType

@@ -1037,17 +1037,18 @@ class Parser:
             # otherwise, promote it to a relation
             return ast_.RelationEnumeration(collection.items)  # type: ignore
 
-        if isinstance(collection, ast_.Quantifier2):
-            # Maplet should always be top level in the expression.
-            # FIXME but this is not 100% reliable since an identifier or other expr could produce a maplet
-            if not isinstance(collection.expression, ast_.BinaryOp):
-                return collection
-            if collection.expression.op_type != ast_.BinaryOperator.MAPLET:
-                # If the expression is not a maplet, we cannot promote the whole set to a relation
-                return collection
+        # TODO handle relations post-symbol table?
+        # if isinstance(collection, ast_.Quantifier2):
+        #     # Maplet should always be top level in the expression.
+        #     # FIXME but this is not 100% reliable since an identifier or other expr could produce a maplet
+        #     if not isinstance(collection.expression, ast_.BinaryOp):
+        #         return collection
+        #     if collection.expression.op_type != ast_.BinaryOperator.MAPLET:
+        #         # If the expression is not a maplet, we cannot promote the whole set to a relation
+        #         return collection
 
-            collection.op_type = ast_.QuantifierOperator.RELATION
-            return collection
+        #     collection.op_type = ast_.QuantifierOperator.RELATION
+        #     return collection
         self.error("Unreachable state in set derivation. The type of the parsed value should be either a SetEnumeration or SetComprehension")
 
     @store_derivation

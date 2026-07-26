@@ -26,6 +26,7 @@ from src.mod.data.types.set_ import (
     RelationType,
     SequenceType,
     QuantificationBodyIntermediary,
+    GeneratorIntermediary,
 )
 from src.mod.data.types.traits import (
     Trait,

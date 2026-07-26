@@ -721,16 +721,6 @@ class QualifiedQuantifier(ASTNode):
         return True
 
 
-@deprecated("use v3")
-@dataclass(eq=False)
-class Quantifier2(ASTNode):
-    generator: ListOp
-    """Reusing ListOp here since generators can be combined with And or Or combinations.
-    Only Generator nodes should be passed to this parameter"""
-    expression: ASTNode
-    op_type: QuantifierOperator
-
-
 @dataclass(eq=False)
 class Quantifier3(ASTNode):
     body: QuantifierBody
