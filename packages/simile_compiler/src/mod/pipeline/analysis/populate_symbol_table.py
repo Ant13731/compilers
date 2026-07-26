@@ -408,7 +408,7 @@ class PopulateSymbolTable:
             #             name,
             #             IdentifierContext.VARIABLE,
             #         )
-            case ast_.Assignment(ast_.TypedName(ast_.Identifier(name), ast_.Type_(ast_.Identifier("enum"), [])), value, with_clauses, _):
+            case ast_.TraitApplication(ast_.Assignment(ast_.TypedName(ast_.Identifier(name), ast_.Type_(ast_.Identifier("enum"), [])), value, is_choice), traits):
                 if not isinstance(value, ast_.Enumeration):
                     raise SimileTypeError(f"Enum type annotation can only be applied to enumeration definitions, got {type(value)}", value)
 
@@ -420,7 +420,7 @@ class PopulateSymbolTable:
                         raise SimileTypeError(f"Enum item name {_item.name} already exists in current scope, cannot be used as enum item name", _item)
                     members.add(_item.name)
 
-                trait_collection = TypeAnnotationResolver.resolve_trait_collection(with_clauses, self.symbol_table)
+                trait_collection = TypeAnnotationResolver.resolve_trait_collection(traits, self.symbol_table)
                 self.symbol_table.add_symbol(
                     name,
                     IdentifierContext.ENUM,
@@ -436,9 +436,24 @@ class PopulateSymbolTable:
                         members=members,
                         trait_collection=literal_trait_collection.merge(trait_collection, True),
                     )
-
-            case ast_.Assignment(ast_.TypedName(ast_.Identifier(name), ast_.Type_(ast_.Identifier("type"), [])), value, with_clauses, _):
-                trait_collection = TypeAnnotationResolver.resolve_trait_collection(with_clauses, self.symbol_table)
+                _name = self.populate(ast_.Identifier(name))
+                _value = self.populate(value)
+                return (
+                    ast_.TraitApplication(
+                        ast_.Assignment(
+                            ast_.TypedName(
+                                _name,
+                                ast_.Type_(ast_.Identifier("enum"), []),
+                            ),
+                            _value,
+                            is_choice,
+                        ),
+                        traits,
+                    ),
+                    False,
+                )
+            case ast_.TraitApplication(ast_.Assignment(ast_.TypedName(ast_.Identifier(name), ast_.Type_(ast_.Identifier("type"), [])), value, is_choice), traits):
+                trait_collection = TypeAnnotationResolver.resolve_trait_collection(traits, self.symbol_table)
                 type_value = TypeAnnotationResolver.resolve_type_annotation(value, self.symbol_table)
                 if type_value is None:
                     raise SimileTypeError(f"Type definitions must have a valid type annotation, got None", value)
@@ -448,12 +463,87 @@ class PopulateSymbolTable:
                     IdentifierContext.TYPE_NAME,
                     type_value,
                 )
-            case ast_.Assignment(ast_.TypedName(ast_.Identifier(name), declared_type), value, with_clauses, _):
-                trait_collection = TypeAnnotationResolver.resolve_trait_collection(with_clauses, self.symbol_table)
+                _name = self.populate(ast_.Identifier(name))
+                _value = self.populate(value)
+                return (
+                    ast_.TraitApplication(
+                        ast_.Assignment(
+                            ast_.TypedName(
+                                _name,
+                                ast_.Type_(ast_.Identifier("type"), []),
+                            ),
+                            _value,
+                            is_choice,
+                        ),
+                        traits,
+                    ),
+                    False,
+                )
+            case ast_.TraitApplication(ast_.Assignment(ast_.TypedName(ast_.Identifier(name), declared_type), value, is_choice), traits):
+                trait_collection = TypeAnnotationResolver.resolve_trait_collection(traits, self.symbol_table)
                 _declared_type = TypeAnnotationResolver.resolve_type_annotation(declared_type, self.symbol_table)
                 if _declared_type is None:
                     raise SimileTypeError(f"Variable definitions must have a valid type annotation, got None", declared_type)
                 _declared_type.trait_collection = _declared_type.trait_collection.merge(trait_collection, True)
+                self.symbol_table.add_symbol(
+                    name,
+                    IdentifierContext.VARIABLE,
+                    _declared_type,
+                )
+                _name = self.populate(ast_.Identifier(name))
+                _value = self.populate(value)
+                _declared_type_ast = self.populate(declared_type)
+                assert isinstance(_declared_type_ast, ast_.Type_)
+                return (
+                    ast_.TraitApplication(
+                        ast_.Assignment(
+                            ast_.TypedName(_name, _declared_type_ast),
+                            _value,
+                            is_choice,
+                        ),
+                        traits,
+                    ),
+                    False,
+                )
+
+            case ast_.Assignment(ast_.TypedName(ast_.Identifier(name), ast_.Type_(ast_.Identifier("enum"), [])), value, _):
+                if not isinstance(value, ast_.Enumeration):
+                    raise SimileTypeError(f"Enum type annotation can only be applied to enumeration definitions, got {type(value)}", value)
+
+                members = set()
+                for _item in value.items:
+                    if not isinstance(_item, ast_.Identifier):
+                        raise SimileTypeError(f"Invalid enum item name (must be an identifier): {_item}", _item)
+                    if self.symbol_table.does_symbol_exist_in_current_scope(_item.name):
+                        raise SimileTypeError(f"Enum item name {_item.name} already exists in current scope, cannot be used as enum item name", _item)
+                    members.add(_item.name)
+
+                self.symbol_table.add_symbol(
+                    name,
+                    IdentifierContext.ENUM,
+                    EnumType(members=members),
+                )
+                for member in members:
+                    symbol_item = self.symbol_table.add_symbol(
+                        member,
+                        IdentifierContext.ENUM_ITEM,
+                    )
+                    literal_trait_collection = TraitCollection(literal_trait=LiteralTrait(ast_.Symbol(symbol_item)))
+                    symbol_item.declared_type = EnumType(members=members, trait_collection=literal_trait_collection)
+
+            case ast_.Assignment(ast_.TypedName(ast_.Identifier(name), ast_.Type_(ast_.Identifier("type"), [])), value, _):
+                type_value = TypeAnnotationResolver.resolve_type_annotation(value, self.symbol_table)
+                if type_value is None:
+                    raise SimileTypeError(f"Type definitions must have a valid type annotation, got None", value)
+                self.symbol_table.add_symbol(
+                    name,
+                    IdentifierContext.TYPE_NAME,
+                    type_value,
+                )
+            case ast_.Assignment(ast_.TypedName(ast_.Identifier(name), declared_type), value, _):
+                _declared_type = TypeAnnotationResolver.resolve_type_annotation(declared_type, self.symbol_table)
+                if _declared_type is None:
+                    raise SimileTypeError(f"Variable definitions must have a valid type annotation, got None", declared_type)
                 self.symbol_table.add_symbol(
                     name,
                     IdentifierContext.VARIABLE,

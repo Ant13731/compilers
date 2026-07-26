@@ -978,7 +978,6 @@ class TypedName(ASTNode):
 class Assignment(ASTNode):
     target: ASTNode
     value: ASTNode
-    # with_clauses: list[ASTNode]
     choice_assignment: bool
 
     def _get_type(self) -> SimileType:
