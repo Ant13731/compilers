@@ -759,7 +759,7 @@ class Fold(ASTNode):
 @dataclass
 class IterGenerator(ASTNode):
     generator: Generator
-    assignment: list[Assignment]
+    assignments: list[Assignment]
 
 
 @dataclass

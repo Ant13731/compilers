@@ -294,12 +294,20 @@ class PopulateSymbolTable:
                 return ast_.QualifiedQuantifier(_iterable_symbols, _predicate, _expression, op_type), False
 
             case ast_.Quantifier3(body, op_type):
+                _body = self._populate_loop_parameters_from_generators(body)
+                return ast_.Quantifier3(_body, op_type), False
+
+            case ast_.Fold(accumulator_init, body):
                 self.symbol_table.add_scope(ScopeContext.QUANTIFICATION)
+                _accumulator_init = self.populate(accumulator_init)
+                assert isinstance(_accumulator_init, ast_.Assignment)
+                _body = self.populate(body)
+                assert isinstance(_body, ast_.QuantifierBody)
                 self.symbol_table.pop_scope_level()
+                return ast_.Fold(_accumulator_init, _body), False
 
-
-            case ast_.Fold(generators, accumulator_init, accumulate_expr):
-            case ast_.Iter(generators, accumulator_init, return_identifiers, body):
+            case ast_.Iter(_, _) as iter_:
+                return self._populate_iter(iter_), False
 
             case ast_.ProcedureDef(name, params, body, return_type):
                 # NOTE: params_dict is populated *after* the procedure type definition since symbols must be added within the scope of the procedure
@@ -487,63 +495,110 @@ class PopulateSymbolTable:
         else:
             raise SimileTypeError(f"Invalid for loop variable name (must be an identifier, maplet identifier, or tuple identifier): {iterable_names}", iterable_names)
 
-    def _add_generators_to_scope(self, generators: ast_.ListOp | ast_.Generator | ast_.ASTNode, body_or_expr: ast_.ASTNode) -> tuple[ast_.ListOp | ast_.Generator, ast_.ASTNode]:
-        # populate predicates per generator
-        # nested generators create a new scope, or-separated generators reuse the same parent scope but should be individual scopes
-        # (should check for or generators first). Call self.populate on the body as needed
-        # (ex. if we have two or-separated generators, their bodies need to be populated in both scopes?)
-        match generators:
-            case ast_.ListOp(items, ast_.ListOperator.OR):
-                for item in items:
+    def _populate_loop_parameters_from_generators(self, quantifier: ast_.QuantifierBody) -> ast_.QuantifierBody:
+        match quantifier:
+            case ast_.QuantifierBody([], branches) if isinstance(branches, list):
+                _branches = []
+                for branch in branches:
                     self.symbol_table.add_scope(ScopeContext.QUANTIFICATION)
-                    populated_generator, new_body_or_expr = self._add_generators_to_scope(item, deepcopy(body_or_expr))
+                    _branches.append(self._populate_loop_parameters_from_generators(branch))
                     self.symbol_table.pop_scope_level()
-
-                return ast_.ListOp([self._add_generators_to_scope(item, body_or_expr) for item in items], ast_.ListOperator.OR), body_or_expr
-            case ast_.ListOp(items, ast_.ListOperator.AND):
-                deepest_body_or_expr = body_or_expr
-                populated_generators = []
-
-                scopes_to_pop = 0
-                for item in items:
+                return ast_.QuantifierBody([], _branches)
+            case ast_.QuantifierBody([], expr):
+                raise SimileTypeError(f"Invalid quantification - expr case {expr} must be accompanied by a generator", quantifier)
+            case ast_.QuantifierBody(generators, branches) if isinstance(branches, list):
+                _generators = []
+                for generator in generators:
+                    _generators.append(self._populate_generator(generator))
+                _branches = []
+                for branch in branches:
                     self.symbol_table.add_scope(ScopeContext.QUANTIFICATION)
-                    populated_generator, deepest_body_or_expr = self._add_generators_to_scope(item, deepest_body_or_expr)
-                    populated_generators.append(populated_generator)
-                    scopes_to_pop += 1
-                for _ in range(scopes_to_pop):
+                    _branches.append(self._populate_loop_parameters_from_generators(branch))
                     self.symbol_table.pop_scope_level()
-
-                return ast_.ListOp(populated_generators, ast_.ListOperator.AND), deepest_body_or_expr
-            case ast_.Generator(iterable_names, iterable, predicate):
-                assert isinstance(iterable_names, ast_.IdentifierListTypes)
-
-                self._populate_loop_parameters(iterable_names)
-                _iterable_symbols = self._convert_identifier_to_symbol(iterable_names)
-                _iterable = self.populate(iterable)
-                _predicate = self.populate(predicate)
-                _body_or_expr = self.populate(body_or_expr)
-                self.symbol_table.pop_scope_level()
-                return ast_.Generator(_iterable_symbols, _iterable, _predicate), _body_or_expr
+                # Need to pop scope levels added from populate generators
+                for _ in _generators:
+                    self.symbol_table.pop_scope_level()
+                return ast_.QuantifierBody(_generators, _branches)
+            case ast_.QuantifierBody(generators, expr):
+                assert isinstance(expr, ast_.ASTNode), "Other case caught by earlier match case"
+                _generators = []
+                for generator in generators:
+                    _generators.append(self._populate_generator(generator))
+                _expr = self.populate(expr)
+                # Need to pop scope levels added from populate generators
+                for _ in _generators:
+                    self.symbol_table.pop_scope_level()
+                return ast_.QuantifierBody(_generators, _expr)
             case _:
-                raise SimileTypeError(f"Invalid generator type (must be a list of generators or a single generator): {generators}", generators)
+                raise SimileTypeError(f"Invalid quantification - must be a list of branches or a single expression", quantifier)
 
-    def _extract_identifiers_from_generators(self, generators: ast_.ListOp | ast_.Generator) -> list[ast_.]:
-        match generators:
-            case ast_.ListOp(items, _):
-        if isinstance(generators, ast_.ListOp):
-            identifiers: list[ast_.IdentifierListTypes] = []
-            for generator in generators.items:
-                if not isinstance(generator, ast_.Generator):
-                    raise SimileTypeError(f"Invalid generator in quantifier (must be a generator): {generator}", generator)
-                identifiers.append(self._extract_identifiers_from_generators(generator))
-            return ast_.TupleIdentifier(tuple(identifiers))
+    def _populate_iter(self, iter_: ast_.Iter) -> ast_.Iter:
+        match iter_:
+            case ast_.Iter([], branches) if isinstance(branches, list):
+                _branches = []
+                for branch in branches:
+                    self.symbol_table.add_scope(ScopeContext.QUANTIFICATION)
+                    _branches.append(self._populate_iter(branch))
+                    self.symbol_table.pop_scope_level()
+                return ast_.Iter([], _branches)
+            case ast_.Iter([], iter_body):
+                raise SimileTypeError(f"Invalid iter - iter_body case {iter_body} must be accompanied by a generator", iter_)
+            case ast_.Iter(generators, branches) if isinstance(branches, list):
+                _generators = []
+                for generator in generators:
+                    _generators.append(self._populate_iter_generator(generator))
+                _branches = []
+                for branch in branches:
+                    self.symbol_table.add_scope(ScopeContext.QUANTIFICATION)
+                    _branches.append(self._populate_iter(branch))
+                    self.symbol_table.pop_scope_level()
+                # Need to pop scope levels added from populate generators
+                for _ in _generators:
+                    self.symbol_table.pop_scope_level()
+                return ast_.Iter(_generators, _branches)
+            case ast_.Iter(generators, iter_body):
+                assert isinstance(iter_body, ast_.ASTNode), "Other case caught by earlier match case"
+                _generators = []
+                for generator in generators:
+                    _generators.append(self._populate_iter_generator(generator))
+                _iter_body_return_body = self.populate(iter_body.body)
+                _iter_body_return_value = self.populate(iter_body.return_value)
+                # Need to pop scope levels added from populate generators
+                for _ in _generators:
+                    self.symbol_table.pop_scope_level()
+                assert isinstance(_iter_body_return_value, ast_.SymbolListTypes)
+                return ast_.Iter(_generators, ast_.IterBody(_iter_body_return_body, _iter_body_return_value))
+            case _:
+                raise SimileTypeError(f"Invalid iter - must be a list of branches or a single expression", iter_)
 
-        if isinstance(generators, ast_.Generator):
-            if not isinstance(generators.iterable_names, ast_.IdentifierListTypes):
-                raise SimileTypeError(f"Invalid generator iterable names (must be an identifier, maplet identifier, or tuple identifier): {generators.iterable_names}", generators.iterable_names)
-            return generators.iterable_names
+    def _populate_generator(self, generator: ast_.Generator) -> ast_.Generator:
+        """Populates a generator with the appropriate symbol table entries.
+        ONLY ADDS SCOPE, SCOPE SHOULD BE POPPED AFTER THIS TO ACCOUNT FOR BRANCHING
+        """
+        self.symbol_table.add_scope(ScopeContext.QUANTIFICATION)
+        assert isinstance(generator.identifiers, ast_.IdentifierListTypes)
+        self._populate_loop_parameters(generator.identifiers)
+        _identifier_symbols = self._convert_identifier_to_symbol(generator.identifiers)
+        _iterable = self.populate(generator.set_)
+        _predicate = self.populate(generator.predicate)
+        return ast_.Generator(_identifier_symbols, _iterable, _predicate)
 
-        raise SimileTypeError(f"Invalid generator type (must be a list of generators or a single generator): {generators}", generators)
+    def _populate_iter_generator(self, iter_generator: ast_.IterGenerator) -> ast_.IterGenerator:
+        """Populates a generator with the appropriate symbol table entries.
+        ONLY ADDS SCOPE, SCOPE SHOULD BE POPPED AFTER THIS TO ACCOUNT FOR BRANCHING
+        """
+        self.symbol_table.add_scope(ScopeContext.QUANTIFICATION)
+        assert isinstance(iter_generator.generator.identifiers, ast_.IdentifierListTypes)
+        self._populate_loop_parameters(iter_generator.generator.identifiers)
+        _identifier_symbols = self._convert_identifier_to_symbol(iter_generator.generator.identifiers)
+        _iterable = self.populate(iter_generator.generator.set_)
+        _assignments: list[ast_.Assignment] = []
+        for assignment in iter_generator.assignments:
+            _assignment = self.populate(assignment)
+            assert isinstance(_assignment, ast_.Assignment)
+            _assignments.append(_assignment)
+        _predicate = self.populate(iter_generator.generator.predicate)
+        return ast_.IterGenerator(ast_.Generator(_identifier_symbols, _iterable, _predicate), _assignments)
 
     def _find_unbound_identifiers(self, ast: ast_.Quantifier) -> ast_.TupleIdentifier:
         """Finds unbound identifiers in an unqualified quantifier."""
