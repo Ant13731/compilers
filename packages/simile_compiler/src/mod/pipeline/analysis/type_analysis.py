@@ -600,8 +600,8 @@ class TypeSynthesizer:
         return_type = types.BaseType.max_type(branch_types)
         return types.QuantificationBodyIntermediary(return_type)
 
-    @typing_rule("Generator nest")
-    def _synthesize_type_generator_nest(self, generators: list[ast_.Generator]) -> types.BaseType:
+    @typing_rule("Generator Nest")
+    def _synthesize_type_generator_nest(self, generators: Sequence[ast_.Generator | ast_.IterGenerator]) -> types.BaseType:
         if len(generators) == []:
             return types.NoneType_()
 
@@ -618,6 +618,7 @@ class TypeSynthesizer:
         if not isinstance(set_type, types.SetType):
             raise types.SimileTypeError(f"Generator set must be of type SetType. Got {set_type}", ast.set_)
 
+        assert isinstance(ast.identifiers, ast_.SymbolListTypes), "No identifiers allowed at this stage"
         self._structural_match(ast.identifiers, set_type.element_type)
 
         predicate_type = self.synthesize_type(ast.predicate)
@@ -626,21 +627,70 @@ class TypeSynthesizer:
 
         return types.GeneratorIntermediary(set_type.element_type)
 
+    @typing_rule("Structural Match", "Structural Match with Tuple")
+    def _structural_match(self, identifiers: ast_.SymbolListTypes, element_type) -> None:
+        match identifiers:
+            case ast_.TupleSymbol(symbols):
+                if not isinstance(element_type, types.TupleType):
+                    raise types.SimileTypeError(f"Expected element type to be TupleType for structural match with tuple. Got {element_type}", identifiers)
+                if len(symbols) != len(element_type.items):
+                    raise types.SimileTypeError(
+                        f"Expected number of symbols in tuple to match number of elements in tuple type. Got {len(symbols)} symbols and {len(element_type.items)} elements",
+                        identifiers,
+                    )
+                for symbol, elem_type in zip(symbols, element_type.items):
+                    self._structural_match(symbol, elem_type)
+            case ast_.Symbol(symbol_table_entry):
+                symbol_info = self.symbol_table.lookup_symbol(symbol_table_entry.id_, symbol_table_entry.scope)
+                if symbol_info.declared_type is not None:
+                    raise types.SimileTypeError("Symbol already has a declared type during structural match (expected to be unbound)", identifiers)
+                symbol_info.declared_type = element_type
+            case _:
+                raise types.SimileTypeError("Unreachable state", identifiers)
+
     @typing_rule("Iter Generator")
     @synthesize_type.register
-    def _(self, ast: ast_.IterGenerator) -> types.BaseType: ...
+    def _(self, ast: ast_.IterGenerator) -> types.BaseType:
+        generator_type = self.synthesize_type(ast.generator)
+        if not isinstance(generator_type, types.GeneratorIntermediary):
+            raise types.SimileTypeError(f"Iter generator must be of type GeneratorIntermediary. Got {generator_type}", ast.generator)
+        for assignment in ast.assignments:
+            self.synthesize_type(assignment)
+        return generator_type
 
     @typing_rule("Iter (body)")
     @synthesize_type.register
-    def _(self, ast: ast_.IterBody) -> types.BaseType: ...  # typecheck body, then return return_value's type
+    def _(self, ast: ast_.IterBody) -> types.BaseType:  # typecheck body, then return return_value's type
+        self.synthesize_type(ast.body)
+        return self.synthesize_type(ast.return_value)
 
-    @typing_rule("Iter Quantifier")
+    @typing_rule("Iter")
     @synthesize_type.register
-    def _(self, ast: ast_.Iter) -> types.BaseType: ...
+    def _(self, ast: ast_.Iter) -> types.BaseType:
+        self._synthesize_type_generator_nest(ast.generators)
+
+        if isinstance(ast.body_or_branch, ast_.ASTNode):
+            return self.synthesize_type(ast.body_or_branch)
+
+        branch_types: list[types.BaseType] = []
+        for branch in ast.body_or_branch:
+            branch_type = self.synthesize_type(branch)
+            branch_types.append(branch_type)
+
+        return_type = types.BaseType.max_type(branch_types)
+        return return_type
 
     @typing_rule("Fold")
     @synthesize_type.register
-    def _(self, ast: ast_.Iter) -> types.BaseType: ...
+    def _(self, ast: ast_.Fold) -> types.BaseType:
+        self.synthesize_type(ast.accumulator_init)
+        accumulator_init_var_type = self.synthesize_type(ast.accumulator_init.target)
+        quantifier_body_type = self.synthesize_type(ast.quantifier_body)
+        if not isinstance(quantifier_body_type, types.QuantificationBodyIntermediary):
+            raise types.SimileTypeError(f"Body of fold must be a quantification body. Got {quantifier_body_type}", ast.quantifier_body)
+
+        fold_return_type = types.BaseType.max_type([accumulator_init_var_type, quantifier_body_type.return_type])
+        return types.QuantificationBodyIntermediary(fold_return_type).fold()
 
     @typing_rule("Forall")
     @synthesize_type.register

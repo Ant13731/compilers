@@ -630,6 +630,12 @@ class QuantificationBodyIntermediary(BaseType):
         assert isinstance(self.return_type, IntType | FloatType)
         return self.return_type
 
+    def iter_(self) -> BaseType:
+        return self.return_type
+
+    def fold(self) -> BaseType:
+        return self.return_type
+
 
 @dataclass
 class GeneratorIntermediary(BaseType):
