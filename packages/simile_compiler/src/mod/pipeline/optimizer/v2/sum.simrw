@@ -5,7 +5,7 @@ rule constant_sum_upto:
         j: int
         k: int
     rewrite:
-        sum i . i in j..k | c
+        sum i in j..k | c
         ~>
         (k-j) * c
     when:
@@ -16,7 +16,7 @@ rule constant_sum:
         c: int | float
         S: set[T2]
     rewrite:
-        sum x . x in S | c
+        sum x in S | c
         ~>
         card(S) * c
     when:
@@ -27,7 +27,7 @@ rule sum_upto_i:
         j: int
         k: int
     rewrite:
-        sum i . i in j..k | i
+        sum i in j..k | i
         ~>
         -(j-k-1)*(j+k) / 2
 
@@ -36,7 +36,7 @@ rule sum_upto_i_squared:
         j: int
         k: int
     rewrite:
-        sum i . i in j..k | i ^ 2
+        sum i in j..k | i ^ 2
         ~>
         -(j-k-1)*(2*j^2+2*j*k-j+2*k^2+k) / 6
 
@@ -46,6 +46,6 @@ rule sum_with_mult:
         m: int | float
         E: T2
     rewrite:
-        sum x . x in S | E * m
+        sum x in S | E * m
         ~>
-        (sum x . x in S | E) * m
+        (sum x in S | E) * m

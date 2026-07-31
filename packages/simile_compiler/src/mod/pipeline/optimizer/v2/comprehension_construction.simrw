@@ -3,7 +3,7 @@ rule image:
         R: relation[T1, T2]
         S: set[T1]
     rewrite:
-        R[S] ~> {x |-> y . x |-> y in R and x in S | y}
+        R[S] ~> {x |-> y in R . x in S | y}
 
 rule product:
     vars:
@@ -11,20 +11,25 @@ rule product:
         y: T2
         S: set[T1]
         T: set[T2]
+        P: bool
     rewrite:
-        x |-> y in S >< T
+        ast_.Generator(x |-> y, S >< T, P)
         ~>
-        x in S and y in T
+        [ast_.Generator(x, S, True), ast_.Generator(y, T, P)]
+    when:
+        in_ASTNode("QuantifierBody")
+        loop_over_field_and_flatten_output("generators")
 
 rule inverse:
     vars:
         x: T1
         y: T2
         R: relation[T2, T1]
+        P: bool
     rewrite:
-        x |-> y in R ^ -1
+        ast_.Generator(x |-> y, R ^ -1, P)
         ~>
-        y |-> x in R
+        ast_.Generator(y |-> x, R, P)
 
 rule composition:
     vars:
@@ -34,58 +39,46 @@ rule composition:
         z2: T2
         Q: relation[T1, T2]
         R: set[T2, T3]
+        P: bool
     rewrite:
-        x |-> y in (Q <> R)
+        ast_.Generator(x |-> y, Q <> R, P)
         ~>
-        x |-> z1 in Q and z2 |-> y in R and z1 = z2
+        [ast_.Generator(x |-> z1, Q, True), ast_.Generator(z2 |-> y, R, z1 = z2 and P)]
+        # x |-> z1 in Q and z2 |-> y in R and z1 = z2
+    when:
+        in_ASTNode("QuantifierBody")
+        loop_over_field_and_flatten_output("generators")
 
 rule union:
     vars:
         S: set[T1]
         T: set[T1]
     rewrite:
-        S \/ T ~> {x . x in S or x in T}
+        S \/ T ~> {(x in S | x) ' (x in T . x not in S | x)}
 
 rule intersection:
     vars:
         S: set[T1]
         T: set[T1]
     rewrite:
-        S /\ T ~> {x . x in S and x in T}
+        S /\ T ~> {x in S . x in T | x}
 
 rule difference:
     vars:
         S: set[T1]
         T: set[T1]
     rewrite:
-        S \ T ~> {x . x in S and x not in T}
+        S \ T ~> {x in S . x not in T | x}
 
 rule membership_collapse:
     vars:
         x: T1
         E: T1
-        P: bool
+        G: list[Generator]
+        op: ast_.QuantifierOperator
     rewrite:
-        x in {E | P} ~> P and x = E
+        x in ast_.Quantifier3(ast_.QuantifierBody(G, E), op) ~> G and x = E
     when:
         expression_in_comprehension_predicate
-
-rule membership_collapse_general_union:
-    vars:
-        x: T1
-        E: T1
-        P: bool
-    rewrite:
-        x in union E | P ~> P and x = E
-    when:
-        expression_in_comprehension_predicate
-
-rule membership_collapse_general_intersection:
-    vars:
-        x: T1
-        E: T1
-        P: bool
-    rewrite:
-        x in intersection E | P ~> P and x = E
-    when:
-        expression_in_comprehension_predicate
+        cast_right_side_term_to_bool(G)
+        enum_in_list(op, ["UNION_ALL", "INTERSECTION_ALL", "SET", "RELATION", "SEQUENCE", "BAG"])

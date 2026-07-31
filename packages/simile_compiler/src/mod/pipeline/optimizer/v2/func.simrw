@@ -26,7 +26,9 @@ rule cast_with:
         T: type[T2]
         Ts: set[trait]
     rewrite:
-        cast_with(X, T, Ts) ~> X[with Ts]
+        cast_with(X, T, Ts)
+        ~>
+        ast_.TraitApplication(X, Ts)
 
 rule choice:
     vars:
@@ -41,9 +43,8 @@ rule print:
         print(x) ~> ?
 
 rule functional_image:
-    notes:
-        - may fail if R is not total
     vars:
+        # Note: may fail if R is not total
         R: relation[T1, T2]
         x: T1
     rewrite:

@@ -10,11 +10,11 @@ rule implication_negation:
 rule forall_negation:
     vars:
         S: set[T1]
-        f: procedure[tuple[T1], T2]
+        f: procedure[(T1,), T2]
     rewrite:
         forall x . x in S and f(x)
         ~>
-        not (exists x . x in S and not f(x))
+        not (exists x in S | not f(x))
 
 rule membership_negation:
     vars:

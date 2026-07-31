@@ -10,61 +10,51 @@ rule union:
         S: bag[T1]
         T: bag[T1]
     rewrite:
-        S \/ T ~> [[x . x in dom(S) \/ dom(T) and n = max(S[x] \/ T[x]) | x |-> n]]
+        # S \/ T ~> [[x . x in dom(S) \/ dom(T) and n = max(S[x] \/ T[x]) | x |-> n]]
+        S \/ T ~> [[x in dom(S) \/ dom(T) . n = max(S[x] \/ T[x]) | x |-> n]]
 
 rule intersection:
     vars:
         S: bag[T1]
         T: bag[T1]
     rewrite:
-        S /\ T ~> [[x . x in dom(S) /\ dom(T) and n = min(S[x] \/ T[x]) and n > 0 | x |-> n]]
+        S /\ T ~> [[x in dom(S) . x in dom(T) and n = min(S[x] \/ T[x]) and n > 0 | x |-> n]]
 
 rule sum:
     vars:
         S: bag[T1]
         T: bag[T1]
     rewrite:
-        S + T ~> [[x . x in dom(S) \/ dom(T) and n = sum(S[x] \/ T[x]) | x |-> n]]
+        S + T ~> [[x in dom(S) \/ dom(T) . n = sum(S[x] \/ T[x]) | x |-> n]]
 
 rule intersection:
     vars:
         S: bag[T1]
         T: bag[T1]
     rewrite:
-        S - T ~> [[x . x in dom(S) and n = S(x) - (T \/ [[x |-> 0]])(x) and n > 0 | x |-> n]]
+        S - T ~> [[x in dom(S) . n = S(x) - (T \/ [[x |-> 0]])(x) and n > 0 | x |-> n]]
 
 rule map:
     vars:
         B: bag[T1]
-        f: procedure[T1, T2]
+        f: procedure[(T1,), T2]
     rewrite:
-        map(f, B) ~> [[x |-> n . x |-> n in B | f(x) |-> n]]
+        map(f, B) ~> [[x |-> n in B | f(x) |-> n]]
 
-rule fold1:
+rule fold:
     vars:
         B: bag[T1]
-        f: procedure[T1, T1, T2]
+        f: procedure[(T1, T1), T2]
         # i is the identity element of f
         i: T1
+        # Note: this only works if B is represented as a relation. If we use an array, this can be pretty inefficient
     rewrite:
-        fold(f, i, B)
+        fold(i, f, B)
         ~>
-        fold x |-> n . x |-> n in B : i | f
-
-rule fold2:
-    vars:
-        B: bag[T1]
-        f: procedure[T1, T1, T2]
-        i: T1
-        # fold result
-        r: T2
-    rewrite:
-        fold x |-> n . x |-> n in B : i | f
-        ~>
-        iter x |-> n . x |-> n in B : r := i | r := f(r, fold j in 0..n : i | x)
+        fold c1 := i : x |-> n in B | f(c1, fold c2 := i : j in 0 .. n | f(c2, x))
 
 rule size:
     vars:
         B: bag[T1]
     rewrite:
-        size(B) ~> sum x |-> n . x |-> n in B | n
+        size(B) ~> sum x |-> n in B | n

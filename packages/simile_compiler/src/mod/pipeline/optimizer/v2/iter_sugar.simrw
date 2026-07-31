@@ -1,99 +1,93 @@
-rule count:
-    vars:
-        S: set[T1]
-    rewrite:
-        count x . x in X ~> sum x . x in X | 1
-
 rule cardinality:
     vars:
         S: set[T1]
     rewrite:
-        card(S) ~> count x . x in X
+        card(S) ~> sum x in X | 1
 
 rule domain:
     vars:
         R: relation[T1, T2]
     rewrite:
-        dom(R) ~> {x |-> y . x |-> y in R | x}
+        dom(R) ~> {x |-> y in R | x}
 
 rule range:
     vars:
         R: relation[T1, T2]
     rewrite:
-        ran(R) ~> {x |-> y . x |-> y in R | y}
+        ran(R) ~> {x |-> y in R | y}
 
 rule domain_restriction:
     vars:
         R: relation[T1, T2]
         S: set[T1]
     rewrite:
-        S <| R ~> {x |-> y . x |-> y in R and x in S | x |-> y}
+        S <| R ~> {x |-> y in R . x in S | x |-> y}
 
 rule domain_subtraction:
     vars:
         R: relation[T1, T2]
         S: set[T1]
     rewrite:
-        S <<| R ~> {x |-> y . x |-> y in R and x not in S | x |-> y}
+        S <<| R ~> {x |-> y in R . x not in S | x |-> y}
 
 rule range_restriction:
     vars:
         R: relation[T1, T2]
         S: set[T2]
     rewrite:
-        S |> R ~> {x |-> y . x |-> y in R and y in S | x |-> y}
+        S |> R ~> {x |-> y in R . y in S | x |-> y}
 
 rule range_subtraction:
     vars:
         R: relation[T1, T2]
         S: set[T2]
     rewrite:
-        S |>> R ~> {x |-> y . x |-> y in R and y not in S | x |-> y}
+        S |>> R ~> {x |-> y in R . y not in S | x |-> y}
 
 rule min:
     vars:
         S: set[T1]
     rewrite:
-        min(S) ~> min x . x in S | x
+        min(S) ~> min x in S | x
 
 rule min_map:
     vars:
         S: set[T1]
         f: procedure[T1, T2]
     rewrite:
-        min_map(f, S) ~> min x . x in S | f(x)
+        min_map(f, S) ~> min x in S | f(x)
 
 rule max:
     vars:
         S: set[T1]
     rewrite:
-        max(S) ~> max x . x in S | x
+        max(S) ~> max x in S | x
 
 rule max_map:
     vars:
         S: set[T1]
         f: procedure[T1, T2]
     rewrite:
-        max_map(f, S) ~> max x . x in S | f(x)
+        max_map(f, S) ~> max x in S | f(x)
 
 rule sum:
     vars:
         S: set[T1]
     rewrite:
-        sum(S) ~> sum x . x in S | x
+        sum(S) ~> sum x in S | x
 
 rule product:
     vars:
         S: set[T1]
     rewrite:
-        product(S) ~> product x . x in S | x
+        product(S) ~> product x in S | x
 
 rule map:
     vars:
         S: set[T1]
         f: procedure[T1, T2]
     rewrite:
-        map(f, S) ~> {x . x in S | f(x)}
+        map(f, S) ~> {x in S | f(x)}
 
 rule fold:
     vars:
@@ -101,4 +95,4 @@ rule fold:
         f: procedure[T1, T1, T2]
         i: T1
     rewrite:
-        fold(f, i, S) ~> fold x . x in S : i | f
+        fold(i, f, S) ~> fold i : x in S | f

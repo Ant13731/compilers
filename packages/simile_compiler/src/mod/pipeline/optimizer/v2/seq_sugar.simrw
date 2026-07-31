@@ -5,21 +5,13 @@ rule concatenation:
     rewrite:
         L ++ M
         ~>
-        L \/ {x |-> y . x |-> y in M | x + max(dom(L)) |-> y}
+        L \/ {x |-> y in M | x + max(dom(L)) |-> y}
 
 rule flatten:
     vars:
         XS: seq[seq[T1]]
     rewrite:
-        flatten(XS) ~> fold(++, [], XS)
-
-rule fold:
-    vars:
-        X: seq[T1]
-        f: procedure[T1, T1, T2]
-        i: T2
-    rewrite:
-        fold(f, i, X) ~> fold x . x in ran(X) : i | f
+        flatten(XS) ~> fold([], ++, XS)
 
 rule first:
     vars:
@@ -31,7 +23,7 @@ rule tail:
     vars:
         X: seq[T1]
     rewrite:
-        tail(X) ~> {i |-> x . i |-> x in X and i != 0 | i - 1 |-> x}
+        tail(X) ~> {i |-> x in X . i != 0 | i - 1 |-> x}
 
 rule append:
     vars:
@@ -45,19 +37,19 @@ rule prepend:
         X: seq[T1]
         y: T1
     rewrite:
-        prepend(X, y) ~> {i |-> x . i |-> x in X | i+1 |-> x} \/ {0 |-> y}
+        prepend(X, y) ~> {i |-> x in X | i+1 |-> x} \/ {0 |-> y}
 
 rule tails:
     vars:
         X: seq[T1]
     rewrite:
-        tails(X) ~> {i . i in len(X)..0 | X[i:]}
+        tails(X) ~> {i in len(X)..0 | X[i:]}
 
 rule heads:
     vars:
         X: seq[T1]
     rewrite:
-        heads(X) ~> {i . i in 0..len(X) | X[:i]}
+        heads(X) ~> {i in 0..len(X) | X[:i]}
 
 rule slice_from_bottom:
     vars:
@@ -78,13 +70,13 @@ rule set_membership:
         X: seq[T1]
         e: T1
     rewrite:
-        e in X ~> exists x . x in S and e = x
+        e in X ~> exists x in S | e = x
 
 rule length:
     vars:
         X: seq[T1]
     rewrite:
-        len(X) ~> count x . x in X
+        len(X) ~> sum x in X | 1
 
 
 

@@ -1,23 +1,23 @@
-rule and_wrapping:
-    vars:
-        E: T1
-        P: bool
-        op: ast_.QuantifierOperator
-    rewrite:
-        ast_.Quantifier(P, E, op)
-        ~>
-        ast_.Quantifier(ast_.And([P]), E, op)
-    when:
-        is_not_bool_list_op(P)
-
-rule or_wrapping:
-    vars:
-        E: T1
-        P: bool
-        op: ast_.QuantifierOperator
-    rewrite:
-        ast_.Quantifier(P, E, op)
-        ~>
-        ast_.Quantifier(ast_.Or([P]), E, op)
-    when:
-        is_and_list_op(P)
+# rule and_wrapping:
+#     vars:
+#         E: T1
+#         P: bool
+#         op: ast_.QuantifierOperator
+#     rewrite:
+#         ast_.Quantifier(P, E, op)
+#         ~>
+#         ast_.Quantifier(ast_.And([P]), E, op)
+#     when:
+#         is_not_bool_list_op(P)
+#
+# rule or_wrapping:
+#     vars:
+#         E: T1
+#         P: bool
+#         op: ast_.QuantifierOperator
+#     rewrite:
+#         ast_.Quantifier(P, E, op)
+#         ~>
+#         ast_.Quantifier(ast_.Or([P]), E, op)
+#     when:
+#         is_and_list_op(P)
