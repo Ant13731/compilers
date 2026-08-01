@@ -306,7 +306,7 @@ class PopulateSymbolTable:
                 self.symbol_table.pop_scope_level()
                 return ast_.Fold(_accumulator_init, _body), False
 
-            case ast_.Iter(_, _) as iter_:
+            case ast_.IterBody(_, _) as iter_:
                 return self._populate_iter(iter_), False
 
             case ast_.ProcedureDef(name, params, body, return_type):
@@ -619,18 +619,18 @@ class PopulateSymbolTable:
             case _:
                 raise SimileTypeError(f"Invalid quantification - must be a list of branches or a single expression", quantifier)
 
-    def _populate_iter(self, iter_: ast_.Iter) -> ast_.Iter:
+    def _populate_iter(self, iter_: ast_.IterBody) -> ast_.IterBody:
         match iter_:
-            case ast_.Iter([], branches) if isinstance(branches, list):
+            case ast_.IterBody([], branches) if isinstance(branches, list):
                 _branches = []
                 for branch in branches:
                     self.symbol_table.add_scope(ScopeContext.QUANTIFICATION)
                     _branches.append(self._populate_iter(branch))
                     self.symbol_table.pop_scope_level()
-                return ast_.Iter([], _branches)
-            case ast_.Iter([], iter_body):
+                return ast_.IterBody([], _branches)
+            case ast_.IterBody([], iter_body):
                 raise SimileTypeError(f"Invalid iter - iter_body case {iter_body} must be accompanied by a generator", iter_)
-            case ast_.Iter(generators, branches) if isinstance(branches, list):
+            case ast_.IterBody(generators, branches) if isinstance(branches, list):
                 _generators = []
                 for generator in generators:
                     _generators.append(self._populate_iter_generator(generator))
@@ -642,8 +642,8 @@ class PopulateSymbolTable:
                 # Need to pop scope levels added from populate generators
                 for _ in _generators:
                     self.symbol_table.pop_scope_level()
-                return ast_.Iter(_generators, _branches)
-            case ast_.Iter(generators, iter_body):
+                return ast_.IterBody(_generators, _branches)
+            case ast_.IterBody(generators, iter_body):
                 assert isinstance(iter_body, ast_.ASTNode), "Other case caught by earlier match case"
                 _generators = []
                 for generator in generators:
@@ -654,7 +654,7 @@ class PopulateSymbolTable:
                 for _ in _generators:
                     self.symbol_table.pop_scope_level()
                 assert isinstance(_iter_body_return_value, ast_.SymbolListTypes)
-                return ast_.Iter(_generators, ast_.IterBody(_iter_body_return_body, _iter_body_return_value))
+                return ast_.IterBody(_generators, ast_.IterBodyEnd(_iter_body_return_body, _iter_body_return_value))
             case _:
                 raise SimileTypeError(f"Invalid iter - must be a list of branches or a single expression", iter_)
 

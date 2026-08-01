@@ -737,7 +737,7 @@ class Generator(ASTNode):
 @dataclass
 class QuantifierBody(ASTNode):
     generators: list[Generator]
-    expr_or_branch: ASTNode | list[QuantifierBody]
+    end_or_branch: ASTNode | list[QuantifierBody]
 
 
 @dataclass
@@ -753,15 +753,20 @@ class IterGenerator(ASTNode):
 
 
 @dataclass
-class IterBody(ASTNode):
+class IterBodyEnd(ASTNode):
     body: ASTNode
     return_value: TupleIdentifier | Identifier | TupleSymbol | Symbol
 
 
 @dataclass
-class Iter(ASTNode):
+class IterBody(ASTNode):
     generators: list[IterGenerator]
-    body_or_branch: IterBody | list[Iter]
+    end_or_branch: IterBodyEnd | list[IterBody]
+
+
+@dataclass
+class Iter(ASTNode):
+    body: IterBody
 
 
 @dataclass(eq=False)

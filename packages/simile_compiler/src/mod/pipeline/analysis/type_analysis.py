@@ -586,12 +586,12 @@ class TypeSynthesizer:
     def _(self, ast: ast_.QuantifierBody) -> types.BaseType:
         self._synthesize_type_generator_nest(ast.generators)
 
-        if isinstance(ast.expr_or_branch, ast_.ASTNode):
-            return_type = self.synthesize_type(ast.expr_or_branch)
+        if isinstance(ast.end_or_branch, ast_.ASTNode):
+            return_type = self.synthesize_type(ast.end_or_branch)
             return types.QuantificationBodyIntermediary(return_type)
 
         branch_types: list[types.BaseType] = []
-        for branch in ast.expr_or_branch:
+        for branch in ast.end_or_branch:
             branch_type = self.synthesize_type(branch)
             if not isinstance(branch_type, types.QuantificationBodyIntermediary):
                 raise types.SimileTypeError(f"Branch of quantifier must be of type QuantificationBodyIntermediary. Got {branch_type}", branch)
@@ -660,20 +660,20 @@ class TypeSynthesizer:
 
     @typing_rule("Iter (body)")
     @synthesize_type.register
-    def _(self, ast: ast_.IterBody) -> types.BaseType:  # typecheck body, then return return_value's type
+    def _(self, ast: ast_.IterBodyEnd) -> types.BaseType:  # typecheck body, then return return_value's type
         self.synthesize_type(ast.body)
         return self.synthesize_type(ast.return_value)
 
     @typing_rule("Iter")
     @synthesize_type.register
-    def _(self, ast: ast_.Iter) -> types.BaseType:
+    def _(self, ast: ast_.IterBody) -> types.BaseType:
         self._synthesize_type_generator_nest(ast.generators)
 
-        if isinstance(ast.body_or_branch, ast_.ASTNode):
-            return self.synthesize_type(ast.body_or_branch)
+        if isinstance(ast.end_or_branch, ast_.ASTNode):
+            return self.synthesize_type(ast.end_or_branch)
 
         branch_types: list[types.BaseType] = []
-        for branch in ast.body_or_branch:
+        for branch in ast.end_or_branch:
             branch_type = self.synthesize_type(branch)
             branch_types.append(branch_type)
 

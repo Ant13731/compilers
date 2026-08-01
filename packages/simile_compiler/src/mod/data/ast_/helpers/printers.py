@@ -20,7 +20,15 @@ from src.mod.data.ast_.common import (
     RelationOp,
     UnaryOp,
     ListOp,
-    Quantifier,
+    Quantifier3,
+    QuantifierBody,
+    Generator,
+    Fold,
+    IterGenerator,
+    IterBodyEnd,
+    IterBody,
+    Iter,
+    TraitApplication,
     ControlFlowStmt,
     Enumeration,
     Type_,
@@ -125,18 +133,9 @@ def _(ast: ListOp, indent: int) -> str:
     return "(" + f" {ast.op_type.to_source()} ".join(_ast_to_source(item, indent) for item in ast.items) + ")"
 
 
-@_ast_to_source.register(Quantifier)
-def _(ast: Quantifier, indent: int) -> str:
-    quantifier = ""
-    predicate = _ast_to_source(ast.all_predicates, indent)
-    expression = _ast_to_source(ast.expression, indent)
-
-    # TODO make an explicitly bound quantifier type and separate this out
-    if ast._bound_identifiers:
-        quantifier += ", ".join(_ast_to_source(x, indent) for x in list(ast._bound_identifiers))
-        quantifier += f" · {predicate} | {expression}"
-    else:
-        quantifier += f"{expression} | {predicate}"
+@_ast_to_source.register(Quantifier3)
+def _(ast: Quantifier3, indent: int) -> str:
+    quantifier = _ast_to_source(ast.body, indent)
 
     if ast.op_type.is_collection_operator():  # collection operators need to wrap the quantification
         l_wrapper, r_wrapper = tuple(ast.op_type.to_source())
@@ -144,6 +143,52 @@ def _(ast: Quantifier, indent: int) -> str:
     else:
         quantifier = f"{ast.op_type.to_source()} {quantifier}"
     return quantifier
+
+
+@_ast_to_source.register(Generator)
+def _(ast: Generator, indent: int) -> str:
+    generator = f"{_ast_to_source(ast.identifiers, indent)} ∈ {_ast_to_source(ast.set_, indent)}"
+    if not isinstance(ast.predicate, True_):
+        generator += f" · {_ast_to_source(ast.predicate, indent)}"
+    return generator
+
+
+@_ast_to_source.register(QuantifierBody)
+@_ast_to_source.register(IterBody)
+def _(ast: QuantifierBody | IterBody, indent: int) -> str:
+    generators = ", ".join(_ast_to_source(gen, indent) for gen in ast.generators)
+    if isinstance(ast.end_or_branch, list):
+        # To account for no initial generators, we conditionally add a comma between generators and branches
+        if generators:
+            generators += ", "
+        branches = ") ` (".join(_ast_to_source(branch, indent) for branch in ast.end_or_branch)
+        return f"{generators}({branches})"
+    return f"{generators} | {_ast_to_source(ast.end_or_branch, indent)}"
+
+
+@_ast_to_source.register(Fold)
+def _(ast: Fold, indent: int) -> str:
+    init_accumulator = _ast_to_source(ast.accumulator_init, indent)
+    body = _ast_to_source(ast.quantifier_body, indent)
+    return f"fold {init_accumulator} : {body}"
+
+
+@_ast_to_source.register(IterGenerator)
+def _(ast: IterGenerator, indent: int) -> str:
+    assignments = "; ".join(_ast_to_source(assignment, indent) for assignment in ast.assignments)
+    return f"{_ast_to_source(ast.generator, indent)} : {assignments}"
+
+
+@_ast_to_source.register(IterBodyEnd)
+def _(ast: IterBodyEnd, indent: int) -> str:
+    body = _ast_to_source(ast.body, indent)
+    return_value = _ast_to_source(ast.return_value, indent)
+    return f"→ {return_value} | {body}"
+
+
+@_ast_to_source.register(Iter)
+def _(ast: Iter, indent: int) -> str:
+    return f"iter {ast.body}"
 
 
 @_ast_to_source.register(Enumeration)
@@ -187,15 +232,21 @@ def _(ast: TypedName, indent: int) -> str:
     return f"{_ast_to_source(ast.name, indent)}: {_ast_to_source(ast.type_, indent)}"
 
 
+@_ast_to_source.register(TraitApplication)
+def _(ast: TraitApplication, indent: int) -> str:
+    target = _ast_to_source(ast.target, indent)
+    if ast.traits:
+        indentation = "\t" * (indent + 1)
+        with_clause_str = f"\n{indentation}with" + f"\n{indentation}with".join(_ast_to_source(clause, indent + 1) for clause in ast.traits)
+        return f"{target}{with_clause_str}"
+    return target
+
+
 @_ast_to_source.register(Assignment)
 def _(ast: Assignment, indent: int) -> str:
-    with_clause_str = ""
-    if ast.with_clauses:
-        with_clause_str = "\n    with" + "\n    with".join(_ast_to_source(clause, indent) for clause in ast.with_clauses)
-
     if ast.choice_assignment:
-        return f"{_ast_to_source(ast.target, indent)} :∈ {_ast_to_source(ast.value, indent)}{with_clause_str}"
-    return f"{_ast_to_source(ast.target, indent)} := {_ast_to_source(ast.value, indent)}{with_clause_str}"
+        return f"{_ast_to_source(ast.target, indent)} :∈ {_ast_to_source(ast.value, indent)}"
+    return f"{_ast_to_source(ast.target, indent)} := {_ast_to_source(ast.value, indent)}"
 
 
 @_ast_to_source.register(Return)

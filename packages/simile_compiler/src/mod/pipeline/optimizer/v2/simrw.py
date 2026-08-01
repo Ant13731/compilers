@@ -12,7 +12,7 @@ from src.mod.pipeline.parser import parse
 
 
 @dataclass
-class SimrwRewriteRule:
+class SimrwAST:
     name: str
     vars_: list[str]
     rewrite_left: str
@@ -21,11 +21,11 @@ class SimrwRewriteRule:
 
 
 class RewriteTransformer(Transformer):
-    def start(self, items) -> list[SimrwRewriteRule]:
+    def start(self, items) -> list[SimrwAST]:
         return items
 
-    def rule(self, items: tuple[str, tuple[list[str], str, str, list[str]]]) -> SimrwRewriteRule:
-        return SimrwRewriteRule(
+    def rule(self, items: tuple[str, tuple[list[str], str, str, list[str]]]) -> SimrwAST:
+        return SimrwAST(
             items[0],
             items[1][0],
             items[1][1],
@@ -58,7 +58,7 @@ class RewriteTransformer(Transformer):
         return [str(i).strip() for i in items]
 
 
-def parse_simrw_file(file_path: str) -> list[SimrwRewriteRule]:
+def parse_simrw_file(file_path: str) -> list[SimrwAST]:
     parser = Lark.open(
         "simrw.lark",
         rel_to=__file__,
@@ -68,7 +68,7 @@ def parse_simrw_file(file_path: str) -> list[SimrwRewriteRule]:
     )
     with open(file_path, "r") as f:
         content = f.read()
-    simrw_rewrite_rules: list[SimrwRewriteRule] = parser.parse(content)  # type: ignore
+    simrw_rewrite_rules: list[SimrwAST] = parser.parse(content)  # type: ignore
     return simrw_rewrite_rules
 
 
@@ -111,13 +111,13 @@ def unwrap_start_nodes(ast_node: ast_.ASTNode) -> ast_.ASTNode:
             return ast_node
 
 
-def convert_simrw_to_rewrite_rules(simrw_rewrite_rules: list[SimrwRewriteRule]) -> list[RewriteRule]:
+def convert_simrw_to_rewrite_rules(simrw_rewrite_rules: list[SimrwAST]) -> list[RewriteRule]:
     rewrite_rules: list[RewriteRule] = []
     for simrw_rule in simrw_rewrite_rules:
         logger.debug(f"Converting simrw rule {simrw_rule.name} to rewrite rule: {simrw_rule}")
         typed_vars: dict[ast_.Identifier, ast_.Type_ | ast_.None_] = {}
         for simrw_rule_var in simrw_rule.vars_:
-            simrw_rule_var += " := 0"  # TODO fix hack: Need to trick the parser into thinking this is a typed assignment, so we can parse it into a TypedName
+            # simrw_rule_var += " := 0"  # TODO fix hack: Need to trick the parser into thinking this is a typed assignment, so we can parse it into a TypedName
             typed_var_ast = parse(simrw_rule_var)
             unwrapped_var_ast = unwrap_start_nodes(typed_var_ast)
             if not isinstance(unwrapped_var_ast, ast_.TypedName):

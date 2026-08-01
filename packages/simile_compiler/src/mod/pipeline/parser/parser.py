@@ -619,7 +619,7 @@ class Parser:
                 body = self.quantification_body()
                 return ast_.Fold(initializing_assignment, body)
             case TokenType.ITER:
-                return self.iter_quantification_body()
+                return ast_.Iter(self.iter_quantification_body())
             case _ if t.type_ in {
                 TokenType.GENERAL_UNION,
                 TokenType.GENERAL_INTERSECTION,
@@ -677,25 +677,25 @@ class Parser:
         return quantifier_bodies
 
     @store_derivation
-    def iter_quantification_body(self) -> ast_.Iter:
+    def iter_quantification_body(self) -> ast_.IterBody:
         if self.peek().type_ in self.get_first_set("branch_iter_quantification_body"):
-            return ast_.Iter([], self.branch_iter_quantification_body())
+            return ast_.IterBody([], self.branch_iter_quantification_body())
         generators = [self.generator_with_assignments()]
         while self.match(TokenType.COMMA):
             if self.peek().type_ in self.get_first_set("branch_iter_quantification_body"):
-                return ast_.Iter(generators, self.branch_iter_quantification_body())
+                return ast_.IterBody(generators, self.branch_iter_quantification_body())
             generators.append(self.generator_with_assignments())
         self.consume(TokenType.RIGHTARROW, "Expected right arrow with return values after iter quantification generators")
         return_list = self.ident_list()
         self.consume(TokenType.VBAR, "Expected pipe symbol after return values in iter quantification")
         body = self.iter_block()
-        return ast_.Iter(generators, ast_.IterBody(body, return_list))
+        return ast_.IterBody(generators, ast_.IterBodyEnd(body, return_list))
 
     @store_derivation
     def branch_iter_quantification_body(self):
         self.consume(TokenType.L_PAREN, "Expected opening parenthesis for branch_iter_quantification_body")
         set_whitespace_back_to = self.ignore_whitespace(True)
-        quantifier_bodies: list[ast_.Iter] = [self.iter_quantification_body()]
+        quantifier_bodies: list[ast_.IterBody] = [self.iter_quantification_body()]
         self.consume(TokenType.R_PAREN, "Expected closing parenthesis for branch_iter_quantification_body")
         self.ignore_whitespace(set_whitespace_back_to)
         while self.match(TokenType.BACKTICK):
