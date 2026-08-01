@@ -3,25 +3,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Type, ClassVar
 
 from src.mod.data.types.error import SimileTypeError
-from src.mod.data.types.traits import (
-    Trait,
-    TraitCollection,
-    OrderableTrait,
-    IterableTrait,
-    LiteralTrait,
-    DomainTrait,
-    MinTrait,
-    MaxTrait,
-    SizeTrait,
-    ImmutableTrait,
-    TotalOnDomainTrait,
-    TotalOnRangeTrait,
-    ManyToOneTrait,
-    OneToManyTrait,
-    EmptyTrait,
-    TotalTrait,
-    UniqueElementsTrait,
-)
+from src.mod.data.traits.traits import *
 from src.mod.data.types.base import BaseType, BoolType
 
 if TYPE_CHECKING:

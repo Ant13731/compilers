@@ -28,26 +28,6 @@ from src.mod.data.types.set_ import (
     QuantificationBodyIntermediary,
     GeneratorIntermediary,
 )
-from src.mod.data.types.traits import (
-    Trait,
-    TraitCollection,
-    OrderableTrait,
-    IterableTrait,
-    LiteralTrait,
-    DomainTrait,
-    MinTrait,
-    MaxTrait,
-    SizeTrait,
-    ImmutableTrait,
-    TotalOnDomainTrait,
-    TotalOnRangeTrait,
-    ManyToOneTrait,
-    OneToManyTrait,
-    EmptyTrait,
-    TotalTrait,
-    UniqueElementsTrait,
-    GenericBoundTrait,
-)
 from src.mod.data.types.tuple_ import (
     TupleType,
     PairType,

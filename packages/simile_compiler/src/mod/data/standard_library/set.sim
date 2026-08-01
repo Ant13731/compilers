@@ -36,3 +36,12 @@ procedure product_(S: set[N]) -> N:
 
 procedure card(S: set[T]) -> int:
     return sum x in S | 1
+
+procedure choice(S: set[T]) -> T:
+    c: T :: S
+    return c
+
+procedure choice_with_default(S: set[T], default: T) -> T:
+    if card(S) == 0:
+        return default
+    return choice(S)

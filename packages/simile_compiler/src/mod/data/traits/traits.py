@@ -3,7 +3,7 @@ from dataclasses import dataclass, field, fields
 from copy import deepcopy
 from typing import ClassVar, Any, TYPE_CHECKING
 
-from src.mod.data.types.error import SimileTypeError
+from src.mod.data.traits.error import SimileTraitError
 
 if TYPE_CHECKING:
     from src.mod.data.ast_.base import ASTNode
@@ -190,7 +190,7 @@ class TraitCollection:
             case UniqueElementsTrait():
                 self.unique_elements_trait = trait
             case _:
-                raise SimileTypeError(f"Unknown trait: {trait} (failed to set trait on TraitCollection)")
+                raise SimileTraitError(f"Unknown trait: {trait} (failed to set trait on TraitCollection)")
         self._fill_implicit_traits()
         return
 
@@ -295,11 +295,11 @@ class MinTrait(Trait):
 
     def merge(self, other: MinTrait) -> MinTrait:
         if not hasattr(self.value, "literal_min"):
-            raise SimileTypeError("Cannot merge MinTrait: values are not comparable")
+            raise SimileTraitError("Cannot merge MinTrait: values are not comparable")
 
         min_candidate = self.value.literal_min(other.value)  # type: ignore
         if min_candidate is None:
-            raise SimileTypeError("Cannot merge MinTrait: values are not comparable")
+            raise SimileTraitError("Cannot merge MinTrait: values are not comparable")
         return MinTrait(value=min_candidate)
 
 
@@ -335,11 +335,11 @@ class MaxTrait(Trait):
 
     def merge(self, other: MaxTrait) -> MaxTrait:
         if not hasattr(self.value, "literal_max"):
-            raise SimileTypeError("Cannot merge MaxTrait: values are not comparable")
+            raise SimileTraitError("Cannot merge MaxTrait: values are not comparable")
 
         max_candidate = self.value.literal_max(other.value)  # type: ignore
         if max_candidate is None:
-            raise SimileTypeError("Cannot merge MaxTrait: values are not comparable")
+            raise SimileTraitError("Cannot merge MaxTrait: values are not comparable")
         return MaxTrait(value=max_candidate)
 
 

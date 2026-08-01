@@ -1,0 +1,21 @@
+from src.mod.data.traits.traits import (
+    Trait,
+    TraitCollection,
+    OrderableTrait,
+    IterableTrait,
+    LiteralTrait,
+    DomainTrait,
+    MinTrait,
+    MaxTrait,
+    SizeTrait,
+    ImmutableTrait,
+    TotalOnDomainTrait,
+    TotalOnRangeTrait,
+    ManyToOneTrait,
+    OneToManyTrait,
+    EmptyTrait,
+    TotalTrait,
+    UniqueElementsTrait,
+    GenericBoundTrait,
+)
+from src.mod.data.traits.error import SimileTraitError

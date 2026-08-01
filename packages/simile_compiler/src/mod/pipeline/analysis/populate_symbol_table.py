@@ -27,6 +27,11 @@ from src.mod.data.types import (
     BagType,
     RelationType,
     SequenceType,
+    TupleType,
+    PairType,
+    SimileTypeError,
+)
+from src.mod.data.traits import (
     Trait,
     TraitCollection,
     OrderableTrait,
@@ -45,9 +50,6 @@ from src.mod.data.types import (
     TotalTrait,
     UniqueElementsTrait,
     GenericBoundTrait,
-    TupleType,
-    PairType,
-    SimileTypeError,
 )
 
 from src.mod.pipeline.parser import parse, ParseError

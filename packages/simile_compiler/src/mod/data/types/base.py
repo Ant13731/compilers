@@ -5,7 +5,7 @@ from typing import Callable, ClassVar, Type, TypeVar
 import inspect
 
 from src.mod.data.types.error import SimileTypeError
-from src.mod.data.types.traits import Trait, TraitCollection, LiteralTrait, DomainTrait, ImmutableTrait
+from src.mod.data.traits.traits import Trait, TraitCollection, LiteralTrait, DomainTrait, ImmutableTrait
 from src.mod.data.types.typing_rule_decorator import typing_rule
 
 T = TypeVar("T", bound="BaseType")

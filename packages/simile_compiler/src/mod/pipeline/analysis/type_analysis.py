@@ -8,9 +8,8 @@ from src.mod.data.symbol_table.entry import SymbolTableIdentifierEntry
 from src.mod.pipeline.analysis.populate_symbol_table import TypeAnnotationResolver
 from src.mod.pipeline.scanner import Location
 from src.mod.pipeline.parser import parse, ParseError
-from src.mod.data import ast_
+from src.mod.data import ast_, types, traits
 from src.mod.data.symbol_table import SymbolTable
-from src.mod.data import types
 from src.mod.data.types.typing_rule_decorator import typing_rule
 
 
@@ -79,36 +78,36 @@ class TypeSynthesizer:
     @typing_rule("")
     @synthesize_type.register
     def _(self, ast: ast_.Int) -> types.BaseType:
-        trait_collection = types.TraitCollection()
-        trait_collection.set_trait(types.LiteralTrait(ast))
+        trait_collection = traits.TraitCollection()
+        trait_collection.set_trait(traits.LiteralTrait(ast))
         return types.IntType(trait_collection=trait_collection)
 
     @typing_rule()
     @synthesize_type.register
     def _(self, ast: ast_.Float) -> types.BaseType:
-        trait_collection = types.TraitCollection()
-        trait_collection.set_trait(types.LiteralTrait(ast))
+        trait_collection = traits.TraitCollection()
+        trait_collection.set_trait(traits.LiteralTrait(ast))
         return types.FloatType(trait_collection=trait_collection)
 
     @typing_rule()
     @synthesize_type.register
     def _(self, ast: ast_.String) -> types.BaseType:
-        trait_collection = types.TraitCollection()
-        trait_collection.set_trait(types.LiteralTrait(ast))
+        trait_collection = traits.TraitCollection()
+        trait_collection.set_trait(traits.LiteralTrait(ast))
         return types.StringType(trait_collection=trait_collection)
 
     @typing_rule()
     @synthesize_type.register
     def _(self, ast: ast_.True_) -> types.BaseType:
-        trait_collection = types.TraitCollection()
-        trait_collection.set_trait(types.LiteralTrait(ast))
+        trait_collection = traits.TraitCollection()
+        trait_collection.set_trait(traits.LiteralTrait(ast))
         return types.BoolType(trait_collection=trait_collection)
 
     @typing_rule()
     @synthesize_type.register
     def _(self, ast: ast_.False_) -> types.BaseType:
-        trait_collection = types.TraitCollection()
-        trait_collection.set_trait(types.LiteralTrait(ast))
+        trait_collection = traits.TraitCollection()
+        trait_collection.set_trait(traits.LiteralTrait(ast))
         return types.BoolType(trait_collection=trait_collection)
 
     @typing_rule()

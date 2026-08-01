@@ -4,25 +4,7 @@ from collections import OrderedDict
 from typing import ClassVar, Type, TYPE_CHECKING
 
 from src.mod.data.types.error import SimileTypeError
-from src.mod.data.types.traits import (
-    Trait,
-    TraitCollection,
-    OrderableTrait,
-    IterableTrait,
-    LiteralTrait,
-    DomainTrait,
-    MinTrait,
-    MaxTrait,
-    SizeTrait,
-    ImmutableTrait,
-    TotalOnDomainTrait,
-    TotalOnRangeTrait,
-    ManyToOneTrait,
-    OneToManyTrait,
-    EmptyTrait,
-    TotalTrait,
-    UniqueElementsTrait,
-)
+from src.mod.data.traits.traits import *
 
 from src.mod.data.types.set_ import SetType
 from src.mod.data.types.base import BaseType
