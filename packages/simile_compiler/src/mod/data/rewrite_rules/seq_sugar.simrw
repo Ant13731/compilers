@@ -9,9 +9,9 @@ rule concatenation:
 
 rule flatten:
     vars:
-        XS: seq[seq[T1]]
+        XS: seq[ seq[T1] ]
     rewrite:
-        flatten(XS) ~> fold([], ++, XS)
+        flatten(XS) ~> foldl([], concat, XS)
 
 rule first:
     vars:
@@ -30,7 +30,7 @@ rule append:
         X: seq[T1]
         y: T1
     rewrite:
-        append(X, y) ~> X \/ {max(dom(X)) |-> y}
+        append(X, y) ~> X \/ {(max x in dom(X) | x) |-> y}
 
 rule prepend:
     vars:
@@ -43,27 +43,27 @@ rule tails:
     vars:
         X: seq[T1]
     rewrite:
-        tails(X) ~> {i in len(X)..0 | X[i:]}
+        tails(X) ~> {i in len(X)..0 | 0..i <<| X}
 
 rule heads:
     vars:
         X: seq[T1]
     rewrite:
-        heads(X) ~> {i in 0..len(X) | X[:i]}
+        heads(X) ~> {i in 0..len(X) | i..len(X) <<| X}
 
-rule slice_from_bottom:
-    vars:
-        X: seq[T1]
-        i: int
-    rewrite:
-        X[i:] ~> 0..i <<| X
-
-rule slice_from_top:
-    vars:
-        X: seq[T1]
-        i: int
-    rewrite:
-        X[:i] ~> i..len(X) <<| X
+# rule slice_from_bottom:
+#     vars:
+#         X: seq[T1]
+#         i: int
+#     rewrite:
+#         X[i:] ~> 0..i <<| X
+#
+# rule slice_from_top:
+#     vars:
+#         X: seq[T1]
+#         i: int
+#     rewrite:
+#         X[:i] ~> i..len(X) <<| X
 
 rule set_membership:
     vars:

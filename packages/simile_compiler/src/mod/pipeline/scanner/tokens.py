@@ -89,6 +89,8 @@ class TokenType(Enum):
     GENERAL_INTERSECTION = auto()
     FOLD = auto()
     ITER = auto()
+    MAX = auto()
+    MIN = auto()
 
     # Numbers
     PLUS = auto()
@@ -332,6 +334,8 @@ KEYWORD_TABLE = {
     "product": TokenType.PRODUCT,
     "union": TokenType.GENERAL_UNION,
     "intersection": TokenType.GENERAL_INTERSECTION,
+    "max": TokenType.MAX,
+    "min": TokenType.MIN,
     # Little odd, but needed to make generator parsing work
     "iter_or": TokenType.BACKTICK,
     "iter_and": TokenType.COMMA,
@@ -339,3 +343,20 @@ KEYWORD_TABLE = {
     # "powerset": TokenType.POWERSET,
     # "powerset1": TokenType.NONEMPTY_POWERSET,
 }
+
+TOKENS_THAT_CAN_ACT_AS_FUNC_IDENTIFIERS = {
+    TokenType.MAX: "max",
+    TokenType.MIN: "min",
+    TokenType.SUM: "sum",
+    TokenType.PRODUCT: "product",
+    TokenType.GENERAL_UNION: "union",
+    TokenType.GENERAL_INTERSECTION: "intersection",
+    TokenType.FOLD: "fold",
+}
+TOKENS_THAT_CAN_ACT_AS_TYPE_IDENTIFIERS = [
+    *TOKENS_THAT_CAN_ACT_AS_FUNC_IDENTIFIERS,
+    TokenType.PROCEDURE,
+    TokenType.ENUM,
+    TokenType.TRAIT,
+    TokenType.RECORD,
+]

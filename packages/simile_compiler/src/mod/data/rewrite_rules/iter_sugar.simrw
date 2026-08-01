@@ -44,11 +44,11 @@ rule range_subtraction:
     rewrite:
         S |>> R ~> {x |-> y in R . y not in S | x |-> y}
 
-rule min:
-    vars:
-        S: set[T1]
-    rewrite:
-        min(S) ~> min x in S | x
+#rule min:
+#    vars:
+#        S: set[T1]
+#    rewrite:
+#        min(S) ~> min x in S | x
 
 rule min_map:
     vars:
@@ -57,11 +57,11 @@ rule min_map:
     rewrite:
         min_map(f, S) ~> min x in S | f(x)
 
-rule max:
-    vars:
-        S: set[T1]
-    rewrite:
-        max(S) ~> max x in S | x
+#rule max:
+#    vars:
+#        S: set[T1]
+#    rewrite:
+#        max(S) ~> max x in S | x
 
 rule max_map:
     vars:
@@ -70,17 +70,17 @@ rule max_map:
     rewrite:
         max_map(f, S) ~> max x in S | f(x)
 
-rule sum:
-    vars:
-        S: set[T1]
-    rewrite:
-        sum(S) ~> sum x in S | x
+#rule sum:
+#    vars:
+#        S: set[T1]
+#    rewrite:
+#        sum(S) ~> sum x in S | x
 
-rule product:
-    vars:
-        S: set[T1]
-    rewrite:
-        product(S) ~> product x in S | x
+#rule product:
+#    vars:
+#        S: set[T1]
+#    rewrite:
+#        product(S) ~> product x in S | x
 
 rule map:
     vars:
@@ -89,10 +89,10 @@ rule map:
     rewrite:
         map(f, S) ~> {x in S | f(x)}
 
-rule fold:
-    vars:
-        S: set[T1]
-        f: procedure[T1, T1, T2]
-        i: T1
-    rewrite:
-        fold(i, f, S) ~> fold i : x in S | f
+# rule fold:
+#     vars:
+#         S: set[T1]
+#         f: procedure[T1, T1, T2]
+#         i: T1
+#     rewrite:
+#         fold(i, f, S) ~> fold i : x in S | f

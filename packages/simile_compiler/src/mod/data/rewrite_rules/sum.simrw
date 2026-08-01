@@ -1,6 +1,6 @@
 rule constant_sum_upto:
     vars:
-        c: int | float
+        c: T1
         S: set[T2]
         j: int
         k: int
@@ -10,10 +10,11 @@ rule constant_sum_upto:
         (k-j) * c
     when:
         does_not_occur_in(x,c)
+        is_numeric(T1)
 
 rule constant_sum:
     vars:
-        c: int | float
+        c: T1
         S: set[T2]
     rewrite:
         sum x in S | c
@@ -21,6 +22,7 @@ rule constant_sum:
         card(S) * c
     when:
         does_not_occur_in(x,c)
+        is_numeric(T1)
 
 rule sum_upto_i:
     vars:
@@ -43,9 +45,11 @@ rule sum_upto_i_squared:
 rule sum_with_mult:
     vars:
         S: set[T1]
-        m: int | float
+        m: T3
         E: T2
     rewrite:
         sum x in S | E * m
         ~>
         (sum x in S | E) * m
+    when:
+        is_numeric(T3)

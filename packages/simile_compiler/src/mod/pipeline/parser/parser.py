@@ -9,7 +9,7 @@ from termcolor import colored
 from loguru import logger
 
 
-from src.mod.pipeline.scanner import Token, TokenType, scan
+from src.mod.pipeline.scanner import Token, TokenType, scan, TOKENS_THAT_CAN_ACT_AS_TYPE_IDENTIFIERS, TOKENS_THAT_CAN_ACT_AS_FUNC_IDENTIFIERS
 from src.mod.data import ast_
 
 T = TypeVar("T")
@@ -125,6 +125,8 @@ class Parser:
             TokenType.SUM,
             TokenType.FOLD,
             TokenType.ITER,
+            TokenType.MAX,
+            TokenType.MIN,
         },
         "quantification_body": {"branch_quantification_body", "generator"},
         "branch_quantification_body": {TokenType.L_PAREN},
@@ -191,9 +193,7 @@ class Parser:
         "type_expr": {
             TokenType.IDENTIFIER,
             TokenType.L_PAREN,
-            TokenType.PROCEDURE,  # Hack, for when we use procedures as types
-            TokenType.RECORD,
-            TokenType.ENUM,
+            *TOKENS_THAT_CAN_ACT_AS_TYPE_IDENTIFIERS,
         },
         "tuple_type_expr_body": {"type_expr"},
         "control_flow_stmt": {TokenType.RETURN, TokenType.BREAK, TokenType.CONTINUE, TokenType.SKIP},
@@ -434,8 +434,15 @@ class Parser:
     @store_derivation
     def type_expr(self) -> ast_.Type_:
         t = self.advance()
-        if t.type_ in {TokenType.IDENTIFIER, TokenType.PROCEDURE, TokenType.RECORD, TokenType.ENUM}:
-            base = ast_.Identifier(t.value)
+        if t.type_ in {TokenType.IDENTIFIER, *TOKENS_THAT_CAN_ACT_AS_TYPE_IDENTIFIERS}:
+            base: ast_.ASTNode = ast_.Identifier(t.value)
+
+            while self.match(TokenType.DOT):
+                t = self.advance()
+                if t.type_ not in {TokenType.IDENTIFIER, *TOKENS_THAT_CAN_ACT_AS_TYPE_IDENTIFIERS}:
+                    self.error("Expected identifier after '.' in type expression")
+                base = ast_.RecordAccess(base, ast_.Identifier(t.value))
+
             if not self.match(TokenType.L_BRACKET):
                 return ast_.Type_(base)
             set_whitespace_back_to = self.ignore_whitespace(True)
@@ -629,6 +636,8 @@ class Parser:
                 TokenType.EXISTS,
                 TokenType.SUM,
                 TokenType.PRODUCT,
+                TokenType.MAX,
+                TokenType.MIN,
             }:
                 op_type: ast_.QuantifierOperator | None = None
                 match t.type_:
@@ -644,6 +653,10 @@ class Parser:
                         op_type = ast_.QuantifierOperator.SUM
                     case TokenType.PRODUCT:
                         op_type = ast_.QuantifierOperator.PRODUCT
+                    case TokenType.MAX:
+                        op_type = ast_.QuantifierOperator.MAX
+                    case TokenType.MIN:
+                        op_type = ast_.QuantifierOperator.MIN
                 assert op_type is not None, "op_type should have been defined in above mapping"
                 body = self.quantification_body()
                 return ast_.Quantifier3(body, op_type)
@@ -983,10 +996,8 @@ class Parser:
             case TokenType.IDENTIFIER:
                 return ast_.Identifier(t.value)
             # FIXME The below tokens should be reserved for quantification. What should we do about the function versions?
-            case TokenType.SUM:
-                return ast_.Identifier("sum")
-            case TokenType.PRODUCT:
-                return ast_.Identifier("product")
+            case x if x in TOKENS_THAT_CAN_ACT_AS_FUNC_IDENTIFIERS:
+                return ast_.Identifier(TOKENS_THAT_CAN_ACT_AS_FUNC_IDENTIFIERS[x])
             case _:
                 self.error("Failed to interpret first token of expected atom")
 
@@ -1004,17 +1015,22 @@ class Parser:
             return ast_.Enumeration([], collection_operator)
 
         # Then try set enumeration with one elem
-        enumeration = [self.expr()]
-        while self.match(TokenType.COMMA):
+        # FIXME This comma trick wont work because actual generators can use commas now
+        try:
+            enumeration = [self.expr()]
+            while self.match(TokenType.COMMA):
+                if self.match(TokenType.NEWLINE):
+                    self.match(TokenType.INDENT)
+                enumeration.append(self.expr())
+
             if self.match(TokenType.NEWLINE):
-                self.match(TokenType.INDENT)
-            enumeration.append(self.expr())
+                self.match(TokenType.DEDENT)
 
-        if self.match(TokenType.NEWLINE):
-            self.match(TokenType.DEDENT)
-
-        if self.match(closing_symbol):
-            return ast_.Enumeration(enumeration, collection_operator)
+            if self.match(closing_symbol):
+                return ast_.Enumeration(enumeration, collection_operator)
+        except ParseException:
+            logger.debug(f"Failed to parse as enumeration, trying as quantification. Parse error was: {self.errors[-1]}")
+            self.errors.pop()  # remove the parseException cause by attempting to match on expr directly
 
         # backtrack - this is not an enumeration, rather a quantification
         self.current_index = starting_index
@@ -1056,8 +1072,7 @@ class Parser:
         #         return collection
 
         #     collection.op_type = ast_.QuantifierOperator.RELATION
-        #     return collection
-        self.error("Unreachable state in set derivation. The type of the parsed value should be either a SetEnumeration or SetComprehension")
+        return collection
 
     @store_derivation
     def bag(self) -> ast_.ASTNode:

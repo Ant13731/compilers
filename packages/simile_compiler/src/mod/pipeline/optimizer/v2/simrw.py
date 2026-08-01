@@ -53,19 +53,12 @@ def map_to_guard_condition(
 
 
 def unwrap_start_nodes(ast_node: ast_.ASTNode) -> ast_.ASTNode:
-    if isinstance(ast_node, ast_.Start):
-        return unwrap_start_nodes(list(ast_node.children())[0])
-    if isinstance(ast_node, ast_.Statements) and len(list(ast_node.children())) == 1:
-        return unwrap_start_nodes(list(ast_node.children())[0])
-    if isinstance(ast_node, ast_.Assignment):
-        return unwrap_start_nodes(ast_node.target)
     match ast_node:
-        case ast_.Start(ast_.Statements([ast_.Assignment(target, _, _)]), _):
-            return target
-        # case ast_.Start(ast_.Statements([child]), _):
-        #     return child
-        case _:
-            return ast_node
+        case ast_.Start(body, _):
+            return unwrap_start_nodes(body)
+        case ast_.Statements([child]):
+            return unwrap_start_nodes(child)
+    return ast_node
 
 
 def convert_simrw_to_rewrite_rules(rewrite_rule_asts: list[SimrwAST]) -> list[RewriteRule]:
@@ -74,9 +67,9 @@ def convert_simrw_to_rewrite_rules(rewrite_rule_asts: list[SimrwAST]) -> list[Re
         logger.debug(
             f"Converting simrw rule {rewrite_rule_ast.name} to rewrite rule (with vars {rewrite_rule_ast.vars_}): {rewrite_rule_ast.rewrite_left} ~> {rewrite_rule_ast.rewrite_right}"
         )
+
         typed_vars: dict[ast_.Identifier, ast_.Type_ | ast_.None_] = {}
         for simrw_rule_var in rewrite_rule_ast.vars_:
-            # simrw_rule_var += " := 0"  # TODO fix hack: Need to trick the parser into thinking this is a typed assignment, so we can parse it into a TypedName
             typed_var_ast = parse(simrw_rule_var)
             unwrapped_var_ast = unwrap_start_nodes(typed_var_ast)
             if not isinstance(unwrapped_var_ast, ast_.TypedName):

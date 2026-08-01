@@ -30,18 +30,6 @@ rule cast_with:
         ~>
         ast_.TraitApplication(X, Ts)
 
-rule choice:
-    vars:
-        S: set[T1]
-    rewrite:
-        choice(S) ~> ?
-
-rule print:
-    vars:
-        x: T1
-    rewrite:
-        print(x) ~> ?
-
 rule functional_image:
     vars:
         # Note: may fail if R is not total
@@ -49,6 +37,5 @@ rule functional_image:
         x: T1
     rewrite:
         R(x) ~> choice(R[x])
-    when:
 
 

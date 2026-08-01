@@ -50,6 +50,7 @@ from src.mod.data.ast_.common import (
     ImportAll,
     Import,
     Start,
+    TupleLiteral,
 )
 from src.mod.data.ast_.optimizer_only import (
     GeneratorSelection,
@@ -79,6 +80,8 @@ def _(ast: Identifier, indent: int) -> str:
 
 @_ast_to_source.register(TupleIdentifier)
 def _(ast: TupleIdentifier, indent: int) -> str:
+    if len(ast.items) == 1:
+        return _ast_to_source(ast.items[0], indent)
     return f"({', '.join(_ast_to_source(item, indent) for item in ast.items)})"
 
 
@@ -114,7 +117,7 @@ def _(ast: None_, indent: int) -> str:
 def _(ast: BinaryOp | RelationOp, indent: int) -> str:
     left_str = _ast_to_source(ast.left, indent)
     right_str = _ast_to_source(ast.right, indent)
-    return f"{left_str} {ast.op_type.to_source()} {right_str}"
+    return f"({left_str} {ast.op_type.to_source()} {right_str})"
 
 
 @_ast_to_source.register(UnaryOp)
@@ -197,10 +200,23 @@ def _(ast: Enumeration, indent: int) -> str:
     return f"{l_wrapper}{', '.join(_ast_to_source(item, indent) for item in ast.items)}{r_wrapper}"
 
 
-# TODO remove this eventually... types should be processed by their context - where and why is this used?
+@_ast_to_source.register(TupleLiteral)
+def _(ast: TupleLiteral, indent: int) -> str:
+    if len(ast.items) == 1:
+        return f"({_ast_to_source(ast.items[0], indent)},)"
+    return f"({', '.join(_ast_to_source(item, indent) for item in ast.items)})"
+
+
 @_ast_to_source.register(Type_)
 def _(ast: Type_, indent: int) -> str:
-    return _ast_to_source(ast.type_, indent)
+    generic_parameters = [_ast_to_source(param, indent) for param in ast.generics]
+    if not generic_parameters:
+        return _ast_to_source(ast.type_, indent)
+    type_ = f"{_ast_to_source(ast.type_, indent)}[{', '.join(generic_parameters)}"
+    # TODO fix: hack needed to prevent double Rbrackets from being parsed as bag notation - eg. seq[seq[T1]] needs to be seq[seq[T1] ]
+    if type_.endswith("]"):
+        type_ += " "
+    return f"{type_}]"
 
 
 @_ast_to_source.register(LambdaDef)

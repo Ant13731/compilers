@@ -186,6 +186,8 @@ class QuantifierOperator(Enum):
 
     SUM = auto()
     PRODUCT = auto()
+    MAX = auto()
+    MIN = auto()
 
     SEQUENCE = auto()
     SET = auto()
@@ -242,6 +244,8 @@ class QuantifierOperator(Enum):
             QuantifierOperator.SET: "{}",
             QuantifierOperator.RELATION: "{}",
             QuantifierOperator.BAG: "⟦⟧",
+            QuantifierOperator.MAX: "max",
+            QuantifierOperator.MIN: "min",
         }
         return pretty_print_lookup.get(self, self.name)
 

@@ -54,7 +54,7 @@ rule union:
         S: set[T1]
         T: set[T1]
     rewrite:
-        S \/ T ~> {(x in S | x) ' (x in T . x not in S | x)}
+        S \/ T ~> {(x in S | x) ` (x in T . x not in S | x)}
 
 rule intersection:
     vars:

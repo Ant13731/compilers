@@ -47,7 +47,6 @@ rule fold:
         f: procedure[(T1, T1), T2]
         # i is the identity element of f
         i: T1
-        # Note: this only works if B is represented as a relation. If we use an array, this can be pretty inefficient
     rewrite:
         foldl(i, f, B)
         ~>
