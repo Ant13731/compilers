@@ -3,6 +3,7 @@
 //       This file is not intended to be used directly by any parser, including Lark.
 // NOTE: Left associative operators (and thus direct left recursive productions) will be implemented as a weakly equivalent right production.
 //       Ex. E -> E + T | T is equivalent to E -> T (PLUS E)* given the right implementation in the parser
+// NOTE: This file is out-of-date. See spec.tex for the latest grammar
 
 //////////////////////////////////////////////////////////////////////
 // Top Level Grammar
