@@ -10,7 +10,25 @@ from src.mod.data.ast_.operators import (
     UnaryOperator,
 )
 from src.mod.data.types.error import SimileTypeError
-from src.mod.data.traits.traits import *
+from src.mod.data.traits import (
+    Trait,
+    TraitCollection,
+    OrderableTrait,
+    IterableTrait,
+    LiteralTrait,
+    DomainTrait,
+    MinTrait,
+    MaxTrait,
+    SizeTrait,
+    ImmutableTrait,
+    TotalOnDomainTrait,
+    TotalOnRangeTrait,
+    ManyToOneTrait,
+    OneToManyTrait,
+    EmptyTrait,
+    TotalTrait,
+    UniqueElementsTrait,
+)
 from src.mod.data.types.base import BaseType, BoolType
 from src.mod.data.types.primitive import FloatType, NoneType_, IntType, StringType
 from src.mod.data.types.tuple_ import PairType

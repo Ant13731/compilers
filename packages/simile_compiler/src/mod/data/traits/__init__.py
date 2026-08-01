@@ -1,6 +1,5 @@
+from src.mod.data.traits.trait import Trait
 from src.mod.data.traits.traits import (
-    Trait,
-    TraitCollection,
     OrderableTrait,
     IterableTrait,
     LiteralTrait,
@@ -18,4 +17,5 @@ from src.mod.data.traits.traits import (
     UniqueElementsTrait,
     GenericBoundTrait,
 )
+from src.mod.data.traits.trait_collection import TraitCollection
 from src.mod.data.traits.error import SimileTraitError

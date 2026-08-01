@@ -2,8 +2,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Type, ClassVar
 
-from src.mod.data.types.error import SimileTypeError
-from src.mod.data.traits.traits import *
+from src.mod.data.traits import (
+    Trait,
+    OrderableTrait,
+    IterableTrait,
+    LiteralTrait,
+    MinTrait,
+    MaxTrait,
+    SizeTrait,
+    EmptyTrait,
+    UniqueElementsTrait,
+)
 from src.mod.data.types.base import BaseType, BoolType
 
 if TYPE_CHECKING:

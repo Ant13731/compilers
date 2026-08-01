@@ -4,7 +4,7 @@ from copy import deepcopy
 from typing import ClassVar, Type
 
 from src.mod.data.types.base import BaseType
-from src.mod.data.traits.traits import (
+from src.mod.data.traits import (
     Trait,
     TraitCollection,
     OrderableTrait,
