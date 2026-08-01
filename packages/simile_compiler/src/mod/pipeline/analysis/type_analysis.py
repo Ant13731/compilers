@@ -5,7 +5,7 @@ from typing import Callable, Generic, OrderedDict, ParamSpec, TypeVar, Protocol,
 from functools import singledispatch, singledispatchmethod, wraps, reduce
 
 from src.mod.data.symbol_table.entry import SymbolTableIdentifierEntry
-from src.mod.pipeline.analysis.populate_symbol_table import TypeAnnotationResolver
+from src.mod.pipeline.analysis.type_resolver import TypeAnnotationResolver
 from src.mod.pipeline.scanner import Location
 from src.mod.pipeline.parser import parse, ParseError
 from src.mod.data import ast_, types, traits

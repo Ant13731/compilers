@@ -1,30 +1,13 @@
 from __future__ import annotations
-from dataclasses import dataclass, field, is_dataclass
-import pathlib
+from dataclasses import dataclass
 from typing import TypeVar
 
-from src.mod.pipeline.scanner import Location, KEYWORD_TABLE
-from src.mod.pipeline.parser import parse, ParseError
+from src.mod.pipeline.scanner import KEYWORD_TABLE
 from src.mod.data import ast_
-from src.mod.data.ast_.symbol_table_types import (
-    SimileType,
-    ModuleImports,
-    ProcedureTypeDef,
-    StructTypeDef,
-    EnumTypeDef,
-    SimileTypeError,
-    BaseSimileType,
-)
-from src.mod.data.ast_.symbol_table_env import (
-    STARTING_ENVIRONMENT,
-    PRIMITIVE_TYPES,
-    BUILTIN_FUNCTIONS,
-)
-
-RESERVED_KEYWORDS = list(KEYWORD_TABLE.keys())
-
+from src.mod.pipeline.analysis.type_resolver import TypeAnnotationResolver
 
 T = TypeVar("T", bound=ast_.ASTNode)
+RESERVED_KEYWORDS = list(KEYWORD_TABLE.keys())
 
 
 @dataclass
@@ -41,10 +24,8 @@ class ReservedKeywordErr:
 
 
 def check_clash(node: ast_.ASTNode, name: str) -> ReservedKeywordErr | None:
-    if name in PRIMITIVE_TYPES:
-        return ReservedKeywordErr(node, name, "PRIMITIVE_TYPES")
-    if name in BUILTIN_FUNCTIONS:
-        return ReservedKeywordErr(node, name, "BUILTIN_FUNCTIONS")
+    if name in TypeAnnotationResolver.RESERVED_KEYWORDS_FOR_TYPES:
+        return ReservedKeywordErr(node, name, "RESERVED_KEYWORDS_FOR_TYPES")
     if name in RESERVED_KEYWORDS:
         return ReservedKeywordErr(node, name, "RESERVED_KEYWORDS")
     return None
