@@ -3,7 +3,7 @@ rule image:
         R: relation[T1, T2]
         B: bag[T1]
     rewrite:
-        R[B] ~> R ^ -1 circ B
+        R[B] ~> R ^ -1 <> B
 
 rule union:
     vars:
@@ -27,7 +27,7 @@ rule sum:
     rewrite:
         S + T ~> [[x in dom(S) \/ dom(T) . n = sum(S[x] \/ T[x]) | x |-> n]]
 
-rule intersection:
+rule difference:
     vars:
         S: bag[T1]
         T: bag[T1]
@@ -49,7 +49,7 @@ rule fold:
         i: T1
         # Note: this only works if B is represented as a relation. If we use an array, this can be pretty inefficient
     rewrite:
-        fold(i, f, B)
+        foldl(i, f, B)
         ~>
         fold c1 := i : x |-> n in B | f(c1, fold c2 := i : j in 0 .. n | f(c2, x))
 

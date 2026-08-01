@@ -24,9 +24,9 @@ class RewriteTransformer(Transformer):
     def start(self, items) -> list[SimrwAST]:
         return items
 
-    def rule(self, items: tuple[str, tuple[list[str], str, str, list[str]]]) -> SimrwAST:
+    def rule(self, items: tuple[Token, tuple[list[str], str, str, list[str]]]) -> SimrwAST:
         return SimrwAST(
-            items[0],
+            items[0].value,
             items[1][0],
             items[1][1],
             items[1][2],
@@ -37,7 +37,6 @@ class RewriteTransformer(Transformer):
         return items[0], *items[1]
 
     def rewrite_and_rest(self, items) -> tuple[str, str, list[str]]:
-        print(f"rewrite_and_rest: {items}")
         if items[2] is None:
             return items[0], items[1], []
         return items[0], items[1], items[2]

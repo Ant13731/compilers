@@ -27,6 +27,7 @@ IDENTIFIER: /[_a-zA-Z][_a-zA-Z0-9]*/
 %ignore COMMENT
 %declare _INDENT _DEDENT
 
-// from src.mod.pipeline.optimizer.v2 import simrw
+// from src.mod.pipeline.optimizer.v2.simrw_parser import parse_simrw_file
+// from src.mod.pipeline.optimizer.v2.simrw import convert_simrw_to_rewrite_rules
 // from importlib import reload
-// simrw.convert_simrw_to_rewrite_rules(simrw.parse_simrw_file("packages/simile_compiler/src/mod/pipeline/optimizer/v2/bool.simrw"))
+// convert_simrw_to_rewrite_rules(parse_simrw_file("packages/simile_compiler/src/mod/data/rewrite_rules/bool.simrw"))

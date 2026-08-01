@@ -6,6 +6,7 @@ from functools import wraps
 
 from colorama import just_fix_windows_console
 from termcolor import colored
+from loguru import logger
 
 
 from src.mod.pipeline.scanner import Token, TokenType, scan
@@ -122,7 +123,6 @@ class Parser:
             TokenType.EXISTS,
             TokenType.PRODUCT,
             TokenType.SUM,
-            TokenType.IDENTIFIER,
             TokenType.FOLD,
             TokenType.ITER,
         },
@@ -220,7 +220,9 @@ class Parser:
     ignore_whitespace_: bool = False
 
     def peek(self, offset: int = 0) -> Token:
-        if not self.ignore_whitespace_:
+        if True:
+            # FIXME Whitespace skipping code is broken
+            # if not self.ignore_whitespace_:
             return self.tokens[self.current_index + offset]
 
         current_token = self.tokens[self.current_index + offset]
@@ -980,6 +982,11 @@ class Parser:
 
             case TokenType.IDENTIFIER:
                 return ast_.Identifier(t.value)
+            # FIXME The below tokens should be reserved for quantification. What should we do about the function versions?
+            case TokenType.SUM:
+                return ast_.Identifier("sum")
+            case TokenType.PRODUCT:
+                return ast_.Identifier("product")
             case _:
                 self.error("Failed to interpret first token of expected atom")
 
@@ -1016,6 +1023,7 @@ class Parser:
         quantification_operator = ast_.QuantifierOperator.from_collection_operator(collection_operator)
         if quantification_operator is None:
             self.error(f"Failed to convert collection operator {collection_operator} to quantification operator")
+        self.consume(closing_symbol, f"Expected closing symbol for collection")
         return ast_.Quantifier3(body, quantification_operator)
 
     @store_derivation

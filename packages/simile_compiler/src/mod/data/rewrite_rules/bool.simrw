@@ -12,7 +12,7 @@ rule forall_negation:
         S: set[T1]
         f: procedure[(T1,), T2]
     rewrite:
-        forall x . x in S and f(x)
+        forall x in S | f(x)
         ~>
         not (exists x in S | not f(x))
 
