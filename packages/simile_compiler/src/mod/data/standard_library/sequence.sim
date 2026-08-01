@@ -1,0 +1,26 @@
+procedure concat(left: sequence[T], right: sequence[T]) -> sequence[T]:
+    return left ++ right
+
+procedure flatten(nested_seq: sequence[sequence[T]]) -> sequence[T]:
+    return fold_([], concat, nested_seq)
+
+procedure first(S: sequence[T]) -> T:
+    return X(0)
+
+procedure length(S: sequence[T]) -> T:
+    return card(S)
+
+procedure tail(S: sequence[T]) -> sequence[T]:
+    return {i |-> x in S . i != 0 | i - 1 |-> x}
+
+procedure append(S: sequence[T], x: T) -> sequence[T]:
+    return S \/ {(max x in dom(S) | x) |-> y}
+
+procedure prepend(S: sequence[T], x: T) -> sequence[T]:
+    return {i |-> x in S | i+1 |-> x} \/ {0 |-> y}
+
+procedure tails(S: sequence[T]) -> set[sequence[T]]:
+    return {i in len(S)..0 | 0..i <<| S}
+
+procedure heads(S: sequence[T]) -> set[sequence[T]]:
+    return {i in 0..len(S) | i..len(X) <<| S}

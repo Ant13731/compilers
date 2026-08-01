@@ -1,0 +1,5 @@
+procedure dom(R: relation[T1, T2]) -> set[T1]:
+    return {x |-> y in R | x}
+
+procedure ran(R: relation[T1, T2]) -> set[T2]:
+    return {x |-> y in R | t}

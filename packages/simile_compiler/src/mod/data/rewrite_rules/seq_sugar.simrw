@@ -7,50 +7,6 @@ rule concatenation:
         ~>
         L \/ {x |-> y in M | x + max(dom(L)) |-> y}
 
-rule flatten:
-    vars:
-        XS: seq[ seq[T1] ]
-    rewrite:
-        flatten(XS) ~> foldl([], concat, XS)
-
-rule first:
-    vars:
-        X: seq[T1]
-    rewrite:
-        first(X) ~> X(0)
-
-rule tail:
-    vars:
-        X: seq[T1]
-    rewrite:
-        tail(X) ~> {i |-> x in X . i != 0 | i - 1 |-> x}
-
-rule append:
-    vars:
-        X: seq[T1]
-        y: T1
-    rewrite:
-        append(X, y) ~> X \/ {(max x in dom(X) | x) |-> y}
-
-rule prepend:
-    vars:
-        X: seq[T1]
-        y: T1
-    rewrite:
-        prepend(X, y) ~> {i |-> x in X | i+1 |-> x} \/ {0 |-> y}
-
-rule tails:
-    vars:
-        X: seq[T1]
-    rewrite:
-        tails(X) ~> {i in len(X)..0 | 0..i <<| X}
-
-rule heads:
-    vars:
-        X: seq[T1]
-    rewrite:
-        heads(X) ~> {i in 0..len(X) | i..len(X) <<| X}
-
 # rule slice_from_bottom:
 #     vars:
 #         X: seq[T1]
@@ -71,17 +27,4 @@ rule set_membership:
         e: T1
     rewrite:
         e in X ~> exists x in S | e = x
-
-rule length:
-    vars:
-        X: seq[T1]
-    rewrite:
-        len(X) ~> sum x in X | 1
-
-
-
-
-
-
-
 

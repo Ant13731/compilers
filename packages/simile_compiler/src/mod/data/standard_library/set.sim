@@ -1,0 +1,38 @@
+# Generic number type - can match to int, float, nat, etc.
+N := type[generic]
+    trait numeric
+
+procedure min_(S: set[N]) -> N:
+    return min x in S | x
+
+procedure max_(S: set[N]) -> N:
+    return max x in S | x
+
+procedure map_min(f: procedure[(T1,), N], S: set[T1]) -> T1:
+    mapped_S: relation[T1, N] := {x in S | x |-> f(x)}
+        trait many_to_one
+        trait total
+    min_y: T2 := min x |-> y in mapped_S | y
+    return (mapped_S^-1)(min_y)
+
+procedure map_max(f: procedure[(T1,), N], S: set[T1]) -> T1:
+    mapped_S: relation[T1, N] := {x in S | x |-> f(x)}
+        trait many_to_one
+        trait total
+    min_y: T2 := max x |-> y in mapped_S | y
+    return (mapped_S^-1)(min_y)
+
+procedure map(f: procedure[(T1,), T2], S: set[T1]) -> set[T2]:
+    return {x in S | f(x)}
+
+procedure fold_(identity_of_f: T1, f: procedure[(T1, T1), T2], S: set[T1]) -> T2:
+    return fold acc := i : x in S | f(acc, x)
+
+procedure sum_(S: set[N]) -> N:
+    return sum x in S | x
+
+procedure product_(S: set[N]) -> N:
+    return product x in S | x
+
+procedure card(S: set[T]) -> int:
+    return sum x in S | 1

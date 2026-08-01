@@ -729,7 +729,7 @@ class Quantifier3(ASTNode):
 
 @dataclass
 class Generator(ASTNode):
-    identifiers: TupleIdentifier | TupleSymbol
+    identifiers: TupleIdentifier | Identifier | TupleSymbol | Symbol
     set_: ASTNode
     predicate: ASTNode | True_
 
@@ -755,7 +755,7 @@ class IterGenerator(ASTNode):
 @dataclass
 class IterBodyEnd(ASTNode):
     body: ASTNode
-    return_value: TupleIdentifier | TupleSymbol
+    return_value: TupleIdentifier | Identifier | TupleSymbol | Symbol
 
 
 @dataclass

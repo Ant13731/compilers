@@ -33,27 +33,3 @@ rule difference:
         T: bag[T1]
     rewrite:
         S - T ~> [[x in dom(S) . n = S(x) - (T \/ [[x |-> 0]])(x) and n > 0 | x |-> n]]
-
-rule map:
-    vars:
-        B: bag[T1]
-        f: procedure[(T1,), T2]
-    rewrite:
-        map(f, B) ~> [[x |-> n in B | f(x) |-> n]]
-
-rule fold:
-    vars:
-        B: bag[T1]
-        f: procedure[(T1, T1), T2]
-        # i is the identity element of f
-        i: T1
-    rewrite:
-        foldl(i, f, B)
-        ~>
-        fold c1 := i : x |-> n in B | f(c1, fold c2 := i : j in 0 .. n | f(c2, x))
-
-rule size:
-    vars:
-        B: bag[T1]
-    rewrite:
-        size(B) ~> sum x |-> n in B | n

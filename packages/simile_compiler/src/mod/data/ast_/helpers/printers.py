@@ -212,11 +212,7 @@ def _(ast: Type_, indent: int) -> str:
     generic_parameters = [_ast_to_source(param, indent) for param in ast.generics]
     if not generic_parameters:
         return _ast_to_source(ast.type_, indent)
-    type_ = f"{_ast_to_source(ast.type_, indent)}[{', '.join(generic_parameters)}"
-    # TODO fix: hack needed to prevent double Rbrackets from being parsed as bag notation - eg. seq[seq[T1]] needs to be seq[seq[T1] ]
-    if type_.endswith("]"):
-        type_ += " "
-    return f"{type_}]"
+    return f"{_ast_to_source(ast.type_, indent)}[{', '.join(generic_parameters)}]"
 
 
 @_ast_to_source.register(LambdaDef)

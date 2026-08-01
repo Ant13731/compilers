@@ -1,0 +1,43 @@
+
+rule override_assignment:
+    vars:
+        f: relation[T1, T2]
+        x: T1
+        E: T2
+    rewrite:
+        f(x) := E ~> f := f <+> {x |-> E}
+
+rule override:
+    vars:
+        R: relation[T1, T2]
+        Q: relation[T1, T2]
+    rewrite:
+        R <+> Q ~> Q \/ (dom(Q) <<| R)
+
+rule domain_restriction:
+    vars:
+        R: relation[T1, T2]
+        S: set[T1]
+    rewrite:
+        S <| R ~> {x |-> y in R . x in S | x |-> y}
+
+rule domain_subtraction:
+    vars:
+        R: relation[T1, T2]
+        S: set[T1]
+    rewrite:
+        S <<| R ~> {x |-> y in R . x not in S | x |-> y}
+
+rule range_restriction:
+    vars:
+        R: relation[T1, T2]
+        S: set[T2]
+    rewrite:
+        S |> R ~> {x |-> y in R . y in S | x |-> y}
+
+rule range_subtraction:
+    vars:
+        R: relation[T1, T2]
+        S: set[T2]
+    rewrite:
+        S |>> R ~> {x |-> y in R . y not in S | x |-> y}

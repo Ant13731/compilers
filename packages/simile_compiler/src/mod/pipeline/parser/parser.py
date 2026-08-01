@@ -450,7 +450,13 @@ class Parser:
             generic_parameters: list[ast_.ASTNode] = [self.type_expr()]
             while self.match(TokenType.COMMA):
                 generic_parameters.append(self.type_expr())
-            self.consume(TokenType.R_BRACKET, "Expected closing bracket when parsing generic type parameters")
+
+            # FIXME: Horrible hack but the scanner parses double r brackets as bag notation
+            ending_token = self.peek()
+            if ending_token.type_ == TokenType.R_DOUBLE_BRACKET:
+                ending_token.type_ = TokenType.R_BRACKET
+            else:
+                self.consume(TokenType.R_BRACKET, "Expected closing bracket when parsing generic type parameters")
             self.ignore_whitespace(set_whitespace_back_to)
             return ast_.Type_(base, generic_parameters)
 

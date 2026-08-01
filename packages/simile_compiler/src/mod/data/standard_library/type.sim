@@ -1,0 +1,11 @@
+procedure cast(obj: T1, cast_to: type[T2]) -> T2:
+    cast_obj: cast_to := obj
+    return cast_obj
+
+procedure cast_with(obj: T1, cast_to: type[T2], with_trait: trait) -> T2:
+    return apply_trait(cast(obj, cast_to), with_trait)
+
+procedure apply_trait(obj: T, with_trait: trait) -> T:
+    obj_with_trait: T := obj
+        trait with_trait
+    return obj_with_trait

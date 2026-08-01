@@ -6,10 +6,7 @@ SIMRW_FILES = [
     "bool",
     "comprehension_construction",
     "dnf",
-    "func",
-    "iter_impl",
-    "iter_sugar",
-    "predicate_wrapping",
+    "rel_sugar",
     "seq_sugar",
     "sum",
 ]

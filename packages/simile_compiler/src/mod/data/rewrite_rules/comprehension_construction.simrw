@@ -1,3 +1,11 @@
+rule functional_image:
+    vars:
+        # Note: may fail if R is not total
+        R: relation[T1, T2]
+        x: T1
+    rewrite:
+        R(x) ~> choice(R[x])
+
 rule image:
     vars:
         R: relation[T1, T2]
