@@ -1,14 +1,11 @@
 from __future__ import annotations
-from dataclasses import dataclass, fields, field
-from typing import Generator, Any, Generic, TypeVar, Callable
-from functools import wraps
+from dataclasses import dataclass, fields
+from typing import Generator, Any, TypeVar, Callable
 from warnings import deprecated
 
 from src.mod.pipeline.scanner import Location
 from src.mod.data.ast_.operators import Operators
 from src.mod.data.ast_.helpers.dataclass import dataclass_traverse, dataclass_find_and_replace
-from src.mod.data.ast_.symbol_table_types import SimileType, DeferToSymbolTable, SimileTypeError, PairType, TupleType
-from src.mod.data.ast_.symbol_table_env import SymbolTableEnvironment
 
 T = TypeVar("T")
 
@@ -18,7 +15,6 @@ class ASTNode:
     """Base class for all AST nodes."""
 
     def __post_init__(self) -> None:
-        self._env: SymbolTableEnvironment | None = None
         self._start_location: Location | None = None
         self._end_location: Location | None = None
         self._file_location: str | None = None
@@ -39,40 +35,6 @@ class ASTNode:
     def free(self) -> set:
         """Returns the set of free variables in the AST node."""
         return set()
-
-    @property
-    @deprecated("Moving to trait-based external type system")
-    def get_type(self) -> SimileType:
-        """Returns the type of the AST node.
-
-        Initially, :cls:`Identifier` nodes will return a :cls:`DeferToSymbolTable` type.
-        After running :func:`src.mod.analysis.type_analysis.populate_ast_with_types`, all nodes will contain resolved types.
-        """
-        if self._env is None:
-            raise SimileTypeError("Type analysis must be run before calling the `get_type` function (self._env is None)", self)
-        return self._get_type()
-
-    @deprecated("Moving to trait-based external type system")
-    def _get_type(self) -> SimileType:
-        """"""
-        raise NotImplementedError
-
-    def contains_by_type(self, node_type: type[ASTNode], also_has_op_type: Operators | None = None) -> bool:
-        """Check if the AST node contains a specific type of node.
-
-        If also_has_op_type is provided, only counts nodes of the specified type that also have an op_type field matching also_has_op_type."""
-
-        def is_matching_node(n: Any) -> bool:
-            if not isinstance(n, node_type):
-                return False
-            if also_has_op_type is None:
-                return True
-            if not hasattr(n, "op_type"):
-                return False
-            assert hasattr(n, "op_type")
-            return n.op_type == also_has_op_type  # type: ignore
-
-        return any(dataclass_traverse(self, is_matching_node))
 
     def contains(self, item: ASTNode | Any) -> bool:
         """Check if the AST node contains a specific item."""

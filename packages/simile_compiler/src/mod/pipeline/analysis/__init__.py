@@ -8,6 +8,6 @@ from src.mod.pipeline.analysis.normalize_ast import (
     assert_no_parser_only_nodes,
 )
 
-from src.mod.pipeline.analysis.type_analysis import TypeSynthesizer
+from src.mod.pipeline.analysis.type_synthesizer import TypeSynthesizer
 from src.mod.pipeline.analysis.type_annotation_resolver import TypeAnnotationResolver
 from src.mod.pipeline.analysis.analysis import semantic_analysis

@@ -148,16 +148,16 @@ class UnaryOperator(Enum):
 
     NOT = auto()
     NEGATIVE = auto()
-    POWERSET = auto()
-    NONEMPTY_POWERSET = auto()
+    # POWERSET = auto()
+    # NONEMPTY_POWERSET = auto()
     INVERSE = auto()
 
     def to_source(self) -> str:
         pretty_print_lookup = {
             UnaryOperator.NOT: "¬",
             UnaryOperator.NEGATIVE: "-",
-            UnaryOperator.POWERSET: "ℙ",
-            UnaryOperator.NONEMPTY_POWERSET: "ℙ₁",
+            # UnaryOperator.POWERSET: "ℙ",
+            # UnaryOperator.NONEMPTY_POWERSET: "ℙ₁",
             UnaryOperator.INVERSE: "⁻¹",
         }
         return pretty_print_lookup.get(self, self.name)

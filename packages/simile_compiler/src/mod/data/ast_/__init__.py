@@ -210,27 +210,3 @@ from src.mod.data.ast_.optimizer_only import (
     SingleGeneratorSelection,
     Loop,
 )
-from src.mod.data.ast_.symbol_table_types import (
-    SimileType,
-    SimileTypeError,
-    BaseSimileType,
-    TupleType,
-    PairType,
-    SetType,
-    StructTypeDef,
-    EnumTypeDef,
-    ProcedureTypeDef,
-    TypeUnion,
-    DeferToSymbolTable,
-    ModuleImports,
-    GenericType,
-    RelationSubTypeMask,
-    # InstanceOfDef,
-)
-from src.mod.data.ast_.symbol_table_env import (
-    Environment,
-    SymbolTableEnvironment,
-    STARTING_ENVIRONMENT,
-    PRIMITIVE_TYPES,
-    BUILTIN_FUNCTIONS,
-)
