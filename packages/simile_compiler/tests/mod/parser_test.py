@@ -54,10 +54,10 @@ BASIC_EXPRESSION_CASES = [
     ("a !:>> b", NotSuperset(Identifier("a"), Identifier("b"))),
     ("a !:> b", NotSupersetEq(Identifier("a"), Identifier("b"))),
     ("a ==> b", Implies(Identifier("a"), Identifier("b"))),
-    ("ℙ(S)", Powerset(Identifier("S"))),
-    ("powerset(S)", Powerset(Identifier("S"))),
-    ("ℙ₁(S)", NonemptyPowerset(Identifier("S"))),
-    ("powerset1(S)", NonemptyPowerset(Identifier("S"))),
+    ("ℙ(S)", Call(Identifier("ℙ"), [Identifier("S")])),
+    ("powerset(S)", Call(Identifier("powerset"), [Identifier("S")])),
+    ("ℙ₁(S)", Call(Identifier("ℙ₁"), [Identifier("S")])),
+    ("powerset1(S)", Call(Identifier("powerset1"), [Identifier("S")])),
     ("x |-> y", Maplet(Identifier("x"), Identifier("y"))),
     ("{}", SetEnumeration([])),
     ("[]", SequenceEnumeration([])),
@@ -74,27 +74,22 @@ SIMPLE_STATEMENT_CASES = [
     ("break", Break()),
     ("continue", Continue()),
     ("skip", Skip()),
-    ("a := 1", Assignment(Identifier("a"), Int("1"), [], False)),
-    ("a :: S", Assignment(Identifier("a"), Identifier("S"), [], True)),
+    ("a := 1", Assignment(Identifier("a"), Int("1"), False)),
+    ("a :: S", Assignment(Identifier("a"), Identifier("S"), True)),
     (
         "a: int := 1",
-        Assignment(
-            TypedName(Identifier("a"), Type_(Identifier("int"))),
-            Int("1"),
-            [],
-            False,
-        ),
+        Assignment(TypedName(Identifier("a"), Type_(Identifier("int"))), Int("1"), False),
     ),
-    ('import "test_import"', Import("test_import", None_())),
-    ('from "test_import" import *', Import("test_import", ImportAll())),
-    ('from "test_import" import test', Import("test_import", TupleIdentifier((Identifier("test"),)))),
+    ('import "test_import"', Import("test_import", [], ImportOperator.MODULE_NAME)),
+    ('from "test_import" import *', Import("test_import", [], ImportOperator.ALL_NAMES)),
+    ('from "test_import" import test', Import("test_import", ["test"], ImportOperator.SPECIFIC_NAMES)),
     (
         'from "test_import" import testA, testB',
-        Import("test_import", TupleIdentifier((Identifier("testA"), Identifier("testB")))),
+        Import("test_import", ["testA", "testB"], ImportOperator.SPECIFIC_NAMES),
     ),
     (
         'from "test_import" import (testA, testB)',
-        Import("test_import", TupleIdentifier((Identifier("testA"), Identifier("testB")))),
+        Import("test_import", ["testA", "testB"], ImportOperator.SPECIFIC_NAMES),
     ),
 ]
 
@@ -204,53 +199,76 @@ STRUCTURED_PROGRAM_CASES = [
 
 COMPREHENSION_CASES = [
     (
-        "{x | x in S}",
-        Quantifier(
-            predicate=And([In(Identifier("x"), Identifier("S"))]),
-            expression=Identifier("x"),
-            op_type=QuantifierOperator.SET,
-        ),
-    ),
-    (
-        "{x |-> y | x in X and y in Y}",
-        RelationComprehension(
-            predicate=And(
+        "{x in S | x}",
+        Quantifier3(
+            QuantifierBody(
                 [
-                    In(Identifier("x"), Identifier("X")),
-                    In(Identifier("y"), Identifier("Y")),
-                ]
+                    Generator(Identifier("x"), Identifier("X"), True_()),
+                ],
+                Identifier("x"),
             ),
-            expression=Maplet(Identifier("x"), Identifier("y")),
+            QuantifierOperator.SET,
         ),
     ),
     (
-        "[x | x in S]",
-        Quantifier(
-            predicate=And([In(Identifier("x"), Identifier("S"))]),
-            expression=Identifier("x"),
-            op_type=QuantifierOperator.SEQUENCE,
+        "{x in X, y in Y | x |-> y}",
+        Quantifier3(
+            QuantifierBody(
+                [
+                    Generator(TupleIdentifier((Identifier("x"),)), Identifier("X"), True_()),
+                    Generator(TupleIdentifier((Identifier("y"),)), Identifier("Y"), True_()),
+                ],
+                Maplet(Identifier("x"), Identifier("y")),
+            ),
+            QuantifierOperator.RELATION,
         ),
     ),
     (
-        "[[x | x in S]]",
-        Quantifier(
-            predicate=And([In(Identifier("x"), Identifier("S"))]),
-            expression=Identifier("x"),
-            op_type=QuantifierOperator.BAG,
+        "[x in S | x]",
+        Quantifier3(
+            QuantifierBody(
+                [
+                    Generator(TupleIdentifier((Identifier("x"),)), Identifier("S"), True_()),
+                ],
+                Identifier("x"),
+            ),
+            QuantifierOperator.SEQUENCE,
         ),
     ),
     (
-        "⋃x · x in S | F(x)",
-        UnionAll(
-            predicate=And([In(Identifier("x"), Identifier("S"))]),
-            expression=Call(Identifier("F"), [Identifier("x")]),
+        "[[x in S | x]]",
+        Quantifier3(
+            QuantifierBody(
+                [
+                    Generator(TupleIdentifier((Identifier("x"),)), Identifier("S"), True_()),
+                ],
+                Identifier("x"),
+            ),
+            QuantifierOperator.BAG,
         ),
     ),
     (
-        "⋂x · x in S | F(x)",
-        IntersectionAll(
-            predicate=And([In(Identifier("x"), Identifier("S"))]),
-            expression=Call(Identifier("F"), [Identifier("x")]),
+        "⋃x in S | F(x)",
+        Quantifier3(
+            QuantifierBody(
+                [
+                    Generator(TupleIdentifier((Identifier("x"),)), Identifier("S"), True_()),
+                ],
+                Call(Identifier("F"), [Identifier("x")]),
+            ),
+            QuantifierOperator.UNION_ALL,
+        ),
+    ),
+    (
+        "⋂x in S | F(x)",
+        Quantifier3(
+            QuantifierBody(
+                [
+                    Generator(TupleIdentifier((Identifier("x"),)), Identifier("S"), True_()),
+                ],
+                Call(Identifier("F"), [Identifier("x")]),
+            ),
+            QuantifierOperator.INTERSECTION_ALL,
         ),
     ),
     (
@@ -374,11 +392,15 @@ ADVANCED_EXPRESSION_CASES = [
         RecordAccess(Image(Identifier("R"), Identifier("x")), Identifier("field")),
     ),
     (
-        "{x + 1 | x in S}",
-        Quantifier(
-            predicate=And([In(Identifier("x"), Identifier("S"))]),
-            expression=Add(Identifier("x"), Int("1")),
-            op_type=QuantifierOperator.SET,
+        "{x in S | x + 1}",
+        Quantifier3(
+            QuantifierBody(
+                [
+                    Generator(TupleIdentifier((Identifier("x"),)), Identifier("S"), True_()),
+                ],
+                Add(Identifier("x"), Int("1")),
+            ),
+            QuantifierOperator.SET,
         ),
     ),
     (
@@ -386,7 +408,6 @@ ADVANCED_EXPRESSION_CASES = [
         Assignment(
             target=Identifier("a"),
             value=Add(Identifier("b"), Multiply(Identifier("c"), Identifier("d"))),
-            with_clauses=[],
             choice_assignment=False,
         ),
     ),
@@ -466,20 +487,35 @@ ADVANCED_STATEMENT_CASES = [
 
 QUANTIFICATION_AND_TYPING_CASES = [
     (
-        "forall x . x in S",
-        Forall(
-            predicate=And([In(Identifier("x"), Identifier("S"))]),
+        "forall x in S | x",
+        Quantifier3(
+            QuantifierBody(
+                [
+                    Generator(
+                        TupleIdentifier((Identifier("x"),)),
+                        Identifier("S"),
+                        True_(),
+                    ),
+                ],
+                Identifier("x"),
+            ),
+            QuantifierOperator.FORALL,
         ),
     ),
     (
-        "exists x . x in S and x > 0",
-        Exists(
-            predicate=And(
+        "exists x in S | x > 0",
+        Quantifier3(
+            QuantifierBody(
                 [
-                    In(Identifier("x"), Identifier("S")),
-                    GreaterThan(Identifier("x"), Int("0")),
-                ]
+                    Generator(
+                        TupleIdentifier((Identifier("x"),)),
+                        Identifier("S"),
+                        True_(),
+                    ),
+                ],
+                GreaterThan(Identifier("x"), Int("0")),
             ),
+            QuantifierOperator.EXISTS,
         ),
     ),
     (
@@ -499,17 +535,19 @@ QUANTIFICATION_AND_TYPING_CASES = [
     (
         normalize_source("""
             a: int := v
-                with a > 0
-                with a < 10
+                trait a > 0
+                trait a < 10
             """),
-        Assignment(
-            target=TypedName(Identifier("a"), Type_(Identifier("int"))),
-            value=Identifier("v"),
-            with_clauses=[
+        TraitApplication(
+            Assignment(
+                target=TypedName(Identifier("a"), Type_(Identifier("int"))),
+                value=Identifier("v"),
+                choice_assignment=False,
+            ),
+            [
                 GreaterThan(Identifier("a"), Int("0")),
                 LessThan(Identifier("a"), Int("10")),
             ],
-            choice_assignment=False,
         ),
     ),
     (
@@ -517,10 +555,9 @@ QUANTIFICATION_AND_TYPING_CASES = [
         Assignment(
             target=TypedName(
                 Identifier("a"),
-                Type_(Type_(Identifier("S"), [Identifier("x")])),
+                Type_(Identifier("S"), [Type_(Identifier("x"))]),
             ),
             value=Identifier("v"),
-            with_clauses=[],
             choice_assignment=False,
         ),
     ),
@@ -529,14 +566,14 @@ QUANTIFICATION_AND_TYPING_CASES = [
 PARSER_ERROR_CASES_ASSIGNMENT_AND_TYPING = [
     (
         "a: int v",
-        "Expected assignment after an expression not ending with a newline",
+        "parsing assignment or expression (and before possible traits)",
     ),
     (
         normalize_source("""
             a: int := v
                 a > 0
             """),
-        "Each refinement line in an assignment block must start with 'with'",
+        "Each refinement line in an assignment block must start with 'trait'",
     ),
 ]
 

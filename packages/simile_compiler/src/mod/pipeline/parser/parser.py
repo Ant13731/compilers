@@ -336,7 +336,6 @@ class Parser:
             assignment_or_expr = self.assignment_or_expr()
             if self.peek().type_ == TokenType.SEMICOLON:
                 statements = self.simple_statements_continuation()
-                self.consume(TokenType.NEWLINE, "Expected NEWLINE after parsing multiple assignments/expressions")
                 return ast_.Statements([assignment_or_expr] + statements)
             self.consume(TokenType.NEWLINE, "Expected NEWLINE after parsing assignment or expression (and before possible traits)")
             if self.peek().type_ in self.get_first_set("trait_stmt"):
@@ -346,12 +345,10 @@ class Parser:
         elif self.peek().type_ in self.get_first_set("control_flow_stmt"):
             control_flow_stmt = self.control_flow_stmt()
             statements = self.simple_statements_continuation()
-            self.consume(TokenType.NEWLINE, "Expected NEWLINE after parsing control flow statement")
             return ast_.Statements([control_flow_stmt] + statements)
         elif self.peek().type_ in self.get_first_set("import_stmt"):
             import_stmt = self.import_stmt()
             statements = self.simple_statements_continuation()
-            self.consume(TokenType.NEWLINE, "Expected NEWLINE after parsing import statement")
             return ast_.Statements([import_stmt] + statements)
         else:
             self.error("Unexpected statement starter")
@@ -1149,7 +1146,7 @@ class Parser:
         # use flat_tuple_identifier for the parsing benefits (ex. for multi-line tuples)
         # but then just extract the str result from the flattened list
         named_identifiers = self.flat_tuple_identifier()
-        plain_names = []
+        plain_names: list[str] = []
         for ident in named_identifiers.items:
             if not isinstance(ident, ast_.Identifier):
                 self.error(f"Expected identifier in import list (parsed up to {plain_names})")

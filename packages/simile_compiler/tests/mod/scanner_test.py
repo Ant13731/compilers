@@ -12,7 +12,6 @@ from src.mod.pipeline.scanner import (
     ScannerError,
 )
 
-
 # MARK: Setup
 TOKENS_AND_KEYWORDS = list(OPERATOR_TOKEN_TABLE.items()) + list(KEYWORD_TABLE.items())
 KEYWORDS_WITH_SPACE = list(filter(lambda item: " " in item, KEYWORD_TABLE.keys()))
