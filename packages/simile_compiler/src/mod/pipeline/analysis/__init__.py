@@ -10,4 +10,4 @@ from src.mod.pipeline.analysis.normalize_ast import (
 
 from src.mod.pipeline.analysis.type_synthesizer import TypeSynthesizer
 from src.mod.pipeline.analysis.type_annotation_resolver import TypeAnnotationResolver
-from src.mod.pipeline.analysis.analysis import semantic_analysis
+from src.mod.pipeline.analysis.analysis import SemanticAnalysis, semantic_analysis

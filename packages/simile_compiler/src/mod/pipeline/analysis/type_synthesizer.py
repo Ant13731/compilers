@@ -6,7 +6,6 @@ from functools import singledispatchmethod, reduce
 from src.mod.data import ast_, types, traits
 from src.mod.data.symbol_table import SymbolTable
 from src.mod.data.types.typing_rule_decorator import typing_rule
-from src.mod.pipeline.analysis.type_annotation_resolver import TypeAnnotationResolver
 
 
 @dataclass
@@ -14,6 +13,7 @@ class TypeSynthesizer:
     symbol_table: SymbolTable
 
     def type_check(self, ast: ast_.ASTNode):
+        # TODO make sure the values of types match their declarations
         for node in ast.children():
             self.type_check(node)
             self.synthesize_type(node)

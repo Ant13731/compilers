@@ -30,6 +30,14 @@ def populate_symbol_table(ast: ast_.ASTNode) -> SymbolTable:
     SIDE EFFECT: Transforms Identifiers within the ast into symbol-table assigned Symbols
     """
 
+    if not isinstance(ast, ast_.Start):
+        raise SymbolTableError("Cannot populate symbol table because AST is not a Start node")
+
+    # Add in the standard library
+    if isinstance(ast.body, ast_.Statements):
+        standard_library_import = ast_.Import("../../data/standard_library/standard_library.sim", [], ast_.ImportOperator.ALL_NAMES)
+        ast.body.items.insert(0, standard_library_import)
+
     symbol_table = SymbolTable()
     symbol_table.add_scope(ScopeContext.BASE)
     symbol_table_populator = PopulateSymbolTable(symbol_table)
