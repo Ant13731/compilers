@@ -154,10 +154,10 @@ class SetType(BaseType):
 
     def map(self, func: ProcedureType) -> SetType:
         """Apply a function to each element in the set."""
-        if len(func.arg_types) != 1:
-            raise SimileTypeError(f"Function passed to Set.map must take exactly one argument, got {len(func.arg_types)}")
+        if len(func.arg_types.items) != 1:
+            raise SimileTypeError(f"Function passed to Set.map must take exactly one argument, got {len(func.arg_types.items)}")
 
-        func_arg_type = next(iter(func.arg_types.values()))
+        func_arg_type = next(iter(func.arg_types.items))
         self._is_subtype_or_error(self.element_type, (func_arg_type,))
 
         return SetType(element_type=func.return_type)
@@ -193,20 +193,20 @@ class SetType(BaseType):
 
     def map_min(self, func: ProcedureType) -> BaseType:
         """Apply a weighting function to each element and return the minimum."""
-        if len(func.arg_types) != 1:
-            raise SimileTypeError(f"Function passed to Set.map must take exactly one argument, got {len(func.arg_types)}")
+        if len(func.arg_types.items) != 1:
+            raise SimileTypeError(f"Function passed to Set.map must take exactly one argument, got {len(func.arg_types.items)}")
 
         # TODO check that func actually resolves to an int/orderable?
-        func_arg_type = next(iter(func.arg_types.values()))
+        func_arg_type = next(iter(func.arg_types.items))
         self._is_subtype_or_error(self.element_type, (func_arg_type,))
         return self.element_type
 
     def map_max(self, func: ProcedureType) -> BaseType:
         """Apply a weighting function to each element and return the maximum."""
-        if len(func.arg_types) != 1:
-            raise SimileTypeError(f"Function passed to Set.map must take exactly one argument, got {len(func.arg_types)}")
+        if len(func.arg_types.items) != 1:
+            raise SimileTypeError(f"Function passed to Set.map must take exactly one argument, got {len(func.arg_types.items)}")
 
-        func_arg_type = next(iter(func.arg_types.values()))
+        func_arg_type = next(iter(func.arg_types.items))
         self._is_subtype_or_error(self.element_type, (func_arg_type,))
         return self.element_type
 

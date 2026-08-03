@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 import copy
+import pathlib
 
 from src.mod.pipeline.scanner.tokens import (
     TokenType,
@@ -165,7 +166,14 @@ class Scanner:
             value: The value of the token. Defaults to an empty string.
         """
 
-        self.scanned_tokens.append(Token(type_, value, copy.deepcopy(self.current_location_lexeme_start), copy.deepcopy(self.current_location)))
+        self.scanned_tokens.append(
+            Token(
+                type_,
+                value,
+                copy.deepcopy(self.current_location_lexeme_start),
+                copy.deepcopy(self.current_location),
+            )
+        )
 
     def indentation(self) -> None:  # type: ignore
         # Handle indentation at the start of a line

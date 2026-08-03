@@ -13,7 +13,16 @@ def assert_no_parser_only_nodes(node: ast_.ASTNode) -> None:
     if isinstance(node, (ast_.Identifier, ast_.TupleIdentifier)):
         raise SimileTypeError(f"Parser-only AST node {node} found after normalization pass. Parser-only nodes should be replaced during symbol table population.", node)
     for child in node.children():
-        assert_no_parser_only_nodes(child)
+        if not isinstance(child, ast_.ASTNode):
+            continue
+        if isinstance(child, ast_.TraitApplication):
+            assert_no_parser_only_nodes(child.target)
+            continue
+
+        try:
+            assert_no_parser_only_nodes(child)
+        except SimileTypeError as e:
+            raise SimileTypeError(f"Parser-only AST node found in child {child}. Parser-only nodes should be replaced during symbol table population.\n\n{e}", child) from e
 
 
 def ast_promoter(node: ast_.ASTNode) -> ast_.ASTNode | None:
@@ -211,6 +220,10 @@ def _promote_quantifier(node: ast_.Quantifier3) -> ast_.ASTNode:
             return ast_.Forall(node.body)
         case ast_.QuantifierOperator.EXISTS:
             return ast_.Exists(node.body)
+        case ast_.QuantifierOperator.MIN:
+            return ast_.Min(node.body)
+        case ast_.QuantifierOperator.MAX:
+            return ast_.Max(node.body)
         case _:
             raise ValueError(f"Match statement does not cover all cases for AST normalization (missed {node.op_type})")
     return node

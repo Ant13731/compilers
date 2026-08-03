@@ -170,6 +170,8 @@ from src.mod.data.ast_.common_extended import (
     IntersectionAll,
     Sum,
     Product,
+    Min,
+    Max,
     #
     #
     Break,

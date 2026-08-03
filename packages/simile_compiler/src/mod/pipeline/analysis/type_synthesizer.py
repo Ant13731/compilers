@@ -6,6 +6,7 @@ from functools import singledispatchmethod, reduce
 from src.mod.data import ast_, types, traits
 from src.mod.data.symbol_table import SymbolTable
 from src.mod.data.types.typing_rule_decorator import typing_rule
+from src.mod.pipeline.analysis.type_annotation_resolver import TypeAnnotationResolver
 
 
 @dataclass
@@ -13,18 +14,25 @@ class TypeSynthesizer:
     symbol_table: SymbolTable
 
     def type_check(self, ast: ast_.ASTNode):
+
         # TODO make sure the values of types match their declarations
         for node in ast.children():
-            self.type_check(node)
-            self.synthesize_type(node)
+            if isinstance(node, ast_.ASTNode):
+                self.type_check(node)
+                self.synthesize_type(node)
 
     @singledispatchmethod
     def synthesize_type(self, ast: ast_.ASTNode) -> types.BaseType:
+        if not isinstance(ast, ast_.ASTNode):
+            raise TypeError(f"Expected ASTNode for type synthesis, got {type(ast)}")
         raise NotImplementedError(f"Type checking not implemented for AST node of type {type(ast)} at location {ast.get_location()}")
 
     @typing_rule("Fetch Identifier")
     @synthesize_type.register
     def _(self, ast: ast_.Symbol) -> types.BaseType:
+        if ast.symbol_table_entry.id_ == -1:
+            # FIXME: swe shouldnt need to try and resolve built in types here - maybe the key is to wipe type annotations from the AST?
+            return TypeAnnotationResolver.BUILT_IN_TYPES.get(ast.symbol_table_entry.name, types.AnyType_())
         symbol_info = self.symbol_table.lookup_symbol(ast.symbol_table_entry.id_, ast.symbol_table_entry.scope)
         if symbol_info.declared_type is None:
             raise types.SimileTypeError(f"Symbol table entry {ast.symbol_table_entry} does not have an assigned type during type resolution", ast)
@@ -34,7 +42,11 @@ class TypeSynthesizer:
     @synthesize_type.register
     def _(self, ast: ast_.TupleSymbol) -> types.BaseType:
         ast_types = [self.synthesize_type(item) for item in ast.items]
-        return types.TupleType(tuple(ast_types))
+        return types.TupleType(ast_types)
+
+    @synthesize_type.register
+    def _(self, ast: ast_.Type_) -> types.BaseType:
+        return TypeAnnotationResolver.resolve_type_annotation(ast, self.symbol_table)
 
     @typing_rule("")
     @synthesize_type.register
@@ -79,18 +91,15 @@ class TypeSynthesizer:
     @typing_rule("Lambda Expression")
     @synthesize_type.register
     def _(self, ast: ast_.LambdaDef) -> types.BaseType:
-        arg_types = {}
+        param_types = []
         for arg in ast.params.items:
             assert isinstance(arg, ast_.Symbol), "LambdaDef parameters must be Symbols"
-            # Symbols assertion implies no shadowing (I_i != I_j)
-            arg_types[arg.symbol_table_entry] = self.synthesize_type(arg)
+            param_types.append(self.synthesize_type(arg))
 
         assert isinstance(self.synthesize_type(ast.predicate), types.BoolType), "Predicate of LambdaDef must be of type BoolType"
         return_type = self.synthesize_type(ast.expression)
 
-        # result = types.RelationType(left=types.TupleType(tuple(arg_types.values())), right=return_type)
-        # result.apply_traits_from_relation_operator(ast_.RelationOperator.PARTIAL_FUNCTION)
-        return types.ProcedureType(arg_types=arg_types, return_type=return_type)
+        return types.ProcedureType(types.TupleType(list(param_types)), return_type=return_type)
 
     @typing_rule("Records - Access")
     @synthesize_type.register
@@ -567,7 +576,7 @@ class TypeSynthesizer:
         for generator in generators:
             generator_types.append(self.synthesize_type(generator))
 
-        return types.GeneratorIntermediary(types.TupleType(tuple(generator_types)))
+        return types.GeneratorIntermediary(types.TupleType(generator_types))
 
     @typing_rule("Generator")
     @synthesize_type.register

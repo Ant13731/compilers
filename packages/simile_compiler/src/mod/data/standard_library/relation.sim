@@ -1,5 +1,8 @@
+T1: type := type[generic]
+T2: type := type[generic]
+
 procedure dom(R: relation[T1, T2]) -> set[T1]:
     return {x |-> y in R | x}
 
 procedure ran(R: relation[T1, T2]) -> set[T2]:
-    return {x |-> y in R | t}
+    return {x |-> y in R | y}

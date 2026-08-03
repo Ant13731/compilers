@@ -2,6 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, Field, fields, is_dataclass
 from typing import Callable, ClassVar, Any, Self, Container, TYPE_CHECKING
 from warnings import deprecated
+from pathlib import Path
 
 
 from src.mod.data.ast_.base import ASTNode
@@ -601,7 +602,7 @@ class ProcedureDefSymbol(ASTNode):
 
 @dataclass
 class Import(ASTNode):
-    module_file_path: str
+    module_file_path: Path
     import_objects: list[str]
     operator: ImportOperator
 

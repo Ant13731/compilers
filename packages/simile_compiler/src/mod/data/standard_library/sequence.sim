@@ -1,14 +1,18 @@
+from "relation" import *
+
+T: type := type[generic]
+
 procedure concat(left: sequence[T], right: sequence[T]) -> sequence[T]:
     return left ++ right
 
 procedure flatten(nested_seq: sequence[sequence[T]]) -> sequence[T]:
-    return fold_([], concat, nested_seq)
+    return fold acc: sequence[T] := [] : s in nested_seq | acc ++ s
 
 procedure first(S: sequence[T]) -> T:
-    return X(0)
+    return S(0)
 
 procedure length(S: sequence[T]) -> T:
-    return card(S)
+    return sum x in S | 1
 
 procedure tail(S: sequence[T]) -> sequence[T]:
     return {i |-> x in S . i != 0 | i - 1 |-> x}
@@ -23,4 +27,4 @@ procedure tails(S: sequence[T]) -> set[sequence[T]]:
     return {i in len(S)..0 | 0..i <<| S}
 
 procedure heads(S: sequence[T]) -> set[sequence[T]]:
-    return {i in 0..len(S) | i..len(X) <<| S}
+    return {i in 0..len(S) | i..len(S) <<| S}

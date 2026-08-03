@@ -7,7 +7,7 @@ from src.mod.pipeline.analysis import SemanticAnalysis, semantic_analysis
 from src.mod.pipeline.optimizer.v2 import convert_simrw_to_rewrite_rules, parse_simrw_file
 
 
-class TestParserHappyPath:
+class TestOptimizerHappyPath:
     @pytest.mark.parametrize("rewrite_rule_path", SIMRW_FILES)
     def test_rewrite_rule_parses(self, rewrite_rule_path: pathlib.Path):
         parse_simrw_file(rewrite_rule_path)

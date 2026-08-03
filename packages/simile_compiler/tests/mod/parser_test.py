@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import textwrap
+from pathlib import Path
 
 import pytest
 
@@ -145,16 +146,16 @@ SIMPLE_STATEMENT_CASES = [
         "a: int := 1",
         Assignment(TypedName(Identifier("a"), Type_(Identifier("int"))), Int("1"), False),
     ),
-    ('import "test_import"', Import("test_import", [], ImportOperator.MODULE_NAME)),
-    ('from "test_import" import *', Import("test_import", [], ImportOperator.ALL_NAMES)),
-    ('from "test_import" import test', Import("test_import", ["test"], ImportOperator.SPECIFIC_NAMES)),
+    ('import "test_import"', Import(Path("test_import"), [], ImportOperator.MODULE_NAME)),
+    ('from "test_import" import *', Import(Path("test_import"), [], ImportOperator.ALL_NAMES)),
+    ('from "test_import" import test', Import(Path("test_import"), ["test"], ImportOperator.SPECIFIC_NAMES)),
     (
         'from "test_import" import testA, testB',
-        Import("test_import", ["testA", "testB"], ImportOperator.SPECIFIC_NAMES),
+        Import(Path("test_import"), ["testA", "testB"], ImportOperator.SPECIFIC_NAMES),
     ),
     (
         'from "test_import" import (testA, testB)',
-        Import("test_import", ["testA", "testB"], ImportOperator.SPECIFIC_NAMES),
+        Import(Path("test_import"), ["testA", "testB"], ImportOperator.SPECIFIC_NAMES),
     ),
 ]
 
@@ -167,7 +168,7 @@ MULTI_SIMPLE_STATEMENT_CASES = [
         ],
     ),
     ("skip; skip", [Skip(), Skip()]),
-    ('skip; import "module"', [Skip(), Import("module", [], ImportOperator.MODULE_NAME)]),
+    ('skip; import "module"', [Skip(), Import(Path("module"), [], ImportOperator.MODULE_NAME)]),
 ]
 
 COMPOUND_STATEMENT_CASES = [

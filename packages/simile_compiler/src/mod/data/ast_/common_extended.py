@@ -345,6 +345,16 @@ class Product(Quantifier3):
 
 
 @dataclass
+class Min(Quantifier3):
+    op_type: QuantifierOperator = QuantifierOperator.MIN
+
+
+@dataclass
+class Max(Quantifier3):
+    op_type: QuantifierOperator = QuantifierOperator.MAX
+
+
+@dataclass
 class SequenceComprehension(Quantifier3):
     op_type: QuantifierOperator = QuantifierOperator.SEQUENCE
 

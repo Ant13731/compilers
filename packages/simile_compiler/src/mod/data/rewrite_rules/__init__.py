@@ -1,5 +1,6 @@
 import pathlib
 
+SIMRW_FOLDER = pathlib.Path(__file__).resolve().parent
 SIMRW_FILE_NAMES = [
     "bag_sugar",
     "bool",
@@ -10,4 +11,4 @@ SIMRW_FILE_NAMES = [
     "sum",
 ]
 
-SIMRW_FILES = [pathlib.Path(__file__).resolve().parent / f"{file}.simrw" for file in SIMRW_FILE_NAMES]
+SIMRW_FILES = [SIMRW_FOLDER / f"{file}.simrw" for file in SIMRW_FILE_NAMES]

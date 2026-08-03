@@ -1,6 +1,9 @@
 # Generic number type - can match to int, float, nat, etc.
-N := type[generic]
-    trait numeric
+N: type := type[generic]
+    trait orderable
+T1: type := type[generic]
+T2: type := type[generic]
+T: type := type[generic]
 
 procedure min_(S: set[N]) -> N:
     return min x in S | x
@@ -26,7 +29,7 @@ procedure map(f: procedure[(T1,), T2], S: set[T1]) -> set[T2]:
     return {x in S | f(x)}
 
 procedure fold_(identity_of_f: T1, f: procedure[(T1, T1), T2], S: set[T1]) -> T2:
-    return fold acc := i : x in S | f(acc, x)
+    return fold acc: T1 := identity_of_f : x in S | f(acc, x)
 
 procedure sum_(S: set[N]) -> N:
     return sum x in S | x

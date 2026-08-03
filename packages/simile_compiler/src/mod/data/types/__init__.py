@@ -13,6 +13,7 @@ from src.mod.data.types.meta import (
     DeferToSymbolTable,
     ModuleImports,
     ImportedSymbol,
+    TypeOfType,
 )
 from src.mod.data.types.primitive import (
     NoneType_,

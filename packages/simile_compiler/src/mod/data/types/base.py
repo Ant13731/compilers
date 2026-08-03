@@ -1,5 +1,5 @@
 from __future__ import annotations
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields, asdict
 from copy import deepcopy
 from typing import Callable, ClassVar, Type, TypeVar
 import inspect
@@ -16,7 +16,7 @@ T = TypeVar("T", bound="BaseType")
 class BaseType:
     """Base type for all Simile types."""
 
-    trait_collection: TraitCollection = field(default_factory=TraitCollection)
+    trait_collection: TraitCollection = field(default_factory=TraitCollection, repr=False)
 
     valid_traits: ClassVar[set[Type[Trait]]] = {
         LiteralTrait,

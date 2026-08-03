@@ -1,5 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Callable, ClassVar, Any, NoReturn, TypeVar, Mapping
 import inspect
 from functools import wraps
@@ -97,7 +98,8 @@ class Parser:
     """Parser class to handle parsing of tokens into an AST."""
 
     tokens: list[Token]
-    original_text: str = ""  # Used only for error messages
+    original_text: str  # Used only for error messages
+    source_file_path: Path | None
     current_index: int = 0
     errors: list[ParseErr] = field(default_factory=list)
     derivation: list[str] = field(default_factory=list)
@@ -1110,13 +1112,18 @@ class Parser:
         import_name = self.advance()
         if import_name.type_ != TokenType.STRING:
             self.error("Expected import name to be a string literal (file path)")
+
+        module_file_path = Path(import_name.value)
+        if self.source_file_path and not self.source_file_path.is_absolute():
+            module_file_path = self.source_file_path / import_name.value
+
         match t.type_:
             case TokenType.FROM:
                 self.consume(TokenType.IMPORT, "Expected 'import' after 'from'")
                 import_objects, import_operator = self.import_list()
-                return ast_.Import(import_name.value, import_objects, import_operator)
+                return ast_.Import(module_file_path, import_objects, import_operator)
             case TokenType.IMPORT:
-                return ast_.Import(import_name.value, [], ast_.ImportOperator.MODULE_NAME)
+                return ast_.Import(module_file_path, [], ast_.ImportOperator.MODULE_NAME)
             case _:
                 self.error(f"Unexpected token {t}")
 
@@ -1267,7 +1274,7 @@ class Parser:
         self.ignore_whitespace(set_whitespace_back_to)
 
         self.consume(TokenType.RIGHTARROW, "Expected right arrow after procedure parameters")
-        return_type = ast_.Type_(self.expr())
+        return_type = self.type_expr()
         self.consume(TokenType.COLON, "Expected colon after procedure type")
         block = self.block()
         return ast_.ProcedureDef(name, params, block, return_type)
@@ -1280,8 +1287,8 @@ class Parser:
         name = ast_.Identifier(t.value)
 
         if self.match(TokenType.COLON):
-            type_annotation = self.expr()
-            return ast_.TypedName(name, ast_.Type_(type_annotation))
+            type_annotation = self.type_expr()
+            return ast_.TypedName(name, type_annotation)
         return ast_.TypedName(name, ast_.None_())
 
     @store_derivation
@@ -1296,10 +1303,11 @@ class Parser:
         return statements
 
 
-def parse(source_text: str) -> ast_.Start:
+def parse(source_text: str, source_file_path: Path | None = None) -> ast_.Start:
     """Parse a list of tokens into an abstract syntax tree (AST)."""
     tokens = scan(source_text)
-    parser = Parser(tokens, source_text)
+    tokens_without_comments = list(filter(lambda t: t.type_ != TokenType.COMMENT, tokens))
+    parser = Parser(tokens_without_comments, source_text, source_file_path)
     res = parser.start()
 
     if not parser.errors:

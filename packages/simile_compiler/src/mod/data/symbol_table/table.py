@@ -98,3 +98,19 @@ class SymbolTable:
             raise SymbolTableError(f"Multiple top level scopes found in symbol table. This should be impossible. Scope ids: {[scope.id_ for scope in top_level_scopes]}")
         top_level_scope = top_level_scopes[0]
         return [self.symbols[symbol_id] for symbol_id in top_level_scope.declared_symbols]
+
+    def debug(self) -> str:
+        ret = "Symbol Table:\n"
+        ret += f"  Symbol counter: {self._symbol_id_counter}\n"
+        ret += f"  Scope counter: {self._scope_id_counter}\n"
+        ret += "  Current Scope List:\n"
+        for scope_entry in self._current_scope_list:
+            ret += f"    Scope ID {scope_entry.id_}: {scope_entry}\n"
+        ret += "  All Scopes:\n"
+        for scope_id, scope_entry in self.scopes.items():
+            ret += f"    Scope ID {scope_id}: {scope_entry}\n"
+        ret += "  Symbols:\n"
+        for symbol_id, symbol_entry in self.symbols.items():
+            ret += f"    Symbol ID {symbol_id} | Name: {symbol_entry.name} | Context: {symbol_entry.context} | Type: {symbol_entry.declared_type.__class__}\n"
+
+        return ret

@@ -1,8 +1,12 @@
+T1: type := type[generic]
+T2: type := type[generic]
+T: type := type[generic]
+
 procedure map(f: procedure[(T1,), T2], B: bag[T1]) -> bag[T2]:
     return [[x |-> n in B | f(x) |-> n]]
 
-procedure size(S: bag[T]) -> int:
-    return sum x |-> n in S | n
+procedure size(B: bag[T]) -> int:
+    return sum x |-> n in B | n
 
-procedure fold_(identity_of_f: T1, f: procedure[(T1, T1), T2], S: bag[T1]) -> T2:
-    return fold c1 := identity_of_f : x |-> n in B | f(c1, fold c2 := identity_of_f : j in 0 .. n | f(c2, x))
+procedure fold_(identity_of_f: T1, f: procedure[(T1, T1), T2], B: bag[T1]) -> T2:
+    return fold c1: T1 := identity_of_f : x |-> n in B | f(c1, fold c2: T1 := identity_of_f : j in 0 .. n | f(c2, x))

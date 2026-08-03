@@ -19,6 +19,9 @@ class AnyType_(BaseType):
     def _is_subtype(self, other: BaseType) -> bool:
         return False
 
+    def _populate_mandatory_traits(self) -> None:
+        pass
+
 
 @dataclass
 class GenericType(BaseType):
@@ -62,6 +65,9 @@ class GenericType(BaseType):
                 return False  # no break occurred, so self_bound is not a subtype of any other_bound
         return True
 
+    def _populate_mandatory_traits(self) -> None:
+        pass
+
 
 @dataclass
 class DeferToSymbolTable(BaseType):
@@ -81,10 +87,16 @@ class DeferToSymbolTable(BaseType):
     def _is_subtype(self, other: BaseType) -> bool:
         raise SimileTypeError("Cannot compare DeferToSymbolTable types before resolution")
 
+    def _populate_mandatory_traits(self) -> None:
+        pass
+
 
 @dataclass
 class ImportedSymbol(BaseType):
     imported_symbol_entry: SymbolTableIdentifierEntry
+
+    def _populate_mandatory_traits(self) -> None:
+        pass
 
 
 @dataclass
@@ -95,3 +107,14 @@ class ModuleImports(BaseType):
 
     # Function names and types are held within this scope of the symbol table
     scope: ScopeTableEntry
+
+    def _populate_mandatory_traits(self) -> None:
+        pass
+
+
+@dataclass
+class TypeOfType(BaseType):
+    type_of: BaseType
+
+    def _populate_mandatory_traits(self) -> None:
+        pass

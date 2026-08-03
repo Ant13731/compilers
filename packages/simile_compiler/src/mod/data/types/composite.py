@@ -16,6 +16,7 @@ from src.mod.data.traits.traits import (
 from src.mod.data.types.set_ import SetType
 from src.mod.data.types.base import BaseType
 from src.mod.data.types.primitive import StringType
+from src.mod.data.types.tuple_ import TupleType
 from src.mod.data.types.typing_rule_decorator import typing_rule
 
 if TYPE_CHECKING:
@@ -79,7 +80,7 @@ class RecordType(BaseType):
 
 @dataclass
 class ProcedureType(BaseType):
-    arg_types: dict[SymbolTableIdentifierEntry, BaseType]
+    arg_types: TupleType
     return_type: BaseType
 
     def _is_eq_type(self, other: BaseType) -> bool:
@@ -88,8 +89,8 @@ class ProcedureType(BaseType):
         return all(
             self_arg.is_eq_type(other_arg)
             for self_arg, other_arg in zip(
-                self.arg_types.values(),
-                other.arg_types.values(),
+                self.arg_types.items,
+                other.arg_types.items,
             )
         ) and self.return_type.is_eq_type(
             other.return_type,
@@ -103,22 +104,25 @@ class ProcedureType(BaseType):
         args_are_supertype = all(
             other_arg.is_subtype(self_arg)
             for self_arg, other_arg in zip(
-                self.arg_types.values(),
-                other.arg_types.values(),
+                self.arg_types.items,
+                other.arg_types.items,
             )
         )
 
         return args_are_supertype and self.return_type.is_subtype(other.return_type)
 
     def call(self, arg_types: list[BaseType]) -> BaseType:
-        if len(arg_types) != len(self.arg_types):
-            raise SimileTypeError(f"Procedure called with incorrect number of arguments. Expected {len(self.arg_types)}, got {len(arg_types)}")
+        if len(arg_types) != len(self.arg_types.items):
+            raise SimileTypeError(f"Procedure called with incorrect number of arguments. Expected {len(self.arg_types.items)}, got {len(arg_types)}")
 
-        for provided_type, (arg_name, expected_type) in zip(arg_types, self.arg_types.items()):
+        for i, (provided_type, expected_type) in enumerate(zip(arg_types, self.arg_types.items)):
             if not provided_type.is_subtype(expected_type):
-                raise SimileTypeError(f"Procedure argument '{arg_name}' expected type {expected_type}, got {provided_type}")
+                raise SimileTypeError(f"Procedure argument {i} expected type {expected_type}, got {provided_type}")
         # TODO check for generics here - ex, if return type is generic, look for the actual type in one of its arguments
         # generic ids should match
         # TODO also need to account for the return type matching the type of the returned value
 
         return self.return_type
+
+    def _populate_mandatory_traits(self) -> None:
+        pass

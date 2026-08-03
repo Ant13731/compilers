@@ -28,7 +28,7 @@ from src.mod.data.types.typing_rule_decorator import typing_rule
 
 @dataclass
 class TupleType(BaseType):
-    items: tuple[BaseType, ...]
+    items: list[BaseType]
     valid_traits: ClassVar[set[Type[Trait]]] = {
         *BaseType.valid_traits,
         MinTrait,
@@ -81,9 +81,9 @@ class TupleType(BaseType):
     def enumeration(cls, element_types: list[BaseType]) -> TupleType:
         """Create a set from an enumeration of elements of a specific type."""
         if element_types == []:
-            return cls(items=())
+            return cls(items=[])
 
-        return cls(items=tuple(element_types))
+        return cls(items=element_types)
 
 
 @dataclass
@@ -93,7 +93,7 @@ class PairType(TupleType):
         if trait_collection is None:
             trait_collection = TraitCollection()
 
-        super().__init__(items=(left, right), trait_collection=trait_collection)
+        super().__init__(items=[left, right], trait_collection=trait_collection)
 
     def _populate_mandatory_traits(self) -> None:
         super()._populate_mandatory_traits()
