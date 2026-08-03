@@ -280,5 +280,11 @@ class CollectionOperator(Enum):
         return quantifier_op_version.to_source() if quantifier_op_version else self.name
 
 
-Operators = BinaryOperator | RelationOperator | UnaryOperator | ListOperator | QuantifierOperator | ControlFlowOperator
+class ImportOperator(Enum):
+    ALL_NAMES = auto()
+    MODULE_NAME = auto()
+    SPECIFIC_NAMES = auto()
+
+
+Operators = BinaryOperator | RelationOperator | UnaryOperator | ListOperator | QuantifierOperator | ControlFlowOperator | ImportOperator
 """Type alias for all operator enums in Simile."""

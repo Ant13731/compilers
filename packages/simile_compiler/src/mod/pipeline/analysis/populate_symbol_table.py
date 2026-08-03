@@ -17,6 +17,7 @@ from src.mod.data.types import (
     GenericType,
     DeferToSymbolTable,
     ModuleImports,
+    ImportedSymbol,
     NoneType_,
     StringType,
     IntType,
@@ -52,7 +53,7 @@ from src.mod.data.traits import (
 )
 
 from src.mod.pipeline.parser import parse, ParseError
-from src.mod.pipeline.analysis.type_resolver import TypeAnnotationResolver
+from src.mod.pipeline.analysis.type_annotation_resolver import TypeAnnotationResolver
 
 
 class ParseImportError(Exception):
@@ -426,9 +427,40 @@ class PopulateSymbolTable:
                     IdentifierContext.VARIABLE,
                     _declared_type,
                 )
-            case ast_.Import(module_file_path, import_objects):
-                raise NotImplementedError("Import statements are not yet supported in the symbol table population pass")
-                _populate_from_import(self.symbol_table, import_objects, module_file_path)
+            case ast_.Import(module_file_path, names_to_import, import_operator):
+                module_ast = _read_from_path_and_parse(module_file_path)
+                # TODO fix this to allow for modules with different names (import ... as <name>)
+                module_name = module_file_path.split("/")[-1].split(".")[0]
+                module_scope = self.symbol_table.add_scope(ScopeContext.NAMESPACE)
+                self.populate(module_ast)
+                self.symbol_table.pop_scope_level()
+
+                match import_operator:
+                    case ast_.ImportOperator.SPECIFIC_NAMES:
+                        for symbol_id in module_scope.declared_symbols:
+                            symbol = self.symbol_table.lookup_symbol(symbol_id, module_scope.id_)
+                            if symbol.name not in names_to_import:
+                                continue
+                            self.symbol_table.add_symbol(
+                                symbol.name,
+                                symbol.context,
+                                ImportedSymbol(symbol),
+                            )
+                    case ast_.ImportOperator.ALL_NAMES:
+                        for symbol_id in module_scope.declared_symbols:
+                            symbol = self.symbol_table.lookup_symbol(symbol_id, module_scope.id_)
+                            self.symbol_table.add_symbol(
+                                symbol.name,
+                                symbol.context,
+                                ImportedSymbol(symbol),
+                            )
+                    case ast_.ImportOperator.MODULE_NAME:
+                        self.symbol_table.add_symbol(
+                            module_name,
+                            IdentifierContext.MODULE_IMPORT,
+                            ModuleImports(module_scope),
+                        )
+                return None, False
 
             # By this point, all identifiers should have been added to the symbol table
             # Replace them with symbol ids corresponding to the symbol table entry
@@ -600,11 +632,7 @@ class PopulateSymbolTable:
         return ast_.TupleIdentifier(tuple(possible_bound_identifiers))
 
 
-def _populate_from_import(
-    symbol_table: SymbolTable,
-    import_objects: ast_.TupleIdentifier | ast_.None_ | ast_.ImportAll,
-    module_file_path: str,
-) -> None:
+def _read_from_path_and_parse(module_file_path: str) -> ast_.Start:
     # Read in imported file
     full_module_path = pathlib.Path(module_file_path).resolve(strict=True)
     with open(full_module_path, "r") as f:
@@ -616,38 +644,4 @@ def _populate_from_import(
     except ParseError as e:
         raise ParseImportError(f"Module {module_file_path} does not contain a valid Simile module. Expected a single Start node at the top level.") from e
 
-    if isinstance(module_ast.body, ast_.None_):
-        return
-
-    # Populate the module AST with types
-    module_symbol_table = populate_symbol_table(module_ast)
-
-    # Add module symbols to namespace
-    match import_objects:
-        case ast_.ImportAll():
-            for symbol_table_entry in module_symbol_table.get_top_level_symbols():
-                symbol_table.add_symbol(
-                    symbol_table_entry.name,
-                    symbol_table_entry.context,
-                    symbol_table_entry.declared_type,
-                )
-        case ast_.None_():
-            symbol_table.add_symbol(
-                full_module_path.stem,
-                IdentifierContext.MODULE_IMPORT,
-                ModuleImports(module_symbol_table.get_top_level_symbols()),
-            )
-        case ast_.TupleIdentifier(identifiers):
-            identifier_names = []
-            for identifier in identifiers:
-                if not isinstance(identifier, ast_.Identifier):
-                    raise SimileTypeError(f"Invalid import type (must be an identifier): {identifier}", identifier)
-                identifier_names.append(identifier.name)
-
-            for symbol_table_entry in module_symbol_table.get_top_level_symbols():
-                if symbol_table_entry.name in identifier_names:
-                    symbol_table.add_symbol(
-                        symbol_table_entry.name,
-                        symbol_table_entry.context,
-                        symbol_table_entry.declared_type,
-                    )
+    return module_ast

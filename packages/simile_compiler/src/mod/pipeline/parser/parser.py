@@ -1111,15 +1111,15 @@ class Parser:
         import_name = self.advance()
         if import_name.type_ != TokenType.STRING:
             self.error("Expected import name to be a string literal (file path)")
-        # import_name = self.import_name()
-        if t.type_ == TokenType.FROM:
-            self.consume(TokenType.IMPORT, "Expected 'import' after 'from'")
-            import_objects = self.import_list()
-            return ast_.Import(import_name.value, import_objects)
-        elif t.type_ == TokenType.IMPORT:
-            return ast_.Import(import_name.value, ast_.None_())
-        else:
-            self.error(f"Unexpected token {t}")
+        match t.type_:
+            case TokenType.FROM:
+                self.consume(TokenType.IMPORT, "Expected 'import' after 'from'")
+                import_objects, import_operator = self.import_list()
+                return ast_.Import(import_name.value, import_objects, import_operator)
+            case TokenType.IMPORT:
+                return ast_.Import(import_name.value, [], ast_.ImportOperator.MODULE_NAME)
+            case _:
+                self.error(f"Unexpected token {t}")
 
     # @store_derivation
     # def import_name(self) -> list[ast_.Identifier]:
@@ -1143,10 +1143,18 @@ class Parser:
     #     return import_path
 
     @store_derivation
-    def import_list(self) -> ast_.TupleIdentifier | ast_.ImportAll:
+    def import_list(self) -> tuple[list[str], ast_.ImportOperator]:
         if self.match(TokenType.MULT):
-            return ast_.ImportAll()
-        return self.flat_tuple_identifier()
+            return [], ast_.ImportOperator.ALL_NAMES
+        # use flat_tuple_identifier for the parsing benefits (ex. for multi-line tuples)
+        # but then just extract the str result from the flattened list
+        named_identifiers = self.flat_tuple_identifier()
+        plain_names = []
+        for ident in named_identifiers.items:
+            if not isinstance(ident, ast_.Identifier):
+                self.error(f"Expected identifier in import list (parsed up to {plain_names})")
+            plain_names.append(ident.name)
+        return plain_names, ast_.ImportOperator.SPECIFIC_NAMES
 
     @store_derivation
     def flat_tuple_identifier(self) -> ast_.TupleIdentifier:

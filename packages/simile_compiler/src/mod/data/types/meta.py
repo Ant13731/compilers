@@ -7,7 +7,7 @@ from src.mod.data.types.base import BaseType
 from src.mod.data.traits.traits import Trait, GenericBoundTrait
 
 if TYPE_CHECKING:
-    from src.mod.data.symbol_table.entry import SymbolTableIdentifierEntry
+    from src.mod.data.symbol_table.entry import SymbolTableIdentifierEntry, ScopeTableEntry
 
 
 @dataclass
@@ -83,9 +83,15 @@ class DeferToSymbolTable(BaseType):
 
 
 @dataclass
+class ImportedSymbol(BaseType):
+    imported_symbol_entry: SymbolTableIdentifierEntry
+
+
+@dataclass
 class ModuleImports(BaseType):
     """Type to represent importing these objects into the module namespace
 
     Any type-checking functions called on environments (which is what this dict really is) should raise an error."""
 
-    import_objects: list[SymbolTableIdentifierEntry]
+    # Function names and types are held within this scope of the symbol table
+    scope: ScopeTableEntry

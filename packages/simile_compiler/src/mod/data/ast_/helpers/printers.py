@@ -47,11 +47,11 @@ from src.mod.data.ast_.common import (
     While,
     RecordDef,
     ProcedureDef,
-    ImportAll,
     Import,
     Start,
     TupleLiteral,
 )
+from src.mod.data.ast_.operators import ImportOperator
 from src.mod.data.ast_.optimizer_only import (
     GeneratorSelection,
     CombinedGeneratorSelection,
@@ -334,17 +334,15 @@ def _(ast: ProcedureDef, indent: int) -> str:
     return f"def {_ast_to_source(ast.name, indent)}(\n{args_str}\n) -> {return_type_str}:\n{'\t' * (indent + 1)}{body_str}\n"
 
 
-@_ast_to_source.register(ImportAll)
-def _(ast: ImportAll, indent: int) -> str:
-    return f"*"
-
-
 @_ast_to_source.register(Import)
 def _(ast: Import, indent: int) -> str:
-    if isinstance(ast.import_objects, None_):
-        return f"import {ast.module_file_path}"
-    else:
-        return f"from {ast.module_file_path} import {_ast_to_source(ast.import_objects, indent)}"
+    match ast.operator:
+        case ImportOperator.ALL_NAMES:
+            return f"from {ast.module_file_path} import *"
+        case ImportOperator.MODULE_NAME:
+            return f"import {ast.module_file_path}"
+        case ImportOperator.SPECIFIC_NAMES:
+            return f"from {ast.module_file_path} import {', '.join(ast.import_objects)}"
 
 
 @_ast_to_source.register(Start)

@@ -20,3 +20,5 @@ from src.mod.pipeline.analysis.normalize_ast import (
     ast_promoter,
     assert_no_parser_only_nodes,
 )
+
+from src.mod.pipeline.analysis.type_annotation_resolver import TypeAnnotationResolver

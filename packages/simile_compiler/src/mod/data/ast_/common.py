@@ -24,6 +24,7 @@ from src.mod.data.ast_.operators import (
     QuantifierOperator,
     ControlFlowOperator,
     CollectionOperator,
+    ImportOperator,
     Operators,
 )
 from src.mod.data.ast_.symbol_table_types import (
@@ -1118,17 +1119,10 @@ class ProcedureDefSymbol(ASTNode):
 
 
 @dataclass
-class ImportAll(ASTNode):
-    pass
-
-    def _get_type(self) -> SimileType:
-        return BaseSimileType.None_
-
-
-@dataclass
 class Import(ASTNode):
     module_file_path: str
-    import_objects: TupleIdentifier | None_ | ImportAll
+    import_objects: list[str]
+    operator: ImportOperator
 
     def _get_type(self) -> SimileType:
         return BaseSimileType.None_

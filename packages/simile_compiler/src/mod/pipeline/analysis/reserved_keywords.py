@@ -4,7 +4,7 @@ from typing import TypeVar
 
 from src.mod.pipeline.scanner import KEYWORD_TABLE
 from src.mod.data import ast_
-from src.mod.pipeline.analysis.type_resolver import TypeAnnotationResolver
+from src.mod.pipeline.analysis.type_annotation_resolver import TypeAnnotationResolver
 
 T = TypeVar("T", bound=ast_.ASTNode)
 RESERVED_KEYWORDS = list(KEYWORD_TABLE.keys())

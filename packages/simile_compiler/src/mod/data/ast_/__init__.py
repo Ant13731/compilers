@@ -50,6 +50,7 @@ from src.mod.data.ast_.operators import (
     ControlFlowOperator,
     CollectionOperator,
     QuantifierOperator,
+    ImportOperator,
 )
 from src.mod.data.ast_.common import (
     Int,
@@ -95,7 +96,6 @@ from src.mod.data.ast_.common import (
     TupleLiteral,
     ProcedureDef,
     ProcedureDefSymbol,
-    ImportAll,
     Import,
     Start,
     Literal,

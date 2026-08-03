@@ -41,6 +41,7 @@ class ScopeContext(Enum):
     LOOP = auto()
     LAMBDA = auto()
     RECORD = auto()
+    NAMESPACE = auto()
 
 
 @dataclass
