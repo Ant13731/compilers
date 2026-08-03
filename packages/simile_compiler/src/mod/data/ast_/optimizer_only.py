@@ -8,7 +8,6 @@ from src.mod.data.ast_.common_extended import (
     Or,
 )
 from src.mod.data.ast_.parser_only import Identifier, MapletIdentifier
-from src.mod.data.ast_.symbol_table_types import SimileType, BaseSimileType
 
 
 @dataclass
@@ -33,9 +32,6 @@ class GeneratorSelection(ASTNode):
             bound_identifiers.add(generator.left)
         return bound_identifiers
 
-    def _get_type(self) -> SimileType:
-        return self.flatten()._get_type()
-
 
 @dataclass
 class CombinedGeneratorSelection(ASTNode):
@@ -54,9 +50,6 @@ class CombinedGeneratorSelection(ASTNode):
         assert isinstance(self.generator.left, Identifier | MapletIdentifier), f"Expected Identifier or MapletIdentifier, got {type(self.generator.left)}"
         return self.generator.left
 
-    def _get_type(self) -> SimileType:
-        return self.flatten()._get_type()
-
 
 @dataclass
 class SingleGeneratorSelection(ASTNode):
@@ -72,14 +65,8 @@ class SingleGeneratorSelection(ASTNode):
         assert isinstance(self.generator.left, Identifier | MapletIdentifier), f"Expected Identifier or MapletIdentifier, got {type(self.generator.left)}"
         return self.generator.left
 
-    def _get_type(self) -> SimileType:
-        return self.flatten()._get_type()
-
 
 @dataclass
 class Loop(ASTNode):
     predicate: Or | GeneratorSelection | CombinedGeneratorSelection | SingleGeneratorSelection
     body: ASTNode
-
-    def _get_type(self) -> SimileType:
-        return BaseSimileType.None_

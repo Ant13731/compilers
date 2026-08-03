@@ -9,7 +9,6 @@ from src.mod.data.ast_.helpers.printers import (
     ast_to_source,
     ast_to_debug_string,
 )
-from src.mod.data.ast_.helpers.equals import structurally_equal
 
 
 from src.mod.data.ast_.base import ASTNode
@@ -19,22 +18,7 @@ from src.mod.data.ast_.parser_only import (
     TupleIdentifier,
     IdentifierListTypes,
 )
-from src.mod.data.ast_.builtin import (
-    BuiltinFunctionBase,
-    BuiltinFuncMin,
-    BuiltinFuncMapMin,
-    BuiltinFuncMax,
-    BuiltinFuncMapMax,
-    BuiltinFuncChoice,
-    BuiltinFuncDom,
-    BuiltinFuncRan,
-    BuiltinFuncCard,
-    BuiltinFuncSize,
-    BuiltinFuncSum,
-    BuiltinFuncCast,
-    BuiltinFuncCastWith,
-    BuiltinFuncPrint,
-)
+
 from src.mod.data.ast_.symbol_table_only import (
     Symbol,
     TupleSymbol,

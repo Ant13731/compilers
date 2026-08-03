@@ -31,34 +31,7 @@ def ast_promoter(node: ast_.ASTNode) -> ast_.ASTNode | None:
         return _promote_quantifier(node)
     if isinstance(node, ast_.Enumeration):
         return _promote_enumeration(node)
-    if isinstance(node, ast_.Call) and isinstance(node.target, ast_.Identifier):
-        return _promote_builtin_call(node)
     return None
-
-
-def _promote_builtin_call(node: ast_.Call) -> ast_.ASTNode:
-    match node.target:
-        case ast_.BuiltinFuncMin.target_name:
-            return ast_.BuiltinFuncMin(args=node.args)
-        case ast_.BuiltinFuncMax.target_name:
-            return ast_.BuiltinFuncMax(args=node.args)
-        case ast_.BuiltinFuncChoice.target_name:
-            return ast_.BuiltinFuncChoice(args=node.args)
-        case ast_.BuiltinFuncDom.target_name:
-            return ast_.BuiltinFuncDom(args=node.args)
-        case ast_.BuiltinFuncRan.target_name:
-            return ast_.BuiltinFuncRan(args=node.args)
-        case ast_.BuiltinFuncCard.target_name:
-            return ast_.BuiltinFuncCard(args=node.args)
-        case ast_.BuiltinFuncSize.target_name:
-            return ast_.BuiltinFuncSize(args=node.args)
-        case ast_.BuiltinFuncSum.target_name:
-            return ast_.BuiltinFuncSum(args=node.args)
-        case ast_.BuiltinFuncCast.target_name:
-            return ast_.BuiltinFuncCast(args=node.args)
-        case ast_.BuiltinFuncPrint.target_name:
-            return ast_.BuiltinFuncPrint(args=node.args)
-    return node
 
 
 def _promote_binary_op(node: ast_.BinaryOp) -> ast_.ASTNode:

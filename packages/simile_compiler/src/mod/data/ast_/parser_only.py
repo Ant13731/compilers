@@ -4,7 +4,6 @@ These types will be replaced by typed ASTs will be used after type analysis"""
 from dataclasses import dataclass
 from typing import Generic, TypeVar
 
-from src.mod.data.ast_.symbol_table_types import SimileType, DeferToSymbolTable, PairType, TupleType
 from src.mod.data.ast_.base import ASTNode
 
 
@@ -25,13 +24,6 @@ class Identifier(ASTNode):
     @property
     def free(self) -> set[Identifier]:
         return {self}
-
-    def _get_type(self) -> SimileType:
-        if self._env is not None:
-            ret = self._env.get(self.name)
-            if ret is not None:
-                return ret
-        return DeferToSymbolTable(lookup_type=self.name)
 
     def flatten(self) -> set[Identifier]:
         """Used to simplify the flatten operation of :cls:`MapletIdentifier`"""
@@ -63,9 +55,6 @@ class TupleIdentifier(ASTNode):
                 if identifiers[i] == identifiers[j]:
                     return False
         return True
-
-    def _get_type(self) -> SimileType:
-        return TupleType(tuple(map(lambda x: x.get_type, self.items)))
 
     def flatten(self) -> set[Identifier]:
         flat_set = set()
@@ -133,9 +122,6 @@ class MapletIdentifier(TupleIdentifier, Generic[L, R]):
     @property
     def free(self) -> set[Identifier]:
         return self.flatten()
-
-    def _get_type(self) -> SimileType:
-        return PairType(self.left.get_type, self.right.get_type)
 
     def flatten(self) -> set[Identifier]:
         return self.left.flatten() | self.right.flatten()

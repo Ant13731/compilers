@@ -9,4 +9,3 @@ from src.mod.data.ast_.helpers.printers import (
     ast_to_source,
     ast_to_debug_string,
 )
-from src.mod.data.ast_.helpers.equals import structurally_equal
