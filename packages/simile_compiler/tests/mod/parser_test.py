@@ -16,6 +16,10 @@ def start_with_body(source: str, body: ASTNode) -> Start:
     return Start(Statements([body]), source)
 
 
+def start_with_statements(source: str, body: list[ASTNode]) -> Start:
+    return Start(Statements(body), source)
+
+
 BASIC_EXPRESSION_CASES = [
     ("a", Identifier("a")),
     ("(a)", Identifier("a")),
@@ -68,6 +72,67 @@ BASIC_EXPRESSION_CASES = [
     ("[[1, 2]]", BagEnumeration([Int("1"), Int("2")])),
 ]
 
+TYPE_EXPRESSION_CASES = [
+    ("a: int", TypedName(Identifier("a"), Type_(Identifier("int")))),
+    (
+        "a: b.c",
+        TypedName(
+            Identifier("a"),
+            Type_(
+                RecordAccess(Identifier("b"), Identifier("c")),
+            ),
+        ),
+    ),
+    (
+        "a: T[a,b]",
+        TypedName(
+            Identifier("a"),
+            Type_(
+                Identifier("T"),
+                [Type_(Identifier("a")), Type_(Identifier("b"))],
+            ),
+        ),
+    ),
+    (
+        "a: T[(a, b)]",
+        TypedName(
+            Identifier("a"),
+            Type_(
+                Identifier("T"),
+                [Type_(TupleLiteral([Type_(Identifier("a")), Type_(Identifier("b"))]))],
+            ),
+        ),
+    ),
+    (
+        "a: procedure[(a,), b]",
+        TypedName(
+            Identifier("a"),
+            Type_(
+                Identifier("procedure"),
+                [
+                    Type_(TupleLiteral([Type_(Identifier("a"))])),
+                    Type_(Identifier("b")),
+                ],
+            ),
+        ),
+    ),
+    (
+        "a: T[T[a]]",
+        TypedName(
+            Identifier("a"),
+            Type_(
+                Identifier("T"),
+                [
+                    Type_(
+                        Identifier("T"),
+                        [Type_(Identifier("a"))],
+                    ),
+                ],
+            ),
+        ),
+    ),
+]
+
 SIMPLE_STATEMENT_CASES = [
     ("return", Return(None_())),
     ("return 1", Return(Int("1"))),
@@ -91,6 +156,18 @@ SIMPLE_STATEMENT_CASES = [
         'from "test_import" import (testA, testB)',
         Import("test_import", ["testA", "testB"], ImportOperator.SPECIFIC_NAMES),
     ),
+]
+
+MULTI_SIMPLE_STATEMENT_CASES = [
+    (
+        "a := 1; b := 2",
+        [
+            Assignment(Identifier("a"), Int("1"), False),
+            Assignment(Identifier("b"), Int("2"), False),
+        ],
+    ),
+    ("skip; skip", [Skip(), Skip()]),
+    ('skip; import "module"', [Skip(), Import("module", [], ImportOperator.MODULE_NAME)]),
 ]
 
 COMPOUND_STATEMENT_CASES = [
@@ -277,6 +354,188 @@ COMPREHENSION_CASES = [
             TupleIdentifier((Identifier("x"),)),
             In(Identifier("x"), Identifier("S")),
             Identifier("x"),
+        ),
+    ),
+    (
+        "fold i := 0 : x in S | i + x",
+        Fold(
+            Assignment(Identifier("i"), Int("0"), False),
+            QuantifierBody(
+                [Generator(TupleIdentifier((Identifier("x"),)), Identifier("S"), True_())],
+                Add(Identifier("i"), Identifier("x")),
+            ),
+        ),
+    ),
+    (
+        "sum (x in S | x) ` (y in S | y)",
+        Quantifier3(
+            QuantifierBody(
+                [],
+                [
+                    QuantifierBody([Generator(TupleIdentifier((Identifier("x"),)), Identifier("S"), True_())], Identifier("x")),
+                    QuantifierBody([Generator(TupleIdentifier((Identifier("y"),)), Identifier("S"), True_())], Identifier("y")),
+                ],
+            ),
+            QuantifierOperator.SUM,
+        ),
+    ),
+    (
+        "iter x in S : i := 0; j := 1 -> i,j | i := j + 2",
+        Iter(
+            IterBody(
+                [
+                    IterGenerator(
+                        Generator(TupleIdentifier((Identifier("x"),)), Identifier("S"), True_()),
+                        [
+                            Assignment(Identifier("i"), Int("0"), False),
+                            Assignment(Identifier("j"), Int("1"), False),
+                        ],
+                    )
+                ],
+                IterBodyEnd(
+                    Statements(
+                        [
+                            Assignment(
+                                Identifier("i"),
+                                Add(Identifier("j"), Int("2")),
+                                False,
+                            )
+                        ]
+                    ),
+                    TupleIdentifier((Identifier("i"), Identifier("j"))),
+                ),
+            )
+        ),
+    ),
+    (
+        "iter x in S : i := 0, y in T : j := 1 -> i | i := i + j",
+        Iter(
+            IterBody(
+                [
+                    IterGenerator(
+                        Generator(TupleIdentifier((Identifier("x"),)), Identifier("S"), True_()),
+                        [
+                            Assignment(Identifier("i"), Int("0"), False),
+                        ],
+                    ),
+                    IterGenerator(
+                        Generator(TupleIdentifier((Identifier("y"),)), Identifier("T"), True_()),
+                        [
+                            Assignment(Identifier("j"), Int("1"), False),
+                        ],
+                    ),
+                ],
+                IterBodyEnd(
+                    Statements(
+                        [
+                            Assignment(
+                                Identifier("i"),
+                                Add(Identifier("i"), Identifier("j")),
+                                False,
+                            )
+                        ]
+                    ),
+                    TupleIdentifier((Identifier("i"),)),
+                ),
+            )
+        ),
+    ),
+    (
+        "iter (x in S : i := 0 -> i | i := x)",
+        Iter(
+            IterBody(
+                [],
+                [
+                    IterBody(
+                        [
+                            IterGenerator(
+                                Generator(TupleIdentifier((Identifier("x"),)), Identifier("S"), True_()),
+                                [
+                                    Assignment(Identifier("i"), Int("0"), False),
+                                ],
+                            )
+                        ],
+                        IterBodyEnd(
+                            Statements(
+                                [
+                                    Assignment(
+                                        Identifier("i"),
+                                        Identifier("x"),
+                                        False,
+                                    )
+                                ]
+                            ),
+                            TupleIdentifier((Identifier("i"),)),
+                        ),
+                    ),
+                ],
+            )
+        ),
+    ),
+    (
+        "product x in S | x",
+        Quantifier3(
+            QuantifierBody(
+                [
+                    Generator(Identifier("x"), Identifier("X"), True_()),
+                ],
+                Identifier("x"),
+            ),
+            QuantifierOperator.PRODUCT,
+        ),
+    ),
+    (
+        "max x in S | x",
+        Quantifier3(
+            QuantifierBody(
+                [
+                    Generator(Identifier("x"), Identifier("X"), True_()),
+                ],
+                Identifier("x"),
+            ),
+            QuantifierOperator.MAX,
+        ),
+    ),
+    (
+        "min x in S | x",
+        Quantifier3(
+            QuantifierBody(
+                [
+                    Generator(Identifier("x"), Identifier("X"), True_()),
+                ],
+                Identifier("x"),
+            ),
+            QuantifierOperator.MIN,
+        ),
+    ),
+    (
+        normalize_source("""
+            iter x in S : i := 0 -> i |
+                i := x
+            """),
+        Iter(
+            IterBody(
+                [
+                    IterGenerator(
+                        Generator(TupleIdentifier((Identifier("x"),)), Identifier("S"), True_()),
+                        [
+                            Assignment(Identifier("i"), Int("0"), False),
+                        ],
+                    )
+                ],
+                IterBodyEnd(
+                    Statements(
+                        [
+                            Assignment(
+                                Identifier("i"),
+                                Identifier("x"),
+                                False,
+                            )
+                        ]
+                    ),
+                    TupleIdentifier((Identifier("i"),)),
+                ),
+            )
         ),
     ),
 ]
@@ -664,10 +923,24 @@ class TestParserHappyPath:
 
     @pytest.mark.parametrize(
         "source, expected_body",
+        TYPE_EXPRESSION_CASES,
+    )
+    def test_parse_type_expressions(self, source: str, expected_body: ASTNode):
+        assert parse(source) == start_with_body(source, expected_body)
+
+    @pytest.mark.parametrize(
+        "source, expected_body",
         SIMPLE_STATEMENT_CASES,
     )
     def test_parse_simple_statements(self, source: str, expected_body: ASTNode):
         assert parse(source) == start_with_body(source, expected_body)
+
+    @pytest.mark.parametrize(
+        "source, expected_body",
+        MULTI_SIMPLE_STATEMENT_CASES,
+    )
+    def test_parse_multiple_simple_statements(self, source: str, expected_body: list[ASTNode]):
+        assert parse(source) == start_with_statements(source, expected_body)
 
     @pytest.mark.parametrize(
         "source, expected_body",

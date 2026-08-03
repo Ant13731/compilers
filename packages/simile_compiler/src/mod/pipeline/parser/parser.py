@@ -744,7 +744,9 @@ class Parser:
         self.consume(TokenType.NEWLINE, "Expected newline for block")
         self.consume(TokenType.INDENT, "Expected indentation for block")
         statements = self.statements()
-        self.consume(TokenType.DEDENT, "Expected dedentation for block")
+        if self.peek().type_ != TokenType.DEDENT:
+            self.consume(TokenType.DEDENT, "Expected dedentation for block")
+        self.peek().type_ = TokenType.NEWLINE  # Hack to allow for trailing newline after block
         return statements
 
     @store_derivation
@@ -1118,27 +1120,6 @@ class Parser:
             case _:
                 self.error(f"Unexpected token {t}")
 
-    # @store_derivation
-    # def import_name(self) -> list[ast_.Identifier]:
-    #     import_path = []
-    #     if self.match(TokenType.DOT):
-    #         import_path.append(ast_.Identifier("."))
-
-    #     t = self.advance()
-    #     if t.type_ == TokenType.IDENTIFIER:
-    #         import_path.append(ast_.Identifier(t.value))
-    #     else:
-    #         self.error("Expected identifier after import dot")
-
-    #     while self.match(TokenType.DOT):
-    #         t = self.advance()
-    #         if t.type_ == TokenType.IDENTIFIER:
-    #             import_path.append(ast_.Identifier(t.value))
-    #         else:
-    #             self.error(f"Expected identifier after import dot (parsed up to {import_path})")
-
-    #     return import_path
-
     @store_derivation
     def import_list(self) -> tuple[list[str], ast_.ImportOperator]:
         if self.match(TokenType.MULT):
@@ -1267,40 +1248,6 @@ class Parser:
                 items.append(self.typed_name())
         self.consume(TokenType.DEDENT, "Expected dedent after RECORD definition")
         return ast_.RecordDef(name, items)
-
-    # @store_derivation
-    # def enum_stmt(self) -> ast_.EnumDef:
-    #     t = self.advance()
-    #     if t.type_ != TokenType.IDENTIFIER:
-    #         self.error("Expected identifier after ENUM keyword")
-    #     name = ast_.Identifier(t.value)
-
-    #     self.consume(TokenType.COLON, "Expected colon after ENUM name")
-    #     self.consume(TokenType.NEWLINE, "Expected newline after ENUM definition")
-    #     self.consume(TokenType.INDENT, "Expected indentation after ENUM definition")
-    #     if self.match(TokenType.PASS):
-    #         self.advance()
-    #         items = []
-    #     else:
-    #         t = self.advance()
-    #         if t.type_ != TokenType.IDENTIFIER:
-    #             self.error("Expected identifier after ENUM keyword")
-    #         items = [ast_.Identifier(t.value)]
-    #         while self.peek().type_ == TokenType.COMMA or self.peek().type_ == TokenType.NEWLINE:
-    #             if self.peek(1).type_ == TokenType.DEDENT:
-    #                 self.consume(TokenType.NEWLINE, "Expected newline after last ENUM item")
-    #                 break
-    #             if self.match(TokenType.COMMA):
-    #                 self.match(TokenType.NEWLINE)
-    #             else:
-    #                 self.consume(TokenType.NEWLINE, "Expected newline or comma after ENUM item")
-
-    #             t = self.peek()
-    #             self.consume(TokenType.IDENTIFIER, "Expected identifier after ENUM separator (comma/newline)")
-    #             items.append(ast_.Identifier(t.value))
-
-    #     self.consume(TokenType.DEDENT, "Expected dedent after ENUM definition")
-    #     return ast_.EnumDef(name, items)
 
     @store_derivation
     def procedure_stmt(self) -> ast_.ProcedureDef:
