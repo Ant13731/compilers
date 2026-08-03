@@ -118,6 +118,8 @@ def _promote_binary_op(node: ast_.BinaryOp) -> ast_.ASTNode:
             return ast_.Concat(node.left, node.right)
         case ast_.BinaryOperator.INT_DIVIDE:
             return ast_.IntDivide(node.left, node.right)
+        case _:
+            raise ValueError(f"Match statement does not cover all cases for AST normalization (missed {node.op_type})")
     return node
 
 
@@ -145,6 +147,8 @@ def _promote_relation_op(node: ast_.RelationOp) -> ast_.ASTNode:
             return ast_.TotalSurjection(node.left, node.right)
         case ast_.RelationOperator.BIJECTION:
             return ast_.Bijection(node.left, node.right)
+        case _:
+            raise ValueError(f"Match statement does not cover all cases for AST normalization (missed {node.op_type})")
     return node
 
 
@@ -154,6 +158,8 @@ def _promote_list_op(node: ast_.ListOp) -> ast_.ASTNode:
             return ast_.And(node.items)
         case ast_.ListOperator.OR:
             return ast_.Or(node.items)
+        case _:
+            raise ValueError(f"Match statement does not cover all cases for AST normalization (missed {node.op_type})")
     return node
 
 
@@ -165,6 +171,8 @@ def _promote_unary_op(node: ast_.UnaryOp) -> ast_.ASTNode:
             return ast_.Negative(node.value)
         case ast_.UnaryOperator.INVERSE:
             return ast_.Inverse(node.value)
+        case _:
+            raise ValueError(f"Match statement does not cover all cases for AST normalization (missed {node.op_type})")
     return node
 
 
@@ -176,6 +184,8 @@ def _promote_control_flow_stmt(node: ast_.ControlFlowStmt) -> ast_.ASTNode:
             return ast_.Continue()
         case ast_.ControlFlowOperator.SKIP:
             return ast_.Skip()
+        case _:
+            raise ValueError(f"Match statement does not cover all cases for AST normalization (missed {node.op_type})")
     return node
 
 
@@ -201,6 +211,8 @@ def _promote_quantifier(node: ast_.Quantifier3) -> ast_.ASTNode:
             return ast_.Forall(node.body)
         case ast_.QuantifierOperator.EXISTS:
             return ast_.Exists(node.body)
+        case _:
+            raise ValueError(f"Match statement does not cover all cases for AST normalization (missed {node.op_type})")
     return node
 
 
@@ -214,4 +226,6 @@ def _promote_enumeration(node: ast_.Enumeration) -> ast_.ASTNode:
             return ast_.RelationEnumeration(node.items)
         case ast_.CollectionOperator.BAG:
             return ast_.BagEnumeration(node.items)
+        case _:
+            raise ValueError(f"Match statement does not cover all cases for AST normalization (missed {node.op_type})")
     return node
