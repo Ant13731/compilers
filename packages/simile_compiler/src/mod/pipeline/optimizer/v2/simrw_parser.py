@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Callable, Sequence
 from dataclasses import dataclass, field
 from copy import deepcopy
+import pathlib
 
 from loguru import logger
 from lark import Lark, Transformer, Token
@@ -57,7 +58,7 @@ class RewriteTransformer(Transformer):
         return [str(i).strip() for i in items]
 
 
-def parse_simrw_file(file_path: str) -> list[SimrwAST]:
+def parse_simrw_file(file_path: str | pathlib.Path) -> list[SimrwAST]:
     parser = Lark.open(
         "simrw.lark",
         rel_to=__file__,
