@@ -1,63 +1,28 @@
 from dataclasses import dataclass, fields
 import pathlib
 from typing_extensions import OrderedDict
-from copy import deepcopy
 
 from src.mod.data import ast_
-from src.mod.data.ast_.operators import BinaryOperator
-from src.mod.data.symbol_table import SymbolTableError
-from src.mod.data.symbol_table import SymbolTable, IdentifierContext, ScopeContext
-from src.mod.data.symbol_table.entry import SymbolTableIdentifierEntry
+from src.mod.data.symbol_table import (
+    SymbolTable,
+    IdentifierContext,
+    ScopeContext,
+    SymbolTableError,
+    SymbolTableIdentifierEntry,
+)
 from src.mod.data.types import (
     BaseType,
-    BoolType,
     RecordType,
     ProcedureType,
-    AnyType_,
-    GenericType,
-    DeferToSymbolTable,
     ModuleImports,
     ImportedSymbol,
-    NoneType_,
-    StringType,
-    IntType,
-    FloatType,
-    SetType,
     EnumType,
-    BagType,
-    RelationType,
-    SequenceType,
-    TupleType,
-    PairType,
     SimileTypeError,
 )
-from src.mod.data.traits import (
-    Trait,
-    TraitCollection,
-    OrderableTrait,
-    IterableTrait,
-    LiteralTrait,
-    DomainTrait,
-    MinTrait,
-    MaxTrait,
-    SizeTrait,
-    ImmutableTrait,
-    TotalOnDomainTrait,
-    TotalOnRangeTrait,
-    ManyToOneTrait,
-    OneToManyTrait,
-    EmptyTrait,
-    TotalTrait,
-    UniqueElementsTrait,
-    GenericBoundTrait,
-)
+from src.mod.data.traits import TraitCollection, LiteralTrait
 
 from src.mod.pipeline.parser import parse, ParseError
 from src.mod.pipeline.analysis.type_annotation_resolver import TypeAnnotationResolver
-
-
-class ParseImportError(Exception):
-    pass
 
 
 def populate_symbol_table(ast: ast_.ASTNode) -> SymbolTable:
@@ -147,33 +112,6 @@ class PopulateSymbolTable:
                 assert isinstance(_iterable_symbols, ast_.TupleSymbol)
                 return ast_.For(_iterable_symbols, _iterable, _body), False
 
-            # case ast_.QualifiedQuantifier(bound_identifiers, predicate, expression, op_type):
-            #     assert isinstance(bound_identifiers, ast_.IdentifierListTypes)
-
-            #     self.symbol_table.add_scope(ScopeContext.QUANTIFICATION)
-            #     self._populate_loop_parameters(bound_identifiers)
-            #     _iterable_symbols = self._convert_identifier_to_symbol(bound_identifiers)
-            #     _predicate = self.populate(predicate)
-            #     _expression = self.populate(expression)
-            #     self.symbol_table.pop_scope_level()
-
-            #     assert isinstance(_predicate, ast_.ListOp)
-            #     assert isinstance(_iterable_symbols, ast_.TupleSymbol)
-            #     return ast_.QualifiedQuantifier(_iterable_symbols, _predicate, _expression, op_type), False
-
-            # case ast_.Quantifier(predicate, expression, op_type):
-            #     self.symbol_table.add_scope(ScopeContext.QUANTIFICATION)
-            #     unbound_identifiers = self._find_unbound_identifiers(ast)
-            #     self._populate_loop_parameters(unbound_identifiers)
-            #     _iterable_symbols = self._convert_identifier_to_symbol(unbound_identifiers)
-            #     _predicate = self.populate(predicate)
-            #     _expression = self.populate(expression)
-            #     self.symbol_table.pop_scope_level()
-
-            #     assert isinstance(_predicate, ast_.ListOp)
-            #     assert isinstance(_iterable_symbols, ast_.TupleSymbol)
-            #     return ast_.QualifiedQuantifier(_iterable_symbols, _predicate, _expression, op_type), False
-
             case ast_.Quantifier3(body, op_type):
                 _body = self._populate_loop_parameters_from_generators(body)
                 return ast_.Quantifier3(_body, op_type), False
@@ -243,22 +181,6 @@ class PopulateSymbolTable:
                     RecordType(fields=fields),
                 )
 
-                # record_scope = self.symbol_table.add_scope(ScopeContext.RECORD)
-
-                # field_symbols: list[ast_.Symbol] = []
-                # for field_name, field_type in fields.items():
-                #     self.symbol_table.add_symbol(
-                #         field_name,
-                #         IdentifierContext.RECORD_FIELD,
-                #         field_type,
-                #     )
-
-                #     field_symbol = self._convert_identifier_to_symbol(ast_.Identifier(field_name))
-                #     assert isinstance(field_symbol, ast_.Symbol)
-                #     field_symbols.append(field_symbol)
-
-                # self.symbol_table.pop_scope_level()
-
                 _symbol = self._convert_identifier_to_symbol(ast_.Identifier(name))
                 assert isinstance(_symbol, ast_.Symbol)
                 return ast_.RecordDefSymbol(_symbol, fields), False
@@ -277,18 +199,6 @@ class PopulateSymbolTable:
                 assert isinstance(_param_symbols, ast_.TupleSymbol)
                 return ast_.LambdaDef(_param_symbols, _predicate, _expression), False
 
-            # Symbols
-
-            # Dont allow regular assignments to define types
-            # case ast_.Assignment(ast_.Identifier(name), value, with_clauses, _):
-            #     # TODO if variable is already defined, this could just be a reassignment?
-            #     #  Then it would be the responsibility of the type analysis pass to check that the reassignment is valid
-            #     # But normal assignment without a type annotation could produce a symbol (ex. typedef)
-            #     if not self.symbol_table.does_symbol_exist_in_current_scope(name):
-            #         self.symbol_table.add_symbol(
-            #             name,
-            #             IdentifierContext.VARIABLE,
-            #         )
             case ast_.TraitApplication(ast_.Assignment(ast_.TypedName(ast_.Identifier(name), ast_.Type_(ast_.Identifier("enum"), [])), value, is_choice), traits):
                 if not isinstance(value, ast_.Enumeration):
                     raise SimileTypeError(f"Enum type annotation can only be applied to enumeration definitions, got {type(value)}", value)
@@ -428,9 +338,8 @@ class PopulateSymbolTable:
                     _declared_type,
                 )
             case ast_.Import(module_file_path, names_to_import, import_operator):
-                module_ast = _read_from_path_and_parse(module_file_path)
                 # TODO fix this to allow for modules with different names (import ... as <name>)
-                module_name = module_file_path.split("/")[-1].split(".")[0]
+                module_name, module_ast = _read_from_path_and_parse(module_file_path)
                 module_scope = self.symbol_table.add_scope(ScopeContext.NAMESPACE)
                 self.populate(module_ast)
                 self.symbol_table.pop_scope_level()
@@ -599,42 +508,15 @@ class PopulateSymbolTable:
         _predicate = self.populate(iter_generator.generator.predicate)
         return ast_.IterGenerator(ast_.Generator(_identifier_symbols, _iterable, _predicate), _assignments)
 
-    def _find_unbound_identifiers(self, ast: ast_.Quantifier) -> ast_.TupleIdentifier:
-        """Finds unbound identifiers in an unqualified quantifier."""
-        possible_generators = list(filter(lambda x: x.op_type == ast_.BinaryOperator.IN, ast.predicate.find_all_instances(ast_.BinaryOp)))
-        possible_bound_identifiers: list[ast_.IdentifierListTypes] = []
-        possible_bound_identifier_names: set[ast_.Identifier] = set()
-        for possible_generator in possible_generators:
-            if isinstance(possible_generator.left, ast_.IdentifierListTypes):
-                possible_bound_identifiers.append(possible_generator.left)
-                possible_bound_identifier_names.update(possible_generator.left.flatten())
 
-            if isinstance(possible_generator.left, ast_.BinaryOp):
-                left = possible_generator.left.try_cast_maplet_to_maplet_identifier()
-                if left is None:
-                    continue
-
-                possible_bound_identifiers.append(left)
-                possible_bound_identifier_names.update(left.flatten())
-
-        for possible_bound_identifier in possible_bound_identifier_names:
-            if not self.symbol_table.does_symbol_exist_in_current_scope(possible_bound_identifier.name):
-                possible_bound_identifiers = list(filter(lambda x: not x.contains(possible_bound_identifier), possible_bound_identifiers))
-
-        if not possible_bound_identifiers:
-            raise SimileTypeError(
-                f"Failed to infer bound variables for quantifier {ast_.ast_to_source(ast)}. "
-                "Either the expression is ambiguously overwriting a predefined variable in scope, "
-                "or no valid generators are present in the quantification expression. Please explicitly state bound variables",
-                ast,
-            )
-
-        return ast_.TupleIdentifier(tuple(possible_bound_identifiers))
-
-
-def _read_from_path_and_parse(module_file_path: str) -> ast_.Start:
+def _read_from_path_and_parse(module_file_path: str) -> tuple[str, ast_.Start]:
     # Read in imported file
     full_module_path = pathlib.Path(module_file_path).resolve(strict=True)
+
+    if not full_module_path.is_file():
+        raise SymbolTableError(f"Failed to parse module for symbol table importing: module {module_file_path} does not exist or is not a file")
+
+    module_name = full_module_path.stem
     with open(full_module_path, "r") as f:
         module_content = f.read()
 
@@ -642,6 +524,8 @@ def _read_from_path_and_parse(module_file_path: str) -> ast_.Start:
     try:
         module_ast: ast_.Start = parse(module_content)
     except ParseError as e:
-        raise ParseImportError(f"Module {module_file_path} does not contain a valid Simile module. Expected a single Start node at the top level.") from e
+        raise SymbolTableError(
+            f"Failed to parse module for symbol table importing: module {module_file_path} does not contain a valid Simile module. Expected a single Start node at the top level."
+        ) from e
 
-    return module_ast
+    return module_name, module_ast

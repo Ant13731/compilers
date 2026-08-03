@@ -34,31 +34,32 @@ def check_clash(node: ast_.ASTNode, name: str) -> ReservedKeywordErr | None:
 def reserved_keywords_check(ast: ast_.ASTNode) -> None:
     """Throws an error if reserved keywords are used as identifiers in the AST."""
 
-    def traversal_function(node: ast_.ASTNode) -> ReservedKeywordErr | None:
-        match node:
-            case ast_.Assignment(ast_.Identifier(name), _) | ast_.Assignment(ast_.TypedName(ast_.Identifier(name), _), _):
-                return check_clash(node, name)
-
-            case ast_.For(iterable_names, _, _) | ast_.Generator(iterable_names, _, _) | ast_.LambdaDef(iterable_names, _, _):
-                for ident in iterable_names.flatten():
-                    if not isinstance(ident, ast_.Identifier):
-                        continue
-                    if (ret := check_clash(node, ident.name)) is not None:
-                        return ret
-
-            case ast_.RecordDef(ast_.Identifier(name), _):
-                return check_clash(node, name)
-            case ast_.ProcedureDef(ast_.Identifier(name), args, _, _):
-                if (ret := check_clash(node, name)) is not None:
-                    return ret
-
-                for arg in args:
-                    assert isinstance(arg.name, ast_.Identifier)
-                    if (ret := check_clash(node, arg.name.name)) is not None:
-                        return ret
-        return None
-
-    errors = list(filter(None, ast_.dataclass_traverse(ast, traversal_function, True, True)))
+    errors = list(filter(None, ast_.dataclass_traverse(ast, _keyword_traversal_function, True, True)))
 
     if errors:
         raise ValueError(f"Reserved keywords used as identifiers: {'\n'.join(map(str,errors))}")
+
+
+def _keyword_traversal_function(node: ast_.ASTNode) -> ReservedKeywordErr | None:
+    match node:
+        case ast_.Assignment(ast_.Identifier(name), _) | ast_.Assignment(ast_.TypedName(ast_.Identifier(name), _), _):
+            return check_clash(node, name)
+
+        case ast_.For(iterable_names, _, _) | ast_.Generator(iterable_names, _, _) | ast_.LambdaDef(iterable_names, _, _):
+            for ident in iterable_names.flatten():
+                if not isinstance(ident, ast_.Identifier):
+                    continue
+                if (ret := check_clash(node, ident.name)) is not None:
+                    return ret
+
+        case ast_.RecordDef(ast_.Identifier(name), _):
+            return check_clash(node, name)
+        case ast_.ProcedureDef(ast_.Identifier(name), args, _, _):
+            if (ret := check_clash(node, name)) is not None:
+                return ret
+
+            for arg in args:
+                assert isinstance(arg.name, ast_.Identifier)
+                if (ret := check_clash(node, arg.name.name)) is not None:
+                    return ret
+    return None

@@ -1,6 +1,4 @@
 from __future__ import annotations
-from dataclasses import dataclass, field, is_dataclass
-from typing import TypeVar
 
 from src.mod.data import ast_
 from src.mod.pipeline.analysis.normalize_ast import assert_no_parser_only_nodes, normalize_ast
@@ -20,6 +18,8 @@ def semantic_analysis(ast: ast_.ASTNode) -> ast_.ASTNode:
     symbol_table = populate_symbol_table(ast)
     ast = normalize_ast(ast)
     assert_no_parser_only_nodes(ast)
+    type_synthesizer = TypeSynthesizer(symbol_table)
+    type_synthesizer.type_check(ast)
     # TODO:
     # rewrite type check
     #  - make it so that we can determine the type of any ASTNode (using the symbol table for deferred type lookups)

@@ -1,61 +1,22 @@
 from __future__ import annotations
-from dataclasses import dataclass, field, is_dataclass
-import pathlib
-from typing import Callable, Generic, OrderedDict, ParamSpec, TypeVar, Protocol, cast, Any, Sequence
-from functools import singledispatch, singledispatchmethod, wraps, reduce
+from dataclasses import dataclass
+from typing import Callable, Any, Sequence
+from functools import singledispatchmethod, reduce
 
-from src.mod.data.symbol_table.entry import SymbolTableIdentifierEntry
-from src.mod.pipeline.analysis.type_annotation_resolver import TypeAnnotationResolver
-from src.mod.pipeline.scanner import Location
-from src.mod.pipeline.parser import parse, ParseError
 from src.mod.data import ast_, types, traits
 from src.mod.data.symbol_table import SymbolTable
 from src.mod.data.types.typing_rule_decorator import typing_rule
-
-
-def type_check(ast: ast_.ASTNode) -> None:
-    # TODO resolve types for assignments and the like
-    return None
+from src.mod.pipeline.analysis.type_annotation_resolver import TypeAnnotationResolver
 
 
 @dataclass
 class TypeSynthesizer:
     symbol_table: SymbolTable
 
-    def synthesize_type_binary[T](
-        self,
-        ast: ast_.BinaryOp | ast_.RelationOp,
-        expected_left_type: type[T],
-        operation_as_type_func: Callable[[T, types.BaseType], types.BaseType],
-    ) -> types.BaseType:
-        left_type = self.synthesize_type(ast.left, self.symbol_table)
-        right_type = self.synthesize_type(ast.right, self.symbol_table)
-        if not isinstance(left_type, expected_left_type):
-            raise types.SimileTypeError(f"Left operand of {operation_as_type_func.__name__} must be of type {expected_left_type}, got {left_type}", ast.left)
-        return operation_as_type_func(left_type, right_type)
-
-    def synthesize_type_binary_right_as_base[T](
-        self,
-        ast: ast_.BinaryOp | ast_.RelationOp,
-        expected_right_type: type[T],
-        operation_as_type_func: Callable[[T, types.BaseType], types.BaseType],
-    ) -> types.BaseType:
-        left_type = self.synthesize_type(ast.left, self.symbol_table)
-        right_type = self.synthesize_type(ast.right, self.symbol_table)
-        if not isinstance(right_type, expected_right_type):
-            raise types.SimileTypeError(f"Right operand of {operation_as_type_func.__name__} must be of type {expected_right_type}, got {right_type}", ast.right)
-        return operation_as_type_func(right_type, left_type)
-
-    def synthesize_type_multiple_binary_paths[T](
-        self, type_resolution_funcs: Sequence[tuple[ast_.BinaryOp | ast_.RelationOp, type[T] | Any, Callable[[T, types.BaseType], types.BaseType]] | Any]
-    ) -> types.BaseType:
-        tries: list[types.SimileTypeError] = []
-        for ast, expected_left_type, op_as_type_func in type_resolution_funcs:
-            try:
-                return self.synthesize_type_binary(ast, expected_left_type, op_as_type_func)
-            except types.SimileTypeError as e:
-                tries.append(e)
-        raise types.SimileTypeError(f"All attempted type resolution paths failed. Got: {'\n'.join(map(str,tries))}")
+    def type_check(self, ast: ast_.ASTNode):
+        for node in ast.children():
+            self.type_check(node)
+            self.synthesize_type(node)
 
     @singledispatchmethod
     def synthesize_type(self, ast: ast_.ASTNode) -> types.BaseType:
@@ -201,22 +162,22 @@ class TypeSynthesizer:
     @typing_rule("Binary Boolean Operations")
     @synthesize_type.register
     def _(self, ast: ast_.Implies) -> types.BaseType:
-        return self.synthesize_type_binary(ast, types.BoolType, types.BoolType.implies)
+        return self._synthesize_type_binary(ast, types.BoolType, types.BoolType.implies)
 
     @typing_rule("Binary Boolean Operations")
     @synthesize_type.register
     def _(self, ast: ast_.Equivalent) -> types.BaseType:
-        return self.synthesize_type_binary(ast, types.BoolType, types.BoolType.equivalent)
+        return self._synthesize_type_binary(ast, types.BoolType, types.BoolType.equivalent)
 
     @typing_rule("Binary Boolean Operations")
     @synthesize_type.register
     def _(self, ast: ast_.NotEquivalent) -> types.BaseType:
-        return self.synthesize_type_binary(ast, types.BoolType, types.BoolType.not_equivalent)
+        return self._synthesize_type_binary(ast, types.BoolType, types.BoolType.not_equivalent)
 
     @typing_rule("Bag Operations")
     @synthesize_type.register
     def _(self, ast: ast_.Add) -> types.BaseType:
-        return self.synthesize_type_multiple_binary_paths(
+        return self._synthesize_type_multiple_binary_paths(
             [
                 (ast, types.IntType, types.IntType.add),
                 (ast, types.FloatType, types.FloatType.add),
@@ -227,7 +188,7 @@ class TypeSynthesizer:
     @typing_rule("Bag Operations")
     @synthesize_type.register
     def _(self, ast: ast_.Subtract) -> types.BaseType:
-        return self.synthesize_type_multiple_binary_paths(
+        return self._synthesize_type_multiple_binary_paths(
             [
                 (ast, types.IntType, types.IntType.subtract),
                 (ast, types.FloatType, types.FloatType.subtract),
@@ -238,7 +199,7 @@ class TypeSynthesizer:
     @typing_rule()
     @synthesize_type.register
     def _(self, ast: ast_.Multiply) -> types.BaseType:
-        return self.synthesize_type_multiple_binary_paths(
+        return self._synthesize_type_multiple_binary_paths(
             [
                 (ast, types.IntType, types.IntType.multiply),
                 (ast, types.FloatType, types.FloatType.multiply),
@@ -248,7 +209,7 @@ class TypeSynthesizer:
     @typing_rule()
     @synthesize_type.register
     def _(self, ast: ast_.Divide) -> types.BaseType:
-        return self.synthesize_type_multiple_binary_paths(
+        return self._synthesize_type_multiple_binary_paths(
             [
                 (ast, types.IntType, types.IntType.divide),
                 (ast, types.FloatType, types.FloatType.divide),
@@ -258,17 +219,17 @@ class TypeSynthesizer:
     @typing_rule()
     @synthesize_type.register
     def _(self, ast: ast_.IntDivide) -> types.BaseType:
-        return self.synthesize_type_binary(ast, types.IntType, types.IntType.int_divide)
+        return self._synthesize_type_binary(ast, types.IntType, types.IntType.int_divide)
 
     @typing_rule()
     @synthesize_type.register
     def _(self, ast: ast_.Modulo) -> types.BaseType:
-        return self.synthesize_type_binary(ast, types.IntType, types.IntType.modulo)
+        return self._synthesize_type_binary(ast, types.IntType, types.IntType.modulo)
 
     @typing_rule()
     @synthesize_type.register
     def _(self, ast: ast_.Exponent) -> types.BaseType:
-        return self.synthesize_type_multiple_binary_paths(
+        return self._synthesize_type_multiple_binary_paths(
             [
                 (ast, types.IntType, types.IntType.power),
                 (ast, types.FloatType, types.FloatType.power),
@@ -278,7 +239,7 @@ class TypeSynthesizer:
     @typing_rule("Ordering Operators")
     @synthesize_type.register
     def _(self, ast: ast_.LessThan) -> types.BaseType:
-        return self.synthesize_type_multiple_binary_paths(
+        return self._synthesize_type_multiple_binary_paths(
             [
                 (ast, types.IntType, types.IntType.less_than),
                 (ast, types.FloatType, types.FloatType.less_than),
@@ -288,7 +249,7 @@ class TypeSynthesizer:
     @typing_rule("Ordering Operators")
     @synthesize_type.register
     def _(self, ast: ast_.LessThanOrEqual) -> types.BaseType:
-        return self.synthesize_type_multiple_binary_paths(
+        return self._synthesize_type_multiple_binary_paths(
             [
                 (ast, types.IntType, types.IntType.less_than_equals),
                 (ast, types.FloatType, types.FloatType.less_than_equals),
@@ -298,7 +259,7 @@ class TypeSynthesizer:
     @typing_rule("Ordering Operators")
     @synthesize_type.register
     def _(self, ast: ast_.GreaterThan) -> types.BaseType:
-        return self.synthesize_type_multiple_binary_paths(
+        return self._synthesize_type_multiple_binary_paths(
             [
                 (ast, types.IntType, types.IntType.greater_than),
                 (ast, types.FloatType, types.FloatType.greater_than),
@@ -308,7 +269,7 @@ class TypeSynthesizer:
     @typing_rule("Ordering Operators")
     @synthesize_type.register
     def _(self, ast: ast_.GreaterThanOrEqual) -> types.BaseType:
-        return self.synthesize_type_multiple_binary_paths(
+        return self._synthesize_type_multiple_binary_paths(
             [
                 (ast, types.IntType, types.IntType.greater_than_equals),
                 (ast, types.FloatType, types.FloatType.greater_than_equals),
@@ -318,12 +279,12 @@ class TypeSynthesizer:
     @typing_rule("Equals")
     @synthesize_type.register
     def _(self, ast: ast_.Equal) -> types.BaseType:
-        return self.synthesize_type_binary(ast, types.BaseType, types.BaseType.equals)
+        return self._synthesize_type_binary(ast, types.BaseType, types.BaseType.equals)
 
     @typing_rule("Equals")
     @synthesize_type.register
     def _(self, ast: ast_.NotEqual) -> types.BaseType:
-        return self.synthesize_type_binary(ast, types.BaseType, types.BaseType.not_equals)
+        return self._synthesize_type_binary(ast, types.BaseType, types.BaseType.not_equals)
 
     # @resolve_type.register
     # def _(self, ast: ast_.Is) -> types.BaseType:
@@ -333,17 +294,17 @@ class TypeSynthesizer:
     @typing_rule("Set Membership")
     @synthesize_type.register
     def _(self, ast: ast_.In) -> types.BaseType:
-        return self.synthesize_type_binary_right_as_base(ast, types.SetType, types.SetType.in_)
+        return self._synthesize_type_binary_right_as_base(ast, types.SetType, types.SetType.in_)
 
     @typing_rule("Set Membership")
     @synthesize_type.register
     def _(self, ast: ast_.NotIn) -> types.BaseType:
-        return self.synthesize_type_binary_right_as_base(ast, types.SetType, types.SetType.not_in)
+        return self._synthesize_type_binary_right_as_base(ast, types.SetType, types.SetType.not_in)
 
     @typing_rule("Set Operations", "Bag Operations")
     @synthesize_type.register
     def _(self, ast: ast_.Union) -> types.BaseType:
-        return self.synthesize_type_multiple_binary_paths(
+        return self._synthesize_type_multiple_binary_paths(
             [
                 (ast, types.SetType, types.SetType.union),
                 (ast, types.BagType, types.BagType.bag_union),
@@ -353,7 +314,7 @@ class TypeSynthesizer:
     @typing_rule("Set Operations", "Bag Operations")
     @synthesize_type.register
     def _(self, ast: ast_.Intersection) -> types.BaseType:
-        return self.synthesize_type_multiple_binary_paths(
+        return self._synthesize_type_multiple_binary_paths(
             [
                 (ast, types.SetType, types.SetType.intersection),
                 (ast, types.BagType, types.BagType.bag_intersection),
@@ -363,47 +324,47 @@ class TypeSynthesizer:
     @typing_rule("Set Operations")
     @synthesize_type.register
     def _(self, ast: ast_.Difference) -> types.BaseType:
-        return self.synthesize_type_binary(ast, types.SetType, types.SetType.difference)
+        return self._synthesize_type_binary(ast, types.SetType, types.SetType.difference)
 
     @typing_rule("Set Ordering Operations")
     @synthesize_type.register
     def _(self, ast: ast_.Subset) -> types.BaseType:
-        return self.synthesize_type_binary(ast, types.SetType, types.SetType.is_subset)
+        return self._synthesize_type_binary(ast, types.SetType, types.SetType.is_subset)
 
     @typing_rule("Set Ordering Operations")
     @synthesize_type.register
     def _(self, ast: ast_.SubsetEq) -> types.BaseType:
-        return self.synthesize_type_binary(ast, types.SetType, types.SetType.is_subset_equals)
+        return self._synthesize_type_binary(ast, types.SetType, types.SetType.is_subset_equals)
 
     @typing_rule("Set Ordering Operations")
     @synthesize_type.register
     def _(self, ast: ast_.Superset) -> types.BaseType:
-        return self.synthesize_type_binary(ast, types.SetType, types.SetType.is_superset)
+        return self._synthesize_type_binary(ast, types.SetType, types.SetType.is_superset)
 
     @typing_rule("Set Ordering Operations")
     @synthesize_type.register
     def _(self, ast: ast_.SupersetEq) -> types.BaseType:
-        return self.synthesize_type_binary(ast, types.SetType, types.SetType.is_superset_equals)
+        return self._synthesize_type_binary(ast, types.SetType, types.SetType.is_superset_equals)
 
     @typing_rule("Set Ordering Operations")
     @synthesize_type.register
     def _(self, ast: ast_.NotSubset) -> types.BaseType:
-        return self.synthesize_type_binary(ast, types.SetType, types.SetType.not_is_subset)
+        return self._synthesize_type_binary(ast, types.SetType, types.SetType.not_is_subset)
 
     @typing_rule("Set Ordering Operations")
     @synthesize_type.register
     def _(self, ast: ast_.NotSubsetEq) -> types.BaseType:
-        return self.synthesize_type_binary(ast, types.SetType, types.SetType.not_is_subset_equals)
+        return self._synthesize_type_binary(ast, types.SetType, types.SetType.not_is_subset_equals)
 
     @typing_rule("Set Ordering Operations")
     @synthesize_type.register
     def _(self, ast: ast_.NotSuperset) -> types.BaseType:
-        return self.synthesize_type_binary(ast, types.SetType, types.SetType.not_is_superset)
+        return self._synthesize_type_binary(ast, types.SetType, types.SetType.not_is_superset)
 
     @typing_rule("Set Ordering Operations")
     @synthesize_type.register
     def _(self, ast: ast_.NotSupersetEq) -> types.BaseType:
-        return self.synthesize_type_binary(ast, types.SetType, types.SetType.not_is_superset_equals)
+        return self._synthesize_type_binary(ast, types.SetType, types.SetType.not_is_superset_equals)
 
     @typing_rule("Maplet")
     @synthesize_type.register
@@ -413,47 +374,47 @@ class TypeSynthesizer:
     @typing_rule("Relation Operations - Overriding")
     @synthesize_type.register
     def _(self, ast: ast_.RelationOverriding) -> types.BaseType:
-        return self.synthesize_type_binary(ast, types.RelationType, types.RelationType.overriding)
+        return self._synthesize_type_binary(ast, types.RelationType, types.RelationType.overriding)
 
     @typing_rule("Relation Operations - Composition")
     @synthesize_type.register
     def _(self, ast: ast_.Composition) -> types.BaseType:
-        return self.synthesize_type_binary(ast, types.RelationType, types.RelationType.composition)
+        return self._synthesize_type_binary(ast, types.RelationType, types.RelationType.composition)
 
     @typing_rule("Cartesian Product")
     @synthesize_type.register
     def _(self, ast: ast_.CartesianProduct) -> types.BaseType:
-        return self.synthesize_type_binary(ast, types.SetType, types.SetType.cartesian_product)
+        return self._synthesize_type_binary(ast, types.SetType, types.SetType.cartesian_product)
 
     @typing_rule("Numerical Range")
     @synthesize_type.register
     def _(self, ast: ast_.Upto) -> types.BaseType:
-        return self.synthesize_type_binary(ast, types.IntType, types.IntType.upto)
+        return self._synthesize_type_binary(ast, types.IntType, types.IntType.upto)
 
     @typing_rule("Sequence Operations - Concatenation")
     @synthesize_type.register
     def _(self, ast: ast_.Concat) -> types.BaseType:
-        return self.synthesize_type_binary(ast, types.SequenceType, types.SequenceType.concat)
+        return self._synthesize_type_binary(ast, types.SequenceType, types.SequenceType.concat)
 
     @typing_rule("Relation Operations - Domain Subtraction")
     @synthesize_type.register
     def _(self, ast: ast_.DomainSubtraction) -> types.BaseType:
-        return self.synthesize_type_binary_right_as_base(ast, types.RelationType, types.RelationType.domain_subtraction)
+        return self._synthesize_type_binary_right_as_base(ast, types.RelationType, types.RelationType.domain_subtraction)
 
     @typing_rule("Relation Operations - Domain Restriction")
     @synthesize_type.register
     def _(self, ast: ast_.DomainRestriction) -> types.BaseType:
-        return self.synthesize_type_binary_right_as_base(ast, types.RelationType, types.RelationType.domain_restriction)
+        return self._synthesize_type_binary_right_as_base(ast, types.RelationType, types.RelationType.domain_restriction)
 
     @typing_rule("Relation Operations - Range Subtraction")
     @synthesize_type.register
     def _(self, ast: ast_.RangeSubtraction) -> types.BaseType:
-        return self.synthesize_type_binary(ast, types.RelationType, types.RelationType.range_subtraction)
+        return self._synthesize_type_binary(ast, types.RelationType, types.RelationType.range_subtraction)
 
     @typing_rule("Relation Operations - Range Restriction")
     @synthesize_type.register
     def _(self, ast: ast_.RangeRestriction) -> types.BaseType:
-        return self.synthesize_type_binary(ast, types.RelationType, types.RelationType.range_restriction)
+        return self._synthesize_type_binary(ast, types.RelationType, types.RelationType.range_restriction)
 
     def create_relation_type(self, ast: ast_.RelationOp, relation_operator: ast_.RelationOperator) -> types.BaseType:
         left_type = self.synthesize_type(ast.left)
@@ -967,3 +928,38 @@ class TypeSynthesizer:
             raise types.SimileTypeError(f"Print function takes exactly 1 argument. Got {len(ast.args)}", ast)
         self.synthesize_type(ast.args[0])  # Just check that the argument is well-typed
         return types.NoneType_()
+
+    def _synthesize_type_binary[T](
+        self,
+        ast: ast_.BinaryOp | ast_.RelationOp,
+        expected_left_type: type[T],
+        operation_as_type_func: Callable[[T, types.BaseType], types.BaseType],
+    ) -> types.BaseType:
+        left_type = self.synthesize_type(ast.left, self.symbol_table)
+        right_type = self.synthesize_type(ast.right, self.symbol_table)
+        if not isinstance(left_type, expected_left_type):
+            raise types.SimileTypeError(f"Left operand of {operation_as_type_func.__name__} must be of type {expected_left_type}, got {left_type}", ast.left)
+        return operation_as_type_func(left_type, right_type)
+
+    def _synthesize_type_binary_right_as_base[T](
+        self,
+        ast: ast_.BinaryOp | ast_.RelationOp,
+        expected_right_type: type[T],
+        operation_as_type_func: Callable[[T, types.BaseType], types.BaseType],
+    ) -> types.BaseType:
+        left_type = self.synthesize_type(ast.left, self.symbol_table)
+        right_type = self.synthesize_type(ast.right, self.symbol_table)
+        if not isinstance(right_type, expected_right_type):
+            raise types.SimileTypeError(f"Right operand of {operation_as_type_func.__name__} must be of type {expected_right_type}, got {right_type}", ast.right)
+        return operation_as_type_func(right_type, left_type)
+
+    def _synthesize_type_multiple_binary_paths[T](
+        self, type_resolution_funcs: Sequence[tuple[ast_.BinaryOp | ast_.RelationOp, type[T] | Any, Callable[[T, types.BaseType], types.BaseType]] | Any]
+    ) -> types.BaseType:
+        tries: list[types.SimileTypeError] = []
+        for ast, expected_left_type, op_as_type_func in type_resolution_funcs:
+            try:
+                return self._synthesize_type_binary(ast, expected_left_type, op_as_type_func)
+            except types.SimileTypeError as e:
+                tries.append(e)
+        raise types.SimileTypeError(f"All attempted type resolution paths failed. Got: {'\n'.join(map(str,tries))}")

@@ -1,34 +1,18 @@
-from dataclasses import dataclass, fields
-import pathlib
-from typing_extensions import OrderedDict
-from copy import deepcopy
-
-
 from src.mod.data import ast_
-from src.mod.data.ast_.operators import BinaryOperator
-from src.mod.data.symbol_table import SymbolTableError
-from src.mod.data.symbol_table import SymbolTable, IdentifierContext, ScopeContext
-from src.mod.data.symbol_table.entry import SymbolTableIdentifierEntry
+from src.mod.data.symbol_table import SymbolTable
 from src.mod.data.types import (
     BaseType,
     BoolType,
-    RecordType,
-    ProcedureType,
-    AnyType_,
     GenericType,
     DeferToSymbolTable,
-    ModuleImports,
-    NoneType_,
     StringType,
     IntType,
     FloatType,
     SetType,
-    EnumType,
     BagType,
     RelationType,
     SequenceType,
     TupleType,
-    PairType,
     SimileTypeError,
 )
 from src.mod.data.traits import (
