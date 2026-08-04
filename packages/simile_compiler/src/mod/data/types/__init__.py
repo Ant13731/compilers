@@ -24,6 +24,7 @@ from src.mod.data.types.primitive import (
 from src.mod.data.types.set_ import (
     SetType,
     EnumType,
+    EnumItemType,
     BagType,
     RelationType,
     SequenceType,

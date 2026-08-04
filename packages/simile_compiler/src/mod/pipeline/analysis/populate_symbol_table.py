@@ -25,9 +25,12 @@ from src.mod.data.types import (
 from src.mod.data.traits import TraitCollection, LiteralTrait
 from src.mod.data.standard_library import STANDARD_LIBRARY_FOLDER
 
+from src.mod.data.types.primitive import NoneType_
+from src.mod.data.types.set_ import EnumItemType
 from src.mod.data.types.tuple_ import TupleType
 from src.mod.pipeline.parser import parse, ParseError
 from src.mod.pipeline.analysis.type_annotation_resolver import TypeAnnotationResolver
+from src.mod.pipeline.analysis.type_synthesizer import TypeSynthesizer
 
 
 def populate_symbol_table(ast: ast_.ASTNode) -> SymbolTable:
@@ -125,9 +128,11 @@ class PopulateSymbolTable:
                 assert isinstance(iterable_names, ast_.IdentifierListTypes)
 
                 self.symbol_table.add_scope(ScopeContext.LOOP)
-                self._populate_loop_parameters(iterable_names)
-                _iterable_symbols = self._convert_identifier_to_symbol(iterable_names)
                 _iterable = self.populate(iterable)
+                temporary_type_synthesizer = TypeSynthesizer(self.symbol_table)
+                _iterable_type = temporary_type_synthesizer.synthesize_type(iterable)
+                self._populate_loop_parameters(iterable_names, _iterable_type)
+                _iterable_symbols = self._convert_identifier_to_symbol(iterable_names)
                 _body = self.populate(body)
                 self.symbol_table.pop_scope_level()
 
@@ -214,7 +219,8 @@ class PopulateSymbolTable:
                 _predicate = self.populate(predicate)
                 _expression = self.populate(expression)
 
-                self._populate_loop_parameters(params)
+                # FIXME types are not known at this point
+                self._populate_loop_parameters(params, NoneType_())
                 _param_symbols = self._convert_identifier_to_symbol(params)
 
                 self.symbol_table.pop_scope_level()
@@ -237,20 +243,17 @@ class PopulateSymbolTable:
                     members.add(_item.name)
 
                 trait_collection = TypeAnnotationResolver.resolve_trait_collection(traits, self.symbol_table)
+                enum_type = EnumType(members=members, trait_collection=trait_collection)
                 self.symbol_table.add_symbol(
                     name,
                     IdentifierContext.ENUM,
-                    EnumType(members=members, trait_collection=trait_collection),
+                    enum_type,
                 )
                 for member in members:
-                    symbol_item = self.symbol_table.add_symbol(
+                    self.symbol_table.add_symbol(
                         member,
                         IdentifierContext.ENUM_ITEM,
-                    )
-                    literal_trait_collection = TraitCollection(literal_trait=LiteralTrait(ast_.Symbol(symbol_item)))
-                    symbol_item.declared_type = EnumType(
-                        members=members,
-                        trait_collection=literal_trait_collection.merge(trait_collection, True),
+                        EnumItemType(enum_type),
                     )
                 _name = self.populate(ast_.Identifier(name))
                 _value = self.populate(value)
@@ -341,18 +344,18 @@ class PopulateSymbolTable:
                         raise SimileTypeError(f"Enum item name {_item.name} already exists in current scope, cannot be used as enum item name", _item)
                     members.add(_item.name)
 
+                enum_type = EnumType(members=members)
                 self.symbol_table.add_symbol(
                     name,
                     IdentifierContext.ENUM,
-                    EnumType(members=members),
+                    enum_type,
                 )
                 for member in members:
-                    symbol_item = self.symbol_table.add_symbol(
+                    self.symbol_table.add_symbol(
                         member,
                         IdentifierContext.ENUM_ITEM,
+                        EnumItemType(enum_type),
                     )
-                    literal_trait_collection = TraitCollection(literal_trait=LiteralTrait(ast_.Symbol(symbol_item)))
-                    symbol_item.declared_type = EnumType(members=members, trait_collection=literal_trait_collection)
 
             case ast_.Assignment(ast_.TypedName(ast_.Identifier(name), ast_.Type_(ast_.Identifier("type"), [])), value, is_choice_assignment):
                 if not isinstance(value, ast_.Image):
@@ -455,17 +458,40 @@ class PopulateSymbolTable:
                 return ast_.TupleSymbol(tuple(_identifiers))
         raise ValueError(f"Unsupported identifier type: {type(ast)}. This should not happen")
 
-    def _populate_loop_parameters(self, iterable_names: ast_.IdentifierListTypes) -> None:
+    def _populate_loop_parameters(self, iterable_names: ast_.IdentifierListTypes, corresponding_iterable_type: BaseType) -> None:
+        if not isinstance(corresponding_iterable_type, SetType):
+            raise SimileTypeError(f"Invalid iterable type for loop parameters (must be a set type that we can iterate over): {corresponding_iterable_type}", iterable_names)
+
+        # FIXME: destructure set so we know the types of loop vars
         if isinstance(iterable_names, ast_.Identifier):
             self.symbol_table.add_symbol(
                 iterable_names.name,
                 IdentifierContext.LOOP_VARIABLE,
+                corresponding_iterable_type.element_type,
             )
-        elif isinstance(iterable_names, ast_.TupleIdentifier):
-            for ident in iterable_names.flatten():
-                self._populate_loop_parameters(ident)
-        else:
-            raise SimileTypeError(f"Invalid for loop variable name (must be an identifier, maplet identifier, or tuple identifier): {iterable_names}", iterable_names)
+            return
+        if isinstance(iterable_names, ast_.TupleIdentifier):
+            if len(iterable_names.items) == 0:
+                raise SimileTypeError(f"Invalid for loop variable identifier tuple (cannot be empty): {iterable_names}", iterable_names)
+            if len(iterable_names.items) == 1:
+                self._populate_loop_parameters(iterable_names.items[0], corresponding_iterable_type)
+                return
+            element_type = corresponding_iterable_type.element_type
+            if not isinstance(element_type, TupleType):
+                raise SimileTypeError(
+                    f"Failed to destructure element type for iterable when populating loop parameters ({corresponding_iterable_type} is not a set[tuple] type)", iterable_names
+                )
+            if len(iterable_names.items) != len(element_type.items):
+                raise SimileTypeError(
+                    f"Invalid for loop variable identifier tuple (length of identifiers ({len(iterable_names.items)}) does not match element types for {element_type})",
+                    iterable_names,
+                )
+
+            for ident, type_ in zip(iterable_names.items, element_type.items):
+                # Rewrap in set type since we previously unwrapped to get at the tuple underneath. Kind of a hack
+                self._populate_loop_parameters(ident, SetType(type_))
+            return
+        raise SimileTypeError(f"Invalid for loop variable name (must be an identifier, maplet identifier, or tuple identifier): {iterable_names}", iterable_names)
 
     def _populate_loop_parameters_from_generators(self, quantifier: ast_.QuantifierBody) -> ast_.QuantifierBody:
         match quantifier:
@@ -549,9 +575,11 @@ class PopulateSymbolTable:
         """
         self.symbol_table.add_scope(ScopeContext.QUANTIFICATION)
         assert isinstance(generator.identifiers, ast_.IdentifierListTypes)
-        self._populate_loop_parameters(generator.identifiers)
-        _identifier_symbols = self._convert_identifier_to_symbol(generator.identifiers)
         _iterable = self.populate(generator.set_)
+        temporary_type_synthesizer = TypeSynthesizer(self.symbol_table)
+        _iterable_type = temporary_type_synthesizer.synthesize_type(_iterable)
+        self._populate_loop_parameters(generator.identifiers, _iterable_type)
+        _identifier_symbols = self._convert_identifier_to_symbol(generator.identifiers)
         _predicate = self.populate(generator.predicate)
         return ast_.Generator(_identifier_symbols, _iterable, _predicate)
 
@@ -561,9 +589,11 @@ class PopulateSymbolTable:
         """
         self.symbol_table.add_scope(ScopeContext.QUANTIFICATION)
         assert isinstance(iter_generator.generator.identifiers, ast_.IdentifierListTypes)
-        self._populate_loop_parameters(iter_generator.generator.identifiers)
-        _identifier_symbols = self._convert_identifier_to_symbol(iter_generator.generator.identifiers)
+        temporary_type_synthesizer = TypeSynthesizer(self.symbol_table)
         _iterable = self.populate(iter_generator.generator.set_)
+        _iterable_type = temporary_type_synthesizer.synthesize_type(_iterable)
+        self._populate_loop_parameters(iter_generator.generator.identifiers, _iterable_type)
+        _identifier_symbols = self._convert_identifier_to_symbol(iter_generator.generator.identifiers)
         _assignments: list[ast_.Assignment] = []
         for assignment in iter_generator.assignments:
             _assignment = self.populate(assignment)

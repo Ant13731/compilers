@@ -155,8 +155,10 @@ class TypeAnnotationResolver:
             # User-identified types (presumably)
             case ast_.Identifier(symbol_table_name):
                 # FIXME we shouldnt need to defer these types since the symbol table should have all required types up until this point. Maybe resolve the deferred type recursively?
+                # What about generics?
                 symbol_table_entry = symbol_table.lookup_identifier_in_current_scope(symbol_table_name)
-                return DeferToSymbolTable(symbol_table_entry, resolved_type_params)
+                return symbol_table_entry.declared_type
+                # return DeferToSymbolTable(symbol_table_entry, resolved_type_params)
             # Special notation for relation types
             # TODO not allowed by parser for now?
             case ast_.RelationOp(left, right, op):

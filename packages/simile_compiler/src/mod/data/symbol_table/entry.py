@@ -25,7 +25,7 @@ class SymbolTableIdentifierEntry:
     id_: int
     scope: int
     name: str
-    declared_type: BaseType | None
+    declared_type: BaseType
 
     """How was this symbol table entry (identifier) declared? Ex. as a variable or as the name of a procedure?"""
     context: IdentifierContext

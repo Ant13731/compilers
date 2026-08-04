@@ -577,6 +577,11 @@ class EnumType(SetType):
 
 
 @dataclass
+class EnumItemType(BaseType):
+    enum_type: EnumType
+
+
+@dataclass
 class QuantificationBodyIntermediary(BaseType):
     return_type: BaseType
 

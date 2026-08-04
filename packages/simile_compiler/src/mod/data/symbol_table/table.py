@@ -20,7 +20,7 @@ class SymbolTable:
     _scope_id_counter: int = 0
     _current_scope_list: list[ScopeTableEntry] = field(default_factory=list)
 
-    def add_symbol(self, name: str, context: IdentifierContext, declared_type: BaseType | None = None) -> SymbolTableIdentifierEntry:
+    def add_symbol(self, name: str, context: IdentifierContext, declared_type: BaseType) -> SymbolTableIdentifierEntry:
         """Returns the new symbol table entry."""
         if len(self._current_scope_list) == 0:
             raise SymbolTableError("Cannot add symbol because no scope has been added to the symbol table yet (current_scope_list is empty)")

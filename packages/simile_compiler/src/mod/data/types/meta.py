@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Type, ClassVar
+from warnings import deprecated
 
 from src.mod.data.types.error import SimileTypeError
 from src.mod.data.types.base import BaseType
@@ -70,6 +71,7 @@ class GenericType(BaseType):
 
 
 @dataclass
+@deprecated("Do we actually need this type?")
 class DeferToSymbolTable(BaseType):
     """Types dependent on this will not be resolved until the analysis phase.
 
