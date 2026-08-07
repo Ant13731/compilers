@@ -14,6 +14,7 @@ class IdentifierContext(Enum):
     LOOP_VARIABLE = auto()
     LAMBDA_VARIABLE = auto()
     MODULE_IMPORT = auto()
+    MODULE_IMPORT_SYMBOL = auto()
     ENUM = auto()
     ENUM_ITEM = auto()
     TYPE_NAME = auto()
@@ -42,7 +43,7 @@ class ScopeContext(Enum):
     LOOP = auto()
     LAMBDA = auto()
     RECORD = auto()
-    NAMESPACE = auto()
+    IMPORT = auto()
 
 
 @dataclass

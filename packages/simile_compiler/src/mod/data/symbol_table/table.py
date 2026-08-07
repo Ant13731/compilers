@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 
 from src.mod.data.types.base import BaseType
+from src.mod.data.types.meta import ModuleImports, ImportedSymbol
 from src.mod.data.symbol_table.entry import (
     IdentifierContext,
     ScopeContext,
@@ -22,11 +23,8 @@ class SymbolTable:
 
     def add_symbol(self, name: str, context: IdentifierContext, declared_type: BaseType) -> SymbolTableIdentifierEntry:
         """Returns the new symbol table entry."""
-        if len(self._current_scope_list) == 0:
-            raise SymbolTableError("Cannot add symbol because no scope has been added to the symbol table yet (current_scope_list is empty)")
-        current_scope = self._current_scope_list[-1]
-
-        if name in [self.symbols[symbol_id].name for symbol_id in current_scope.declared_symbols]:
+        current_scope = self.current_scope()
+        if self.symbol_exists_in_current_scope(name):
             raise SymbolTableError(f"Cannot add new symbol with name {name} because a symbol with that name already exists in the current scope with id {current_scope.id_}")
 
         self._symbol_id_counter += 1
@@ -78,7 +76,7 @@ class SymbolTable:
             raise SymbolTableError("Cannot get current scope because no scope has been added to the symbol table yet (current_scope_list is empty)")
         return self._current_scope_list[-1]
 
-    def lookup_identifier_in_current_scope(self, identifier: str) -> SymbolTableIdentifierEntry:
+    def lookup_identifier(self, identifier: str) -> SymbolTableIdentifierEntry:
         """Looks up a symbol by its id and scope, returning the symbol table entry."""
         for scope in reversed(self._current_scope_list):
             for symbol_id in scope.declared_symbols:
@@ -86,8 +84,14 @@ class SymbolTable:
                     return self.symbols[symbol_id]
         raise SymbolTableError(f"Identifier '{identifier}' not found in current scope")
 
-    def does_symbol_exist_in_current_scope(self, name: str) -> bool:
-        return name in [self.symbols[symbol_id].name for symbol_id in self.current_scope().declared_symbols]
+    def symbol_exists_in_current_scope(self, name: str) -> bool:
+        return self.get_symbol_by_name_in_current_scope(name) is not None
+
+    def get_symbol_by_name_in_current_scope(self, name: str) -> SymbolTableIdentifierEntry | None:
+        for symbol_id in self.current_scope().declared_symbols:
+            if self.symbols[symbol_id].name == name:
+                return self.symbols[symbol_id]
+        return None
 
     def get_top_level_symbols(self) -> list[SymbolTableIdentifierEntry]:
         """Returns a list of symbol table entries for symbols declared at the top level (i.e. in the base scope)."""

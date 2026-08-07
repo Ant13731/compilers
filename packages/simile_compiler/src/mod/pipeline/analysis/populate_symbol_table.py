@@ -1,5 +1,5 @@
 from dataclasses import dataclass, fields
-import pathlib
+from pathlib import Path
 from typing_extensions import OrderedDict
 
 from loguru import logger
@@ -14,15 +14,28 @@ from src.mod.data.symbol_table import (
 )
 from src.mod.data.types import (
     BaseType,
-    RecordType,
+    BoolType,
+    GenericType,
+    DeferToSymbolTable,
+    StringType,
+    IntType,
+    FloatType,
+    SetType,
+    BagType,
+    RelationType,
+    SequenceType,
+    TupleType,
+    SimileTypeError,
+    TypeOfType,
     ProcedureType,
+    RecordType,
+    EnumType,
+    NoneType_,
+    AnyType_,
     ModuleImports,
     ImportedSymbol,
-    EnumType,
-    SimileTypeError,
-    SetType,
 )
-from src.mod.data.traits import TraitCollection, LiteralTrait
+from src.mod.data.traits import TraitCollection, LiteralTrait, MinTrait
 from src.mod.data.standard_library import STANDARD_LIBRARY_FOLDER
 
 from src.mod.data.types.primitive import NoneType_
@@ -48,9 +61,9 @@ def populate_symbol_table(ast: ast_.ASTNode) -> SymbolTable:
     #     ast.body.items.insert(0, standard_library_import)
 
     symbol_table = SymbolTable()
-    symbol_table.add_scope(ScopeContext.BASE)
     symbol_table_populator = PopulateSymbolTable(symbol_table)
     try:
+        symbol_table_populator.populate_base()
         symbol_table_populator.populate(ast)
     finally:
         logger.debug(symbol_table.debug())
@@ -60,6 +73,43 @@ def populate_symbol_table(ast: ast_.ASTNode) -> SymbolTable:
 @dataclass
 class PopulateSymbolTable:
     symbol_table: SymbolTable
+
+    BUILT_IN_TYPES = {
+        # primitive
+        "int": IntType(),
+        "float": FloatType(),
+        "string": StringType(),
+        "bool": BoolType(),
+        # set
+        "set": SetType(GenericType()),
+        "sequence": SequenceType(GenericType()),
+        "bag": BagType(GenericType()),
+        "relation": RelationType(GenericType(), GenericType()),
+        # meta
+        "generic": GenericType(),
+        "type": TypeOfType(GenericType()),
+        "enum": EnumType(GenericType()),
+        # variable length types
+        "tuple": TupleType([]),
+        "procedure": ProcedureType(TupleType([]), GenericType()),
+        "record": RecordType({}),
+        # type sugar
+        "ℤ": SetType(IntType()),
+        "ℕ": SetType(IntType(trait_collection=TraitCollection(min_trait=MinTrait(ast_.Int("0"))))),
+        "ℕ₁": SetType(IntType(trait_collection=TraitCollection(min_trait=MinTrait(ast_.Int("1"))))),
+        # traits as typed objects?
+        # TODO how should we handle traits as first-class objects? I suppose they should just be an expr?
+        "trait": AnyType_(),
+    }
+
+    def populate_base(self) -> None:
+        self.symbol_table.add_scope(ScopeContext.BASE)
+        for type_name, type_ in self.BUILT_IN_TYPES.items():
+            self.symbol_table.add_symbol(
+                type_name,
+                IdentifierContext.BUILTIN_TYPE,
+                type_,
+            )
 
     def populate(self, ast: ast_.ASTNode) -> ast_.ASTNode:
         assert isinstance(ast, ast_.ASTNode), f"Gotcha: {ast}"
@@ -238,7 +288,7 @@ class PopulateSymbolTable:
                 for _item in value.items:
                     if not isinstance(_item, ast_.Identifier):
                         raise SimileTypeError(f"Invalid enum item name (must be an identifier): {_item}", _item)
-                    if self.symbol_table.does_symbol_exist_in_current_scope(_item.name):
+                    if self.symbol_table.symbol_exists_in_current_scope(_item.name):
                         raise SimileTypeError(f"Enum item name {_item.name} already exists in current scope, cannot be used as enum item name", _item)
                     members.add(_item.name)
 
@@ -340,7 +390,7 @@ class PopulateSymbolTable:
                 for _item in value.items:
                     if not isinstance(_item, ast_.Identifier):
                         raise SimileTypeError(f"Invalid enum item name (must be an identifier): {_item}", _item)
-                    if self.symbol_table.does_symbol_exist_in_current_scope(_item.name):
+                    if self.symbol_table.symbol_exists_in_current_scope(_item.name):
                         raise SimileTypeError(f"Enum item name {_item.name} already exists in current scope, cannot be used as enum item name", _item)
                     members.add(_item.name)
 
@@ -397,7 +447,7 @@ class PopulateSymbolTable:
                 # TODO fix this to allow for modules with different names (import ... as <name>)
                 module_file_path = module_file_path.with_suffix(".sim")
                 module_name, module_ast = _read_from_path_and_parse(module_file_path)
-                module_scope = self.symbol_table.add_scope(ScopeContext.NAMESPACE)
+                module_scope = self.symbol_table.add_scope(ScopeContext.IMPORT)
                 self.populate(module_ast)
                 self.symbol_table.pop_scope_level()
 
@@ -407,25 +457,47 @@ class PopulateSymbolTable:
                             symbol = self.symbol_table.lookup_symbol(symbol_id, module_scope.id_)
                             if symbol.name not in names_to_import:
                                 continue
+                            # Skip duplicate imports from the same source (instead of throwing an error when we attempt to add duplicate symbols)
+                            if self._duplicate_import(
+                                IdentifierContext.MODULE_IMPORT_SYMBOL,
+                                ImportedSymbol,
+                                symbol.name,
+                                module_file_path,
+                            ):
+                                continue
                             self.symbol_table.add_symbol(
                                 symbol.name,
-                                symbol.context,
-                                ImportedSymbol(symbol),
+                                IdentifierContext.MODULE_IMPORT_SYMBOL,
+                                ImportedSymbol(symbol, module_file_path),
                             )
                     case ast_.ImportOperator.ALL_NAMES:
                         for symbol_id in module_scope.declared_symbols:
                             symbol = self.symbol_table.lookup_symbol(symbol_id, module_scope.id_)
+                            if self._duplicate_import(
+                                IdentifierContext.MODULE_IMPORT_SYMBOL,
+                                ImportedSymbol,
+                                symbol.name,
+                                module_file_path,
+                            ):
+                                continue
                             self.symbol_table.add_symbol(
                                 symbol.name,
-                                symbol.context,
-                                ImportedSymbol(symbol),
+                                IdentifierContext.MODULE_IMPORT_SYMBOL,
+                                ImportedSymbol(symbol, module_file_path),
                             )
                     case ast_.ImportOperator.MODULE_NAME:
-                        self.symbol_table.add_symbol(
-                            module_name,
+                        if not self._duplicate_import(
                             IdentifierContext.MODULE_IMPORT,
-                            ModuleImports(module_scope),
-                        )
+                            ModuleImports,
+                            module_name,
+                            module_file_path,
+                        ):
+
+                            self.symbol_table.add_symbol(
+                                module_name,
+                                IdentifierContext.MODULE_IMPORT,
+                                ModuleImports(module_scope, module_file_path),
+                            )
                 return None, False
 
             # By this point, all identifiers should have been added to the symbol table
@@ -437,17 +509,7 @@ class PopulateSymbolTable:
     def _convert_identifier_to_symbol(self, ast: ast_.IdentifierListTypes) -> ast_.SymbolListTypes:
         match ast:
             case ast_.Identifier(name):
-                if name in TypeAnnotationResolver.BUILT_IN_TYPES:
-                    return ast_.Symbol(
-                        SymbolTableIdentifierEntry(
-                            -1,
-                            -1,
-                            name,
-                            TypeAnnotationResolver.BUILT_IN_TYPES[name],
-                            IdentifierContext.BUILTIN_TYPE,
-                        )
-                    )
-                symbol_table_entry = self.symbol_table.lookup_identifier_in_current_scope(name)
+                symbol_table_entry = self.symbol_table.lookup_identifier(name)
                 return ast_.Symbol(symbol_table_entry)
             case ast_.MapletIdentifier((left, right)):
                 _left = self._convert_identifier_to_symbol(left)
@@ -457,6 +519,23 @@ class PopulateSymbolTable:
                 _identifiers = [self._convert_identifier_to_symbol(ident) for ident in identifiers]
                 return ast_.TupleSymbol(tuple(_identifiers))
         raise ValueError(f"Unsupported identifier type: {type(ast)}. This should not happen")
+
+    def _duplicate_import(
+        self,
+        expected_identifier_context: IdentifierContext,
+        expected_type: type[ModuleImports | ImportedSymbol],
+        name: str,
+        source_file: Path,
+    ) -> bool:
+        duplicate_symbol = self.symbol_table.get_symbol_by_name_in_current_scope(name)
+        if duplicate_symbol is None:
+            return False  # No clashing symbol names on this level
+
+        return (
+            duplicate_symbol.context == expected_identifier_context
+            and isinstance(duplicate_symbol.declared_type, expected_type)
+            and source_file == duplicate_symbol.declared_type.source_file  # type: ignore
+        )
 
     def _populate_loop_parameters(self, iterable_names: ast_.IdentifierListTypes, corresponding_iterable_type: BaseType) -> None:
         if not isinstance(corresponding_iterable_type, SetType):
@@ -603,10 +682,10 @@ class PopulateSymbolTable:
         return ast_.IterGenerator(ast_.Generator(_identifier_symbols, _iterable, _predicate), _assignments)
 
 
-def _read_from_path_and_parse(module_file_path: pathlib.Path) -> tuple[str, ast_.Start]:
+def _read_from_path_and_parse(module_file_path: Path) -> tuple[str, ast_.Start]:
     # Read in imported file
     try:
-        full_module_path = pathlib.Path(module_file_path).resolve(strict=True)
+        full_module_path = Path(module_file_path).resolve(strict=True)
     except Exception as e:
         raise SymbolTableError(f"Failed to parse module for symbol table importing: module {module_file_path} does not exist or is not a file", e) from e
 

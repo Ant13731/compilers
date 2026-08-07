@@ -64,101 +64,24 @@ class TypeAnnotationResolver:
         "ℕ₁",
     ]
 
-    BUILT_IN_TYPES = {
-        "int": IntType(),
-        "float": FloatType(),
-        "string": StringType(),
-        "bool": BoolType(),
-        "set": SetType(GenericType()),
-        "sequence": SequenceType(GenericType()),
-        "bag": BagType(GenericType()),
-        "relation": RelationType(GenericType(), GenericType()),
-        "generic": GenericType(),
-        "tuple": TupleType([]),
-        "type": TypeOfType(GenericType()),
-        "enum": EnumType(),
-        "procedure": ProcedureType(TupleType([]), GenericType()),
-        "record": RecordType(dict()),
-        "ℤ": SetType(IntType()),
-        "ℕ": SetType(IntType(trait_collection=TraitCollection(min_trait=MinTrait(ast_.Int("0"))))),
-        "ℕ₁": SetType(IntType(trait_collection=TraitCollection(min_trait=MinTrait(ast_.Int("1"))))),
-    }
-
     # limited form of the below type synthesizer (which should not need to encounter type annotations)
     # this should be accessible to populate_symbol_table though
     @classmethod
-    def resolve_type_annotation(cls, ast: ast_.Type_ | ast_.ASTNode | ast_.None_, symbol_table: SymbolTable) -> BaseType:
+    def resolve_type_annotation(cls, ast: ast_.Type_ | ast_.ASTNode, symbol_table: SymbolTable) -> BaseType:
         resolved_type_params: list[BaseType] = []
         if isinstance(ast, ast_.Type_):
             resolved_type_params = [cls.resolve_type_annotation(type_param, symbol_table) for type_param in ast.generics]
             ast = ast.type_
 
         match ast:
-            # Built in types
-            case ast_.Identifier("int"):
-                return IntType()
-            case ast_.Identifier("float"):
-                return FloatType()
-            case ast_.Identifier("string"):
-                return StringType()
-            case ast_.Identifier("bool"):
-                return BoolType()
-            case ast_.Identifier("ℤ"):
-                return SetType(IntType())
-            case ast_.Identifier("ℕ"):
-                return SetType(IntType(trait_collection=TraitCollection(min_trait=MinTrait(ast_.Int("0")))))
-            case ast_.Identifier("ℕ₁"):
-                return SetType(IntType(trait_collection=TraitCollection(min_trait=MinTrait(ast_.Int("1")))))
-            case ast_.Identifier("set"):
-                if len(resolved_type_params) != 1:
-                    raise SimileTypeError(f"Set type annotation must have exactly 1 parameter, got {len(resolved_type_params)}: {resolved_type_params}", ast)
-                return SetType(resolved_type_params[0])
-            case ast_.Identifier("sequence"):
-                if len(resolved_type_params) != 1:
-                    raise SimileTypeError(f"Sequence type annotation must have exactly 1 parameter, got {len(resolved_type_params)}: {resolved_type_params}", ast)
-                return SequenceType(resolved_type_params[0])
-            case ast_.Identifier("bag"):
-                if len(resolved_type_params) != 1:
-                    raise SimileTypeError(f"Bag type annotation must have exactly 1 parameter, got {len(resolved_type_params)}: {resolved_type_params}", ast)
-                return BagType(resolved_type_params[0])
-            case ast_.Identifier("relation"):
-                if len(resolved_type_params) != 2:
-                    raise SimileTypeError(f"Relation type annotation must have exactly 2 parameters, got {len(resolved_type_params)}: {resolved_type_params}", ast)
-                return RelationType(resolved_type_params[0], resolved_type_params[1])
-            case ast_.Identifier("generic"):
-                return GenericType()
-            case ast_.Identifier("type"):
-                if len(resolved_type_params) != 1:
-                    raise SimileTypeError(f"Type type annotation must have exactly 1 parameter, got {len(resolved_type_params)}: {resolved_type_params}", ast)
-                return TypeOfType(resolved_type_params[0])
-            case ast_.Identifier("procedure"):
-                if len(resolved_type_params) != 2:
-                    raise SimileTypeError(
-                        f"Procedure type annotation must have exactly 2 parameters (multiple arguments get grouped into a tuple), got {len(resolved_type_params)}: {resolved_type_params}",
-                        ast,
-                    )
-                if not isinstance(resolved_type_params[0], TupleType):
-                    raise SimileTypeError(
-                        f"Procedure type annotation first parameter must be a tuple of argument types, got {resolved_type_params[0]}",
-                        ast,
-                    )
-
-                return ProcedureType(resolved_type_params[0], resolved_type_params[1])
-            case ast_.TupleLiteral(_):
+            case ast_.TupleLiteral(type_params):
+                if len(resolved_type_params) != 0:
+                    raise SimileTypeError("Cannot provide parameters to a tuple type")
+                resolved_type_params = [cls.resolve_type_annotation(type_param, symbol_table) for type_param in type_params]
                 return TupleType(resolved_type_params)
-            case ast_.Identifier("trait"):
-                # TODO how should we handle traits as first-class objects? I suppose they should just be an expr?
-                return AnyType_()
-            # TODO what about enums?
-            # case ast_.Identifier("enum"):
-
-            # User-identified types (presumably)
             case ast_.Identifier(symbol_table_name):
-                # FIXME we shouldnt need to defer these types since the symbol table should have all required types up until this point. Maybe resolve the deferred type recursively?
-                # What about generics?
-                symbol_table_entry = symbol_table.lookup_identifier_in_current_scope(symbol_table_name)
-                return symbol_table_entry.declared_type
-                # return DeferToSymbolTable(symbol_table_entry, resolved_type_params)
+                symbol_table_entry = symbol_table.lookup_identifier(symbol_table_name)
+                return cls._resolve_generic_type_params(symbol_table_entry.declared_type, resolved_type_params)
             # Special notation for relation types
             # TODO not allowed by parser for now?
             case ast_.RelationOp(left, right, op):
@@ -169,8 +92,62 @@ class TypeAnnotationResolver:
                 rel_type = RelationType(left_type, right_type)
                 rel_type.apply_traits_from_relation_operator(op)
                 return rel_type
+            # TODO record types (user identified types) with generics? disallow for now
 
         raise SimileTypeError(f"Failed to resolve type annotation", ast)
+
+    @classmethod
+    def _resolve_generic_type_params(cls, base_type: BaseType, type_params: list[BaseType]) -> BaseType:
+        if isinstance(base_type, TupleType):
+            raise SimileTypeError(
+                f"Cannot apply generic type parameters to a tuple type. Use the tuple literal syntax instead. (got base type {base_type} with params {type_params})"
+            )
+
+        if isinstance(base_type, SetType):
+            if len(type_params) != 1:
+                raise SimileTypeError(f"Set type annotation must have exactly 1 parameter, got {len(type_params)}: {type_params}")
+            return SetType(type_params[0])
+        if isinstance(base_type, SequenceType):
+            if len(type_params) != 1:
+                raise SimileTypeError(f"Sequence type annotation must have exactly 1 parameter, got {len(type_params)}: {type_params}")
+            return SequenceType(type_params[0])
+        if isinstance(base_type, BagType):
+            if len(type_params) != 1:
+                raise SimileTypeError(f"Bag type annotation must have exactly 1 parameter, got {len(type_params)}: {type_params}")
+            return BagType(type_params[0])
+        if isinstance(base_type, RelationType):
+            if len(type_params) != 2:
+                raise SimileTypeError(f"Relation type annotation must have exactly 2 parameters, got {len(type_params)}: {type_params}")
+            return RelationType(type_params[0], type_params[1])
+
+        if isinstance(base_type, TypeOfType):
+            if len(type_params) != 1:
+                raise SimileTypeError(f"Type type annotation must have exactly 1 parameter, got {len(type_params)}: {type_params}")
+            return TypeOfType(type_params[0])
+        if isinstance(base_type, ast_.ProcedureDef):
+            if len(type_params) != 2:
+                raise SimileTypeError(
+                    f"Procedure type annotation must have exactly 2 parameters (multiple arguments get grouped into a tuple), got {len(type_params)}: {type_params}",
+                )
+            if not isinstance(type_params[0], TupleType):
+                raise SimileTypeError(
+                    f"Procedure type annotation first parameter must be a tuple of argument types, got {type_params[0]}",
+                )
+            return ProcedureType(type_params[0], type_params[1])
+
+        if isinstance(base_type, EnumType):
+            if len(type_params) > 1:
+                raise SimileTypeError(f"Generic type annotation must have either 0 or 1 parameters, got {len(type_params)}: {type_params}")
+            if len(type_params) == 1:
+                return EnumType(type_params[0])
+            return EnumType()
+
+        # TODO record types with generics? disallow for now...
+        # Types that expect no generic params
+        if len(type_params) == 0:
+            return base_type
+
+        raise SimileTypeError(f"Cannot apply generic type parameters to non-generic type: {base_type}")
 
     @classmethod
     def resolve_trait_annotation(cls, with_clause: ast_.ASTNode, symbol_table: SymbolTable) -> Trait:

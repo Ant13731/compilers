@@ -2,6 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Type, ClassVar
 from warnings import deprecated
+from pathlib import Path
 
 from src.mod.data.types.error import SimileTypeError
 from src.mod.data.types.base import BaseType
@@ -31,7 +32,7 @@ class GenericType(BaseType):
     IDs are only locally valid (i.e., introduced by a procedure argument and used by a procedure's return value).
     """
 
-    # id_: str
+    id_: str | None = None
     valid_traits: ClassVar[set[Type[Trait]]] = {
         *BaseType.valid_traits,
         GenericBoundTrait,
@@ -96,6 +97,7 @@ class DeferToSymbolTable(BaseType):
 @dataclass
 class ImportedSymbol(BaseType):
     imported_symbol_entry: SymbolTableIdentifierEntry
+    source_file: Path  # use to dedupe multiple imports of the same symbol
 
     def _populate_mandatory_traits(self) -> None:
         pass
@@ -109,6 +111,7 @@ class ModuleImports(BaseType):
 
     # Function names and types are held within this scope of the symbol table
     scope: ScopeTableEntry
+    source_file: Path
 
     def _populate_mandatory_traits(self) -> None:
         pass

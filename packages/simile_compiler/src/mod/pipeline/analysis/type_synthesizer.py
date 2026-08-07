@@ -30,9 +30,6 @@ class TypeSynthesizer:
     @typing_rule("Fetch Identifier")
     @synthesize_type.register
     def _(self, ast: ast_.Symbol) -> types.BaseType:
-        if ast.symbol_table_entry.id_ == -1:
-            # FIXME: swe shouldnt need to try and resolve built in types here - maybe the key is to wipe type annotations from the AST?
-            return TypeAnnotationResolver.BUILT_IN_TYPES.get(ast.symbol_table_entry.name, types.AnyType_())
         symbol_info = self.symbol_table.lookup_symbol(ast.symbol_table_entry.id_, ast.symbol_table_entry.scope)
         if symbol_info.declared_type is None:
             raise types.SimileTypeError(f"Symbol table entry {ast.symbol_table_entry} does not have an assigned type during type resolution", ast)
