@@ -65,7 +65,7 @@ class TupleType(BaseType):
             return False
 
         for self_item, other_item in zip(self.items, other.items):
-            if not self_item._is_subtype(other_item):
+            if not self_item.is_subtype(other_item):
                 return False
         return True
 

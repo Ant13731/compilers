@@ -6,16 +6,16 @@ procedure concat(left: sequence[T], right: sequence[T]) -> sequence[T]:
     return left ++ right
 
 procedure flatten(nested_seq: sequence[sequence[T]]) -> sequence[T]:
-    return fold acc: sequence[T] := [] : s in nested_seq | acc ++ s
+    return fold acc: sequence[T] := [] : i |-> s in nested_seq | acc ++ s
 
 procedure first(S: sequence[T]) -> T:
     return S(0)
 
-procedure length(S: sequence[T]) -> T:
+procedure length(S: sequence[T]) -> int:
     return sum x in S | 1
 
 procedure tail(S: sequence[T]) -> sequence[T]:
-    return {i |-> x in S . i != 0 | i - 1 |-> x}
+    return {i |-> x in S · (i != 0) | i - 1 |-> x}
 
 procedure append(S: sequence[T], y: T) -> sequence[T]:
     return S \/ {(max x in dom(S) | x) |-> y}
@@ -24,7 +24,7 @@ procedure prepend(S: sequence[T], y: T) -> sequence[T]:
     return {i |-> x in S | i+1 |-> x} \/ {0 |-> y}
 
 procedure tails(S: sequence[T]) -> set[sequence[T]]:
-    return {i in len(S)..0 | 0..i <<| S}
+    return {i in length(S)..0 | 0..i <<| S}
 
 procedure heads(S: sequence[T]) -> set[sequence[T]]:
-    return {i in 0..len(S) | i..len(S) <<| S}
+    return {i in 0..length(S) | i..length(S) <<| S}

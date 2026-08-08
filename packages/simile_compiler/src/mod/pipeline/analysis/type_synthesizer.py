@@ -33,6 +33,13 @@ class TypeSynthesizer:
         symbol_info = self.symbol_table.lookup_symbol(ast.symbol_table_entry.id_, ast.symbol_table_entry.scope)
         if symbol_info.declared_type is None:
             raise types.SimileTypeError(f"Symbol table entry {ast.symbol_table_entry} does not have an assigned type during type resolution", ast)
+        # FIXME hack to get around star-imported symbols in the namespace.
+        # We need this wrapper type to dedupe in populate_symbol_table,
+        # but we want the type to actually come through in the synthesizer
+        # (so we can actually type check against other types)
+        # The real fix would be to not need to wrap imported symbols in a new type... but we will see for now
+        if isinstance(symbol_info.declared_type, types.ImportedSymbol):
+            return symbol_info.declared_type.imported_symbol_entry.declared_type
         return symbol_info.declared_type
 
     @typing_rule("Tuple Enumeration")

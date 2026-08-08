@@ -3,6 +3,8 @@ from dataclasses import dataclass, field, fields, asdict
 from copy import deepcopy
 from typing import Callable, ClassVar, Type, TypeVar
 import inspect
+from loguru import logger
+
 
 from src.mod.data.types.error import SimileTypeError
 from src.mod.data.traits import Trait, TraitCollection, LiteralTrait, DomainTrait, ImmutableTrait

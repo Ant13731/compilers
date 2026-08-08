@@ -66,7 +66,7 @@ def parse_simrw_file(file_path: str | pathlib.Path) -> list[SimrwAST]:
         transformer=RewriteTransformer(),
         postlex=PythonIndenter(),
     )
-    with open(file_path, "r") as f:
+    with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
     simrw_rewrite_rules: list[SimrwAST] = parser.parse(content)  # type: ignore
     return simrw_rewrite_rules

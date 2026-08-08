@@ -43,6 +43,7 @@ from src.mod.data.types.primitive import NoneType_
 from src.mod.data.types.set_ import EnumItemType
 from src.mod.data.types.tuple_ import TupleType
 from src.mod.pipeline.parser import parse, ParseError
+from src.mod.pipeline.analysis.normalize_ast import normalize_ast
 from src.mod.pipeline.analysis.type_annotation_resolver import TypeAnnotationResolver
 from src.mod.pipeline.analysis.type_synthesizer import TypeSynthesizer
 
@@ -710,7 +711,7 @@ class PopulateSymbolTable:
         return ast_.IterGenerator(ast_.Generator(_identifier_symbols, _iterable, _predicate), _assignments)
 
 
-def _read_from_path_and_parse(module_file_path: Path) -> tuple[str, ast_.Start]:
+def _read_from_path_and_parse(module_file_path: Path) -> tuple[str, ast_.ASTNode]:
     # Read in imported file
     try:
         full_module_path = Path(module_file_path).resolve(strict=True)
@@ -722,7 +723,7 @@ def _read_from_path_and_parse(module_file_path: Path) -> tuple[str, ast_.Start]:
     if not full_module_path.is_file():
         raise SymbolTableError(f"Failed to parse module for symbol table importing: module {module_file_path} is not a file")
 
-    with open(full_module_path, "r") as f:
+    with open(full_module_path, "r", encoding="utf-8") as f:
         module_content = f.read()
 
     # Parse module content
@@ -733,4 +734,12 @@ def _read_from_path_and_parse(module_file_path: Path) -> tuple[str, ast_.Start]:
             f"Failed to parse module for symbol table importing: module {module_file_path} does not contain a valid Simile module. Expected a single Start node at the top level."
         ) from e
 
-    return full_module_path.stem, module_ast
+    # And normalize ast to prep for the symb table
+    try:
+        normalized_module_ast = normalize_ast(module_ast)
+    except Exception as e:
+        raise SymbolTableError(
+            f"Failed to normalize module for symbol table importing: module {module_file_path} does not contain a valid Simile module. Expected a single Start node at the top level."
+        ) from e
+
+    return full_module_path.stem, normalized_module_ast

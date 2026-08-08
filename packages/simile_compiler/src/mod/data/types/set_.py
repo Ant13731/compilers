@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from copy import deepcopy
-from typing import TYPE_CHECKING, Callable, TypeVar, Type, ClassVar
+from typing import TYPE_CHECKING, Callable, TypeVar, ClassVar
 
 from src.mod.data.ast_.operators import (
     CollectionOperator,
@@ -132,15 +132,19 @@ class SetType(BaseType):
         return self.in_(element).not_()
 
     @classmethod
-    def enumeration(cls: Type[T], element_types: list[BaseType]) -> T:
+    def enumeration(cls, element_types: list[BaseType]) -> SetType:
         """Create a set from an enumeration of elements of a specific type."""
         trait_collection = TraitCollection(
             size_trait=SizeTrait(size=len(element_types)),
         )
         if element_types == []:
-            return cls(element_type=AnyType_(), trait_collection=trait_collection)
+            return cls.set_constructor(element_type=AnyType_(), trait_collection=trait_collection)
 
-        return cls(element_type=BaseType.max_type(element_types), trait_collection=trait_collection)
+        return cls.set_constructor(element_type=BaseType.max_type(element_types), trait_collection=trait_collection)
+
+    @classmethod
+    def set_constructor(cls, element_type: BaseType, trait_collection: TraitCollection) -> SetType:
+        return cls(element_type=element_type, trait_collection=trait_collection)
 
     # Single operations
     def cardinality(self) -> IntType:
@@ -305,7 +309,7 @@ class SetType(BaseType):
 
 @dataclass
 class RelationType(SetType):
-    valid_traits: ClassVar[set[Type[Trait]]] = {
+    valid_traits: ClassVar[set[type[Trait]]] = {
         *BaseType.valid_traits,
         OrderableTrait,
         IterableTrait,
@@ -374,6 +378,13 @@ class RelationType(SetType):
             self.trait_collection.one_to_many_trait is not None,
             self.trait_collection.many_to_one_trait is not None,
         )
+
+    @classmethod
+    def set_constructor(cls, element_type: BaseType, trait_collection: TraitCollection) -> RelationType:
+        """Cast a SetType to a RelationType, if possible."""
+        if not isinstance(element_type, PairType):
+            raise SimileTypeError(f"Cannot cast SetType with non-PairType element type {element_type} to RelationType")
+        return RelationType(left=element_type.left, right=element_type.right, trait_collection=trait_collection)
 
     def inverse(self) -> RelationType:
         new_type = deepcopy(self)
@@ -503,6 +514,10 @@ class BagType(RelationType):
     def element_type_(self) -> BaseType:
         return self.left
 
+    @classmethod
+    def set_constructor(cls, element_type: BaseType, trait_collection: TraitCollection) -> BagType:
+        return cls(element_type=element_type, trait_collection=trait_collection)
+
     def _populate_mandatory_traits(self) -> None:
         super()._populate_mandatory_traits()
         self.trait_collection.many_to_one_trait = ManyToOneTrait()
@@ -542,6 +557,10 @@ class SequenceType(RelationType):
     def __init__(self, element_type: BaseType, *, trait_collection: TraitCollection | None = None) -> None:
         super().__init__(left=IntType(), right=element_type, trait_collection=trait_collection)
         self.trait_collection.many_to_one_trait = ManyToOneTrait()
+
+    @classmethod
+    def set_constructor(cls, element_type: BaseType, trait_collection: TraitCollection) -> SequenceType:
+        return cls(element_type=element_type, trait_collection=trait_collection)
 
     @property
     def element_type_(self) -> BaseType:
