@@ -89,7 +89,7 @@ class PopulateSymbolTable:
         "generic": GenericType(),
         "type": TypeOfType(GenericType()),
         "enum": EnumType(GenericType()),
-        # variable length types
+        # variable length types, dont populate anything since they can take multiple (unknown) arguments
         "tuple": TupleType([]),
         "procedure": ProcedureType(TupleType([]), GenericType()),
         "record": RecordType({}),
@@ -224,10 +224,7 @@ class PopulateSymbolTable:
                 for param in params:
                     if not isinstance(param.name, ast_.Identifier):
                         raise SimileTypeError(f"Invalid procedure parameter name (must be an identifier): {param.name}", param)
-
                     param_type = TypeAnnotationResolver.resolve_type_annotation(param.type_, self.symbol_table)
-                    if not isinstance(param_type, BaseType):
-                        raise SimileTypeError(f"Invalid procedure parameter type (must be a valid type): {param.type_}", param)
 
                     self.symbol_table.add_symbol(
                         param.name.name,
@@ -294,7 +291,7 @@ class PopulateSymbolTable:
 
                 trait_collection = TypeAnnotationResolver.resolve_trait_collection(traits, self.symbol_table)
                 enum_type = EnumType(members=members, trait_collection=trait_collection)
-                self.symbol_table.add_symbol(
+                _name = self.symbol_table.add_symbol(
                     name,
                     IdentifierContext.ENUM,
                     enum_type,
@@ -305,13 +302,12 @@ class PopulateSymbolTable:
                         IdentifierContext.ENUM_ITEM,
                         EnumItemType(enum_type),
                     )
-                _name = self.populate(ast_.Identifier(name))
                 _value = self.populate(value)
                 return (
                     ast_.TraitApplication(
                         ast_.Assignment(
                             ast_.TypedName(
-                                _name,
+                                ast_.Symbol(_name),
                                 ast_.Type_(ast_.Identifier("enum"), []),
                             ),
                             _value,
@@ -324,29 +320,33 @@ class PopulateSymbolTable:
             case ast_.TraitApplication(ast_.Assignment(ast_.TypedName(ast_.Identifier(name), ast_.Type_(ast_.Identifier("type"), [])), value, is_choice), traits):
                 if is_choice:
                     raise SimileTypeError(f"Choice assignment cannot be used with type definitions", ast)
+                value_as_type_ast = self._convert_type_assignment_value_into_type_ast(value)
+                # value_as_type_ast = ast_.Type_(value.target, [value.index])
+
                 trait_collection = TypeAnnotationResolver.resolve_trait_collection(traits, self.symbol_table)
-
-                if not isinstance(value, ast_.Image):
-                    raise SimileTypeError(f"Type type annotation can only be applied to image definitions (type[<your-type>]), got {type(value)}", value)
-                value_as_type_ast = ast_.Type_(value.target, [value.index])
-
                 type_value = TypeAnnotationResolver.resolve_type_annotation(value_as_type_ast, self.symbol_table)
                 if type_value is None:
                     raise SimileTypeError(f"Type definitions must have a valid type annotation, got None", value)
+                # Promote the type to a typeOfType only if it doesnt already represent a type (like generic types do represent a type value)
+                # typeOfType should not wrap such objects
                 type_value.trait_collection = type_value.trait_collection.merge(trait_collection, True)
-                self.symbol_table.add_symbol(
+                if not isinstance(type_value, GenericType | AnyType_ | TypeOfType):
+                    type_value = TypeOfType(type_value)
+
+                _name = self.symbol_table.add_symbol(
                     name,
                     IdentifierContext.TYPE_NAME,
                     type_value,
                 )
-                _name = self.populate(ast_.Identifier(name))
-                _value = self.populate(value.index)
+                if isinstance(type_value, GenericType):
+                    type_value.add_symbol_info(_name)
+                _value = self.populate(value_as_type_ast)
                 _type_symbol = self._convert_identifier_to_symbol(ast_.Identifier("type"))
                 return (
                     ast_.TraitApplication(
                         ast_.Assignment(
-                            ast_.TypedName(_name, ast_.Type_(_type_symbol, [])),
-                            ast_.Type_(_type_symbol, [_value]),
+                            ast_.TypedName(ast_.Symbol(_name), ast_.Type_(_type_symbol, [])),
+                            _value,
                             is_choice,
                         ),
                         traits,
@@ -358,20 +358,22 @@ class PopulateSymbolTable:
                 _declared_type = TypeAnnotationResolver.resolve_type_annotation(declared_type, self.symbol_table)
                 if _declared_type is None:
                     raise SimileTypeError(f"Variable definitions must have a valid type annotation, got None", declared_type)
+                if isinstance(_declared_type, TypeOfType):
+                    # Type is actually used - unwrap the TypeOfType
+                    _declared_type = _declared_type.type_of
                 _declared_type.trait_collection = _declared_type.trait_collection.merge(trait_collection, True)
-                self.symbol_table.add_symbol(
+                _name = self.symbol_table.add_symbol(
                     name,
                     IdentifierContext.VARIABLE,
                     _declared_type,
                 )
-                _name = self.populate(ast_.Identifier(name))
                 _value = self.populate(value)
                 _declared_type_ast = self.populate(declared_type)
                 assert isinstance(_declared_type_ast, ast_.Type_)
                 return (
                     ast_.TraitApplication(
                         ast_.Assignment(
-                            ast_.TypedName(_name, _declared_type_ast),
+                            ast_.TypedName(ast_.Symbol(_name), _declared_type_ast),
                             _value,
                             is_choice,
                         ),
@@ -408,27 +410,29 @@ class PopulateSymbolTable:
                     )
 
             case ast_.Assignment(ast_.TypedName(ast_.Identifier(name), ast_.Type_(ast_.Identifier("type"), [])), value, is_choice_assignment):
-                if not isinstance(value, ast_.Image):
-                    raise SimileTypeError(f"Type type annotation can only be applied to image definitions (type[<your-type>]), got {type(value)}", value)
-                value_as_type_ast = ast_.Type_(value.target, [value.index])
+                if is_choice_assignment:
+                    raise SimileTypeError(f"Choice assignment cannot be used with type definitions", ast)
+                value_as_type_ast = self._convert_type_assignment_value_into_type_ast(value)
 
                 type_value = TypeAnnotationResolver.resolve_type_annotation(value_as_type_ast, self.symbol_table)
                 if type_value is None:
                     raise SimileTypeError(f"Type definitions must have a valid type annotation, got None", value)
-                if is_choice_assignment:
-                    raise SimileTypeError(f"Choice assignment cannot be used with type definitions", ast)
-                self.symbol_table.add_symbol(
+                if not isinstance(type_value, GenericType | AnyType_ | TypeOfType):
+                    type_value = TypeOfType(type_value)
+
+                _name = self.symbol_table.add_symbol(
                     name,
                     IdentifierContext.TYPE_NAME,
                     type_value,
                 )
-                _name = self.populate(ast_.Identifier(name))
-                _value = self.populate(value.index)
+                if isinstance(type_value, GenericType):
+                    type_value.add_symbol_info(_name)
+                _value = self.populate(value_as_type_ast)
                 _type_symbol = self._convert_identifier_to_symbol(ast_.Identifier("type"))
                 return (
                     ast_.Assignment(
-                        ast_.TypedName(_name, ast_.Type_(_type_symbol, [])),
-                        ast_.Type_(_type_symbol, [_value]),
+                        ast_.TypedName(ast_.Symbol(_name), ast_.Type_(_type_symbol, [])),
+                        _value,
                         is_choice_assignment,
                     ),
                     False,
@@ -437,11 +441,25 @@ class PopulateSymbolTable:
                 _declared_type = TypeAnnotationResolver.resolve_type_annotation(declared_type, self.symbol_table)
                 if _declared_type is None:
                     raise SimileTypeError(f"Variable definitions must have a valid type annotation, got None", declared_type)
+                if isinstance(_declared_type, TypeOfType):
+                    # Type is actually used - unwrap the TypeOfType
+                    _declared_type = _declared_type.type_of
 
-                self.symbol_table.add_symbol(
+                _name = self.symbol_table.add_symbol(
                     name,
                     IdentifierContext.VARIABLE,
                     _declared_type,
+                )
+                _value = self.populate(value)
+                _declared_type_ast = self.populate(declared_type)
+                assert isinstance(_declared_type_ast, ast_.Type_)
+                return (
+                    ast_.Assignment(
+                        ast_.TypedName(ast_.Symbol(_name), _declared_type_ast),
+                        _value,
+                        is_choice_assignment,
+                    ),
+                    False,
                 )
             case ast_.Import(module_file_path, names_to_import, import_operator):
                 # TODO fix this to allow for modules with different names (import ... as <name>)
@@ -681,13 +699,33 @@ class PopulateSymbolTable:
         _predicate = self.populate(iter_generator.generator.predicate)
         return ast_.IterGenerator(ast_.Generator(_identifier_symbols, _iterable, _predicate), _assignments)
 
+    def _convert_type_assignment_value_into_type_ast(self, value: ast_.ASTNode) -> ast_.Type_:
+        # TODO move to normalize ast? Then we need to call normalize_ast before populating the symbol table
+        match value:
+            case ast_.Type_(target, params):
+                return value
+            case ast_.TupleIdentifier(identifiers):
+                return ast_.Type_(ast_.TupleLiteral(list(identifiers)))
+            case ast_.TupleLiteral(_):
+                return ast_.Type_(value, [value])
+            case ast_.Identifier(_):
+                return ast_.Type_(value, [])
+            case ast_.Image(target, index):
+                # TODO need to also convert index/params into Type_s??
+                return ast_.Type_(target, [index])
+
+            case _:
+                raise SimileTypeError(f"Invalid type assignment value: {value}", value)
+
 
 def _read_from_path_and_parse(module_file_path: Path) -> tuple[str, ast_.Start]:
     # Read in imported file
     try:
         full_module_path = Path(module_file_path).resolve(strict=True)
     except Exception as e:
-        raise SymbolTableError(f"Failed to parse module for symbol table importing: module {module_file_path} does not exist or is not a file", e) from e
+        raise SymbolTableError(
+            f"Failed to parse module for symbol table importing: module {module_file_path} does not exist according to the importing file's directory or is not a file", e
+        ) from e
 
     if not full_module_path.is_file():
         raise SymbolTableError(f"Failed to parse module for symbol table importing: module {module_file_path} is not a file")

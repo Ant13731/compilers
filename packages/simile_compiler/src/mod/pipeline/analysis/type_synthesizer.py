@@ -45,6 +45,10 @@ class TypeSynthesizer:
     def _(self, ast: ast_.Type_) -> types.BaseType:
         return TypeAnnotationResolver.resolve_type_annotation(ast, self.symbol_table)
 
+    @synthesize_type.register
+    def _(self, ast: ast_.TypedName) -> types.BaseType:
+        return self.synthesize_type(ast.type_)
+
     @typing_rule("")
     @synthesize_type.register
     def _(self, ast: ast_.Int) -> types.BaseType:

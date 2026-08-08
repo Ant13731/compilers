@@ -1,5 +1,5 @@
-T1: type := type[generic]
-T2: type := type[generic]
+T1: type := generic
+T2: type := generic
 
 procedure dom(R: relation[T1, T2]) -> set[T1]:
     return {x |-> y in R | x}

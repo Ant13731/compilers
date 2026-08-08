@@ -15,6 +15,7 @@ def assert_no_parser_only_nodes(node: ast_.ASTNode) -> None:
     for child in node.children():
         if not isinstance(child, ast_.ASTNode):
             continue
+        # TODO trait application keywords should be placed into the symbol table...
         if isinstance(child, ast_.TraitApplication):
             assert_no_parser_only_nodes(child.target)
             continue

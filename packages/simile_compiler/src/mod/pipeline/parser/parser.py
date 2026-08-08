@@ -1114,7 +1114,9 @@ class Parser:
             self.error("Expected import name to be a string literal (file path)")
 
         module_file_path = Path(import_name.value)
-        if self.source_file_path and not self.source_file_path.is_absolute():
+        if not self.source_file_path:
+            self.error("Importing is not supported for simile contents without a base file path")
+        if not self.source_file_path.is_absolute():
             module_file_path = self.source_file_path / import_name.value
 
         match t.type_:

@@ -30,9 +30,11 @@ class GenericType(BaseType):
     """Generic types are used primarily for resolving generic procedures/functions into a specific type based on context.
 
     IDs are only locally valid (i.e., introduced by a procedure argument and used by a procedure's return value).
+    Generic types may reuse IDs in outer scopes.
     """
 
-    id_: str | None = None
+    symbol_id: int | None = None
+    scope_id: int | None = None
     valid_traits: ClassVar[set[Type[Trait]]] = {
         *BaseType.valid_traits,
         GenericBoundTrait,
@@ -69,6 +71,13 @@ class GenericType(BaseType):
 
     def _populate_mandatory_traits(self) -> None:
         pass
+
+    def add_symbol_info(self, symbol: SymbolTableIdentifierEntry) -> None:
+        # if self.symbol_id is not None or self.scope_id is not None:
+        #     raise SimileTypeError(f"Generic type {self} already has a symbol ID/scope ID. Cannot add symbol info ({symbol}) to ID.")
+
+        self.symbol_id = symbol.id_
+        self.scope_id = symbol.scope
 
 
 @dataclass

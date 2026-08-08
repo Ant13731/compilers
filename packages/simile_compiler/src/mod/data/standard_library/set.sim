@@ -1,9 +1,9 @@
 # Generic number type - can match to int, float, nat, etc.
-N: type := type[generic]
+N: type := generic
     trait orderable
-T1: type := type[generic]
-T2: type := type[generic]
-T: type := type[generic]
+T1: type := generic
+T2: type := generic
+T: type := generic
 
 procedure min_(S: set[N]) -> N:
     return min x in S | x

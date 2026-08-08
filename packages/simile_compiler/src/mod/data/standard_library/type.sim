@@ -1,6 +1,6 @@
-T1: type := type[generic]
-T2: type := type[generic]
-T: type := type[generic]
+T1: type := generic
+T2: type := generic
+T: type := generic
 
 procedure cast(obj: T1, cast_to: type[T2]) -> T2:
     cast_obj: cast_to := obj

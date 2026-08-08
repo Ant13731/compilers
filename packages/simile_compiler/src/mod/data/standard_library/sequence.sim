@@ -1,6 +1,6 @@
 from "relation" import *
 
-T: type := type[generic]
+T: type := generic
 
 procedure concat(left: sequence[T], right: sequence[T]) -> sequence[T]:
     return left ++ right

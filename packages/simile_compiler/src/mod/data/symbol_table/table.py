@@ -115,6 +115,6 @@ class SymbolTable:
             ret += f"    Scope ID {scope_id}: {scope_entry}\n"
         ret += "  Symbols:\n"
         for symbol_id, symbol_entry in self.symbols.items():
-            ret += f"    Symbol ID {symbol_id} | Name: {symbol_entry.name} | Context: {symbol_entry.context} | Type: {symbol_entry.declared_type.__class__}\n"
+            ret += f"    Symbol ID {symbol_id} | Name: {symbol_entry.name} | Context: {symbol_entry.context} | Type: {symbol_entry.declared_type}\n"
 
         return ret

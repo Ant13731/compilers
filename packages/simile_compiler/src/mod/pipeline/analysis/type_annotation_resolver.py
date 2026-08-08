@@ -1,7 +1,8 @@
 from dataclasses import asdict
+from copy import deepcopy
 
 from src.mod.data import ast_
-from src.mod.data.symbol_table import SymbolTable
+from src.mod.data.symbol_table import SymbolTable, SymbolTableIdentifierEntry
 from src.mod.data.types import (
     BaseType,
     BoolType,
@@ -74,6 +75,7 @@ class TypeAnnotationResolver:
             ast = ast.type_
 
         match ast:
+            # Used while populating the symbol table
             case ast_.TupleLiteral(type_params):
                 if len(resolved_type_params) != 0:
                     raise SimileTypeError("Cannot provide parameters to a tuple type")
@@ -81,6 +83,18 @@ class TypeAnnotationResolver:
                 return TupleType(resolved_type_params)
             case ast_.Identifier(symbol_table_name):
                 symbol_table_entry = symbol_table.lookup_identifier(symbol_table_name)
+                # special case to populate generic type ids with their identifier values as initialized
+                declared_type = deepcopy(symbol_table_entry.declared_type)
+                if isinstance(declared_type, GenericType):
+                    declared_type.add_symbol_info(symbol_table_entry)
+                return cls._resolve_generic_type_params(declared_type, resolved_type_params)
+            # Used for type synthesis after the symbol table is populated
+            case ast_.TupleSymbol(type_params):
+                if len(resolved_type_params) != 0:
+                    raise SimileTypeError("Cannot provide parameters to a tuple type")
+                resolved_type_params = [cls.resolve_type_annotation(type_param, symbol_table) for type_param in type_params]
+                return TupleType(resolved_type_params)
+            case ast_.Symbol(symbol_table_entry):
                 return cls._resolve_generic_type_params(symbol_table_entry.declared_type, resolved_type_params)
             # Special notation for relation types
             # TODO not allowed by parser for now?
@@ -103,10 +117,6 @@ class TypeAnnotationResolver:
                 f"Cannot apply generic type parameters to a tuple type. Use the tuple literal syntax instead. (got base type {base_type} with params {type_params})"
             )
 
-        if isinstance(base_type, SetType):
-            if len(type_params) != 1:
-                raise SimileTypeError(f"Set type annotation must have exactly 1 parameter, got {len(type_params)}: {type_params}")
-            return SetType(type_params[0])
         if isinstance(base_type, SequenceType):
             if len(type_params) != 1:
                 raise SimileTypeError(f"Sequence type annotation must have exactly 1 parameter, got {len(type_params)}: {type_params}")
@@ -119,12 +129,18 @@ class TypeAnnotationResolver:
             if len(type_params) != 2:
                 raise SimileTypeError(f"Relation type annotation must have exactly 2 parameters, got {len(type_params)}: {type_params}")
             return RelationType(type_params[0], type_params[1])
+        if isinstance(base_type, SetType):
+            if len(type_params) != 1:
+                raise SimileTypeError(f"Set type annotation must have exactly 1 parameter, got {len(type_params)}: {type_params}")
+            return SetType(type_params[0])
 
         if isinstance(base_type, TypeOfType):
             if len(type_params) != 1:
-                raise SimileTypeError(f"Type type annotation must have exactly 1 parameter, got {len(type_params)}: {type_params}")
+                # ignore for now
+                return base_type
+                # raise SimileTypeError(f"TypeOfType type annotation must have exactly 1 parameter, got {len(type_params)}: {type_params}")
             return TypeOfType(type_params[0])
-        if isinstance(base_type, ast_.ProcedureDef):
+        if isinstance(base_type, ProcedureType):
             if len(type_params) != 2:
                 raise SimileTypeError(
                     f"Procedure type annotation must have exactly 2 parameters (multiple arguments get grouped into a tuple), got {len(type_params)}: {type_params}",
