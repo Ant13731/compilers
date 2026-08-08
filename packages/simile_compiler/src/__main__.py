@@ -27,7 +27,7 @@ def main() -> None:
         simile_input = args.cli
     elif args.input:
         print("Parsing input from file:", args.input)
-        with open(args.input, "r") as file:
+        with open(args.input, "r", encoding="utf-8") as file:
             simile_input = file.read()
     else:
         print("No input provided. Please specify an input file or a command line string.")
