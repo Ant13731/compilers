@@ -58,7 +58,7 @@ class SetType(BaseType):
     element_type: BaseType
     """The Simile-type of elements in the set"""
 
-    valid_traits: ClassVar[set[Type[Trait]]] = {
+    valid_traits: ClassVar[set[type[Trait]]] = {
         *BaseType.valid_traits,
         OrderableTrait,
         IterableTrait,
