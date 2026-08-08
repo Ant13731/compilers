@@ -41,7 +41,41 @@ def ast_promoter(node: ast_.ASTNode) -> ast_.ASTNode | None:
         return _promote_quantifier(node)
     if isinstance(node, ast_.Enumeration):
         return _promote_enumeration(node)
+    if isinstance(node, ast_.Assignment):
+        return _promote_type_assignment(node)
     return None
+
+
+def _promote_type_assignment(node: ast_.Assignment) -> ast_.ASTNode:
+    match node:
+        case ast_.Assignment(ast_.TypedName(ast_.Identifier(name), ast_.Type_(ast_.Identifier("type"), [])) as target, value, is_choice):
+            _value = _convert_type_assignment_value_to_type_expr(value)
+            return ast_.Assignment(
+                target,
+                _value,
+                is_choice,
+            )
+        case _:
+            return node
+
+
+def _convert_type_assignment_value_to_type_expr(value: ast_.ASTNode) -> ast_.Type_:
+    # TODO move to normalize ast? Then we need to call normalize_ast before populating the symbol table
+    match value:
+        case ast_.Type_(target, params):
+            return value
+        case ast_.TupleIdentifier(identifiers):
+            return ast_.Type_(ast_.TupleLiteral(list(identifiers)))
+        case ast_.TupleLiteral(_):
+            return ast_.Type_(value, [])
+        case ast_.Identifier(_):
+            return ast_.Type_(value, [])
+        case ast_.Image(target, indices):
+            # TODO need to also convert index/params into Type_s??
+            return ast_.Type_(target, indices)
+
+        case _:
+            raise SimileTypeError(f"Invalid type assignment value: {value}", value)
 
 
 def _promote_binary_op(node: ast_.BinaryOp) -> ast_.ASTNode:

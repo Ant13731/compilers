@@ -491,7 +491,7 @@ class Call(ASTNode):
 @dataclass
 class Image(ASTNode):
     target: ASTNode
-    index: ASTNode
+    indices: list[ASTNode]
 
 
 @dataclass
@@ -549,7 +549,7 @@ class ElseIf(ASTNode):
 
 @dataclass
 class For(ASTNode):
-    iterable_names: TupleIdentifier | TupleSymbol
+    iterable_names: TupleIdentifier | TupleSymbol | Identifier | Symbol
     iterable: ASTNode
     body: ASTNode | Statements
 

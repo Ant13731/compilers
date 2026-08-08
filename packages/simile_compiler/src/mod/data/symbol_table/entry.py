@@ -19,6 +19,7 @@ class IdentifierContext(Enum):
     ENUM_ITEM = auto()
     TYPE_NAME = auto()
     BUILTIN_TYPE = auto()
+    BUILTIN_TRAIT = auto()
 
 
 @dataclass

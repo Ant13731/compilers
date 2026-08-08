@@ -71,6 +71,27 @@ class TraitCollection:
     def one_to_one(self) -> bool:
         return self.one_to_many_trait is not None and self.many_to_one_trait is not None
 
+    @classmethod
+    def list_traits(cls) -> list[type[Trait]]:
+        return [
+            ImmutableTrait,
+            OrderableTrait,
+            MinTrait,
+            MaxTrait,
+            LiteralTrait,
+            DomainTrait,
+            IterableTrait,
+            EmptyTrait,
+            UniqueElementsTrait,
+            SizeTrait,
+            TotalTrait,
+            TotalOnDomainTrait,
+            TotalOnRangeTrait,
+            ManyToOneTrait,
+            OneToManyTrait,
+            GenericBoundTrait,
+        ]
+
     def _fill_implicit_traits(self) -> None:
         """Some traits implicitly encompass others. This fills in that closure.
         Ex. a Literal[1] implies min=1 and max=1.

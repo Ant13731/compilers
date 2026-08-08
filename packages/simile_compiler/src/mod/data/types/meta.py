@@ -132,3 +132,13 @@ class TypeOfType(BaseType):
 
     def _populate_mandatory_traits(self) -> None:
         pass
+
+
+@dataclass
+class TraitType(BaseType):
+    """Used to lift a trait into a type"""
+
+    trait_name: str | None
+
+    def _populate_mandatory_traits(self) -> None:
+        pass

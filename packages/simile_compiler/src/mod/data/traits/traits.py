@@ -24,10 +24,10 @@ class OrderableTrait(Trait):
 
     @classmethod
     def is_orderable(cls, values: list[ASTNode]) -> bool:
-        for value in values:
-            if value.get_type.trait_collection.orderable_trait is None:  # type: ignore # TODO implement
-                return False
-        return True
+        # for value in values:
+        # if value.get_type.trait_collection.orderable_trait is None:  # type: ignore # TODO implement
+        return False
+        # return True
 
 
 @dataclass

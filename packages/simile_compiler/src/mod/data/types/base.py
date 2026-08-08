@@ -44,11 +44,12 @@ class BaseType:
         raise NotImplementedError
 
     def equals(self, other: BaseType) -> BoolType:
-        """Check if this type is equal to another type."""
-        raise NotImplementedError
+        """Operation on AST types (corresponding to ast_.Equal), not a helper for computing base types"""
+        # TODO refine this if the types are not equal (then the values are probably not equal)
+        return BoolType()
 
     def not_equals(self, other: BaseType) -> BoolType:
-        raise NotImplementedError
+        return BoolType()
 
     # Helper methods
     def is_eq_type(self, other: BaseType, check_traits: bool = False) -> bool:

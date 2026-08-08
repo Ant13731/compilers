@@ -14,6 +14,7 @@ from src.mod.data.types.meta import (
     ModuleImports,
     ImportedSymbol,
     TypeOfType,
+    TraitType,
 )
 from src.mod.data.types.primitive import (
     NoneType_,

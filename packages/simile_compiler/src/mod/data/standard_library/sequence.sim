@@ -17,10 +17,10 @@ procedure length(S: sequence[T]) -> T:
 procedure tail(S: sequence[T]) -> sequence[T]:
     return {i |-> x in S . i != 0 | i - 1 |-> x}
 
-procedure append(S: sequence[T], x: T) -> sequence[T]:
+procedure append(S: sequence[T], y: T) -> sequence[T]:
     return S \/ {(max x in dom(S) | x) |-> y}
 
-procedure prepend(S: sequence[T], x: T) -> sequence[T]:
+procedure prepend(S: sequence[T], y: T) -> sequence[T]:
     return {i |-> x in S | i+1 |-> x} \/ {0 |-> y}
 
 procedure tails(S: sequence[T]) -> set[sequence[T]]:

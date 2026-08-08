@@ -606,24 +606,18 @@ class QuantificationBodyIntermediary(BaseType):
         return self.return_type
 
     def set_comprehension(self) -> SetType:
-        self._is_subtype_or_error(self.return_type, SetType(AnyType_()))
-        assert isinstance(self.return_type, SetType)
-        return self.return_type
+        return SetType(self.return_type)
 
     def relation_comprehension(self) -> RelationType:
-        self._is_subtype_or_error(self.return_type, RelationType(AnyType_(), AnyType_()))
-        assert isinstance(self.return_type, RelationType)
-        return self.return_type
+        self._is_subtype_or_error(self.return_type, PairType(AnyType_(), AnyType_()))
+        assert isinstance(self.return_type, PairType)
+        return RelationType(self.return_type.left, self.return_type.right)
 
     def bag_comprehension(self) -> BagType:
-        self._is_subtype_or_error(self.return_type, BagType(AnyType_()))
-        assert isinstance(self.return_type, BagType)
-        return self.return_type
+        return BagType(self.return_type)
 
     def sequence_comprehension(self) -> SequenceType:
-        self._is_subtype_or_error(self.return_type, SequenceType(AnyType_()))
-        assert isinstance(self.return_type, SequenceType)
-        return self.return_type
+        return SequenceType(self.return_type)
 
     def sum(self) -> IntType | FloatType:
         self._is_subtype_or_error(self.return_type, (IntType(), FloatType()))
@@ -635,13 +629,30 @@ class QuantificationBodyIntermediary(BaseType):
         assert isinstance(self.return_type, IntType | FloatType)
         return self.return_type
 
+    def min(self) -> BaseType:  # IntType | FloatType:
+        # TODO refine subtype to consider traits (like the orderable trait)
+        # self._is_subtype_or_error(self.return_type, (IntType(), FloatType()))
+        # assert isinstance(self.return_type, IntType | FloatType)
+        return self.return_type
+
+    def max(self) -> BaseType:  # IntType | FloatType:
+        # self._is_subtype_or_error(self.return_type, (IntType(), FloatType()))
+        # assert isinstance(self.return_type, IntType | FloatType)
+        return self.return_type
+
     def iter_(self) -> BaseType:
         return self.return_type
 
     def fold(self) -> BaseType:
         return self.return_type
 
+    def _populate_mandatory_traits(self) -> None:
+        return None
+
 
 @dataclass
 class GeneratorIntermediary(BaseType):
     iterator_type: BaseType
+
+    def _populate_mandatory_traits(self) -> None:
+        return None

@@ -488,10 +488,13 @@ class Parser:
         )
 
     @store_derivation
-    def ident_list(self) -> ast_.TupleIdentifier:
+    def ident_list(self) -> ast_.IdentifierListTypes:
         ident_list_items = [self.ident_list_item()]
         while self.match(TokenType.COMMA):
             ident_list_items.append(self.ident_list_item())
+        # Dont needlessly wrap in tupleIdentifiers
+        if len(ident_list_items) == 1:
+            return ident_list_items[0]
         return ast_.TupleIdentifier(tuple(ident_list_items))
 
     @store_derivation
@@ -943,10 +946,12 @@ class Parser:
                 case TokenType.L_BRACKET:
                     set_whitespace_back_to = self.ignore_whitespace(True)
                     self.advance()
-                    expr = self.expr()
+                    args = [self.expr()]
+                    while self.match(TokenType.COMMA):
+                        args.append(self.expr())
                     self.consume(TokenType.R_BRACKET, "Expected closing bracket")
                     self.ignore_whitespace(set_whitespace_back_to)
-                    atom = ast_.Image(atom, expr)
+                    atom = ast_.Image(atom, args)
                 case _:
                     self.error("Unreachable state")
         return atom

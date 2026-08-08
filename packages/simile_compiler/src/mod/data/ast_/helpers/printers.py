@@ -236,7 +236,8 @@ def _(ast: Call, indent: int) -> str:
 
 @_ast_to_source.register(Image)
 def _(ast: Image, indent: int) -> str:
-    return f"{_ast_to_source(ast.target, indent)}[{_ast_to_source(ast.index, indent)}]"
+    args_str = ", ".join(_ast_to_source(arg, indent) for arg in ast.indices)
+    return f"{_ast_to_source(ast.target, indent)}[{args_str}]"
 
 
 @_ast_to_source.register(TypedName)
@@ -308,7 +309,7 @@ def _(ast: ElseIf, indent: int) -> str:
 @_ast_to_source.register(For)
 def _(ast: For, indent: int) -> str:
     iterable_str = _ast_to_source(ast.iterable, indent)
-    names_str = ", ".join(_ast_to_source(name, indent) for name in ast.iterable_names.items)
+    names_str = _ast_to_source(ast.iterable_names, indent)
     body_str = _ast_to_source(ast.body, indent + 1)
     return f"for {names_str} in {iterable_str}:\n{'\t' * (indent + 1)}{body_str}\n"
 

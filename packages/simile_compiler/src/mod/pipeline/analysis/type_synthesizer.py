@@ -4,7 +4,7 @@ from typing import Callable, Any, Sequence
 from functools import singledispatchmethod, reduce
 
 from src.mod.data import ast_, types, traits
-from src.mod.data.symbol_table import SymbolTable
+from src.mod.data.symbol_table import SymbolTable, IdentifierContext
 from src.mod.data.types.typing_rule_decorator import typing_rule
 from src.mod.pipeline.analysis.type_annotation_resolver import TypeAnnotationResolver
 
@@ -48,6 +48,13 @@ class TypeSynthesizer:
     @synthesize_type.register
     def _(self, ast: ast_.TypedName) -> types.BaseType:
         return self.synthesize_type(ast.type_)
+
+    @synthesize_type.register
+    def _(self, ast: ast_.TraitApplication) -> types.BaseType:
+        base_type = self.synthesize_type(ast.target)
+        trait_collection = TypeAnnotationResolver.resolve_trait_collection(ast.traits, self.symbol_table)
+        base_type.trait_collection = base_type.trait_collection.merge(trait_collection, True)
+        return base_type
 
     @typing_rule("")
     @synthesize_type.register
@@ -123,8 +130,11 @@ class TypeSynthesizer:
     @typing_rule("Bag Operations - Image", "Relation Operations - Image")
     @synthesize_type.register
     def _(self, ast: ast_.Image) -> types.BaseType:
+        if len(ast.indices) != 1:
+            raise types.SimileTypeError(f"Image operation expects exactly one index, got {len(ast.indices)}", ast)
+        ast_index = ast.indices[0]
         target_type = self.synthesize_type(ast.target)
-        index_type = self.synthesize_type(ast.index)
+        index_type = self.synthesize_type(ast_index)
         if isinstance(target_type, types.BagType):
             return target_type.image(index_type)
         if isinstance(target_type, types.RelationType):
@@ -596,22 +606,25 @@ class TypeSynthesizer:
         return types.GeneratorIntermediary(set_type.element_type)
 
     @typing_rule("Structural Match", "Structural Match with Tuple")
-    def _structural_match(self, identifiers: ast_.SymbolListTypes, element_type) -> None:
+    def _structural_match(self, identifiers: ast_.SymbolListTypes, element_type: types.BaseType) -> None:
         match identifiers:
             case ast_.TupleSymbol(symbols):
                 if not isinstance(element_type, types.TupleType):
+                    # FIXME Hack because the parser wraps single identifiers in a tupleIdentifier during the ident_list call
+                    if len(symbols) == 1:
+                        return self._structural_match(symbols[0], element_type)
                     raise types.SimileTypeError(f"Expected element type to be TupleType for structural match with tuple. Got {element_type}", identifiers)
                 if len(symbols) != len(element_type.items):
                     raise types.SimileTypeError(
-                        f"Expected number of symbols in tuple to match number of elements in tuple type. Got {len(symbols)} symbols and {len(element_type.items)} elements",
+                        f"Expected number of symbols in tuple to match number of elements in tuple type. Got {len(symbols)}, {symbols} symbols and {len(element_type.items)}, {element_type.items} elements",
                         identifiers,
                     )
                 for symbol, elem_type in zip(symbols, element_type.items):
                     self._structural_match(symbol, elem_type)
             case ast_.Symbol(symbol_table_entry):
                 symbol_info = self.symbol_table.lookup_symbol(symbol_table_entry.id_, symbol_table_entry.scope)
-                if symbol_info.declared_type is not None:
-                    raise types.SimileTypeError("Symbol already has a declared type during structural match (expected to be unbound)", identifiers)
+                if symbol_info.context != IdentifierContext.LOOP_VARIABLE:
+                    raise types.SimileTypeError(f"Expected symbol to be a loop variable for structural match. Got {symbol_info.context}", identifiers)
                 symbol_info.declared_type = element_type
             case _:
                 raise types.SimileTypeError("Unreachable state", identifiers)
@@ -708,6 +721,22 @@ class TypeSynthesizer:
             raise types.SimileTypeError(f"Body of exists must be a quantification body. Got {quantification_body}", ast.body)
         return quantification_body.product()
 
+    @typing_rule()
+    @synthesize_type.register
+    def _(self, ast: ast_.Min) -> types.BaseType:
+        quantification_body = self.synthesize_type(ast.body)
+        if not isinstance(quantification_body, types.QuantificationBodyIntermediary):
+            raise types.SimileTypeError(f"Body of exists must be a quantification body. Got {quantification_body}", ast.body)
+        return quantification_body.min()
+
+    @typing_rule()
+    @synthesize_type.register
+    def _(self, ast: ast_.Max) -> types.BaseType:
+        quantification_body = self.synthesize_type(ast.body)
+        if not isinstance(quantification_body, types.QuantificationBodyIntermediary):
+            raise types.SimileTypeError(f"Body of exists must be a quantification body. Got {quantification_body}", ast.body)
+        return quantification_body.max()
+
     @typing_rule("Set Enumeration")
     @synthesize_type.register
     def _(self, ast: ast_.SequenceEnumeration) -> types.BaseType:
@@ -782,8 +811,8 @@ class TypeSynthesizer:
         expected_left_type: type[T],
         operation_as_type_func: Callable[[T, types.BaseType], types.BaseType],
     ) -> types.BaseType:
-        left_type = self.synthesize_type(ast.left, self.symbol_table)
-        right_type = self.synthesize_type(ast.right, self.symbol_table)
+        left_type = self.synthesize_type(ast.left)
+        right_type = self.synthesize_type(ast.right)
         if not isinstance(left_type, expected_left_type):
             raise types.SimileTypeError(f"Left operand of {operation_as_type_func.__name__} must be of type {expected_left_type}, got {left_type}", ast.left)
         return operation_as_type_func(left_type, right_type)
@@ -794,8 +823,8 @@ class TypeSynthesizer:
         expected_right_type: type[T],
         operation_as_type_func: Callable[[T, types.BaseType], types.BaseType],
     ) -> types.BaseType:
-        left_type = self.synthesize_type(ast.left, self.symbol_table)
-        right_type = self.synthesize_type(ast.right, self.symbol_table)
+        left_type = self.synthesize_type(ast.left)
+        right_type = self.synthesize_type(ast.right)
         if not isinstance(right_type, expected_right_type):
             raise types.SimileTypeError(f"Right operand of {operation_as_type_func.__name__} must be of type {expected_right_type}, got {right_type}", ast.right)
         return operation_as_type_func(right_type, left_type)

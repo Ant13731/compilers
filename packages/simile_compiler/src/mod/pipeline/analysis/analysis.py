@@ -13,8 +13,8 @@ def semantic_analysis(ast: ast_.ASTNode) -> SemanticAnalysis:
     """Combines all semantic analysis passes into one function"""
 
     reserved_keywords_check(ast)
-    symbol_table = populate_symbol_table(ast)
     ast = normalize_ast(ast)
+    symbol_table = populate_symbol_table(ast)
     assert_no_parser_only_nodes(ast)
     type_synthesizer = TypeSynthesizer(symbol_table)
     type_synthesizer.type_check(ast)
