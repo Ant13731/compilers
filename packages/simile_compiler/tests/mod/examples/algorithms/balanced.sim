@@ -1,0 +1,2 @@
+procedure balanced(xs: sequence[int]) -> bool:
+    return forall i in 0 .. len(xs) | sum_(xs[:i]) > 0
