@@ -22,13 +22,16 @@
 \usepackage{longtable}
 \usepackage{syntax}
 \usepackage{ebproof}
+\usepackage{xcolor}
+\usepackage{minted}
 \usepackage[left=1.5cm, right=1.5cm]{geometry}
 \usepackage{hyperref}
 
 % NOTE:
 % File has moved to overleaf for collaboration!!!
 
-
+\usemintedstyle{tango} %or tango, vs, xcode, solarized-light
+\setminted{bgcolor=gray!5, tabsize=4}
 % Commands
 % Simple set comprehension notation
 \newcommand{\Set}[2]{%
@@ -41,6 +44,9 @@
 \newcommand{\bSetT}[2]{%
   \{\, #1 \cdot #2 \,\}%
 }
+\newcommand{\setOne}[1]{%
+  \{\, #1 \,\}%
+}
 
 % Bag notation
 % \newcommand{\lbbar}{\{\kern-0.5ex|}
@@ -51,6 +57,12 @@
 \newcommand{\bagT}[2]{%
   \llbracket \, #1 \cdot #2 \,\rrbracket%
 }
+\newcommand{\Bag}[2]{%
+  \llbracket \, #1 \mid #2 \, \rrbracket%
+}
+\newcommand{\bagOne}[1]{%
+  \llbracket \, #1 \, \rrbracket%
+}
 
 % List comprehension notation
 \newcommand{\List}[3]{%
@@ -58,6 +70,12 @@
 }
 \newcommand{\ListT}[2]{%
   [\, #1 \cdot #2 \, ]%
+}
+\newcommand{\ListG}[2]{%
+  [\, #1 \mid #2 \, ]%
+}
+\newcommand{\listOne}[1]{%
+  [\, #1 \, ]%
 }
 % List concatenation
 \newcommand{\concat}{%
@@ -108,20 +126,236 @@
 \tableofcontents
 \newpage
 
-\section{Overview}
-This document serves as a living specification of the underlying term rewriting system used in the compiler for a modelling-focused programming language. It includes an overview of the language Simile, a user-facing reference, and implementation plans.
+\section{High-Level Design}
+\subsection{Overview}
+This document serves as a living specification and design record of the very-high-level programming language Simile. Simile is founded on the union between formal specification languages and efficiency-focused programming languages, with the belief that a language can be both highly performant and highly abstract. We focus on providing a python-like/specification-language-like programming experience with a compiler strong enough to compete with hand-optimized C code. Where possible, we aim to formalize Simile's compilation process to ensure that aggressively optimized programs remain correct by construction.
+
+% TODO dont talk about event b so much here - prime real estate to introduce Simile
+Simile takes its syntactic and semantic roots in that of Event-B, a set-theory-first language used to formalize safety-oriented software specifications. Event-B notation often leans on set comprehensions (of the form $\bSet{x}{x \in S}{E}$) and set operations (like $S \cup T$), with progressive specification refinement at the core of the development process. Like object-oriented programs, Event-B programs tend to operate at multiple refinement levels simultaneously, especially when proving program correctness. Each atomic action must be proved correct, then proofs may be composed to prove larger programs, and so on. With Event-B as inspiration, Simile's syntax and semantics is intended to be proof-friendly in the same way, by following discrete mathematics notation.
+
+At the same time, Simile attempts to use the semantic information available at high-level programs to aggressively optimize the executable value. For example, $X \cap T = T$ may require evaluation of $X \cap T$ in a normal programming language, but Simile attempts to match known theorems against expressions to determine that $X \cap T = T$ is only true when $X \supseteq T$. By avoiding the difficult reasoning paths of traditional imperative languages (involving side effects or mutable objects) to perform an action, set theory semantics affords an entire class of optimizations not available to other programming languages.
+
+By building from 50 years of programming language and formal methods literature, we hope to create a language that will spark further interest in simple-to-use, efficient-to-run languages. Following sections include the high-level design of Simile, formalized subsystems, and an implementation reference.
+
+\subsection{Scope}
+In scope:
+\begin{itemize}
+    \item We follow set theory semantics most of the time, diverging only for a particularly useful expression or programming objective.
+    \item Programs should remain as abstract as possible, but users may provide helpful information to the compiler to unlock more aggressive optimizations.
+    \item Notation follows that of Event-B (mostly), including a rich set of set and relational operators.
+\end{itemize}
+%%
+Out of scope:
+\begin{itemize}
+    \item We cannot hope to become the objectively best language in all use cases. Each language has their strength, and Simile aims to be well-rounded; ergonomic enough to pick up, and fast enough to be more usable than other specification language runtimes.
+    \item We do not follow conventional imperative language semantics that would otherwise clash with set theory optimizations.
+\end{itemize}
+
+\subsection{Background}
+\subsubsection{Programmers should not worry about implementation details}
+In high level programming languages, users often reach for abstract constructs like relations (dictionaries in Python, maps in Java), lists, and sets, largely because they are standardized, concise, and expressive. For example, HashMaps can be found in almost every language's standard library, and it would be peculiar to find a language that does not have first-class support for list collections. Most of the time, programmers using these types don't think about the layout or execution of their data, just that it is held within a container and operable under several composable actions (concatenation, union, intersection, lookups, etc.). However, this abstraction under the semantics of traditional high-level imperative/OO programs can lead to wasted memory and computation time, especially when composing multiple operations together. For example, the expression $S \cap (A \cup B \cup C)$ is theoretically bounded by the size of $S$, but a conventional language would construct several intermediary sets for $A \cup B$, then $(A \cup B) \cup C$, consuming more memory and time than required.
+
+Low-level languages share an adjacent problem: programmers may trust primitive data type operations to be fast, but they must also tune every piece of their code to fit the type's implementation. Formally simple and powerful operations like list concatenation force the user to consider implementation details like memory allocation and ownership for both inputs and outputs. For example, in $A := S \concat T$, does the specific implementation create a new list for $A$ containing a shallow copy of the contents of $S$ and $T$? Or perhaps $A$ and $S$ will reference the same object, where the data in $T$ is moved to the pointed-to value of $S$. Programmers must track every byte of data for straightforward operations, causing mental overhead, distractions from program correctness, and the risk of implementation errors.
+
+Abstract data types are semantically powerful and have been implemented by hundreds of languages across thousands of libraries. Further, they can be represented by a variety of concrete types, with wildly varying levels of efficiency and effectiveness for different use cases. For example, a set of integers can be implemented by a HashSet, a bitset, an array, a tree set, or even a trie. HashSets are advantageous for element lookups, but may not be able to compare to a dense bitset in terms of memory efficiency. An array could be effective for a set that may need to be sorted, but doesnt have direct element lookups. With a little metadata-help from the programmer, the compiler should be intelligent enough to make decisions on the concrete type and optimize expressions tailored to the concrete type while completely following the abstract type's semantics.
+
+\paragraph{Motivating Example: A Visitor Information System}
+Let's turn towards an example for specification-focused programming: a group of conference administrators create a program to track resourcing for a week's worth of workshops. They already have a list of visitors, available rooms, and planned workshops for each room. A specification would model these records via carrier sets (i.e., enumerated sets):
+\begin{gather*}
+    Visitor = \{Ryan, Adrian, Kevin, Charlie, Michael, ...\}\\
+    Room = \{100, 101, 201, ...\}\\
+    Workshop = \{ESOP, FASE, FoSSaCS\}
+\end{gather*}
+To make this model more useful, we express relationships between these sets. For example, every workshop must occur in a room and visitors will attend workshops. Further, we can place restrictions on each relation concisely through specification language notation. If we know workshops occur in a room, it would be safe to tighten our observation that \textit{all} workshops must occur in one room \textit{at a time}. So, we can explicitly refine the relationship to an injective (one-to-one) function that is total on the domain (the carrier set $Workshop$). In formal notation, we write concisely:
+\begin{gather*}
+    location: Workshop \tinj Room
+\end{gather*}
+We can further refine another relationship: visitors can attend workshops, but visitors can only attend one workshop \textit{at a time} and \textit{not all} visitors may attend a workshop. This relation is actually partial on the carrier set of $Visitor$ and a functional (many-to-one) relation. Formally:
+\begin{gather*}
+    attends: Visitor \pfun Workshop
+\end{gather*}
+With these relations, we can query for interesting information concisely. Let's say we want to throw a surprise dinner for all attendees in a specific room. We can compose the $attends$ relation with the $location$ relation to find the number of people expected in a specific room. For a specific $room$, we write:
+\begin{gather*}
+    card((location^{-1} \circ attends^{-1})[\{room\}]
+\end{gather*}
+A HashMap would be the first concrete data structure of choice for most programmers, but without knowledge of the refined relationships, we cannot guarantee that the relational inverse operation is guaranteed to work. We set aside HashMaps for now for the sole reason that they are limited in their representation capabilities; we cannot model a many-to-many relationship using the convential definition of the type.
+
+If we were to build a compiler for this specification language, a naive implementation might only see the broad connection between these sets and choose to safely model them as a HashSet of tuples (which can represent many-to-many relations). In this case, we concretize the types of $location$ and $attends$ like so:
+\begin{gather*}
+    location: HashSet[(Workshop, Room)]\\
+    attends: HashSet[(Visitor, Workshop)]
+\end{gather*}
+Then, each operation from the above query can be ordered in an imperative fashion:
+\begin{algorithmic}
+    \State $locationInverse: HashSet[(Room, Workshop)] := Inverse(location)$
+    \State $attendsInverse: HashSet[(Workshop, Visitor)] := Inverse(attends)$
+    \State $visitorsInRooms: HashSet[(Room, Visitor)] := Compose(locationInverse, attendsInverse)$
+    \State $visitorsInQueryRoom: HashSet[Visitor] := Lookup(room, visitorsInRooms)$
+    \State $mealsToPrepForRoom: int := Card(visitorsInQueryRoom)$
+\end{algorithmic}
+With a library of concrete functions:
+\begin{algorithmic}
+    \Function{Inverse}{$r: HashSet[(X, Y)]$}
+        \Comment{Runtime: $O(n)$. Memory use: $O(n)$}
+        \State $r': HashSet[(Y, X)] := \{\}$
+        \For{$x,y \in r$}
+            \State $r'.add((y,x))$ \Comment{$s.add$ is a primitive HashSet operation mutating $s$}
+        \EndFor
+        \Return $r'$
+    \EndFunction
+    \Function{Compose}{$r_1: HashSet[(X, Y)], r_2: HashSet[(Y, Z)]$}
+        \Comment{Runtime: $O(n^2)$. Memory use: $O(n)$}
+        \State $r': HashSet[(X,Z)] := \{\}$
+        \For{$x,y_1 \in r_1$}
+            \For{$y_2,z \in r_2$}
+                \If{$y_1 = y_2$}
+                    \State $r'.add((x,y))$
+                \EndIf
+            \EndFor
+        \EndFor
+        \Return $r'$
+    \EndFunction
+    \Function{Lookup}{$searchFor: X, r: HashSet[(X,Y)]$}
+        \Comment{Runtime: $O(n)$. Memory use: $O(n)$}
+        \State $r': HashSet[Y] := \{\}$
+        \For{$x,y \in r$}
+            \If{$searchFor = x$}
+                \State $r'.add(y)$
+            \EndIf
+        \EndFor
+        \Return $r'$
+    \EndFunction
+    \Function{Card}{$s: HashSet$}
+        \Comment{Runtime: $O(n)$. Memory use: $O(1)$}
+        \State $c: int := 0$
+        \For{$x \in s$}
+            \State $c := c + 1$
+        \EndFor
+        \Return $c$
+    \EndFunction
+\end{algorithmic}
+As evident by the poor runtime and memory complexity, this is far from the most efficient representation of the system. However, it is a direct, valid translation, fulfilling all semantic requirements. A human may never write such code, but a compiler without statically analyzing the use of abstract times, may choose the broadest representation at the cost of runtime and memory usage. With knowledge of the problem domain and usage of these library functions, human programmers can intuitively decide that the $Lookup$ function, for example, only ever needs to match for one room. Further, they would likely observe that this solution could be made a magnitude faster by using HashMaps instead of a tupled HashSet.
+
+But as programmers deciding on concrete data structures, it is our responsibility to be aware of the restrictions of the concrete types and make the most appropriate decision for the expected data. A compiler should be able to make the same decisions, consulting a longer list of alternatives for further unique cases. If we inform the compiler that HashMaps must represent many-to-one relations in addition to the refined relational types mentioned above (where $location$ and $attends$ are one-to-one and many-to-one respectively), we effectively offload the burden of implementation choice towards a rigid, correct system.
+
+Compare the above solution with the optimal HashMap implementation, which allocates no extra space for intermediate sets and runs in $O(n)$:
+\begin{algorithmic}
+    \Function{HashMapSolution}{$location: HashMap[Workshop, Room], attends: HashMap[Visitor, Workshop]$}
+        \State c := 0
+        \For{$v, w \in attends$}
+            \If{$location[w] = room$}
+                \State $c := c + 1$
+            \EndIf
+        \EndFor
+        \Return $c$
+    \EndFunction
+\end{algorithmic}
+
+\paragraph{Digression: relational databases} Upon reviewing this example, we see strong parallels in language and functionality to relational database engines (particularly SQL). And as a data processing-focused problem, this example could of course be modelled by a relational database. For a very large event with many rooms, visitors, and workshops, perhaps a relational database is the only way to manage the data. However, using formal notation, the programmer is not burdened with the choice of that representation; they focus on correctness of the abstract data and abstract operations. The specification language intentionally hides implementation-specific operations like joins and counts, instead opting for a purer mathematical model following traditional set theory semantics.
+
+The execution engine should have the freedom of choosing a relational database-like storage-and-query mechanism, but it should also have the freedom to choose between aggressively memory-efficient or fully-cached implementations too. In this particular example, a relational database may not even be the best choice of representation. Imagine we could encode the unchanging carrier sets (ex. a building has a limited number of $Room$s, the set of $Workshop$s is naturally limited by the number of $Room$s) as a compact bitset. If we were to perform an intersection between these encoded sets, the execution could be many times faster than the overhead from a relational database.
+
+By providing the compute engine with more opportunities to follow unique optimization paths, we may be able to tune the computation method to the problem at hand.
+
+% TODO mention collection skeletons area of research - abstract types, with optional traits to provide more domain-related information if known. But the code still works either way
+
+\subsubsection{Programmers should focus on correctness, compiler on efficiency}
+One of the best traits of specification languages towards correct program development is their emphasis on proving the intent of the code. Even in industry, organizing software requirements remains a bottleneck for shipping features and products. Although software developers will no doubt need to consider algorithmic efficiency when writing programs, they should be able to abstract away primitive operations to focus on writing readable, correct, and clear code. Then, the compiler should have the freedom to swap out expressive code with a semantically equivalent, more efficient counterpart. In this case, rigorous semantics are required to demonstrate that the source program exhibits the same key behaviours as optimized programs.
+
+High level program libraries and frameworks are already trending towards semantically rich, abstract interfaces covering a low level hand-optimized implementation. For example, the numpy library has become essential syntactic sugar for scientific computing within python. Python further serves as the standard for machine learning tooling, with libraries like PyTorch, TensorFlow, and Triton abstracting complex GPU code behind a vendor-agnostic interface.
+
+By simplifying the language and formalizing semantics, we can grant the compiler more power over optimizations than would otherwise be possible in conventional languages.
+
+\paragraph{Motivating Example: Operation Optimization in Python}
+Let's say we have 3 sets $S, T, V$ that can only be represented by the concrete HashSet type. Further, take our candidate query $(S \cup T) \cap V$. Python provides a suite of abstract operators for sets, so this expression may be represented as \texttt{(S | T) \& V}. But its imperative semantics hide the actual computation process:
+\begin{minted}{python}
+def compute(S, T, V):
+    # Step 1: S | T
+    s_union_t = set()
+    for x in S:
+        s_union_t.add(x)
+    for x in T:
+        s_union_t.add(x)
+    # len(s_union_t) <= len(S) + len(T)
+
+    # Step 2: (S | T) & V
+    ret = set()
+    for x in s_union_t:
+        ret.add(x)
+    for x in ret:
+        if x not in V:
+            ret.remove(x)
+    # len(ret) <= len(V)
+    return ret
+\end{minted}
+Because the expected behaviour of Python operators is to create a new set while leaving the input arguments untouched, the interpreter must create a new set for the union of $S$ and $T$, then another set for the intersection with $V$. Further, Python is forced to evaluate from left-to-right, obeying the priority of parenthesis. So, in the likely case where $S \cup T$ are larger than $V$, we must waste computation and memory adding and removing values from the return set (as in Step 2). The semantics of conventional imperative languages limit the compiler's ability to shuffle expression evaluation, not least because of side effects.
+
+If we freed the semantics of these operators so that known set theorems can replace expressions, we may choose to swap $(S \cup T) \cap V$ with a more complex but computationally faster expression $(S \cap V) \cup ((T \setminus S) \cap V)$. Further, if we prevent the construction of intermediary sets and instead compute the final result directly, we can create an implementation where the resulting set never undoes prior operations, and never consumes more memory than necessary:
+\begin{minted}{python}
+def compute(S, T, V):
+    # Step 1: S & V
+    ret = set()
+    for x in S:
+        if x in V:
+            ret.add(x)
+    # len(ret) <= min(len(S), len(V))
+    # Step 2
+    for x in T:
+        if x not in S and x in V:
+            ret.add(x)
+    # len(ret) <= min(len(S) + len(T), len(V))
+    return ret
+\end{minted}
+The constructed return set strengthens the upper bound cardinality by distributing the intersection operation (which shrinks set sizes) across the union operation (which grows set sizes). As a bonus for focusing on memory efficiency, the runtime is faster too. This second version only iterates over S and T once, while the first version iterates over S, T, and $S \cup T$ twice.
+
+High level specifications can make the intention of computation clearer and simpler, allowing simplifications to happen early in the compilation process. But we must be careful: as demonstrated with this example, the optimized answer is not necessarily the shortest formula. We must consider the concrete type representations, the atomic actions of those concrete types, and the strengths/weaknesses of those atomic actions. A new language defining only abstract semantics allows for extensions of optimizations without any behavioural differences the user would care about; the only behaviours we promise are those defined by the semantics.
+
+% TODO lean into the semantics, proofs, event b literature
+% TODO an example of where safety is critical, and language implementations distract from the correctness (or even worse, make something incorrect)
+
+\subsubsection{Partial computation is powerful}
+% TODO incrementalization
+\paragraph{Motivating Example: Maximum Tail Sum}
+%% TODO, benchmarks
 
 
-\subsection{High Level Ideas}
+% What information is needed for reviewers to understand the design?
+% What information is helpful towards contributing to this project?
 
-\paragraph{General Strategy}
+% Motivation? % Give examples, motivation, why we are taking this route, include steps for code generation, give intuition
+
+\subsection{Syntax}
+% Review the syntactic design of simile - scanner/parser arch
+
+% Design decisions:
+% - Architecture
+% - Generators
+% - Iter/Fold
+
+\subsection{Semantics}
+% Review the semantic design of simile - how does semantic analysis work? How is it structured? alternatives considered?
+
+% Design decisions:
+% - Architecture
+% - hilberts choice
+% - short circuiting booleans
+
+\subsection{Optimization}
+% SimRw - TODO then add SimRW to the optimization specification below
+
+% Design decisions:
+% - Architecture
+% - SimRW
+% - ADT refinement
+% - TRS Optimizer + multiple frontends/backends
+% - Target? MLIR? LLVM?
+
 A basic strategy to optimize set and relational expressions is:
 \begin{enumerate}
   \item Normalize the expression as a set comprehensions
   \item Simplify and reorganize conjuncts of the set comprehension body
 \end{enumerate}
 
-\paragraph{Intuition}
 The TRS for this language primarily involves lowering collection data type expressions into pointwise boolean quantifications. Breaking down each operation into set builder notation enables a few key actions:
 \begin{itemize}
   \item Quantifications over sets ($\bSet{x}{G}{P}$) are naturally separated into generators ($G$) and (non-generating) predicates ($P$). For sets, at least one membership operator per top-level conjunction in $G$ will serve as a concrete element generator in generated code. Then, top level disjunctions will select one membership operation to act as a generator, relegating all others to the predicate level. For example, if the rewrite system observes an intersection of the form $\bSetT{x}{x \in S \land x \in T}$, the set construction operation must iterate over at least one of $S$ and $T$. Then, the other will act as a condition to check every iteration (becoming $\bSet{x}{x \in S}{x \in T}$).
@@ -129,6 +363,9 @@ The TRS for this language primarily involves lowering collection data type expre
   \item Any boolean expression for conditions may be rewritten as a combination of $\lnot, \lor$, and $\land$ expressions. Therefore, by converting all set notation down into boolean notation and then generating code based on set constructor booleans, we can accommodate any form of predicate function.
 \end{itemize}
 
+% \subsection{Beyond the Language Core}
+% Design decisions:
+% -
 
 % \paragraph{Granular Strategy (Sets)}
 % % TODO take from report.tex, give supporting equations too (all the rules must be stable first)
@@ -243,8 +480,8 @@ The TRS for this language primarily involves lowering collection data type expre
 %         Concatenate & $[s_1, ..., s_n] \concat [t_1, ..., t_n] = [s_1, ..., s_n, t_1, ... t_n]$ \\ %& $\concat: list[T] \times list[T] \rightarrow list[T]$ &
 %         Length & $\#S = \sum 1 \cdot x \texttt{ in } S$ \\ %& $\#: list[T] \rightarrow int$ &
 %         \hline
-%         List Mapping & $f * S = \ListT{f(x)}{x \texttt{ in } S}$\\ %& $*: (T \rightarrow T') \times list[T] \rightarrow list[T']$ &
-%         List Filter & $p \triangleleft S = \List{f(x)}{x \texttt{ in } S}{p(x)}$\\ %& $\triangleleft: (T \rightarrow bool) \times list[T] \rightarrow list[T]$ &
+%         List Mapping & $f * S = \listT{f(x)}{x \texttt{ in } S}$\\ %& $*: (T \rightarrow T') \times list[T] \rightarrow list[T']$ &
+%         List Filter & $p \triangleleft S = \list{f(x)}{x \texttt{ in } S}{p(x)}$\\ %& $\triangleleft: (T \rightarrow bool) \times list[T] \rightarrow list[T]$ &
 %         Associative Reduction & $\oplus / [s_1, s_2, ..., s_n] = s_1 \oplus s_2 \oplus ... \oplus s_n$\\ %& $/:(T\times T \rightarrow T) \times list[T] \rightarrow T$ &
 %         Right Fold & $\texttt{foldr}(f, e, [s_1, s_2, ..., s_n]) = f(s_1 ,f(s_2 , f(..., f(s_n, e))))$\\ %& $\texttt{foldr}:(T\times V \rightarrow V) \times V \times list[T] \rightarrow V$ &
 %         Left Fold & $\texttt{foldl}(f, e, [s_1, s_2, ..., s_n]) = f(f(f(f(e, s_1), s_2), ...), s_n)$\\ %& $\texttt{foldl}:(T\times T \rightarrow T) \times list[T] \rightarrow T$ &
@@ -281,18 +518,14 @@ The TRS for this language primarily involves lowering collection data type expre
 %     \label{tab:relOps}
 % \end{table}
 
-\section{Motivation} % Give examples, motivation, why we are taking this route, include steps for code generation, give intuition
-
-\section{Language}
-This section denotes the design and behaviour of Simile.
-
-Much of the language design is inherited from Event-B and the mathematical language definition in \cite{metayerEventBMathLang}.
+\section{Specification}
+This section contains the complete specification and low-level design of Simile, inspired by Event-B and Python.
 
 \subsection{Lexicon}
 Since Simile makes extensive use of Event-B-like set notation and otherwise non-ASCII characters, this section contains a list of such characters, translations to ASCII symbols where suitable, and other useful lexing information.
 
 \subsubsection{Whitespace}
-Similar to Python, indentation and newline tokens are significant in Simile. In particular, nested code blocks, as in if-statements, for-loops, and procedure definitions, require the use of indentations to signify the beginning and end. Indentation/newlines may also be used within collection-type comprehensions or enumerations, similar to the style seen in JSON. Comments are single-lined and start with a pound symbol (\#).
+Similar to Python, indentation and newline tokens are significant in Simile. In particular, nested code blocks, as in if-statements, for-loops, and procedure definitions, require the use of indentations to signify the beginning and end. Indentation/newlines may also be used within collection-type comprehensions or enumerations, similar to the style seen in JSON. Comments are single-lined and start with a pound symbol (\#). Indentation is ignored within bracketed expressions\footnote{Except for within the `iter' block. This is a special case handled post-lexing: ignore indentation when parenthesis/bracket/brace level $>1$ and we are not within the block portion of `iter'... VBAR NEWLINE INDENT `block' DEDENT.}.
 
 \subsubsection{Identifiers}
 Identifiers in Simile follow the standard regular expression, using only ASCII letters, underscores, and numbers: $[a-zA-Z\_][a-zA-Z\_0-9]$.
@@ -302,17 +535,16 @@ Integers and floating point numbers follow a similar style to modern programming
 
 % TODO: escaped characters in strings?
 
-\subsubsection{Expressions}
-ASCII tokens will be provided as an alternative to unicode format where suitable.
-
-The following are symbols used for expressions:
+\subsubsection{Operators}
+ASCII tokens will be provided as an alternative to unicode format where suitable. The following are symbols used for expressions:
 \begin{center}
 \begin{longtable}{c c l}
     \textbf{Token} & \textbf{ASCII Token} & \textbf{Name} \\
     \endhead
-    \lexentry{\cdot}{.}{Center Dot (Quantifier Separator) \footnote{Anywhere $\cdot$ is valid, $.$ is valid.}}
+    \lexentry{\cdot}{.}{Center Dot (Quantifier Separator) \footnote{Anywhere $\cdot$ is valid, $.$ is valid, except the parser may attempt to treat $.$ as a record field access instead of a quantifier separator (like $a.b$), so we prefer the use of $\cdot$ instead.}}
     \lexentry{.}{}{Dot}
-    \lexentry{,}{}{Comma}
+    \lexentry{,}{iter\_and}{Comma}
+    \lexentry{`}{iter\_or}{Comma}
     \lexentry{:}{}{Colon}
     \lexentry{;}{}{Semicolon}
     \lexentry{|}{}{Vertical Bar}
@@ -370,7 +602,7 @@ The following are symbols used for expressions:
     \lexentry{\bigcap}{intersection}{General Intersection}
     \lexentry{\mapsto}{|->}{Maplet}
     \lexentry{\oplus}{<+>}{Relation Overriding} % Old: \ovl \footnote{This unicode symbol requires a specific font available from Rodin: Brave Sans Mono, U+E103}}
-    \lexentry{\circ}{circ}{Composition}
+    \lexentry{\circ}{<>}{Composition}
     \lexentry{\concat}{++}{Concatenation}
     \lexentry{^{-1}}{\~}{Inverse}
     \lexentry{\domres}{<|}{Domain Restriction}
@@ -391,6 +623,8 @@ The following are symbols used for expressions:
     \lexentry{\upto}{}{Upto}
     \lexentry{\pow}{powerset}{Powerset}
     \lexentry{\pown}{powerset1}{Non-Empty Powerset}
+    \lexentry{\sum}{sum}{Summation}
+    \lexentry{\prod}{product}{Product}
 \end{longtable}
 \end{center}
 
@@ -413,7 +647,8 @@ The following list of symbols and identifiers are reserved for programming const
 true & false & if & else & for\\
 while & record & enum & procedure & is\\
 is not & return & break & continue & from\\
-import & skip & with & type
+import & skip & trait & type & iter \\
+iter\_or & iter\_and
 \end{tabular}
 \end{center}
 
@@ -453,6 +688,10 @@ sum &
 cast &
 cast\_with \\
 print &
+map &
+heads &
+tails &
+fold
 \end{tabular}
 \end{center}
 
@@ -462,68 +701,59 @@ We follow the standard EBNF notation for describing the language structure.
 \begin{grammar}
 <Start> ::= <Statements>
 
-<Statements> ::= \{<SimpleStmt> | <CompoundStmt>\}
+<Statements> ::= \{ <SimpleStatements> | <CompoundStmt>\}
 
-% <Comment> ::= `\#' [\^{}NEWLINE]* NEWLINE
+% Small hack needed with trait statements hijacking assignment or expr since lots of productions would share the `first' set
+<SimpleStatements> ::= <AssignmentOrExpr> (`;' <SimpleStmt> \{`;' <SimpleStmt>\} NEWLINE | NEWLINE [<TraitStmt>])
+    \alt (<ControlFlowStmt> | <ImportStmt>) \{`;' <SimpleStmt>\} NEWLINE
 
-<SimpleStmt> ::= <Expr> [[`:' <Expr>] (\lit{$\coloneqq$} | \lit{$:\in$}) <Expr>] NEWLINE [<WithStmt>]
-    \alt <ControlFlowStmt> NEWLINE
-    \alt <ImportStmt> NEWLINE
+<SimpleStmt> ::= <AssignmentOrExpr>
+    \alt <ControlFlowStmt>
+    \alt <ImportStmt>
 
-<WithStmt> ::= INDENT `with' <Expr> NEWLINE \{<Expr> NEWLINE\} DEDENT
+<AssignmentOrExpr> ::= <Expr> [`:' <TypeExpr>] [(\lit{$\coloneqq$} | \lit{$:\in$}) <Expr>]
 
-<ControlFlowStmt> ::= `return' [<Expr>]
-    \alt `break'
-    \alt `continue'
-    \alt `skip'
-
-<ImportStmt> ::= `import' STRING
-    \alt `from' STRING `import' <ImportList>
-
-<ImportList> ::= `*'
-    \alt <FlatTupleIdentifier>
-
-<FlatTupleIdentifier> ::= IDENTIFIER \{`,' IDENTIFIER \}
-    \alt `(' IDENTIFIER \{`,' IDENTIFIER \} `)'
+<TraitStmt> ::= INDENT `trait' <Expr> NEWLINE \{`trait' <Expr> NEWLINE\} DEDENT
 
 <Expr> ::= <Quantification> | <Predicate>
 
 <Quantification> ::= \lit{$\lambda$} [<FlatTupleIdentifier>] \lit{$\cdot$} <Predicate> `|' <Expr>
-    \alt \lit{$\bigcup$} <QuantificationBody>
-    \alt \lit{$\bigcap$} <QuantificationBody>
-    % \alt \lit{min} <QuantificationBody> % TODO remove and let min/max take in an iterable? May be better to just let min be a func like min({x,y,z . x > 1 | x}), could even add a key as a second optional argument
-    % \alt \lit{max} <QuantificationBody>
+    \alt (\lit{$\sum$} | \lit{$\prod$} | \lit{$\bigcup$} | \lit{$\bigcap$} | \lit{$\exists$} | \lit{$\forall$} | `max' | `min') <QuantificationBody>
+    % fold requires a generator, an accumulator assignment with an initial value, and an update expr (no need to explicitly assign to the accumulator var)
+    \alt `fold' <Assignment> `:' <QuantificationBody>
+    % iter requires a generator, initialization values, maybe a return value/identifier/tupleIdentifier, then some statements to modify the init values
+    \alt `iter' <IterQuantificationBody>
 
-<QuantificationBody> ::= <IdentList> \lit{$\cdot$} <Predicate> `|' <Expr>
-    \alt <Expr> `|' <Predicate>
+<QuantificationBody> ::= <BranchQuantificationBody>
+    % Generator trees all end in expr eventually (even if that expr is nested within branches)
+    \alt <Generator> \{`,' <Generator>\} (`,' <BranchQuantificationBody> | `|' <Expr>)
 
-% TODO simplify this a lot - there shouldnt be any need for nested identlists right? should be the same style as a function call
-% Really, those should be considered tuples - tuples can be used wherever exprs are used (eg. in arg of a function call), but theres really no need for nested tuple definitions/destructuring of that nature. Only top-level commas may be needed to separate bound identifiers/arguments, maplets for relational bound identifiers.
-%
-% Candidate Simplification:
-% <IdentList> ::= <MapletIdentifier> \{ `,' <MapletIdentifier> \}
-% <MapletIdentifier> ::= IDENTIFIER | <MapletIdentifier> \lit{$\mapsto$} IDENTIFIER
-% Rename IdentList to BindIdentList to make it clearer that its only for binding identifiers (eg. in foreach loops, lambdas, or quantifiers
+<BranchQuantificationBody> ::= `(' <QuantificationBody> `)' \{``(' <QuantificationBody> `)'\}
+
+% Predicates are attached to a single generator and only apply to that generator
+<Generator> ::= <IdentList> \lit{$\in$} <Expr> [`·' <Expr>]
+
+<IterQuantificationBody> ::= <BranchIterQuantificationBody>
+    \alt <GeneratorWithAssignments> \{`,' <GeneratorWithAssignments> \} (`,' <BranchIterQuantificationBody> | `->' <IdentList> `|' <IterBlock>)
+
+<BranchIterQuantificationBody> ::= `(' <IterQuantificationBody> `)' \{``(' <IterQuantificationBody> `)' \}
+
+<GeneratorWithAssignments> ::= <Generator> `:' <Assignment> \{ `;' <Assignment>\}
+
+<Assignment> ::= <Expr> [`:' <TypeExpr>] (\lit{$\coloneqq$} | \lit{$:\in$}) <Expr>
+
+% Iterblock separate from <Block> so that we can safely ignore indentation when we do not see the VBAR NEWLINE INDENT combo
+<IterBlock> ::= <SimpleStmt> \{`;' <SimpleStmt>\}
+    \alt NEWLINE INDENT <Statements> DEDENT
+
 <IdentList> ::= <IdentListItem> \{`,' <IdentListItem>\}
 
 <IdentListItem> ::= IDENTIFIER
     \alt <IdentListItem> \lit{$\mapsto$} <IdentListItem>
     \alt `(' <IdentList> `)'
 
-% <IdentList> ::= <IdentPattern> \{`,' <IdentPattern>\}
-
-% <IdentPattern> ::= <IdentSubPattern>
-%     \alt <IdentSubPattern> \lit{$\mapsto$} <IdentPattern>
-
-% <IdentSubPattern> ::= IDENTIFIER
-%     \alt `(' <IdentList> `)'
-
-<Predicate> ::= <UnquantifiedPredicate>
-    \alt \lit{$\forall$} <IdentList> \lit{$\cdot$} <Predicate>
-    \alt \lit{$\exists$} <IdentList> \lit{$\cdot$} <Predicate>
-
-<UnquantifiedPredicate> ::= <Implication>
-    \alt <UnquantifiedPredicate> (\lit{$\equiv$} | \lit{$\not\equiv$}) <Implication>
+<Predicate> ::= <Implication>
+    \alt <Predicate> (\lit{$\equiv$} | \lit{$\not\equiv$}) <Implication>
 
 % TODO is this right? rev implies seems awkward
 <Implication> ::= <Disjunction>
@@ -600,14 +830,17 @@ We follow the standard EBNF notation for describing the language structure.
 % Note, because of next production, if you see {}^{-1}, look for relational image operation
 <Power> ::= <Primary> [\lit{\^{}} <Factor> | [\lit{${}^-$}](\lit{${}^{INTEGER}$} | \lit{${}^{FLOAT}$})]
 
-<Primary> ::= <Atom>
-    \alt <Atom> `.' IDENTIFIER
-    \alt <Atom> `(' <Expr> \{`,' <Expr>\} `)'
-    \alt <Atom> `[' <Expr> `]'
+<Primary> ::= <Atom> \{<AtomFollow>\}
+
+<AtomFollow> ::= `.' IDENTIFIER
+    \alt `(' <Expr> \{`,' <Expr>\} `)'
+    % comma within this image operation is to allow for parameterized generics similar to python's typing. Maybe we should extract into a different object?
+    \alt `[' <Expr> \{`,' <Expr> \} `]' % Python like list slcing but with commas? or should we allow multiple things to be queried... Primary use of commas is for type exprs
 
 <Atom> ::= INTEGER | FLOAT | STRING | BOOLEAN | IDENTIFIER
     \alt <Set> | <Sequence> | <Bag> | <Tuple>
-    \alt \lit{$\mathbb{P}$} `(' <Expr> `)' | \lit{$\mathbb{P}_1$} `(' <Expr> `)' | `(' <Expr> `)' % SEE NOTE for Tuple
+    %\alt \lit{$\mathbb{P}$} `(' <Expr> `)' | \lit{$\mathbb{P}_1$} `(' <Expr> `)'
+    \alt `(' <Expr> `)' % SEE NOTE for Tuple
 
 <Set> ::= `{' <CollectionBody> `}'
 
@@ -619,7 +852,8 @@ We follow the standard EBNF notation for describing the language structure.
 % TODO check if this attempts to match to parenth expr in atom... may need to move tuple up to that function in the code
 <Tuple> ::= `(' `)' | `(' [NEWLINE INDENT] <Expr> `,' [NEWLINE [INDENT]] [<EnumerationBody>] `)'
 
-<CollectionBody> ::= <QuantificationBody> | <EnumerationBody>
+<CollectionBody> ::= <QuantificationBody>
+    \alt <EnumerationBody>
 
 <EnumerationBody> ::= [NEWLINE INDENT] <Expr> \{`,' [NEWLINE [INDENT]] <Expr>\} [NEWLINE DEDENT]
 
@@ -641,17 +875,36 @@ We follow the standard EBNF notation for describing the language structure.
 
 <ProcedureStmt> ::= `procedure' IDENTIFIER `(' <TypedName> \{`,' <TypedName> \} `)' \lit{$\rightarrow$} <Expr> `:' <Block>
 
-% TODO should we force types to be provided?
-<TypedName> ::= IDENTIFIER [`:' <Expr>]
-
-<Block> ::= <SimpleStmt>
+<Block> ::= <SimpleStatements>
     \alt NEWLINE INDENT <Statements> DEDENT
+
+<TypedName> ::= IDENTIFIER [`:' <TypeExpr>]
+
+<TypeExpr> ::= IDENTIFIER \{`.' IDENTIFIER\} [`[' <TypeExpr> \{`,' <TypeExpr>\}`]']
+    \alt `(' `)'
+    \alt `(' <TypeExpr> `,' [<TupleTypeExprBody>] `)'
+
+<TupleTypeExprBody> ::= <TypeExpr> \{`,' <TypeExpr>\}
+
+<ControlFlowStmt> ::= `return' [<Expr>]
+    \alt `break'
+    \alt `continue'
+    \alt `skip'
+
+<ImportStmt> ::= `import' STRING
+    \alt `from' STRING `import' <ImportList>
+
+<ImportList> ::= `*'
+    \alt <FlatTupleIdentifier>
+
+<FlatTupleIdentifier> ::= IDENTIFIER \{`,' IDENTIFIER \}
+    \alt `(' IDENTIFIER \{`,' IDENTIFIER \} `)'
 
 \end{grammar}
 
 
 \subsection{Static Analysis - Type System}
-Let $\Gamma$ be the type environment set consisting of elements either $identifier: Type$ or $Type$. The typing rules have been organized in distinct categories for readability. The notation $Type[x, y, z]$ denotes refinements on $Type$ either through instantiating parametric (generic) types or restricting values by way of \texttt{with} clauses.
+Let $\Gamma$ be the type environment set consisting of elements either $identifier: Type$ or $Type$. The typing rules have been organized in distinct categories for readability. The notation $Type[x, y, z]$ denotes refinements on $Type$ either through instantiating parametric (generic) types or restricting values by way of \texttt{trait} clauses.
 
 Type refinements may be applicable to types with certain traits (ex., min/max values for ordered types, definedness of expressions with certain values, set sizes). % Is there a way to formalize this? Refinement calculus?
 
@@ -1029,34 +1282,61 @@ Type refinements may be applicable to types with certain traits (ex., min/max va
 \infer3{\Gamma \vdash (\lambda I_1, ..., I_n \cdot P \mid E): (T_1, ..., T_n) \pfun A}
 \end{prooftree}
 \\
-\tag{Quantification Body \footnote{where $TupleIdentifier$ is a recursive tuple of either $Identifier$s or nested $TupleIdentifiers$, $structuralMatch(e,T)$ is a recursive match between identifiers in $e$ and the set type $T$, $hasGenerator(P,e \in g)$ means the expression $e \in g$ occurs in one of the top-level OR/AND clauses, and $structuralMatchInAllORs(e, T, P)$ means all top-level OR clauses must see $e \in g$ for any $g$ with type $T$. For now, we may just force the generator to appear in the first clause of the predicate, where the predicate is a top-level AND.}}
+\tag{Quantifier}
 \begin{prooftree}
+\hypo{\Gamma \vdash G: Generator[I]}
+\hypo{\Gamma , I \vdash E: A}
+\infer2{\Gamma \vdash (G \mid E) : Quantifier[A]}
+\end{prooftree}
+\\
+\tag{Branching Quantifier}
+\begin{prooftree}
+\hypo{\Gamma \vdash Q_i : Quantifier[A]}
+\infer1{\Gamma \vdash (Q_1 ` ... ` Q_n): Quantifier[A]}
+\end{prooftree}
+\\
+\tag{Generator nest}
+\begin{prooftree}
+\hypo{\Gamma \vdash G_i: Generator[T_i]}
+\infer1{\Gamma \vdash G_1, ... G_n : Generator[(T_1,..., T_n)]} % acts like a generator over the cartesian product
+\end{prooftree}
+\\
+\tag{Generator}
+\begin{prooftree}
+\hypo{\Gamma \vdash S: set[T], P: bool}
 \hypo{I = x_1:T_1, ..., x_n:T_n}
-\hypo{\Gamma \vdash binds(P, I)}
-\hypo{\Gamma, I \vdash P:bool, E:A}
-\infer3{\Gamma \vdash (x_1, ..., x_n \cdot P \mid E): QuantificationBody[I, A]}
-\end{prooftree}
-\\
-\tag{Binds (with generator)}
-\begin{prooftree}
-\hypo{\Gamma \vdash g : set[T]}
 \hypo{\Gamma \vdash structuralMatch(I, T)}
-\infer2{\Gamma \vdash binds(I \in g, I)}
+\infer3{\Gamma \vdash (I \in S \cdot P): Generator[T]}
 \end{prooftree}
 \\
-\tag{Binds with OR}
-\begin{prooftree}
-\hypo{\Gamma \vdash binds(P_1, I), ..., binds(P_n, I)}
-\infer1{\Gamma \vdash binds(\bigvee P_i, I)}
-\end{prooftree}
-\\
-\tag{Binds with AND}
-\begin{prooftree}
-\hypo{\Gamma, I \vdash Q: bool}
-\hypo{\Gamma \vdash binds(P, I)}
-\infer2{\Gamma \vdash binds(P \land Q, I)}
-\end{prooftree}
-\\
+% \tag{Quantification Body \footnote{where $TupleIdentifier$ is a recursive tuple of either $Identifier$s or nested $TupleIdentifiers$, $structuralMatch(e,T)$ is a recursive match between identifiers in $e$ and the set type $T$, $hasGenerator(P,e \in g)$ means the expression $e \in g$ occurs in one of the top-level OR/AND clauses, and $structuralMatchInAllORs(e, T, P)$ means all top-level OR clauses must see $e \in g$ for any $g$ with type $T$. For now, we may just force the generator to appear in the first clause of the predicate, where the predicate is a top-level AND.}}
+% \begin{prooftree}
+% \hypo{I = x_1:T_1, ..., x_n:T_n}
+% \hypo{\Gamma \vdash binds(P, I)}
+% \hypo{\Gamma, I \vdash P:bool, E:A}
+% \infer3{\Gamma \vdash (x_1, ..., x_n \cdot P \mid E): QuantificationBody[I, A]}
+% \end{prooftree}
+% \\
+% \tag{Binds (with generator)}
+% \begin{prooftree}
+% \hypo{\Gamma \vdash g : set[T]}
+% \hypo{\Gamma \vdash structuralMatch(I, T)}
+% \infer2{\Gamma \vdash binds(I \in g, I)}
+% \end{prooftree}
+% \\
+% \tag{Binds with OR}
+% \begin{prooftree}
+% \hypo{\Gamma \vdash binds(P_1, I), ..., binds(P_n, I)}
+% \infer1{\Gamma \vdash binds(\bigvee P_i, I)}
+% \end{prooftree}
+% \\
+% \tag{Binds with AND}
+% \begin{prooftree}
+% \hypo{\Gamma, I \vdash Q: bool}
+% \hypo{\Gamma \vdash binds(P, I)}
+% \infer2{\Gamma \vdash binds(P \land Q, I)}
+% \end{prooftree}
+% \\
 \tag{Structural Match}
 \begin{prooftree}
 \hypo{\Gamma \vdash T}
@@ -1070,106 +1350,80 @@ Type refinements may be applicable to types with certain traits (ex., min/max va
 \infer1{\Gamma \vdash structuralMatch((x_1, ..., x_n), (T_1, ..., T_n))}
 \end{prooftree}
 \\
-% \tag{Quantification Body \footnote{where $TupleIdentifier$ is a recursive tuple of either $Identifier$s or nested $TupleIdentifiers$, $structuralMatch(e,T)$ is a recursive match between identifiers in $e$ and the set type $T$, $hasGenerator(P,e \in g)$ means the expression $e \in g$ occurs in one of the top-level OR/AND clauses, and $structuralMatchInAllORs(e, T, P)$ means all top-level OR clauses must see $e \in g$ for any $g$ with type $T$. For now, we may just force the generator to appear in the first clause of the predicate, where the predicate is a top-level AND.}}
-% \begin{prooftree}
-% \hypo{\begin{matrix}
-% \Gamma \vdash E:A, P:bool\\
-% I_1, ..., I_n: TupleIdentifier\\
-% % M_1, ..., M_n: MapletIdentifier\\
-% % L_1, ..., L_n: TupleIdentifier\\
-% Ids = \bagT{identifiers(I_i)}{0 \leq i \leq n}\\%identifier(L_i) \rrbracket\\ % \llbracket identifier(M_i) \rrbracket
-% \forall e \mapsto count \in Ids \cdot count = 1 \land e \not\in dom(\Gamma)\\
-% {\begin{split}
-% M = \{I_i \mapsto T \cdot &0 \leq i \leq n \\
-%     &\land \exists g \cdot \Gamma \vdash g: set[T] \\
-%     &\land structuralMatch(e, T) \\
-%     &\land hasGenerator(P, e \in g) \\
-%     &\land structuralMatchInAllORs(e, T, P)\}
-% \end{split}}\\
-% % \forall e \in I \cdot \exists (\Gamma \vdash g: set[T]) \cdot structuralMatch(e, T) \land appearsInTopLevelOrOf(e \in g, P)\\
-% % \forall I_i \cdot \exists g \cdot \Gamma \vdash g:set[T] \land P = ... \land I_i \in g \land ...\\
-% % \forall M_i \cdot (\exists g \cdot \Gamma \vdash T_1 \rel T_2 \land M_i \in g)\\
-% % \forall L_i \cdot \exists g \cdot \Gamma \vdash g: T_1 \rel ... \rel T_n \land P = ... L_i \in g ... \land n = len(L_i)
-% \end{matrix}}
-% \infer1{\Gamma \vdash (I_1, ..., I_n \cdot P \mid E): QuantificationBody[M,A]
-% % {\begin{split}
-% % \Gamma \vdash &(I_1, ..., I_n \cdot P \mid E): QuantificationBody[\\ %\cup M_i
-% % &\bSetT{e \mapsto T}{
-% % %(e\in I \land T = T_i)
-% % % \lor (e \in M_i \land T = T_i \rel T_j)
-% % e \in  \land T = T_i \rel ... \rel T_n}, A]
-% % \end{split}
-% % }
-% }
-% \end{prooftree}
-% \frac{
-% \splitfrac{
-% \Gamma \vdash E:A, P:bool \ruleSpace I_1, ..., I_n: Identifier \ruleSpace M_1, ..., M_n: MapletIdentifier
-% }{
-%     \splitfrac{
-%         L_1, ..., L_n: TupleIdentifier \ruleSpace I = \llbracket I_i \rrbracket + \llbracket identifier(M_i) \rrbracket + \llbracket identifier(L_i) \rrbracket
-%     }{
-%         \splitfrac{
-%             \forall e \mapsto count \in I \cdot count = 1 \land e \in dom(\Gamma)
-%         }{
-%             \splitfrac{
-%                 \forall I_i \cdot (\exists g \cdot \Gamma \vdash g:set[T] \land I_i \in g)
-%             }{
-%                \splitfrac{
-%                     \forall M_i \cdot (\exists g \cdot \Gamma \vdash T_1 \rel T_2 \land M_i \in g)
-%                 }{
-%                     \forall L_i \cdot (\exists g \cdot \Gamma \vdash T_1 \rel T_2 \rel ... \rel T_n \land L_i \in g \land m = len(L_i)
-%                 }
-%             }
-%         }
-%     }
-% }
-% }
-% {
-% \splitfrac{
-% \Gamma \vdash (I_i \cup M_i \cup L_i \cdot P \mid E): QuantificationBody[\{e \mapsto T \cdot (e\in I_i \land T = T_i)}{ \lor (e \in M_i \land T = T_i \rel T_j) \lor (e \in  L_i \land T = T_i \rel T_j \rel ... \rel T_n)\}, A]}
-% }
-% \\
-\tag{General Union}
-\begin{prooftree}
-\hypo{\Gamma \vdash (I \cdot P \mid E): QuantificationBody[M,A]}
-\infer1{\Gamma \vdash (\bigcup I \cdot P \mid E): A}
-\end{prooftree}
-\\
-\tag{General Intersection}
-\begin{prooftree}
-\hypo{\Gamma \vdash (I \cdot P \mid E): QuantificationBody[M,A]}
-\infer1{\Gamma \vdash (\bigcap I \cdot P \mid E): A}
-\end{prooftree}
-\\
-\tag{Forall}
-\begin{prooftree}
-\hypo{\Gamma \vdash (I \cdot P): QuantificationBody[M, bool]}
-\infer1{\Gamma \vdash (\forall I \cdot P): bool}
-\end{prooftree}
-\\
-\tag{Exists}
-\begin{prooftree}
-\hypo{\Gamma \vdash (I \cdot P): QuantificationBody[M, bool]}
-\infer1{\Gamma \vdash (\exists I \cdot P): bool}
-\end{prooftree}
-\\
 \tag{Set Comprehension}
 \begin{prooftree}
-\hypo{\Gamma \vdash (I \cdot P \mid E): QuantificationBody[M,A]}
-\infer1{\Gamma \vdash \bSet{I}{P}{E}: set[A]}
+\hypo{\Gamma \vdash Q: Quantifier[A]}
+\infer1{\Gamma \vdash \setOne{Q}: set[A]}
 \end{prooftree}
 \\
 \tag{Bag Comprehension}
 \begin{prooftree}
-\hypo{\Gamma \vdash (I \cdot P \mid E): QuantificationBody[M, A]}
-\infer1{\Gamma \vdash \bag{I}{P}{E}: bag[A]}
+\hypo{\Gamma \vdash Q: Quantifier[A]}
+\infer1{\Gamma \vdash \bagOne{Q}: bag[A]}
 \end{prooftree}
 \\
 \tag{Sequence Comprehension}
 \begin{prooftree}
-\hypo{\Gamma \vdash (I \cdot P \mid E): QuantificationBody[M, A]}
-\infer1{\Gamma \vdash \List{I}{P}{E}: sequence[A]}
+\hypo{\Gamma \vdash Q: Quantifier[A]}
+\infer1{\Gamma \vdash \listOne{Q}: sequence[A]}
+\end{prooftree}
+\\
+\tag{Fold}
+\begin{prooftree}
+\hypo{\Gamma, i: A \vdash Q: Quantifier[A]}
+\hypo{\Gamma \vdash Id: A}
+\hypo{i \notin dom(\Gamma)}
+\infer3{\Gamma \vdash (fold\ i := Id : Q): A}
+\end{prooftree}
+\\
+\tag{Iter Quantifier}
+\begin{prooftree}
+\hypo{\Gamma \vdash G: IterGenerator[I], x_i:T_i, \text{block }C}
+\infer1{\Gamma \vdash (G \rightarrow (x_1, ..., x_n) \mid C): IterQuantifier[(T_1, ..., T_n)]}
+\end{prooftree}
+\\
+\tag{Iter Generator}
+\begin{prooftree}
+\hypo{\Gamma \vdash G: Generator[I], y_i:T_i}
+\hypo{x_i \notin dom(\Gamma)}
+\infer2{\Gamma \vdash (G : x_1 := y_1; ... ; x_n := y_n): IterGenerator[I]}
+\end{prooftree}
+\\
+\tag{Iter}
+\begin{prooftree}
+\hypo{\Gamma \vdash Q: IterQuantifier[A]}
+\infer1{\Gamma \vdash (iter\ Q): A}
+\end{prooftree}
+\end{gather}
+
+Let $\otimes = \{ \bigcup, \bigcap \}$
+
+\begin{gather}
+\tag{General Quantifiers}
+\begin{prooftree}
+\hypo{\Gamma \vdash Q: Quantifier[A]} % where A is a set
+\infer1{\Gamma \vdash (\otimes Q): A}
+\end{prooftree}
+\end{gather}
+
+Let $\otimes = \{ \forall, \exists \}$
+
+\begin{gather}
+\tag{Bool Quantifiers}
+\begin{prooftree}
+\hypo{\Gamma \vdash Q: Quantifier[bool]}
+\infer1{\Gamma \vdash (\otimes Q): bool}
+\end{prooftree}
+\end{gather}
+
+Let $\otimes = \{ \sum, \prod \}$
+
+\begin{gather}
+\tag{Numeric Quantifiers}
+\begin{prooftree}
+\hypo{\Gamma \vdash Q: Quantifier[T]}
+\hypo{\Gamma \vdash T \in \{int, nat, float\}}
+\infer2{\Gamma \vdash (\otimes Q): T}
 \end{prooftree}
 \end{gather}
 
@@ -2239,6 +2493,68 @@ Operations on $Literal$ traits will always produce a $Literal$ where possible, f
 
 \subsection{Language Examples} % Move to motivation?
 \section{Features and Behaviours}
+
+
+
+\section{(Abstract) Data Types}
+
+% Table to summarize types, traits, and operations
+
+\subsection{Traits}
+% Description, Purpose, and Motivation: What is this construct for? Why do we need it? What is it based off of (find source)?
+% Semantics: What do traits represent? What does it mean when a type has a trait?
+% For each trait:
+% - Description, applications
+% - Operations affected/unlocked by this trait
+% - Assumptions, Invariants/Laws
+% Maybe a table to summarize each trait?
+
+\subsection{Boolean}
+\subsection{Integer}
+\subsection{Float}
+\subsection{String}
+\subsection{Set}
+\subsection{Relation}
+\subsection{Sequence}
+\subsection{Bag}
+\subsection{Tuple}
+\subsection{Record}
+\subsection{Procedure}
+\subsection{Generic}
+% Description, Purpose, and Motivation: What is this type for? Why do we need it? What is it based off of (find source)?
+% Semantics: What do values represent? What does it mean to have an object of this type?
+% Making this type: Example of its construction/constructors
+% Examples of its use
+% Relationships to other types (super/subtypes)
+% Allowed traits (and how they affect this type)
+% Restricted traits (and why we restrict them; what are the alternatives?)
+% Formal definition
+% Assumptions, Invariants/Laws
+% Any other notes (edge cases, differences from normal execution)
+
+\subsubsection{Operations}
+% For each operation (include basic operations like equality, etc.):
+% - Description: What is it used for? What is its purpose? Why do we need it? Where does it come from (find source)?
+% - Example usage
+% - Traits that affect this operator (and how they affect the operator)
+% - Formalized type definition (with and without traits)
+% - Any other notes/Detailed knowledge on this operator (edge cases, differences from normal execution)
+% - Assumptions, Invariants/Laws
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 \section{User-Facing Specification}
 % Non-determinism, short circuiting
 
