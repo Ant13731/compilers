@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Generic, TypeVar
 
 from src.mod.data.ast_.base import ASTNode
-from src.mod.data.ast_.helpers.dataclass import flatten
+from src.mod.data.helpers.dataclass import flatten
 from src.mod.data.symbol_table.entry import SymbolTableIdentifierEntry
 
 

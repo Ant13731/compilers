@@ -48,7 +48,7 @@ from src.mod.pipeline.analysis.type_annotation_resolver import TypeAnnotationRes
 from src.mod.pipeline.analysis.type_synthesizer import TypeSynthesizer
 
 
-def populate_symbol_table(ast: ast_.ASTNode) -> SymbolTable:
+def make_symbol_table(ast: ast_.ASTNode) -> SymbolTable:
     """Populates the symbol table with all identifiers in the AST.
     SIDE EFFECT: Transforms Identifiers within the ast into symbol-table assigned Symbols
     """

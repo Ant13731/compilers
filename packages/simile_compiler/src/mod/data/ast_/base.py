@@ -5,7 +5,7 @@ from warnings import deprecated
 
 from src.mod.pipeline.scanner import Location
 from src.mod.data.ast_.operators import Operators
-from src.mod.data.ast_.helpers.dataclass import dataclass_traverse, dataclass_find_and_replace
+from src.mod.data.helpers.dataclass import dataclass_traverse, dataclass_find_and_replace
 
 T = TypeVar("T")
 

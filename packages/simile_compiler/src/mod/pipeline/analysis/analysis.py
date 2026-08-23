@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from src.mod.data import ast_
 from src.mod.data.symbol_table import SymbolTable
 from src.mod.pipeline.analysis.normalize_ast import assert_no_parser_only_nodes, normalize_ast
-from src.mod.pipeline.analysis.populate_symbol_table import populate_symbol_table
+from src.mod.pipeline.analysis.populate_symbol_table import make_symbol_table
 from src.mod.pipeline.analysis.reserved_keywords import reserved_keywords_check
 from src.mod.pipeline.analysis.type_synthesizer import TypeSynthesizer
 
@@ -14,7 +14,7 @@ def semantic_analysis(ast: ast_.ASTNode) -> SemanticAnalysis:
 
     reserved_keywords_check(ast)
     ast = normalize_ast(ast)
-    symbol_table = populate_symbol_table(ast)
+    symbol_table = make_symbol_table(ast)
     assert_no_parser_only_nodes(ast)
     type_synthesizer = TypeSynthesizer(symbol_table)
     type_synthesizer.type_check(ast)

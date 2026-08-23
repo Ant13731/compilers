@@ -58,7 +58,7 @@ rule distribute_and_over_or_l:
     rewrite:
         x and (y or z) ~> (x and y) or (x and z)
     when:
-        expression_in_comprehension_predicate
+        expression_in_comprehension_predicate()
 
 rule distribute_and_over_or_r:
     vars:
@@ -68,4 +68,4 @@ rule distribute_and_over_or_r:
     rewrite:
         (y or z) and x ~> (y and x) or (z and x)
     when:
-        expression_in_comprehension_predicate
+        expression_in_comprehension_predicate()

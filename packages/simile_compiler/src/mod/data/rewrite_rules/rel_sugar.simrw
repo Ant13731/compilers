@@ -19,25 +19,25 @@ rule domain_restriction:
         R: relation[T1, T2]
         S: set[T1]
     rewrite:
-        S <| R ~> {x |-> y in R . x in S | x |-> y}
+        S <| R ~> {x |-> y in R .: x in S | x |-> y}
 
 rule domain_subtraction:
     vars:
         R: relation[T1, T2]
         S: set[T1]
     rewrite:
-        S <<| R ~> {x |-> y in R . x not in S | x |-> y}
+        S <<| R ~> {x |-> y in R .: x not in S | x |-> y}
 
 rule range_restriction:
     vars:
         R: relation[T1, T2]
         S: set[T2]
     rewrite:
-        S |> R ~> {x |-> y in R . y in S | x |-> y}
+        S |> R ~> {x |-> y in R .: y in S | x |-> y}
 
 rule range_subtraction:
     vars:
         R: relation[T1, T2]
         S: set[T2]
     rewrite:
-        S |>> R ~> {x |-> y in R . y not in S | x |-> y}
+        S |>> R ~> {x |-> y in R .: y not in S | x |-> y}

@@ -1,0 +1,23 @@
+# Papers For Further Review
+- Abstract Data Types
+    - Refinement
+    - Collection skeletons
+- Partial Computation
+    - Incrementalization
+    - Deforestation
+- Program synthesis
+    - Superfusion
+    - Deductive
+- Set Theory Semantics
+    - SetL
+    - EventB
+    - Specification languages?
+- Term Rewriting
+    - Equality saturation
+    - egglog
+- Building a Compiler
+    - LLVM
+    - MLIR
+    - Type systems
+    - Lean
+    - Lark

@@ -11,7 +11,7 @@ rule image:
         R: relation[T1, T2]
         S: set[T1]
     rewrite:
-        R[S] ~> {x |-> y in R . x in S | y}
+        R[S] ~> {x |-> y in R .: x in S | y}
 
 rule product:
     vars:
@@ -62,21 +62,21 @@ rule union:
         S: set[T1]
         T: set[T1]
     rewrite:
-        S \/ T ~> {(x in S | x) ` (x in T . x not in S | x)}
+        S \/ T ~> {(x in S | x) ` (x in T .: x not in S | x)}
 
 rule intersection:
     vars:
         S: set[T1]
         T: set[T1]
     rewrite:
-        S /\ T ~> {x in S . x in T | x}
+        S /\ T ~> {x in S .: x in T | x}
 
 rule difference:
     vars:
         S: set[T1]
         T: set[T1]
     rewrite:
-        S \ T ~> {x in S . x not in T | x}
+        S \ T ~> {x in S .: x not in T | x}
 
 rule membership_collapse:
     vars:
@@ -87,6 +87,6 @@ rule membership_collapse:
     rewrite:
         x in ast_.Quantifier3(ast_.QuantifierBody(G, E), op) ~> G and x = E
     when:
-        expression_in_comprehension_predicate
+        expression_in_comprehension_predicate()
         cast_right_side_term_to_bool(G)
         enum_in_list(op, ["UNION_ALL", "INTERSECTION_ALL", "SET", "RELATION", "SEQUENCE", "BAG"])

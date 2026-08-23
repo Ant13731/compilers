@@ -161,6 +161,7 @@ class TokenType(Enum):
 
 OPERATOR_TOKEN_TABLE = {
     "·": TokenType.CDOT,
+    ".:": TokenType.CDOT,
     ".": TokenType.DOT,
     ",": TokenType.COMMA,
     "`": TokenType.BACKTICK,
