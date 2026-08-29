@@ -8,25 +8,11 @@ from loguru import logger
 from src.mod.data import ast_, traits, types
 from src.mod.data.helpers.dataclass import dataclass_traverse
 from src.mod.pipeline.analysis import TypeAnnotationResolver, make_symbol_table
+from src.mod.pipeline.analysis.type_synthesizer import TypeSynthesizer
 from src.mod.pipeline.parser import parse
 from src.mod.pipeline.optimizer.v2.simrw_parser import SimrwAST
-
-type PatternMatchVars = dict[str, types.BaseType]
-
-
-@dataclass
-class GuardCondition:
-    name: ClassVar[str]
-    # Subclasses should add information (as passed through caller notation in the when clause of simrw)
-
-    def guard(self, ast: ast_.ASTNode, typed_vars: PatternMatchVars) -> bool:
-        raise NotImplementedError
-
-
-# Maps function names in if-statements to guard functions that can block a rewrite rule from being applied
-# The key only contains the name of the function - the exact arguments should be parsed from the when_condition string
-# and applied to the right typed_vars
-GUARD_CONDITIONS: dict[str, type[GuardCondition]] = {}
+from src.mod.pipeline.optimizer.v2.structure_matcher import StructureMatcher
+from src.mod.pipeline.optimizer.v2.guard_condition import PatternMatchVars, GuardCondition, GUARD_CONDITIONS
 
 
 @dataclass
@@ -38,13 +24,33 @@ class RewriteRule:
     # These should be guarding functions that accept vars_
     when: list[GuardCondition]
 
-    def apply_rewrite_rule_transformation(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
-        # Attempt to structurally pattern match with the LH side
-        # Collect the substituted vars in a dict for reversal later - assign a str to part of the AST
-        # Check guard conditions
-        # Apply the right hand structural match
-        # Substitute vars
-        raise NotImplementedError
+
+def apply_rewrite_rule(rule: RewriteRule, ast: ast_.ASTNode, type_synthesizer: TypeSynthesizer) -> ast_.ASTNode | None:
+    # Attempt to structurally pattern match with the LH side
+    # Collect the substituted vars in a dict for reversal later - assign a str to part of the AST
+    structure_matcher = StructureMatcher(set(rule.vars_.keys()))
+    substitutions = structure_matcher.match(ast, rule.rewrite_left)
+    if not substitutions:
+        return None
+
+    # Check against typed vars (ast types should be a subset of the rewrite types)
+    for name, matched_ast in substitutions.items():
+        matched_ast_type = type_synthesizer.synthesize_type(matched_ast)
+        expected_var_type = rule.vars_[name]
+        if not matched_ast_type.is_subtype(expected_var_type):
+            return None
+
+    # Check guard conditions
+    for guard_condition in rule.when:
+        if not guard_condition.guard(ast, rule.vars_):
+            return None
+
+    # Apply the right hand structural match
+    # Substitute vars
+    replacement_ast = deepcopy(rule.rewrite_right)
+    for name, matched_ast in substitutions.items():
+        replacement_ast = replacement_ast.find_and_replace(ast_.Identifier(name), matched_ast)
+    return replacement_ast
 
 
 def convert_simrw_to_rewrite_rules(rewrite_rule_asts: list[SimrwAST]) -> list[RewriteRule]:

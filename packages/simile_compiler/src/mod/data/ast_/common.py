@@ -593,4 +593,6 @@ Quantification = Quantifier3 | Fold | Iter | LambdaDef
 Expr = Quantification | Predicate
 SimpleStmt = Expr | TraitApplication | Assignment | ControlFlowStmt | Import
 CompoundStmt = If | For | While | RecordDefSymbol | ProcedureDefSymbol
+
+# TODO Should we consider tuples, sets, and dicts? basically all collection operators?
 ASTFieldChildren = ASTNode | list[ASTNode] | Operators

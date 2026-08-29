@@ -2,9 +2,6 @@ from __future__ import annotations
 from enum import Enum, auto
 from typing import TypeGuard, Literal
 
-type Operators = BinaryOperator | RelationOperator | UnaryOperator | ListOperator | QuantifierOperator | ControlFlowOperator | ImportOperator
-"""Type alias for all operator enums in Simile."""
-
 
 class BinaryOperator(Enum):
     """All binary operators in Simile (except for relation type operators)."""
@@ -287,3 +284,7 @@ class ImportOperator(Enum):
     ALL_NAMES = auto()
     MODULE_NAME = auto()
     SPECIFIC_NAMES = auto()
+
+
+Operators = BinaryOperator | RelationOperator | UnaryOperator | ListOperator | QuantifierOperator | ControlFlowOperator | ImportOperator
+"""Type alias for all operator enums in Simile."""

@@ -110,7 +110,7 @@ bool is_subset_of(const std::unordered_set<T>& a, const std::unordered_set<T>& b
         return ast.name
 
     @_generate_code.register
-    def _(self, ast: ast_.Literal) -> str:
+    def _(self, ast: ast_.Primitive) -> str:
         match ast:
             case ast_.Int(value) | ast_.Float(value):
                 return value

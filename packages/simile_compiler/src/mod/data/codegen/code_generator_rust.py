@@ -117,7 +117,7 @@ class RustCodeGenerator(CodeGenerator):
         return ret
 
     @_generate_code.register
-    def _(self, ast: ast_.Literal) -> str:
+    def _(self, ast: ast_.Primitive) -> str:
         match ast:
             case ast_.Int(value) | ast_.Float(value):
                 return value

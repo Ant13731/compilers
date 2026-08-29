@@ -2,6 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass, fields
 from typing import Generator, Any, TypeVar, Callable
 from warnings import deprecated
+from copy import deepcopy
 
 from src.mod.pipeline.scanner import Location
 from src.mod.data.ast_.operators import Operators
@@ -76,10 +77,10 @@ class ASTNode:
 
         def rewrite_func(node: ASTNode | Any) -> ASTNode | None:
             if node == find:
-                return replace
+                return deepcopy(replace)
             return None
 
-        return dataclass_find_and_replace(self, rewrite_func)
+        return dataclass_find_and_replace(deepcopy(self), rewrite_func)
 
     def find_and_replace_with_func(self, rewrite_func: Callable[[ASTNode | Any], ASTNode | None]) -> ASTNode:
         """Find and replace AST nodes using a rewrite function.
@@ -87,7 +88,7 @@ class ASTNode:
         The rewrite function should return the new AST node or None if no replacement is needed.
         """
 
-        return dataclass_find_and_replace(self, rewrite_func)
+        return dataclass_find_and_replace(deepcopy(self), rewrite_func)
 
     def is_leaf(self) -> bool:
         """Check if the AST node is a leaf node (i.e., has no dataclass/list of dataclass children)."""
