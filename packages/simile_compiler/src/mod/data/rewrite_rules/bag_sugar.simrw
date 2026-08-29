@@ -10,7 +10,6 @@ rule union:
         S: bag[T1]
         T: bag[T1]
     rewrite:
-        # S \/ T ~> [[x . x in dom(S) \/ dom(T) and n = max(S[x] \/ T[x]) | x |-> n]]
         S \/ T ~> [[x in dom(S) \/ dom(T) .: n = max(S[x] \/ T[x]) | x |-> n]]
 
 rule intersection:

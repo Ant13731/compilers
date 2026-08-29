@@ -20,11 +20,3 @@ rule concatenation:
 #         i: int
 #     rewrite:
 #         X[:i] ~> i..len(X) <<| X
-
-rule set_membership:
-    vars:
-        X: seq[T1]
-        e: T1
-    rewrite:
-        e in X ~> exists x in S | e = x
-

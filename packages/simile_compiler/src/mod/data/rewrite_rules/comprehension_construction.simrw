@@ -19,6 +19,17 @@ rule product:
         y: T2
         S: set[T1]
         T: set[T2]
+    rewrite:
+        x |-> y in S >< T
+        ~>
+        x in S and y in T
+
+rule product_generator:
+    vars:
+        x: T1
+        y: T2
+        S: set[T1]
+        T: set[T2]
         P: bool
     rewrite:
         ast_.Generator(x |-> y, S >< T, P)
@@ -33,13 +44,39 @@ rule inverse:
         x: T1
         y: T2
         R: relation[T2, T1]
+    rewrite:
+        x |-> y in R ^ -1
+        ~>
+        y |-> x in R
+
+rule inverse_generator:
+    vars:
+        x: T1
+        y: T2
+        R: relation[T2, T1]
         P: bool
     rewrite:
         ast_.Generator(x |-> y, R ^ -1, P)
         ~>
         ast_.Generator(y |-> x, R, P)
+    when:
+        in_ASTNode("QuantifierBody")
+        loop_over_field_and_flatten_output("generators")
 
 rule composition:
+    vars:
+        x: T1
+        y: T3
+        z1: T2
+        z2: T2
+        Q: relation[T1, T2]
+        R: set[T2, T3]
+    rewrite:
+        x |-> y in Q <> R
+        ~>
+        x |-> z1 in Q and z2 |-> y in R and z1 = z2
+
+rule composition_generator:
     vars:
         x: T1
         y: T3
@@ -90,3 +127,10 @@ rule membership_collapse:
         expression_in_comprehension_predicate()
         cast_right_side_term_to_bool(G)
         enum_in_list(op, ["UNION_ALL", "INTERSECTION_ALL", "SET", "RELATION", "SEQUENCE", "BAG"])
+
+rule set_membership:
+    vars:
+        S: set[T1]
+        e: T1
+    rewrite:
+        e in S ~> exists x in S | e = x
