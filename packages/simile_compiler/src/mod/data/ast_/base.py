@@ -72,6 +72,7 @@ class ASTNode:
                     # If we are not filtering for ASTNodes only, yield the field value directly
                     yield field_value
 
+    # TODO move these to helpers - they no longer modify the AST in-place, but instead make a copy
     def find_and_replace(self, find: ASTNode | Any, replace: ASTNode | Any) -> ASTNode:
         """Find and replace AST nodes using a syntactic substitution."""
 

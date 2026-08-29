@@ -16,7 +16,7 @@ from src.mod.pipeline.parser import parse
 from src.mod.pipeline.optimizer.v2.simrw_parser import SimrwAST
 from src.mod.pipeline.optimizer.v2.structure_matcher import StructureMatcher
 from src.mod.pipeline.optimizer.v2.guard_condition import PatternMatchVars, GuardCondition, GUARD_CONDITIONS
-from src.mod.pipeline.optimizer.v2.simrw import RewriteRule, apply_rewrite_rule
+from src.mod.pipeline.optimizer.v2.simrw import RewriteRule, _apply_rewrite_rule, apply_rewrite_rule
 
 ast_to_match = ast_.Add(
     ast_.Add(
@@ -35,8 +35,8 @@ ast_to_match = ast_.Add(
             ast_.Int("9"),
         ),
         ast_.Add(
-            ast_.Int("9"),
-            ast_.Int("9"),
+            ast_.Float("9.1"),
+            ast_.Float("9.1"),
         ),
     ),
 )
@@ -59,9 +59,8 @@ symbol_table_populator.populate_base()
 symbol_table_populator.populate(ast_to_match)
 type_synthesizer = TypeSynthesizer(symbol_table)
 
-apply_double_addition_rule = lambda ast: apply_rewrite_rule(double_addition_rule, ast, type_synthesizer)
+ast_after_rewrite = apply_rewrite_rule(double_addition_rule, ast_to_match, type_synthesizer)
 
-ast_after_rewrite = ast_to_match.find_and_replace_with_func(apply_double_addition_rule)
 print("AST to match:", ast_to_source(ast_to_match))
 print("Double addition rule:", simrw_to_source(double_addition_rule))
 print("AST after match:", ast_to_source(ast_after_rewrite or ast_.Statements([])))

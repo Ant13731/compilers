@@ -13,6 +13,7 @@ from src.mod.pipeline.parser import parse
 from src.mod.pipeline.optimizer.v2.simrw_parser import SimrwAST
 from src.mod.pipeline.optimizer.v2.structure_matcher import StructureMatcher
 from src.mod.pipeline.optimizer.v2.guard_condition import PatternMatchVars, GuardCondition, GUARD_CONDITIONS
+from src.mod.pipeline.printers.ast_ import ast_to_source
 
 
 @dataclass
@@ -26,11 +27,19 @@ class RewriteRule:
 
 
 def apply_rewrite_rule(rule: RewriteRule, ast: ast_.ASTNode, type_synthesizer: TypeSynthesizer) -> ast_.ASTNode | None:
+    logger.debug(f"Applying rewrite rule {rule.name} to AST: {ast_to_source(ast)}")
+    result = ast.find_and_replace_with_func(lambda node: _apply_rewrite_rule(rule, node, type_synthesizer))
+    logger.debug(f"Rewrite rule result: {ast_to_source(result)}")
+    return result
+
+
+def _apply_rewrite_rule(rule: RewriteRule, ast: ast_.ASTNode, type_synthesizer: TypeSynthesizer) -> ast_.ASTNode | None:
     # Attempt to structurally pattern match with the LH side
     # Collect the substituted vars in a dict for reversal later - assign a str to part of the AST
     structure_matcher = StructureMatcher(set(rule.vars_.keys()))
     substitutions = structure_matcher.match(ast, rule.rewrite_left)
     if not substitutions:
+        logger.debug("Failed to match: couldn't find substitutions")
         return None
 
     # Check against typed vars (ast types should be a subset of the rewrite types)
@@ -38,11 +47,13 @@ def apply_rewrite_rule(rule: RewriteRule, ast: ast_.ASTNode, type_synthesizer: T
         matched_ast_type = type_synthesizer.synthesize_type(matched_ast)
         expected_var_type = rule.vars_[name]
         if not matched_ast_type.is_subtype(expected_var_type):
+            logger.debug("Failed to match: matched AST type is not a subtype of expected var type")
             return None
 
     # Check guard conditions
     for guard_condition in rule.when:
         if not guard_condition.guard(ast, rule.vars_):
+            logger.debug(f"Failed to match: guard condition {guard_condition.name}")
             return None
 
     # Apply the right hand structural match
@@ -50,6 +61,7 @@ def apply_rewrite_rule(rule: RewriteRule, ast: ast_.ASTNode, type_synthesizer: T
     replacement_ast = deepcopy(rule.rewrite_right)
     for name, matched_ast in substitutions.items():
         replacement_ast = replacement_ast.find_and_replace(ast_.Identifier(name), matched_ast)
+    logger.debug(f"Rewrite rule {rule.name} applied successfully")
     return replacement_ast
 
 
