@@ -1237,7 +1237,7 @@ class Parser:
         return ast_.While(condition, block)
 
     @store_derivation
-    def record_stmt(self) -> ast_.RecordDef:
+    def record_stmt(self) -> ast_.RecordDefIdentifier:
         t = self.advance()
         if t.type_ != TokenType.IDENTIFIER:
             self.error("Expected identifier after RECORD keyword")
@@ -1261,10 +1261,10 @@ class Parser:
                     self.consume(TokenType.NEWLINE, "Expected newline or comma after RECORD item")
                 items.append(self.typed_name())
         self.consume(TokenType.DEDENT, "Expected dedent after RECORD definition")
-        return ast_.RecordDef(name, items)
+        return ast_.RecordDefIdentifier(name, items)
 
     @store_derivation
-    def procedure_stmt(self) -> ast_.ProcedureDef:
+    def procedure_stmt(self) -> ast_.ProcedureDefIdentifier:
         t = self.advance()
         if t.type_ != TokenType.IDENTIFIER:
             self.error("Expected identifier after DEF keyword")
@@ -1284,7 +1284,7 @@ class Parser:
         return_type = self.type_expr()
         self.consume(TokenType.COLON, "Expected colon after procedure type")
         block = self.block()
-        return ast_.ProcedureDef(name, params, block, return_type)
+        return ast_.ProcedureDefIdentifier(name, params, block, return_type)
 
     @store_derivation
     def typed_name(self) -> ast_.TypedName:

@@ -1,21 +1,24 @@
 from __future__ import annotations
 from dataclasses import dataclass, field, Field, fields, is_dataclass
-from typing import Callable, ClassVar, Any, Self, Container, TYPE_CHECKING
+from typing import Callable, ClassVar, Any, Self, Container, TYPE_CHECKING, TypeVar, Generic, Sequence, TypeAlias, overload
 from warnings import deprecated
 from pathlib import Path
 
 
+from src.mod.data.helpers.dataclass import flatten
 from src.mod.data.ast_.base import ASTNode
-from src.mod.data.ast_.parser_only import (
+from src.mod.data.ast_.pre_symbol_table import (
     Identifier,
     MapletIdentifier,
     TupleIdentifier,
 )
-from src.mod.data.ast_.symbol_table_only import (
+from src.mod.data.ast_.post_symbol_table import (
     Symbol,
     MapletSymbol,
     TupleSymbol,
     SymbolListTypes,
+    RecordDefSymbol,
+    ProcedureDefSymbol,
 )
 from src.mod.data.ast_.operators import (
     BinaryOperator,
@@ -564,40 +567,9 @@ class While(ASTNode):
     body: ASTNode | Statements
 
 
-# TODO move to parser_only
-@dataclass
-class RecordDef(ASTNode):
-    name: Identifier
-    items: list[TypedName]
-
-
-# TODO move to symbol_table_only
-@dataclass
-class RecordDefSymbol(ASTNode):
-    name: Symbol
-    fields: dict[str, BaseType]
-
-
 @dataclass
 class TupleLiteral(ASTNode):
     items: list[ASTNode]
-
-
-# TODO move to parser_only
-@dataclass
-class ProcedureDef(ASTNode):
-    name: Identifier
-    args: list[TypedName]
-    body: ASTNode | Statements
-    return_type: Type_
-
-
-# TODO move to symbol_table_only
-@dataclass
-class ProcedureDefSymbol(ASTNode):
-    name: Symbol
-    args: list[Symbol]
-    body: ASTNode | Statements
 
 
 @dataclass
@@ -613,9 +585,12 @@ class Start(ASTNode):
     original_text: str
 
 
-Literal = Int | Float | String | True_ | False_ | None_
-Predicate = BinaryOp | UnaryOp | True_ | False_
-Primary = RecordAccess | Call | Image | Literal | Enumeration | Quantifier3 | Identifier
-Expr = LambdaDef | Quantifier3 | Fold | Iter | Predicate | BinaryOp | UnaryOp | ListOp | Primary | Identifier
-SimpleStmt = Expr | Assignment | ControlFlowStmt | Import
-CompoundStmt = If | For | RecordDef | ProcedureDef
+Primitive = Int | Float | String | True_ | False_ | None_
+Collection = Enumeration | TupleLiteral | Quantifier3
+Primary = RecordAccess | Call | Image | Collection | Primitive | Identifier
+Predicate = BinaryOp | UnaryOp | ListOp | Primary
+Quantification = Quantifier3 | Fold | Iter | LambdaDef
+Expr = Quantification | Predicate
+SimpleStmt = Expr | TraitApplication | Assignment | ControlFlowStmt | Import
+CompoundStmt = If | For | While | RecordDefSymbol | ProcedureDefSymbol
+ASTFieldChildren = ASTNode | list[ASTNode] | Operators

@@ -286,12 +286,12 @@ bool is_subset_of(const std::unordered_set<T>& a, const std::unordered_set<T>& b
         return f"while ({self._generate_code(ast.condition)}) {{\n{self._generate_code(ast.body)};\n}}"
 
     @_generate_code.register
-    def _(self, ast: ast_.RecordDef) -> str:
+    def _(self, ast: ast_.RecordDefIdentifier) -> str:
         fields = "; ".join(f"{self._generate_code(field.type_)} {field.name}" for field in ast.items)
         return f"struct {ast.name} {{ {fields}; }};"
 
     @_generate_code.register
-    def _(self, ast: ast_.ProcedureDef) -> str:
+    def _(self, ast: ast_.ProcedureDefIdentifier) -> str:
         args = ", ".join(f"{self._generate_code(arg.type_)} {arg.name}" for arg in ast.args)
         return f"{self._generate_code(ast.return_type)} {ast.name}({args}) {{\n{self._generate_code(ast.body)};\n}}"
 

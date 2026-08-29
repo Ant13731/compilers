@@ -372,14 +372,14 @@ class RustCodeGenerator(CodeGenerator):
         return f"while {self._generate_code(ast.condition)} {{{self._generate_code(ast.body)}}}"
 
     @_generate_code.register
-    def _(self, ast: ast_.RecordDef) -> str:
+    def _(self, ast: ast_.RecordDefIdentifier) -> str:
         self.new_symbol_table.put(self._generate_code(ast.name), "struct_definition")
 
         fields = "; ".join(f"{self._generate_code(field.type_)} {field.name}" for field in ast.items)
         return f"struct {self._generate_code(ast.name)} {{ {fields}, }}"
 
     @_generate_code.register
-    def _(self, ast: ast_.ProcedureDef) -> str:
+    def _(self, ast: ast_.ProcedureDefIdentifier) -> str:
         self.new_symbol_table.put(self._generate_code(ast.name), "function_definition")
 
         args = ", ".join(f"{arg.name}: {self._generate_code(arg.type_)}" for arg in ast.args)

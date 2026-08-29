@@ -8,18 +8,21 @@ from src.mod.data.helpers.dataclass import (
 
 
 from src.mod.data.ast_.base import ASTNode
-from src.mod.data.ast_.parser_only import (
+from src.mod.data.ast_.pre_symbol_table import (
     Identifier,
     MapletIdentifier,
     TupleIdentifier,
     IdentifierListTypes,
+    RecordDefIdentifier,
+    ProcedureDefIdentifier,
 )
-
-from src.mod.data.ast_.symbol_table_only import (
+from src.mod.data.ast_.post_symbol_table import (
     Symbol,
     TupleSymbol,
     MapletSymbol,
     SymbolListTypes,
+    RecordDefSymbol,
+    ProcedureDefSymbol,
 )
 from src.mod.data.ast_.operators import (
     Operators,
@@ -71,19 +74,19 @@ from src.mod.data.ast_.common import (
     ElseIf,
     For,
     While,
-    RecordDef,
-    RecordDefSymbol,
     TupleLiteral,
-    ProcedureDef,
-    ProcedureDefSymbol,
     Import,
     Start,
-    Literal,
-    Predicate,
+    # type groups
+    Primitive,
+    Collection,
     Primary,
+    Predicate,
+    Quantification,
     Expr,
     SimpleStmt,
     CompoundStmt,
+    ASTFieldChildren,
 )
 from src.mod.data.ast_.common_extended import (
     Implies,
@@ -186,7 +189,7 @@ from src.mod.data.ast_.common_extended import (
     RelationComprehension,
     BagComprehension,
 )
-from src.mod.data.ast_.optimizer_only import (
+from src.mod.data.ast_.post_optimizer import (
     GeneratorSelection,
     CombinedGeneratorSelection,
     SingleGeneratorSelection,

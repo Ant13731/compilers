@@ -214,7 +214,7 @@ class PopulateSymbolTable:
             case ast_.IterBody(_, _) as iter_:
                 return self._populate_iter(iter_), False
 
-            case ast_.ProcedureDef(name, params, body, return_type):
+            case ast_.ProcedureDefIdentifier(name, params, body, return_type):
                 # NOTE: param_types is populated *after* the procedure type definition since symbols must be added within the scope of the procedure
                 param_types: list[BaseType] = []
                 return_type_ = TypeAnnotationResolver.resolve_type_annotation(return_type, self.symbol_table)
@@ -249,7 +249,7 @@ class PopulateSymbolTable:
                 self.symbol_table.pop_scope_level()
                 assert isinstance(_name_symbol, ast_.Symbol)
                 return ast_.ProcedureDefSymbol(_name_symbol, _params_symbols, _body), False
-            case ast_.RecordDef(ast_.Identifier(name), items):
+            case ast_.RecordDefIdentifier(ast_.Identifier(name), items):
                 fields: dict[str, BaseType] = OrderedDict()
                 for item in items:
                     if not isinstance(item.name, ast_.Identifier):

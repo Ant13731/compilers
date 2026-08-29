@@ -7,7 +7,7 @@ from src.mod.data.ast_.common_extended import (
     And,
     Or,
 )
-from src.mod.data.ast_.parser_only import Identifier, MapletIdentifier
+from src.mod.data.ast_.pre_symbol_table import Identifier, MapletIdentifier
 
 
 @dataclass

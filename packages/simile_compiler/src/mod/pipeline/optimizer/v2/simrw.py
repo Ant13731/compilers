@@ -19,7 +19,7 @@ class GuardCondition:
     name: ClassVar[str]
     # Subclasses should add information (as passed through caller notation in the when clause of simrw)
 
-    def guard(self, typed_vars: PatternMatchVars) -> bool:
+    def guard(self, ast: ast_.ASTNode, typed_vars: PatternMatchVars) -> bool:
         raise NotImplementedError
 
 
@@ -32,11 +32,19 @@ GUARD_CONDITIONS: dict[str, type[GuardCondition]] = {}
 @dataclass
 class RewriteRule:
     name: str
-    vars_: dict[str, types.BaseType]
+    vars_: PatternMatchVars
     rewrite_left: ast_.ASTNode
     rewrite_right: ast_.ASTNode
     # These should be guarding functions that accept vars_
     when: list[GuardCondition]
+
+    def apply_rewrite_rule_transformation(self, ast: ast_.ASTNode) -> ast_.ASTNode | None:
+        # Attempt to structurally pattern match with the LH side
+        # Collect the substituted vars in a dict for reversal later - assign a str to part of the AST
+        # Check guard conditions
+        # Apply the right hand structural match
+        # Substitute vars
+        raise NotImplementedError
 
 
 def convert_simrw_to_rewrite_rules(rewrite_rule_asts: list[SimrwAST]) -> list[RewriteRule]:
@@ -47,6 +55,7 @@ def convert_simrw_to_rewrite_rules(rewrite_rule_asts: list[SimrwAST]) -> list[Re
         )
 
         # TODO how do we convert typed_vars and rewrite_left_ast into additional guard conditions?
+        # Effectively need to pattern match on the structure of LH first, then further match type structures, keeping track of replaced variable names
         typed_vars: dict[str, types.BaseType] = collect_typed_vars(rewrite_rule_ast.vars_)
         rewrite_left_ast = parse(rewrite_rule_ast.rewrite_left)
         rewrite_right_ast = parse(rewrite_rule_ast.rewrite_right)

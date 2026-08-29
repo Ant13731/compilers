@@ -2,9 +2,12 @@
 These types will be replaced by typed ASTs will be used after type analysis"""
 
 from dataclasses import dataclass
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, TYPE_CHECKING
 
 from src.mod.data.ast_.base import ASTNode
+
+if TYPE_CHECKING:
+    from src.mod.data.ast_.common import Type_, TypedName, Statements
 
 
 @dataclass
@@ -128,3 +131,17 @@ class MapletIdentifier(TupleIdentifier, Generic[L, R]):
 
 
 IdentifierListTypes = Identifier | MapletIdentifier | TupleIdentifier
+
+
+@dataclass
+class RecordDefIdentifier(ASTNode):
+    name: Identifier
+    items: list[TypedName]
+
+
+@dataclass
+class ProcedureDefIdentifier(ASTNode):
+    name: Identifier
+    args: list[TypedName]
+    body: ASTNode | Statements
+    return_type: Type_

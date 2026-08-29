@@ -52,9 +52,9 @@ def _keyword_traversal_function(node: ast_.ASTNode) -> ReservedKeywordErr | None
                 if (ret := check_clash(node, ident.name)) is not None:
                     return ret
 
-        case ast_.RecordDef(ast_.Identifier(name), _):
+        case ast_.RecordDefIdentifier(ast_.Identifier(name), _):
             return check_clash(node, name)
-        case ast_.ProcedureDef(ast_.Identifier(name), args, _, _):
+        case ast_.ProcedureDefIdentifier(ast_.Identifier(name), args, _, _):
             if (ret := check_clash(node, name)) is not None:
                 return ret
 

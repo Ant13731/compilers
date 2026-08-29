@@ -265,14 +265,14 @@ def _(ast: ast_.While, indent: int) -> str:
     return f"while {condition_str}:\n{'\t' * (indent + 1)}{body_str}\n"
 
 
-@_ast_to_source.register(ast_.RecordDef)
-def _(ast: ast_.RecordDef, indent: int) -> str:
+@_ast_to_source.register(ast_.RecordDefIdentifier)
+def _(ast: ast_.RecordDefIdentifier, indent: int) -> str:
     items_str = f"\n{'\t'*(indent + 1)}".join(_ast_to_source(item, indent + 1) for item in ast.items)
     return f"struct {_ast_to_source(ast.name, indent)}({items_str})"
 
 
-@_ast_to_source.register(ast_.ProcedureDef)
-def _(ast: ast_.ProcedureDef, indent: int) -> str:
+@_ast_to_source.register(ast_.ProcedureDefIdentifier)
+def _(ast: ast_.ProcedureDefIdentifier, indent: int) -> str:
     args_str = f",\n{'\t'*(indent + 1)}".join(_ast_to_source(arg, indent + 1) for arg in ast.args)
     body_str = _ast_to_source(ast.body, indent + 1)
     return_type_str = _ast_to_source(ast.return_type, indent)

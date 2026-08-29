@@ -237,7 +237,7 @@ STRUCTURED_PROGRAM_CASES = [
             b: str, d: int
             c: float
         """,
-        RecordDef(
+        RecordDefIdentifier(
             Identifier("A"),
             [
                 TypedName(Identifier("a"), Type_(Identifier("int"))),
@@ -252,7 +252,7 @@ STRUCTURED_PROGRAM_CASES = [
         procedure test_func(a: int, b: str) -> bool:
             return a > 0 and b != ""
         """,
-        ProcedureDef(
+        ProcedureDefIdentifier(
             Identifier("test_func"),
             [
                 TypedName(Identifier("a"), Type_(Identifier("int"))),
@@ -679,7 +679,7 @@ ADVANCED_STATEMENT_CASES = [
             record Empty:
                 skip
             """),
-        RecordDef(Identifier("Empty"), []),
+        RecordDefIdentifier(Identifier("Empty"), []),
     ),
     (
         normalize_source("""
@@ -784,7 +784,7 @@ QUANTIFICATION_AND_TYPING_CASES = [
                 left: int
                 right: int
             """),
-        RecordDef(
+        RecordDefIdentifier(
             Identifier("Pair"),
             [
                 TypedName(Identifier("left"), Type_(Identifier("int"))),
