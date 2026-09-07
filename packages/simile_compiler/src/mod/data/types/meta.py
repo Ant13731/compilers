@@ -6,7 +6,19 @@ from pathlib import Path
 
 from src.mod.data.types.error import SimileTypeError
 from src.mod.data.types.base import BaseType
-from src.mod.data.traits.traits import Trait, GenericBoundTrait
+from src.mod.data.traits import (
+    BaseTrait,
+    IterableTrait,
+    DomainTrait,
+    SizeTrait,
+    TotalOnDomainTrait,
+    ManyToOneTrait,
+    LiteralTrait,
+    RelationalDomainTrait,
+    TreatAsExprTrait,
+    GenericBoundTrait,
+    find_traits,
+)
 
 if TYPE_CHECKING:
     from src.mod.data.symbol_table.entry import SymbolTableIdentifierEntry, ScopeTableEntry
@@ -21,8 +33,12 @@ class AnyType_(BaseType):
     def _is_subtype(self, other: BaseType) -> bool:
         return False
 
-    def _populate_mandatory_traits(self) -> None:
-        pass
+    def base_traits(self) -> set[BaseTrait]:
+        return set()
+
+    @classmethod
+    def check_incompatible_traits(cls, traits: set[BaseTrait]) -> None:
+        return None
 
 
 @dataclass
@@ -35,8 +51,9 @@ class GenericType(BaseType):
 
     symbol_id: int | None = None
     scope_id: int | None = None
-    valid_traits: ClassVar[set[Type[Trait]]] = {
-        *BaseType.valid_traits,
+    compatible_traits: ClassVar[set[Type[BaseTrait]]] = {
+        *BaseType.compatible_traits,
+        LiteralTrait,
         GenericBoundTrait,
     }
 
@@ -44,35 +61,39 @@ class GenericType(BaseType):
         if not isinstance(other, GenericType):
             return False
         # return self.id_ == other.id_ and self.trait_collection.generic_bound_trait == other.trait_collection.generic_bound_trait
-        return self.trait_collection.generic_bound_trait == other.trait_collection.generic_bound_trait
+        return find_traits(self.traits, GenericBoundTrait) == find_traits(other.traits, GenericBoundTrait)
 
     def _is_subtype(self, other: BaseType) -> bool:
-        if self.trait_collection.generic_bound_trait is None:
+        self_generic_bound_traits = find_traits(self.traits, GenericBoundTrait)
+        if self_generic_bound_traits is None:
             return False  # effectively the AnyType when its not bound
 
         if not isinstance(other, GenericType):
             # Comparing generic <= concrete means ALL bound types must be a subtype of the concrete
-            for self_bound in self.trait_collection.generic_bound_trait.bound_types:
-                if not self_bound.is_subtype(other):
+            for self_bound in self_generic_bound_traits:
+                if not self_bound.bound_type.is_subtype(other):
                     return False
             return True
 
-        if other.trait_collection.generic_bound_trait is None:
+        other_generic_bound_traits = find_traits(other.traits, GenericBoundTrait)
+        if other_generic_bound_traits is None:
             return True
 
         # A generic type is a subtype only if all its bound types are subtypes of at least one of the other's bound types
-        for self_bound in self.trait_collection.generic_bound_trait.bound_types:
-            for other_bound in other.trait_collection.generic_bound_trait.bound_types:
-                if self_bound.is_subtype(other_bound):
+        for self_bound in self_generic_bound_traits:
+            for other_bound in other_generic_bound_traits:
+                if self_bound.bound_type.is_subtype(other_bound.bound_type):
                     break
             else:
                 return False  # no break occurred, so self_bound is not a subtype of any other_bound
         return True
 
-    def _populate_mandatory_traits(self) -> None:
-        pass
+    def base_traits(self) -> set[BaseTrait]:
+        return set()
 
     def add_symbol_info(self, symbol: SymbolTableIdentifierEntry) -> None:
+        # TODO just take in the symbol table entry??
+
         # if self.symbol_id is not None or self.scope_id is not None:
         #     raise SimileTypeError(f"Generic type {self} already has a symbol ID/scope ID. Cannot add symbol info ({symbol}) to ID.")
 
@@ -99,8 +120,8 @@ class DeferToSymbolTable(BaseType):
     def _is_subtype(self, other: BaseType) -> bool:
         raise SimileTypeError("Cannot compare DeferToSymbolTable types before resolution")
 
-    def _populate_mandatory_traits(self) -> None:
-        pass
+    def base_traits(self) -> set[BaseTrait]:
+        return set()
 
 
 @dataclass
@@ -108,8 +129,8 @@ class ImportedSymbol(BaseType):
     imported_symbol_entry: SymbolTableIdentifierEntry
     source_file: Path  # use to dedupe multiple imports of the same symbol
 
-    def _populate_mandatory_traits(self) -> None:
-        pass
+    def base_traits(self) -> set[BaseTrait]:
+        return set()
 
 
 @dataclass
@@ -122,23 +143,23 @@ class ModuleImports(BaseType):
     scope: ScopeTableEntry
     source_file: Path
 
-    def _populate_mandatory_traits(self) -> None:
-        pass
+    def base_traits(self) -> set[BaseTrait]:
+        return set()
 
 
 @dataclass
 class TypeOfType(BaseType):
     type_of: BaseType
 
-    def _populate_mandatory_traits(self) -> None:
-        pass
+    def base_traits(self) -> set[BaseTrait]:
+        return set()
 
 
 @dataclass
 class TraitType(BaseType):
-    """Used to lift a trait into a type"""
+    """Used to lift a trait into a type"""  # TODO remove?
 
     trait_name: str | None
 
-    def _populate_mandatory_traits(self) -> None:
-        pass
+    def base_traits(self) -> set[BaseTrait]:
+        return set()

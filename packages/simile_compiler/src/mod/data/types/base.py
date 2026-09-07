@@ -1,49 +1,68 @@
 from __future__ import annotations
 from dataclasses import dataclass, field, fields, asdict
 from copy import deepcopy
-from typing import Callable, ClassVar, Type, TypeVar
+from typing import Callable, ClassVar, NoReturn, Type, TypeVar
 import inspect
 from loguru import logger
 
 
 from src.mod.data.types.error import SimileTypeError
-from src.mod.data.traits import Trait, TraitCollection, LiteralTrait, DomainTrait, ImmutableTrait
 from src.mod.data.types.typing_rule_decorator import typing_rule
+from src.mod.data.traits import (
+    SimileTraitError,
+    BaseTrait,
+    LiteralTrait,
+    DomainTrait,
+    ImmutableTrait,
+    GenericBoundTrait,
+    MergeTraitBehaviour,
+    merge_traits,
+    find_traits,
+)
 
 T = TypeVar("T", bound="BaseType")
 
 
 # Primitive types
 @dataclass(kw_only=True)
-class BaseType:
+class _TraitMixin:
+    traits: set[BaseTrait] = field(default_factory=set)
+    compatible_traits: ClassVar[set[type[BaseTrait]]] = {ImmutableTrait}
+
+    def base_traits(self) -> set[BaseTrait]:
+        raise NotImplementedError
+
+    @classmethod
+    def check_incompatible_traits(cls, traits: set[BaseTrait]) -> NoReturn | None:
+        for trait in traits:
+            if not isinstance(trait, tuple(cls.compatible_traits)):
+                raise SimileTraitError(f"Cannot apply trait {trait} to type {cls.__name__}: incompatible trait")
+        return None
+
+    def _is_eq_traits(self, other: _TraitMixin) -> bool:
+        """Check whether the type would be equal when considering traits."""
+        return self.traits == other.traits
+
+    @typing_rule("Type Refinement")
+    def _is_sub_traits(self, other: _TraitMixin) -> bool:
+        """Check whether the type is a sub-type when considering traits."""
+        raise NotImplementedError
+
+
+@dataclass(kw_only=True)
+class BaseType(_TraitMixin):
     """Base type for all Simile types."""
 
-    trait_collection: TraitCollection = field(default_factory=TraitCollection, repr=False)
-
-    valid_traits: ClassVar[set[Type[Trait]]] = {
-        LiteralTrait,
-        DomainTrait,
-        ImmutableTrait,
-    }
-    """Any trait not within this set is invalid for this type."""
-
-    def __post_init__(self):
-        self.populate_mandatory_traits()
-
     # Actual type methods
-    def cast(self, caster: T, add_trait_collection: TraitCollection | None = None) -> T:
+    def cast(self, caster: T, traits: set[BaseTrait] | None = None) -> T:
         """Cast the type to a different type."""
         caster = deepcopy(caster)
         # TODO only add traits if the traits make sense to add (ex. no min trait allowed on a StringType)
         # Each type should specify which traits are allowed
 
-        if add_trait_collection is not None:
-            caster.trait_collection = self.trait_collection.merge(add_trait_collection)
+        if traits is not None:
+            caster.traits = merge_traits(caster.traits, traits, MergeTraitBehaviour.PREFER_RIGHT)
         return caster
-
-    def _allowed_traits(self) -> list[Type[Trait]]:
-        """Return a list of allowed trait types for this type."""
-        raise NotImplementedError
 
     def equals(self, other: BaseType) -> BoolType:
         """Operation on AST types (corresponding to ast_.Equal), not a helper for computing base types"""
@@ -55,10 +74,6 @@ class BaseType:
 
     # Helper methods
     def is_eq_type(self, other: BaseType, check_traits: bool = False) -> bool:
-        from src.mod.data.types.meta import DeferToSymbolTable
-
-        if isinstance(other, DeferToSymbolTable):
-            raise SimileTypeError("Cannot compare DeferToSymbolTable types before symbol table resolution")
 
         if check_traits:
             return self._is_eq_type(other) and self._is_eq_traits(other)
@@ -66,10 +81,6 @@ class BaseType:
 
     def _is_eq_type(self, other: BaseType) -> bool:
         raise NotImplementedError
-
-    def _is_eq_traits(self, other: BaseType) -> bool:
-        """Check whether the type would be equal when considering traits."""
-        return self.trait_collection == other.trait_collection
 
     @typing_rule("Reflexive Subtype", "Transitive Subtype", "Sub Top Type")
     def is_subtype(self, other: BaseType, check_traits: bool = False) -> bool:
@@ -90,22 +101,18 @@ class BaseType:
 
         # Sub Top Type for generics
         if not isinstance(self, GenericType) and isinstance(other, GenericType):
-            if other.trait_collection.generic_bound_trait is None:
+            generic_traits = find_traits(other.traits, GenericBoundTrait)
+            if generic_traits is None:
                 return is_sub_trait  # unbound generic is supertype of all types
 
-            for other_bound in other.trait_collection.generic_bound_trait.bound_types:
-                if self.is_subtype(other_bound):
+            for other_bound in generic_traits:
+                if self.is_subtype(other_bound.bound_type):
                     return is_sub_trait
             return False
 
         return is_sub_trait and self._is_subtype(other)
 
     def _is_subtype(self, other: BaseType) -> bool:
-        raise NotImplementedError
-
-    @typing_rule("Type Refinement")
-    def _is_sub_traits(self, other: BaseType) -> bool:
-        """Check whether the type is a sub-type when considering traits."""
         raise NotImplementedError
 
     @classmethod
@@ -160,16 +167,15 @@ class BaseType:
 
         raise SimileTypeError(f"Cannot perform operation {class_name}.{method_name} with incompatible type: {other} (expected a (sub)type of one of {is_subtype_of})")
 
-    def populate_mandatory_traits(self) -> None:
-        self._populate_mandatory_traits()
-        self.trait_collection._fill_implicit_traits()
-
-    def _populate_mandatory_traits(self) -> None:
-        raise NotImplementedError
-
 
 @dataclass
 class BoolType(BaseType):
+    compatible_traits: ClassVar[set[Type[BaseTrait]]] = {
+        *BaseType.compatible_traits,
+        LiteralTrait,
+        DomainTrait,
+    }
+
     def _is_eq_type(self, other: BaseType) -> bool:
         return isinstance(other, BoolType)
 
@@ -199,7 +205,5 @@ class BoolType(BaseType):
         self._is_subtype_or_error(other, BoolType())
         return BoolType()
 
-    def _populate_mandatory_traits(self) -> None:
-        from src.mod.data.ast_ import True_, False_
-
-        self.trait_collection.domain_trait = DomainTrait(values=[True_(), False_()])
+    def base_traits(self) -> set[BaseTrait]:
+        return {DomainTrait({True, False})}

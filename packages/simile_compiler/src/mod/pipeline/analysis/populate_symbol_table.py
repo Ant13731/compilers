@@ -12,6 +12,7 @@ from src.mod.data.symbol_table import (
     SymbolTableError,
     SymbolTableIdentifierEntry,
 )
+from src.mod.data.traits.trait_operations import merge_traits, MergeTraitBehaviour
 from src.mod.data.types import (
     BaseType,
     BoolType,
@@ -36,12 +37,13 @@ from src.mod.data.types import (
     ImportedSymbol,
     TraitType,
 )
-from src.mod.data.traits import TraitCollection, LiteralTrait, MinTrait
+from src.mod.data.traits import LiteralTrait, MinTrait
 from src.mod.data.standard_library import STANDARD_LIBRARY_FOLDER
 
 from src.mod.data.types.primitive import NoneType_
 from src.mod.data.types.set_ import EnumItemType
 from src.mod.data.types.tuple_ import TupleType
+from src.mod.pipeline.analysis.trait_resolver import TraitResolver
 from src.mod.pipeline.parser import parse, ParseError
 from src.mod.pipeline.analysis.normalize_ast import normalize_ast
 from src.mod.pipeline.analysis.type_annotation_resolver import TypeAnnotationResolver
@@ -97,8 +99,8 @@ class PopulateSymbolTable:
         "record": RecordType({}),
         # type sugar
         "ℤ": SetType(IntType()),
-        "ℕ": SetType(IntType(trait_collection=TraitCollection(min_trait=MinTrait(ast_.Int("0"))))),
-        "ℕ₁": SetType(IntType(trait_collection=TraitCollection(min_trait=MinTrait(ast_.Int("1"))))),
+        "ℕ": SetType(IntType(traits={MinTrait(0)})),
+        "ℕ₁": SetType(IntType(traits={MinTrait(1)})),
         # traits as typed objects?
         # TODO how should we handle traits as first-class objects? I suppose they should just be an expr?
         "trait": TraitType(None),
@@ -112,11 +114,11 @@ class PopulateSymbolTable:
                 IdentifierContext.BUILTIN_TYPE,
                 type_,
             )
-        for trait_cls in TraitCollection.list_traits():
+        for trait_cls in TraitResolver.FLAG_TRAITS.keys() | TraitResolver.SINGLE_VALUE_TRAITS:
             self.symbol_table.add_symbol(
-                trait_cls.name,
+                trait_cls,
                 IdentifierContext.BUILTIN_TRAIT,
-                TraitType(trait_cls.name),
+                TraitType(trait_cls),
             )
 
     def populate(self, ast: ast_.ASTNode) -> ast_.ASTNode:
@@ -283,7 +285,7 @@ class PopulateSymbolTable:
                 assert isinstance(_param_symbols, ast_.TupleSymbol)
                 return ast_.LambdaDef(_param_symbols, _predicate, _expression), False
 
-            case ast_.TraitApplication(ast_.Assignment(ast_.TypedName(ast_.Identifier(name), ast_.Type_(ast_.Identifier("enum"), [])), value, is_choice), traits):
+            case ast_.TraitApplication(ast_.Assignment(ast_.TypedName(ast_.Identifier(name), ast_.Type_(ast_.Identifier("enum"), [])), value, is_choice), trait_asts):
                 if is_choice:
                     raise SimileTypeError(f"Choice assignment cannot be used with enum definitions", ast)
                 if not isinstance(value, ast_.Enumeration):
@@ -297,9 +299,9 @@ class PopulateSymbolTable:
                         raise SimileTypeError(f"Enum item name {_item.name} already exists in current scope, cannot be used as enum item name", _item)
                     members.add(_item.name)
 
-                _traits = [self.populate(trait) for trait in traits]
-                trait_collection = TypeAnnotationResolver.resolve_trait_collection(_traits, self.symbol_table)
-                enum_type = EnumType(members=members, trait_collection=trait_collection)
+                _trait_asts = [self.populate(trait) for trait in trait_asts]
+                traits = TraitResolver.resolve_traits(_trait_asts, self.symbol_table)
+                enum_type = EnumType(members=members, traits=traits)
                 _name = self.symbol_table.add_symbol(
                     name,
                     IdentifierContext.ENUM,
@@ -322,24 +324,24 @@ class PopulateSymbolTable:
                             _value,
                             is_choice,
                         ),
-                        _traits,
+                        _trait_asts,
                     ),
                     False,
                 )
-            case ast_.TraitApplication(ast_.Assignment(ast_.TypedName(ast_.Identifier(name), ast_.Type_(ast_.Identifier("type"), [])), value, is_choice), traits):
+            case ast_.TraitApplication(ast_.Assignment(ast_.TypedName(ast_.Identifier(name), ast_.Type_(ast_.Identifier("type"), [])), value, is_choice), trait_asts):
                 if is_choice:
                     raise SimileTypeError(f"Choice assignment cannot be used with type definitions", ast)
                 if not isinstance(value, ast_.Type_):
                     raise SimileTypeError(f"Type definitions must have a valid type annotation (this should have been promoted by normalize_ast), got {value}", value)
 
-                _traits = [self.populate(trait) for trait in traits]
-                trait_collection = TypeAnnotationResolver.resolve_trait_collection(_traits, self.symbol_table)
+                _trait_asts = [self.populate(trait) for trait in trait_asts]
+                traits = TraitResolver.resolve_traits(_trait_asts, self.symbol_table)
                 type_value = TypeAnnotationResolver.resolve_type_annotation(value, self.symbol_table)
                 if type_value is None:
                     raise SimileTypeError(f"Type definitions must have a valid type annotation, got None", value)
                 # Promote the type to a typeOfType only if it doesnt already represent a type (like generic types do represent a type value)
                 # typeOfType should not wrap such objects
-                type_value.trait_collection = type_value.trait_collection.merge(trait_collection, True)
+                type_value.traits = merge_traits(type_value.traits, traits, MergeTraitBehaviour.PREFER_LEFT)
                 if not isinstance(type_value, GenericType | AnyType_ | TypeOfType):
                     type_value = TypeOfType(type_value)
 
@@ -359,20 +361,20 @@ class PopulateSymbolTable:
                             _value,
                             is_choice,
                         ),
-                        _traits,
+                        _trait_asts,
                     ),
                     False,
                 )
-            case ast_.TraitApplication(ast_.Assignment(ast_.TypedName(ast_.Identifier(name), declared_type), value, is_choice), traits):
-                _traits = [self.populate(trait) for trait in traits]
-                trait_collection = TypeAnnotationResolver.resolve_trait_collection(_traits, self.symbol_table)
+            case ast_.TraitApplication(ast_.Assignment(ast_.TypedName(ast_.Identifier(name), declared_type), value, is_choice), trait_asts):
+                _trait_asts = [self.populate(trait) for trait in trait_asts]
+                trait_collection = TraitResolver.resolve_traits(_trait_asts, self.symbol_table)
                 _declared_type = TypeAnnotationResolver.resolve_type_annotation(declared_type, self.symbol_table)
                 if _declared_type is None:
                     raise SimileTypeError(f"Variable definitions must have a valid type annotation, got None", declared_type)
                 if isinstance(_declared_type, TypeOfType):
                     # Type is actually used - unwrap the TypeOfType
                     _declared_type = _declared_type.type_of
-                _declared_type.trait_collection = _declared_type.trait_collection.merge(trait_collection, True)
+                _declared_type.traits = merge_traits(_declared_type.traits, trait_collection, MergeTraitBehaviour.PREFER_LEFT)
                 _name = self.symbol_table.add_symbol(
                     name,
                     IdentifierContext.VARIABLE,
@@ -388,7 +390,7 @@ class PopulateSymbolTable:
                             _value,
                             is_choice,
                         ),
-                        _traits,
+                        _trait_asts,
                     ),
                     False,
                 )

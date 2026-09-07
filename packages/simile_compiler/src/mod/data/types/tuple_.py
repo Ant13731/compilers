@@ -3,10 +3,9 @@ from dataclasses import dataclass, field
 from copy import deepcopy
 from typing import ClassVar, Type
 
-from src.mod.data.types.base import BaseType
+from src.mod.data.types.base import _TraitMixin, BaseType
 from src.mod.data.traits import (
-    Trait,
-    TraitCollection,
+    BaseTrait,
     OrderableTrait,
     IterableTrait,
     LiteralTrait,
@@ -21,7 +20,8 @@ from src.mod.data.traits import (
     OneToManyTrait,
     EmptyTrait,
     TotalTrait,
-    UniqueElementsTrait,
+    UniqueTrait,
+    find_traits,
 )
 from src.mod.data.types.typing_rule_decorator import typing_rule
 
@@ -29,12 +29,14 @@ from src.mod.data.types.typing_rule_decorator import typing_rule
 @dataclass
 class TupleType(BaseType):
     items: list[BaseType]
-    valid_traits: ClassVar[set[Type[Trait]]] = {
-        *BaseType.valid_traits,
+    compatible_traits: ClassVar[set[Type[BaseTrait]]] = {
+        *BaseType.compatible_traits,
+        LiteralTrait,
+        DomainTrait,
         MinTrait,
         MaxTrait,
         SizeTrait,
-        UniqueElementsTrait,
+        UniqueTrait,
         TotalTrait,
         IterableTrait,
         OrderableTrait,
@@ -69,13 +71,14 @@ class TupleType(BaseType):
                 return False
         return True
 
-    def _is_sub_traits(self, other: BaseType) -> bool:
-        if self.trait_collection.empty_trait is not None:
+    def _is_sub_traits(self, other: _TraitMixin) -> bool:
+        empty_traits = find_traits(self.traits, EmptyTrait)
+        if empty_traits is not None:
             return True
         raise NotImplementedError
 
-    def _populate_mandatory_traits(self) -> None:
-        self.trait_collection.iterable_trait = IterableTrait()
+    def base_traits(self) -> set[BaseTrait]:
+        return {IterableTrait()}
 
     @classmethod
     def enumeration(cls, element_types: list[BaseType]) -> TupleType:
@@ -89,15 +92,14 @@ class TupleType(BaseType):
 @dataclass
 class PairType(TupleType):
 
-    def __init__(self, left: BaseType, right: BaseType, *, trait_collection: TraitCollection | None = None) -> None:
-        if trait_collection is None:
-            trait_collection = TraitCollection()
+    def __init__(self, left: BaseType, right: BaseType, *, traits: set[BaseTrait] | None = None) -> None:
+        if traits is None:
+            traits = set()
 
-        super().__init__(items=[left, right], trait_collection=trait_collection)
+        super().__init__(items=[left, right], traits=traits)
 
-    def _populate_mandatory_traits(self) -> None:
-        super()._populate_mandatory_traits()
-        self.trait_collection.size_trait = SizeTrait(2)
+    def base_traits(self) -> set[BaseTrait]:
+        return {*super().base_traits(), SizeTrait(2)}
 
     @property
     def left(self) -> BaseType:

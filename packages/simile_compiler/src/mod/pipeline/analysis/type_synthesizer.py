@@ -6,6 +6,7 @@ from functools import singledispatchmethod, reduce
 from src.mod.data import ast_, types, traits
 from src.mod.data.symbol_table import SymbolTable, IdentifierContext
 from src.mod.data.types.typing_rule_decorator import typing_rule
+from src.mod.pipeline.analysis.trait_resolver import TraitResolver
 from src.mod.pipeline.analysis.type_annotation_resolver import TypeAnnotationResolver
 
 
@@ -59,49 +60,44 @@ class TypeSynthesizer:
     @synthesize_type.register
     def _(self, ast: ast_.TraitApplication) -> types.BaseType:
         base_type = self.synthesize_type(ast.target)
-        trait_collection = TypeAnnotationResolver.resolve_trait_collection(ast.traits, self.symbol_table)
-        base_type.trait_collection = base_type.trait_collection.merge(trait_collection, True)
+        newly_applied_traits = TraitResolver.resolve_traits(ast.traits, self.symbol_table)
+        base_type.traits = traits.merge_traits(base_type.traits, newly_applied_traits, traits.MergeTraitBehaviour.PREFER_LEFT)
         return base_type
 
     @typing_rule("")
     @synthesize_type.register
     def _(self, ast: ast_.Int) -> types.BaseType:
-        trait_collection = traits.TraitCollection()
-        trait_collection.set_trait(traits.LiteralTrait(ast))
-        return types.IntType(trait_collection=trait_collection)
+        literal_value = TraitResolver.literal_ast_to_python(ast)
+        return types.IntType(traits={traits.LiteralTrait(literal_value)})
 
     @typing_rule()
     @synthesize_type.register
     def _(self, ast: ast_.Float) -> types.BaseType:
-        trait_collection = traits.TraitCollection()
-        trait_collection.set_trait(traits.LiteralTrait(ast))
-        return types.FloatType(trait_collection=trait_collection)
+        literal_value = TraitResolver.literal_ast_to_python(ast)
+        return types.FloatType(traits={traits.LiteralTrait(literal_value)})
 
     @typing_rule()
     @synthesize_type.register
     def _(self, ast: ast_.String) -> types.BaseType:
-        trait_collection = traits.TraitCollection()
-        trait_collection.set_trait(traits.LiteralTrait(ast))
-        return types.StringType(trait_collection=trait_collection)
+        literal_value = TraitResolver.literal_ast_to_python(ast)
+        return types.StringType(traits={traits.LiteralTrait(literal_value)})
 
     @typing_rule()
     @synthesize_type.register
     def _(self, ast: ast_.True_) -> types.BaseType:
-        trait_collection = traits.TraitCollection()
-        trait_collection.set_trait(traits.LiteralTrait(ast))
-        return types.BoolType(trait_collection=trait_collection)
+        literal_value = TraitResolver.literal_ast_to_python(ast)
+        return types.BoolType(traits={traits.LiteralTrait(literal_value)})
 
     @typing_rule()
     @synthesize_type.register
     def _(self, ast: ast_.False_) -> types.BaseType:
-        trait_collection = traits.TraitCollection()
-        trait_collection.set_trait(traits.LiteralTrait(ast))
-        return types.BoolType(trait_collection=trait_collection)
+        literal_value = TraitResolver.literal_ast_to_python(ast)
+        return types.BoolType(traits={traits.LiteralTrait(literal_value)})
 
     @typing_rule()
     @synthesize_type.register
     def _(self, ast: ast_.None_) -> types.BaseType:
-        return types.NoneType_()
+        return types.NoneType_(traits={traits.LiteralTrait(None)})
 
     @typing_rule("Lambda Expression")
     @synthesize_type.register

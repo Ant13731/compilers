@@ -24,26 +24,6 @@ from src.mod.data.types import (
     NoneType_,
     AnyType_,
 )
-from src.mod.data.traits import (
-    Trait,
-    TraitCollection,
-    OrderableTrait,
-    IterableTrait,
-    LiteralTrait,
-    DomainTrait,
-    MinTrait,
-    MaxTrait,
-    SizeTrait,
-    ImmutableTrait,
-    TotalOnDomainTrait,
-    TotalOnRangeTrait,
-    ManyToOneTrait,
-    OneToManyTrait,
-    EmptyTrait,
-    TotalTrait,
-    UniqueElementsTrait,
-    GenericBoundTrait,
-)
 
 
 class TypeAnnotationResolver:
@@ -164,65 +144,3 @@ class TypeAnnotationResolver:
             return base_type
 
         raise SimileTypeError(f"Cannot apply generic type parameters to non-generic type: {base_type}")
-
-    @classmethod
-    def resolve_trait_annotation(cls, with_clause: ast_.ASTNode, symbol_table: SymbolTable) -> Trait:
-        flag_only_traits: list[type[Trait]] = [
-            OrderableTrait,
-            IterableTrait,
-            ImmutableTrait,
-            TotalOnDomainTrait,
-            TotalOnRangeTrait,
-            ManyToOneTrait,
-            OneToManyTrait,
-            EmptyTrait,
-            TotalTrait,
-            UniqueElementsTrait,
-        ]
-
-        match with_clause:
-            case ast_.Symbol(entry):
-                for trait_type in flag_only_traits:
-                    if trait_type.name == entry.name:
-                        return trait_type()
-            case ast_.Equal(ast_.Symbol(left_entry), right):
-                left_name = left_entry.name
-                match left_name:
-                    case LiteralTrait.name:
-                        return LiteralTrait(right)
-                    case DomainTrait.name:
-                        if not isinstance(right, ast_.SetEnumeration):
-                            raise SimileTypeError("Domain trait can only be applied to set enumerations", right)
-                        return DomainTrait(right.items)
-                    case MinTrait.name:
-                        return MinTrait(right)
-                    case MaxTrait.name:
-                        return MaxTrait(right)
-                    case SizeTrait.name:
-                        if not isinstance(right, ast_.Int):
-                            raise SimileTypeError("Size trait can only be applied to integer literals", right)
-                        return SizeTrait(int(right.value))
-                    case GenericBoundTrait.name:
-                        generic_bound_type = cls.resolve_type_annotation(right, symbol_table)
-                        if generic_bound_type is None:
-                            raise SimileTypeError(f"Generic bound trait must have a valid type annotation, got None", right)
-                        return GenericBoundTrait([generic_bound_type])
-            # case ast_.Call(ast_.Identifier(RuntimeTrait.name), [trait]):
-            #     resolved_trait = cls.resolve_trait_annotation(trait, symbol_table)
-            #     if not isinstance(resolved_trait, Trait):
-            #         raise SimileTypeError(f"Runtime trait must be applied to a valid trait, got {resolved_trait}", trait)
-            #     return RuntimeTrait(resolved_trait)
-
-        raise SimileTypeError(f"Unknown trait in with clause: {with_clause} (failed to convert ASTNode to Trait)", with_clause)
-
-    @classmethod
-    def resolve_trait_collection(cls, with_clauses: list[ast_.ASTNode], symbol_table: SymbolTable) -> TraitCollection:
-        trait_collection = TraitCollection()
-        seen_with_clause_trait_classes: list[type[Trait]] = []
-        for clause in with_clauses:
-            trait = cls.resolve_trait_annotation(clause, symbol_table)
-            if not isinstance(trait, GenericBoundTrait) and any(isinstance(trait, seen_trait) for seen_trait in seen_with_clause_trait_classes):
-                raise SimileTypeError(f"Trait {trait} cannot be defined twice. Already seen traits: {seen_with_clause_trait_classes}", clause)
-            trait_collection.set_trait(trait)
-            seen_with_clause_trait_classes.append(trait.__class__)
-        return trait_collection

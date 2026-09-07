@@ -1,16 +1,19 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from collections import OrderedDict
-from typing import ClassVar, Type, TYPE_CHECKING
+from typing import ClassVar, TYPE_CHECKING
 
 from src.mod.data.types.error import SimileTypeError
-from src.mod.data.traits.traits import (
-    Trait,
+from src.mod.data.traits import (
+    BaseTrait,
     IterableTrait,
     DomainTrait,
     SizeTrait,
     TotalOnDomainTrait,
     ManyToOneTrait,
+    LiteralTrait,
+    RelationalDomainTrait,
+    TreatAsExprTrait,
 )
 
 from src.mod.data.types.set_ import SetType
@@ -27,12 +30,16 @@ if TYPE_CHECKING:
 class RecordType(BaseType):
     # Internally a (many-to-one) (total on defined fields) function
     fields: dict[str, BaseType]
-    valid_traits: ClassVar[set[Type[Trait]]] = {
-        *BaseType.valid_traits,
-        ManyToOneTrait,
-        SizeTrait,
-        TotalOnDomainTrait,
+    compatible_traits: ClassVar[set[type[BaseTrait]]] = {
+        *BaseType.compatible_traits,
+        LiteralTrait,
+        # inherits from set traits
         IterableTrait,
+        SizeTrait,
+        # inherits from relational traits
+        ManyToOneTrait,
+        TotalOnDomainTrait,
+        RelationalDomainTrait,
     }
 
     def _is_eq_type(self, other: BaseType) -> bool:
@@ -62,15 +69,14 @@ class RecordType(BaseType):
 
         return True
 
-    def _populate_mandatory_traits(self) -> None:
-        from src.mod.data.ast_ import String
-
-        self.trait_collection.domain_trait = DomainTrait([String(field_name) for field_name in self.fields.keys()])
-
-        self.trait_collection.size_trait = SizeTrait(len(self.fields))
-        self.trait_collection.many_to_one_trait = ManyToOneTrait()
-        self.trait_collection.iterable_trait = IterableTrait()
-        self.trait_collection.total_on_domain_trait = TotalOnDomainTrait()
+    def base_traits(self) -> set[BaseTrait]:
+        return {
+            RelationalDomainTrait(set(self.fields.keys())),
+            SizeTrait(len(self.fields)),
+            ManyToOneTrait(),
+            IterableTrait(),
+            TotalOnDomainTrait(),
+        }
 
     def access(self, field_name: str) -> BaseType:
         if field_name not in self.fields:
@@ -82,6 +88,7 @@ class RecordType(BaseType):
 class ProcedureType(BaseType):
     arg_types: TupleType
     return_type: BaseType
+    compatible_traits: ClassVar[set[type[BaseTrait]]] = {TreatAsExprTrait}
 
     def _is_eq_type(self, other: BaseType) -> bool:
         if not isinstance(other, ProcedureType):
@@ -124,5 +131,5 @@ class ProcedureType(BaseType):
 
         return self.return_type
 
-    def _populate_mandatory_traits(self) -> None:
-        pass
+    def base_traits(self) -> set[BaseTrait]:
+        return set()

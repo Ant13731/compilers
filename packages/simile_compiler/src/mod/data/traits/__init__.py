@@ -1,21 +1,42 @@
-from src.mod.data.traits.trait import Trait
-from src.mod.data.traits.traits import (
-    OrderableTrait,
-    IterableTrait,
-    LiteralTrait,
-    DomainTrait,
-    MinTrait,
-    MaxTrait,
-    SizeTrait,
+from src.mod.data.traits.base import (
+    SimileLiteralAsPythonOrderable,
+    SimileLiteralAsPython,
+    BaseTrait,
     ImmutableTrait,
-    TotalOnDomainTrait,
-    TotalOnRangeTrait,
-    ManyToOneTrait,
-    OneToManyTrait,
-    EmptyTrait,
-    TotalTrait,
-    UniqueElementsTrait,
+    LiteralTrait,
+    UndefinedTrait,
     GenericBoundTrait,
 )
-from src.mod.data.traits.trait_collection import TraitCollection
+from src.mod.data.traits.orderable import (
+    OrderableTrait,
+    MinTrait,
+    MaxTrait,
+)
+from src.mod.data.traits.procedure import (
+    TreatAsExprTrait,
+)
+from src.mod.data.traits.relation import (
+    OneToManyTrait,
+    ManyToOneTrait,
+    TotalOnDomainTrait,
+    TotalOnRangeTrait,
+    RelationalDomainTrait,
+    RelationalRangeTrait,
+)
+from src.mod.data.traits.set_ import (
+    DomainTrait,
+    IterableTrait,
+    UniqueTrait,
+    EmptyTrait,
+    SizeTrait,
+    TotalTrait,
+)
+from src.mod.data.traits.trait_operations import (
+    MergeTraitBehaviour,
+    find_traits,
+    merge_traits,
+    deduplicate_traits,
+    derive_traits,
+    check_incompatible_traits,
+)
 from src.mod.data.traits.error import SimileTraitError
